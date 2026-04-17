@@ -187,18 +187,48 @@ const SAPO_RETURN_STATUS_MAP: Record<string, OrderReturnStatus> = {
 // HELPER FUNCTIONS (Accept data as parameters)
 // ============================================
 
-// Lookup customer by id or name
-const findCustomer = (identifier: string, customers: Customer[]) => {
-  if (!identifier || !customers) return undefined;
-  const normalized = identifier.trim().toUpperCase();
+/**
+ * Normalize Vietnamese phone number:
+ * - Remove spaces, dashes, dots
+ * - Add leading "0" if starts with 3/5/7/8/9 and has 9 digits
+ * - Remove +84 prefix and replace with 0
+ */
+const normalizePhone = (phone?: string): string | undefined => {
+  if (!phone) return undefined;
+  let cleaned = String(phone).replace(/[\s\-.]+/g, '').trim();
+  if (!cleaned) return undefined;
+  // +84 prefix
+  if (cleaned.startsWith('+84')) cleaned = '0' + cleaned.slice(3);
+  if (cleaned.startsWith('84') && cleaned.length === 11) cleaned = '0' + cleaned.slice(2);
+  // Missing leading 0 (e.g. 901234567 → 0901234567)
+  if (/^[3-9]\d{8}$/.test(cleaned)) cleaned = '0' + cleaned;
+  return cleaned || undefined;
+};
+
+// Lookup customer by id, name, or phone
+const findCustomer = (identifier: string, customers: Customer[], phone?: string) => {
+  if (!customers) return undefined;
   
-  // Find by id first
-  const byId = customers.find(c => c.id.toUpperCase() === normalized);
-  if (byId) return byId;
+  if (identifier) {
+    const normalized = identifier.trim().toUpperCase();
+    // Find by id first
+    const byId = customers.find(c => c.id.toUpperCase() === normalized);
+    if (byId) return byId;
+    // Find by name
+    const byName = customers.find(c => c.name.toUpperCase() === normalized);
+    if (byName) return byName;
+  }
   
-  // Find by name
-  const byName = customers.find(c => c.name.toUpperCase() === normalized);
-  return byName;
+  // Find by phone (normalized)
+  if (phone) {
+    const normPhone = normalizePhone(phone);
+    if (normPhone) {
+      const byPhone = customers.find(c => c.phone && normalizePhone(c.phone) === normPhone);
+      if (byPhone) return byPhone;
+    }
+  }
+  
+  return undefined;
 };
 
 // Lookup product by id/sku/barcode
@@ -723,7 +753,9 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
       const firstRow = rows[0];
       
       // Lookup customer from existing data only (no HTTP calls - ORDER API handles auto-create)
-      const customer = findCustomer(firstRow.customerId || '', customers) || findCustomer(firstRow.customerName || '', customers);
+      const customerPhone = normalizePhone(firstRow.customerPhone);
+      const customer = findCustomer(firstRow.customerId || '', customers, customerPhone)
+        || findCustomer(firstRow.customerName || '', customers, customerPhone);
       
       // Lookup branch
       const branch = findBranch(firstRow.branchName || '', branches) || defaultBranch;
@@ -836,7 +868,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         // Customer info
         customerSystemId: customer?.systemId || asSystemId(''),
         customerName: customer?.name || firstRow.customerName || 'Khách lẻ',
-        customerPhone: firstRow.customerPhone,
+        customerPhone: customerPhone || firstRow.customerPhone,
         
         // Branch & Staff
         branchSystemId: branch?.systemId || asSystemId(''),

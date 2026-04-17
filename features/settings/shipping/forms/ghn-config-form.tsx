@@ -71,6 +71,10 @@ export function GHNConfigForm({
       setErrors(['Vui lòng nhập Token trước khi test kết nối']);
       return;
     }
+    if (!shopId.trim()) {
+      setErrors(['Vui lòng nhập Shop ID trước khi test kết nối']);
+      return;
+    }
 
     setIsTestingConnection(true);
     setConnectionStatus('idle');

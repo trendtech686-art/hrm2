@@ -24,6 +24,7 @@ export const GET = apiHandler(async () => {
       customerCount,
       revenueAgg,
       returnValueAgg,
+      linkedCount,
     ] = await Promise.all([
       // Total non-deleted products
       prisma.product.count({ where: { isDeleted: false } }),
@@ -78,6 +79,8 @@ export const GET = apiHandler(async () => {
         _sum: { totalReturnValue: true },
         where: { status: 'COMPLETED' },
       }).then(r => Number(r._sum.totalReturnValue ?? 0)),
+      // PKGX linked products count
+      prisma.product.count({ where: { isDeleted: false, pkgxId: { not: null } } }),
     ])
 
     return apiSuccess({
@@ -93,5 +96,7 @@ export const GET = apiHandler(async () => {
       customerCount,
       revenue: revenueAgg,
       returnValue: returnValueAgg,
+      linked: linkedCount,
+      unlinked: totalProducts - linkedCount,
     })
 })

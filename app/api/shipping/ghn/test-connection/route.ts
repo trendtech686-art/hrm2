@@ -30,34 +30,56 @@ export async function POST(request: NextRequest) {
       ? 'https://dev-online-gateway.ghn.vn/shiip/public-api'
       : 'https://online-gateway.ghn.vn/shiip/public-api';
 
-    // Test bằng cách gọi Province API (list tỉnh/thành phố)
-    const response = await fetchWithTimeout(`${baseUrl}/master-data/province`, {
+    // Step 1: Test Token bằng Province API
+    const provinceResponse = await fetchWithTimeout(`${baseUrl}/master-data/province`, {
       method: 'GET',
       headers: {
         'Token': token,
-        ...(shopId && { 'ShopId': String(shopId) }),
       },
     });
 
-    const data = await response.json();
-    const duration = Date.now() - startTime;
-
-    if (data.code === 200) {
-      return apiSuccess({
-        success: true,
-        message: 'Kết nối GHN thành công',
-        duration,
-        data: {
-          provinceCount: data.data?.length || 0,
-          environment: environment || 'production',
-        },
-      });
-    } else {
+    const provinceData = await provinceResponse.json();
+    
+    if (provinceData.code !== 200) {
       return apiError(
-        data.message || 'Kết nối GHN thất bại. Kiểm tra lại Token.',
+        provinceData.message || 'Token GHN không hợp lệ. Kiểm tra lại Token.',
         400
       );
     }
+
+    // Step 2: Nếu có ShopId, verify Token+ShopId match bằng Shop Detail API
+    if (shopId) {
+      const shopResponse = await fetchWithTimeout(`${baseUrl}/v2/shop/detail`, {
+        method: 'POST',
+        headers: {
+          'Token': token,
+          'ShopId': String(shopId),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shop_id: Number(shopId) }),
+      });
+
+      const shopData = await shopResponse.json();
+      
+      if (shopData.code !== 200) {
+        return apiError(
+          shopData.message || `ShopId ${shopId} không hợp lệ hoặc không thuộc tài khoản này.`,
+          400
+        );
+      }
+    }
+
+    const duration = Date.now() - startTime;
+
+    return apiSuccess({
+      success: true,
+      message: shopId ? 'Kết nối GHN thành công (Token + ShopId đã xác thực)' : 'Token GHN hợp lệ',
+      duration,
+      data: {
+        provinceCount: provinceData.data?.length || 0,
+        environment: environment || 'production',
+      },
+    });
   } catch (error) {
     const duration = Date.now() - startTime;
     logError(`[GHN-TEST] ❌ Connection test error (${duration}ms)`, error);

@@ -15,6 +15,22 @@ import {
   parseDiscountType,
 } from '@/lib/constants/order-enums'
 
+/**
+ * Normalize Vietnamese phone number:
+ * - Remove spaces, dashes, dots
+ * - Add leading "0" if starts with 3/5/7/8/9 and has 9 digits
+ * - Remove +84 prefix
+ */
+function normalizePhone(phone?: string): string | undefined {
+  if (!phone) return undefined
+  let cleaned = String(phone).replace(/[\s\-.]+/g, '').trim()
+  if (!cleaned) return undefined
+  if (cleaned.startsWith('+84')) cleaned = '0' + cleaned.slice(3)
+  if (cleaned.startsWith('84') && cleaned.length === 11) cleaned = '0' + cleaned.slice(2)
+  if (/^[3-9]\d{8}$/.test(cleaned)) cleaned = '0' + cleaned
+  return cleaned || undefined
+}
+
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
@@ -256,14 +272,31 @@ export async function POST(request: Request) {
         }
 
         await prisma.$transaction(async (tx: TxClient) => {
+          // Normalize phone number (add leading 0 for Vietnamese numbers)
+          const normalizedPhone = normalizePhone(orderInput.customerPhone)
+          if (normalizedPhone) orderInput.customerPhone = normalizedPhone
+
           // Resolve customer
           const customerKey = orderInput.customerId || orderInput.customerSystemId || ''
           let customer = customerMap.get(customerKey)
+          // Also check by normalized phone in the in-memory map
+          if (!customer && normalizedPhone) {
+            customer = customerMap.get(`phone:${normalizedPhone}`)
+          }
           if (!customer) {
             // Check DB within transaction (may exist from previous import)
-            customer = await tx.customer.findFirst({
-              where: { OR: [{ systemId: customerKey }, { id: customerKey }, { name: customerKey }] },
-            }) ?? undefined
+            const orConditions: Array<Record<string, unknown>> = []
+            if (customerKey) {
+              orConditions.push({ systemId: customerKey }, { id: customerKey }, { name: customerKey })
+            }
+            if (normalizedPhone) {
+              orConditions.push({ phone: normalizedPhone })
+            }
+            if (orConditions.length > 0) {
+              customer = await tx.customer.findFirst({
+                where: { OR: orConditions },
+              }) ?? undefined
+            }
           }
           if (!customer) {
             const { systemId: custSysId, businessId: custBizId } = await generateNextIdsWithTx(
@@ -289,6 +322,7 @@ export async function POST(request: Request) {
           customerMap.set(customer.systemId, customer)
           customerMap.set(customer.id, customer)
           if (customerKey) customerMap.set(customerKey, customer)
+          if (normalizedPhone) customerMap.set(`phone:${normalizedPhone}`, customer)
 
           // Generate order IDs
           const { systemId: orderSystemId, businessId: orderBusinessId, counter: orderNum } =
