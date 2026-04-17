@@ -11,13 +11,13 @@ import { Separator } from '../../../components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 import { Badge } from '../../../components/ui/badge';
 import { getGHTKStatusVariant, getGHTKStatusText } from '../../../lib/ghtk-constants';
-import { useShipmentFinder } from '../../shipments/hooks/use-shipments';
 import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
 import { useCustomerFinder } from '../../customers/hooks/use-all-customers';
 import { usePrint } from '@/lib/use-print';
 import { mapPackingToPrintData, mapPackingLineItems } from '@/lib/print-mappers/packing.mapper';
 import { mapShippingLabelToPrintData } from '@/lib/print-mappers/shipping-label.mapper';
 import { mapDeliveryToPrintData, mapDeliveryLineItems } from '@/lib/print-mappers/delivery.mapper';
+import { createStoreSettings } from '@/lib/print/order-print-helper';
 import { toast } from 'sonner';
 import type { SystemId } from '@/lib/id-types';
 import { logError } from '@/lib/logger'
@@ -84,7 +84,6 @@ export function PackagingInfo({
                         packaging.status === 'CANCELLED';
     const [isExpanded, setIsExpanded] = React.useState(!isCancelled);
     const [isCopied, setIsCopied] = React.useState(false);
-    const { findByPackagingSystemId, findByTrackingCode } = useShipmentFinder();
     const { findById: findBranchById } = useBranchFinder();
     const { findById: findCustomerById } = useCustomerFinder();
     
@@ -93,14 +92,8 @@ export function PackagingInfo({
     const customer = findCustomerById(order.customerSystemId);
     const { print } = usePrint(order.branchSystemId);
     
-    // Find shipment by trackingCode first (more reliable), fallback to packagingSystemId
-    const shipment = React.useMemo(() => {
-        if (packaging.trackingCode) {
-            const byTrackingCode = findByTrackingCode(packaging.trackingCode);
-            if (byTrackingCode) return byTrackingCode;
-        }
-        return findByPackagingSystemId(packaging.systemId);
-    }, [packaging.systemId, packaging.trackingCode, findByPackagingSystemId, findByTrackingCode]);
+    // Shipment is already included via packaging relation from API
+    const shipment = packaging.shipment;
 
     const renderEmployeeLink = React.useCallback((employeeId?: SystemId, employeeName?: string) => {
         const resolvedName = employeeName;
@@ -185,12 +178,9 @@ export function PackagingInfo({
     };
 
     // === PRINT HANDLERS ===
-    const storeSettings = React.useMemo(() => ({
-        name: branch?.name || '',
-        address: branch?.address || '',
-        phone: branch?.phone || '',
-        province: branch?.province || '',
-    }), [branch]);
+    const storeSettings = React.useMemo(() => 
+        createStoreSettings(branch)
+    , [branch]);
 
     // Helper to safely get address fields
     const getShippingAddressField = React.useCallback(<T extends keyof import('../types').OrderAddress>(
@@ -355,26 +345,25 @@ export function PackagingInfo({
                 throw new Error(errorData.error || 'Không thể lấy nhãn từ GHTK');
             }
             
-            // Response is PDF blob
+            // Response is PDF blob → mở tab mới để in (tránh cross-origin với blob iframe)
             const pdfBlob = await response.blob();
             const pdfUrl = URL.createObjectURL(pdfBlob);
             
-            // ✅ Dùng iframe ẩn để in - không cần chuyển tab
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = pdfUrl;
-            document.body.appendChild(iframe);
-            
-            iframe.onload = () => {
-                setTimeout(() => {
-                    iframe.contentWindow?.print();
-                    // Cleanup sau khi in xong
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                        URL.revokeObjectURL(pdfUrl);
-                    }, 1000);
-                }, 500);
-            };
+            const printWindow = window.open(pdfUrl, '_blank');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    printWindow.print();
+                });
+                // Cleanup blob URL sau 60s (đủ thời gian để in)
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+            } else {
+                // Popup bị chặn → fallback download
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = `label-${packaging.trackingCode}.pdf`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 5000);
+            }
             
             toast.success('Đang mở hộp thoại in...');
         } catch (error) {
@@ -631,13 +620,11 @@ export function PackagingInfo({
                                         <Link href={`/shipments/${shipment.systemId}`} className="text-primary hover:underline">
                                             {packaging.trackingCode}
                                         </Link>
-                                    ) : packaging.trackingCode.startsWith('INSTORE-') ? (
-                                        // Đơn nhận tại cửa hàng: link đến trang packaging vì shipment chưa tạo
+                                    ) : (
+                                        // Fallback: link đến packaging detail khi shipment chưa có trong cache
                                         <Link href={`/packaging/${packaging.systemId}`} className="text-primary hover:underline">
                                             {packaging.trackingCode}
                                         </Link>
-                                    ) : (
-                                        <span>{packaging.trackingCode}</span>
                                     )}
                                     {/* ✅ Print label dropdown - GHTK có 2 options */}
                                     {packaging.carrier === 'GHTK' ? (
@@ -689,7 +676,7 @@ export function PackagingInfo({
                                 <DetailField label="Vận chuyển bởi" value={packaging.carrier} className="py-1 border-0" />
                                 <DetailField label="Tổng tiền thu hộ COD" value={formatCurrency(packaging.codAmount)} className="py-1 border-0" />
                                 <DetailField label="Người trả phí" value={packaging.payer} className="py-1 border-0" />
-                                <DetailField label="Đối soát" value={packaging.reconciliationStatus} className="py-1 border-0" />
+                                <DetailField label="Đối soát" value={packaging.reconciliationStatus || 'Chưa đối soát'} className="py-1 border-0" />
                                 <DetailField label="Hình thức giao" value={packaging.deliveryMethod} className="py-1 border-0" />
                                 {packaging.weight && (
                                     <DetailField label="Trọng lượng" value={`${packaging.weight}g`} className="py-1 border-0" />

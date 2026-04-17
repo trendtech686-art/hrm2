@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { TabContentProps } from './types';
 import { logError } from '@/lib/logger'
+import { invalidateBrandingCache } from '@/hooks/use-branding'
 
 export function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
   // Use server-side hook instead of localStorage
@@ -85,6 +86,7 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
       if (result.success) {
         const urlKey = type === 'logo' ? 'logoUrl' : 'faviconUrl';
         handleChange(urlKey, result.file.url);
+        invalidateBrandingCache();
         toast.success(result.message);
       } else {
         toast.error(result.error || 'Upload thất bại');
@@ -108,6 +110,7 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
       if (result.success) {
         const urlKey = type === 'logo' ? 'logoUrl' : 'faviconUrl';
         handleChange(urlKey, '');
+        invalidateBrandingCache();
         toast.success(result.message || 'Xóa thành công');
       } else {
         toast.error(result.error || 'Xóa thất bại');

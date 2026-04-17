@@ -1,0 +1,855 @@
+﻿═══════════════════════════════════════════════════════════════
+   PRINT TEMPLATE VARIABLE AUDIT REPORT
+   Generated: 2026-04-17T07:27:35.890Z
+═══════════════════════════════════════════════════════════════
+
+┌─ Template: attendance
+│  File: features\settings\printer\templates\attendance.ts
+│  Variables: 146 | Line items: 1 | Has store header: true
+│  Mapper: lib\print-mappers\attendance.mapper.ts
+│  ⚠️  MISSING in mapper (124):
+│     ❌ {dow_1}
+│     ❌ {day_1}
+│     ❌ {checkin_1}
+│     ❌ {checkout_1}
+│     ❌ {dow_2}
+│     ❌ {day_2}
+│     ❌ {checkin_2}
+│     ❌ {checkout_2}
+│     ❌ {dow_3}
+│     ❌ {day_3}
+│     ❌ {checkin_3}
+│     ❌ {checkout_3}
+│     ❌ {dow_4}
+│     ❌ {day_4}
+│     ❌ {checkin_4}
+│     ❌ {checkout_4}
+│     ❌ {dow_5}
+│     ❌ {day_5}
+│     ❌ {checkin_5}
+│     ❌ {checkout_5}
+│     ❌ {dow_6}
+│     ❌ {day_6}
+│     ❌ {checkin_6}
+│     ❌ {checkout_6}
+│     ❌ {dow_7}
+│     ❌ {day_7}
+│     ❌ {checkin_7}
+│     ❌ {checkout_7}
+│     ❌ {dow_8}
+│     ❌ {day_8}
+│     ❌ {checkin_8}
+│     ❌ {checkout_8}
+│     ❌ {dow_9}
+│     ❌ {day_9}
+│     ❌ {checkin_9}
+│     ❌ {checkout_9}
+│     ❌ {dow_10}
+│     ❌ {day_10}
+│     ❌ {checkin_10}
+│     ❌ {checkout_10}
+│     ❌ {dow_11}
+│     ❌ {day_11}
+│     ❌ {checkin_11}
+│     ❌ {checkout_11}
+│     ❌ {dow_12}
+│     ❌ {day_12}
+│     ❌ {checkin_12}
+│     ❌ {checkout_12}
+│     ❌ {dow_13}
+│     ❌ {day_13}
+│     ❌ {checkin_13}
+│     ❌ {checkout_13}
+│     ❌ {dow_14}
+│     ❌ {day_14}
+│     ❌ {checkin_14}
+│     ❌ {checkout_14}
+│     ❌ {dow_15}
+│     ❌ {day_15}
+│     ❌ {checkin_15}
+│     ❌ {checkout_15}
+│     ❌ {dow_16}
+│     ❌ {day_16}
+│     ❌ {checkin_16}
+│     ❌ {checkout_16}
+│     ❌ {dow_17}
+│     ❌ {day_17}
+│     ❌ {checkin_17}
+│     ❌ {checkout_17}
+│     ❌ {dow_18}
+│     ❌ {day_18}
+│     ❌ {checkin_18}
+│     ❌ {checkout_18}
+│     ❌ {dow_19}
+│     ❌ {day_19}
+│     ❌ {checkin_19}
+│     ❌ {checkout_19}
+│     ❌ {dow_20}
+│     ❌ {day_20}
+│     ❌ {checkin_20}
+│     ❌ {checkout_20}
+│     ❌ {dow_21}
+│     ❌ {day_21}
+│     ❌ {checkin_21}
+│     ❌ {checkout_21}
+│     ❌ {dow_22}
+│     ❌ {day_22}
+│     ❌ {checkin_22}
+│     ❌ {checkout_22}
+│     ❌ {dow_23}
+│     ❌ {day_23}
+│     ❌ {checkin_23}
+│     ❌ {checkout_23}
+│     ❌ {dow_24}
+│     ❌ {day_24}
+│     ❌ {checkin_24}
+│     ❌ {checkout_24}
+│     ❌ {dow_25}
+│     ❌ {day_25}
+│     ❌ {checkin_25}
+│     ❌ {checkout_25}
+│     ❌ {dow_26}
+│     ❌ {day_26}
+│     ❌ {checkin_26}
+│     ❌ {checkout_26}
+│     ❌ {dow_27}
+│     ❌ {day_27}
+│     ❌ {checkin_27}
+│     ❌ {checkout_27}
+│     ❌ {dow_28}
+│     ❌ {day_28}
+│     ❌ {checkin_28}
+│     ❌ {checkout_28}
+│     ❌ {dow_29}
+│     ❌ {day_29}
+│     ❌ {checkin_29}
+│     ❌ {checkout_29}
+│     ❌ {dow_30}
+│     ❌ {day_30}
+│     ❌ {checkin_30}
+│     ❌ {checkout_30}
+│     ❌ {dow_31}
+│     ❌ {day_31}
+│     ❌ {checkin_31}
+│     ❌ {checkout_31}
+│  📦 Dead in mapper (15):
+│     🗑️  {month}
+│     🗑️  {year}
+│     🗑️  {is_locked}
+│     🗑️  {created_on}
+│     🗑️  {created_by}
+│     🗑️  {total_late_arrivals}
+│     🗑️  {total_early_departures}
+│     🗑️  {day}
+│     🗑️  {day_of_week}
+│     🗑️  {status}
+│     ... and 5 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: complaint
+│  File: features\settings\printer\templates\complaint.ts
+│  Variables: 25 | Line items: 2 | Has store header: true
+│  Mapper: lib\print-mappers\complaint.mapper.ts
+│  📦 Dead in mapper (31):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {location_phone}
+│     🗑️  {store_province}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {account_name}
+│     🗑️  {customer_code}
+│     🗑️  {customer_phone}
+│     ... and 21 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: cost-adjustment
+│  File: features\settings\printer\templates\cost-adjustment.ts
+│  Variables: 28 | Line items: 7 | Has store header: true
+│  Mapper: lib\print-mappers\cost-adjustment.mapper.ts
+│  ⚠️  MISSING in mapper (1):
+│     ❌ {store_phone}
+│  📦 Dead in mapper (14):
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {code}
+│     🗑️  {modified_on}
+│     🗑️  {confirmed_on}
+│     🗑️  {cancelled_on}
+│     🗑️  {line_variant_name}
+│     🗑️  {line_variant_barcode}
+│     🗑️  {line_on_hand}
+│     🗑️  {line_total_difference}
+│     ... and 4 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_phone_number}
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: customer-mark-label
+│  File: features\settings\printer\templates\customer-mark-label.ts
+│  Variables: 3 | Line items: 0 | Has store header: false
+│  ⚠️  NO matching mapper/helper found
+└─
+
+┌─ Template: delivery
+│  File: features\settings\printer\templates\delivery.ts
+│  Variables: 32 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\delivery.mapper.ts
+│  📦 Dead in mapper (34):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_phone_number}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {order_qr_code}
+│     🗑️  {order_bar_code}
+│     🗑️  {shipped_on}
+│     🗑️  {shipped_on_time}
+│     🗑️  {account_name}
+│     ... and 24 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: excel-full-vat
+│  File: features\settings\printer\templates\excel-full-vat.ts
+│  Variables: 35 | Line items: 9 | Has store header: true
+│  ⚠️  NO matching mapper/helper found
+└─
+
+┌─ Template: excel-no-vat
+│  File: features\settings\printer\templates\excel-no-vat.ts
+│  Variables: 29 | Line items: 9 | Has store header: true
+│  ⚠️  NO matching mapper/helper found
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: goods-handover-report
+│  File: features\settings\printer\templates\goods-handover-report.ts
+│  Variables: 18 | Line items: 5 | Has store header: false
+│  ⚠️  NO matching mapper/helper found
+└─
+
+┌─ Template: handover
+│  File: features\settings\printer\templates\handover.ts
+│  Variables: 22 | Line items: 5 | Has store header: true
+│  Mapper: lib\print-mappers\handover.mapper.ts
+│  📦 Dead in mapper (13):
+│     🗑️  {account_name}
+│     🗑️  {from_employee_code}
+│     🗑️  {from_position}
+│     🗑️  {to_employee_code}
+│     🗑️  {to_position}
+│     🗑️  {total_items}
+│     🗑️  {total_quantity}
+│     🗑️  {total_value}
+│     🗑️  {line_item_code}
+│     🗑️  {line_item_name}
+│     ... and 3 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: inventory-check
+│  File: features\settings\printer\templates\inventory-check.ts
+│  Variables: 24 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\inventory-check.mapper.ts
+│  📦 Dead in mapper (22):
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {code}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {modified_on_time}
+│     🗑️  {adjusted_on}
+│     🗑️  {adjusted_on_time}
+│     🗑️  {status}
+│     ... and 12 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: leave
+│  File: features\settings\printer\templates\leave.ts
+│  Variables: 25 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\leave.mapper.ts
+│  📦 Dead in mapper (14):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {location_phone}
+│     🗑️  {store_province}
+│     🗑️  {request_date}
+│     🗑️  {account_name}
+│     🗑️  {employee_position}
+│     🗑️  {department}
+│     🗑️  {leave_type}
+│     ... and 4 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: order
+│  File: features\settings\printer\templates\order.ts
+│  Variables: 39 | Line items: 9 | Has store header: true
+│  Mapper: lib\print-mappers\order.mapper.ts
+│  📦 Dead in mapper (105):
+│     🗑️  {location_name}
+│     🗑️  {branch_name}
+│     🗑️  {location_address}
+│     🗑️  {location_phone_number}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {order_qr_code}
+│     🗑️  {created_on_text}
+│     🗑️  {modified_on}
+│     🗑️  {modified_on_time}
+│     ... and 95 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: packing-guide
+│  File: features\settings\printer\templates\packing-guide.ts
+│  Variables: 23 | Line items: 5 | Has store header: true
+│  Mapper: lib\print-mappers\packing-guide.mapper.ts
+│  📦 Dead in mapper (20):
+│     🗑️  {created_on_time}
+│     🗑️  {list_order_code}
+│     🗑️  {account_phone}
+│     🗑️  {account_email}
+│     🗑️  {location_name}
+│     🗑️  {total}
+│     🗑️  {total_product_quantity}
+│     🗑️  {line_variant_sku}
+│     🗑️  {line_variant_barcode}
+│     🗑️  {line_variant_name}
+│     ... and 10 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: packing-request
+│  File: features\settings\printer\templates\packing-request.ts
+│  Variables: 32 | Line items: 5 | Has store header: true
+│  Mapper: lib\print-mappers\packing-request.mapper.ts
+│  📦 Dead in mapper (31):
+│     🗑️  {location_address}
+│     🗑️  {store_province}
+│     🗑️  {location_province}
+│     🗑️  {code}
+│     🗑️  {packed_on}
+│     🗑️  {packed_on_time}
+│     🗑️  {cancel_date}
+│     🗑️  {ship_on_min}
+│     🗑️  {ship_on_max}
+│     🗑️  {account_name}
+│     ... and 21 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: packing
+│  File: features\settings\printer\templates\packing.ts
+│  Variables: 25 | Line items: 5 | Has store header: true
+│  Mapper: lib\print-mappers\packing.mapper.ts
+│  📦 Dead in mapper (74):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {location_country}
+│     🗑️  {location_phone}
+│     🗑️  {store_province}
+│     🗑️  {packing_code}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {modified_on_time}
+│     ... and 64 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: payment
+│  File: features\settings\printer\templates\payment.ts
+│  Variables: 18 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\payment.mapper.ts
+│  📦 Dead in mapper (30):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {issued_on}
+│     🗑️  {issued_on_time}
+│     🗑️  {group_name}
+│     🗑️  {counted}
+│     🗑️  {object_phone_number}
+│     🗑️  {object_type}
+│     ... and 20 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: payroll
+│  File: features\settings\printer\templates\payroll.ts
+│  Variables: 32 | Line items: 2 | Has store header: true
+│  Mapper: lib\print-mappers\payroll.mapper.ts
+│  📦 Dead in mapper (36):
+│     🗑️  {pay_period_start}
+│     🗑️  {pay_period_end}
+│     🗑️  {locked_on}
+│     🗑️  {locked_by}
+│     🗑️  {total_gross}
+│     🗑️  {total_gross_text}
+│     🗑️  {deductions}
+│     🗑️  {contributions}
+│     🗑️  {payslip_code}
+│     🗑️  {position}
+│     ... and 26 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: payslip
+│  File: features\settings\printer\templates\payslip.ts
+│  Variables: 45 | Line items: 1 | Has store header: true
+│  ⚠️  NO matching mapper/helper found
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: penalty
+│  File: features\settings\printer\templates\penalty.ts
+│  Variables: 22 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\penalty.mapper.ts
+│  📦 Dead in mapper (33):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {location_phone}
+│     🗑️  {store_province}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {account_name}
+│     🗑️  {employee_phone}
+│     🗑️  {employee_email}
+│     ... and 23 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: price-adjustment
+│  File: features\settings\printer\templates\price-adjustment.ts
+│  Variables: 26 | Line items: 6 | Has store header: true
+│  Mapper: lib\print\price-adjustment-print-helper.ts
+│  ⚠️  MISSING in mapper (14):
+│     ❌ {store_phone}
+│     ❌ {adjustment_code}
+│     ❌ {created_on}
+│     ❌ {created_on_time}
+│     ❌ {pricing_policy}
+│     ❌ {reason}
+│     ❌ {status}
+│     ❌ {total_items}
+│     ❌ {total_old_value}
+│     ❌ {total_new_value}
+│     ❌ {total_difference}
+│     ❌ {note}
+│     ❌ {account_name}
+│     ❌ {confirmed_by}
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_phone_number}
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: product-label
+│  File: features\settings\printer\templates\product-label.ts
+│  Variables: 5 | Line items: 0 | Has store header: false
+│  Mapper: lib\print-mappers\product-label.mapper.ts
+│  📦 Dead in mapper (17):
+│     🗑️  {product_name}
+│     🗑️  {product_sku}
+│     🗑️  {product_unit}
+│     🗑️  {product_price}
+│     🗑️  {product_brand}
+│     🗑️  {product_category}
+│     🗑️  {product_weight}
+│     🗑️  {product_ingredients}
+│     🗑️  {product_mfg_date}
+│     🗑️  {product_expiry_date}
+│     ... and 7 more
+└─
+
+┌─ Template: purchase-order
+│  File: features\settings\printer\templates\purchase-order.ts
+│  Variables: 28 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\purchase-order.mapper.ts
+│  📦 Dead in mapper (75):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {purchase_order_code}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {received_on}
+│     🗑️  {received_on_time}
+│     🗑️  {completed_on}
+│     ... and 65 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: quote
+│  File: features\settings\printer\templates\quote.ts
+│  Variables: 32 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\quote.mapper.ts
+│  📦 Dead in mapper (108):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_phone_number}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {order_qr_code}
+│     🗑️  {created_on_text}
+│     🗑️  {modified_on}
+│     🗑️  {modified_on_time}
+│     🗑️  {issued_on_time}
+│     ... and 98 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: receipt
+│  File: features\settings\printer\templates\receipt.ts
+│  Variables: 18 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\receipt.mapper.ts
+│  📦 Dead in mapper (30):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {issued_on}
+│     🗑️  {issued_on_time}
+│     🗑️  {group_name}
+│     🗑️  {counted}
+│     🗑️  {object_phone_number}
+│     🗑️  {object_type}
+│     ... and 20 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: refund-confirmation
+│  File: features\settings\printer\templates\refund-confirmation.ts
+│  Variables: 28 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\refund-confirmation.mapper.ts
+│  📦 Dead in mapper (17):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {hand_over_code}
+│     🗑️  {printed_on}
+│     🗑️  {current_account_name}
+│     🗑️  {shipping_provider_name}
+│     🗑️  {service_name}
+│     🗑️  {total_cod}
+│     🗑️  {quantity}
+│     🗑️  {shipment_code}
+│     ... and 7 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: return-order
+│  File: features\settings\printer\templates\return-order.ts
+│  Variables: 30 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\return-order.mapper.ts
+│  📦 Dead in mapper (16):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {store_province}
+│     🗑️  {location_province}
+│     🗑️  {order_return_code}
+│     🗑️  {modified_on}
+│     🗑️  {received_on}
+│     🗑️  {reference}
+│     🗑️  {status}
+│     🗑️  {customer_group}
+│     ... and 6 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: sales-contract
+│  File: features\settings\printer\templates\sales-contract.ts
+│  Variables: 26 | Line items: 7 | Has store header: false
+│  ⚠️  NO matching mapper/helper found
+└─
+
+┌─ Template: sales-exchange
+│  File: features\settings\printer\templates\sales-exchange.ts
+│  Variables: 33 | Line items: 6 | Has store header: true
+│  ⚠️  NO matching mapper/helper found
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: sales-return
+│  File: features\settings\printer\templates\sales-return.ts
+│  Variables: 26 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\sales-return.mapper.ts
+│  📦 Dead in mapper (94):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {order_qr_code}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {modified_on_time}
+│     🗑️  {issued_on}
+│     🗑️  {issued_on_time}
+│     ... and 84 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: sales-summary
+│  File: features\settings\printer\templates\sales-summary.ts
+│  Variables: 31 | Line items: 4 | Has store header: true
+│  Mapper: lib\print-mappers\sales-summary.mapper.ts
+│  📦 Dead in mapper (45):
+│     🗑️  {date_print}
+│     🗑️  {time_print}
+│     🗑️  {time_filter}
+│     🗑️  {source_name}
+│     🗑️  {total_quantity_order_finished}
+│     🗑️  {total_quantity_line_item_fulfillment}
+│     🗑️  {total_quantity_line_item_return}
+│     🗑️  {total_line_amount}
+│     🗑️  {total_order_payment}
+│     🗑️  {total_order_return_payment}
+│     ... and 35 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: shipping-label
+│  File: features\settings\printer\templates\shipping-label.ts
+│  Variables: 17 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\shipping-label.mapper.ts
+│  📦 Dead in mapper (55):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_phone_number}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {order_qr_code}
+│     🗑️  {order_bar_code}
+│     🗑️  {created_on}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     ... and 45 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: stock-in
+│  File: features\settings\printer\templates\stock-in.ts
+│  Variables: 31 | Line items: 9 | Has store header: true
+│  Mapper: lib\print-mappers\stock-in.mapper.ts
+│  📦 Dead in mapper (35):
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {receipt_code}
+│     🗑️  {purchase_order_code}
+│     🗑️  {modified_on}
+│     🗑️  {received_on}
+│     🗑️  {received_on_time}
+│     🗑️  {reference}
+│     🗑️  {supplier_phone}
+│     ... and 25 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: stock-out
+│  File: features\settings\printer\templates\stock-out.ts
+│  Variables: 28 | Line items: 8 | Has store header: true
+│  ⚠️  NO matching mapper/helper found
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: stock-transfer
+│  File: features\settings\printer\templates\stock-transfer.ts
+│  Variables: 21 | Line items: 6 | Has store header: true
+│  Mapper: lib\print-mappers\stock-transfer.mapper.ts
+│  📦 Dead in mapper (40):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {order_code}
+│     🗑️  {created_on_time}
+│     🗑️  {modified_on}
+│     🗑️  {modified_on_time}
+│     🗑️  {shipped_on}
+│     🗑️  {shipped_on_time}
+│     ... and 30 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: supplier-order
+│  File: features\settings\printer\templates\supplier-order.ts
+│  Variables: 31 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\supplier-order.mapper.ts
+│  ⚠️  MISSING in mapper (3):
+│     ❌ {expected_on}
+│     ❌ {total_discount}
+│     ❌ {total_amount}
+│  📦 Dead in mapper (77):
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {purchase_order_code}
+│     🗑️  {code}
+│     🗑️  {status}
+│     🗑️  {received_status}
+│     🗑️  {financial_status}
+│     🗑️  {refund_status}
+│     🗑️  {refund_transaction_status}
+│     ... and 67 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: supplier-return
+│  File: features\settings\printer\templates\supplier-return.ts
+│  Variables: 28 | Line items: 8 | Has store header: true
+│  Mapper: lib\print-mappers\supplier-return.mapper.ts
+│  📦 Dead in mapper (34):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {refund_code}
+│     🗑️  {modified_on}
+│     🗑️  {purchase_order_code}
+│     🗑️  {reference}
+│     🗑️  {supplier_address1}
+│     🗑️  {total_quantity}
+│     ... and 24 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: warranty-request
+│  File: features\settings\printer\templates\warranty-request.ts
+│  Variables: 32 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\warranty-request.mapper.ts
+│  📦 Dead in mapper (27):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {store_province}
+│     🗑️  {location_province}
+│     🗑️  {warranty_claim_card_code}
+│     🗑️  {modified_on}
+│     🗑️  {account_name}
+│     🗑️  {reference}
+│     🗑️  {customer_address1}
+│     🗑️  {customer_group}
+│     ... and 17 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+┌─ Template: warranty
+│  File: features\settings\printer\templates\warranty.ts
+│  Variables: 17 | Line items: 0 | Has store header: true
+│  Mapper: lib\print-mappers\warranty.mapper.ts
+│  📦 Dead in mapper (24):
+│     🗑️  {location_name}
+│     🗑️  {location_address}
+│     🗑️  {location_province}
+│     🗑️  {store_province}
+│     🗑️  {warranty_card_code}
+│     🗑️  {modified_on}
+│     🗑️  {status}
+│     🗑️  {claim_status}
+│     🗑️  {customer_address1}
+│     🗑️  {customer_group}
+│     ... and 14 more
+│  ⚠️  Store variables NOT used in template:
+│     📋 {store_tax_code}
+└─
+
+═══════════════════════════════════════════════════════════════
+   SUMMARY
+═══════════════════════════════════════════════════════════════
+Templates scanned:    38
+Mappers found:        32
+Helpers found:        23
+Missing variables:    142
+Dead mapper data:     1166
+
+═══════════════════════════════════════════════════════════════
+   STORE VARIABLE COVERAGE (templates with headers)
+═══════════════════════════════════════════════════════════════
+Templates with store header: 34
+
+{store_logo}: 34/34 (100%)
+{store_name}: 34/34 (100%)
+{store_address}: 34/34 (100%)
+{store_phone_number}: 32/34 (94%)
+  Not using: cost-adjustment, price-adjustment
+{store_email}: 34/34 (100%)
+{store_hotline}: 0/34 (0%)
+{store_website}: 0/34 (0%)
+{store_tax_code}: 1/34 (3%)
+{store_fax}: 0/34 (0%)
+
+═══════════════════════════════════════════════════════════════
+   ⚠️  TEMPLATES MISSING {store_email} or {store_logo}
+═══════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════
+   ORPHANED MAPPERS (no matching template)
+═══════════════════════════════════════════════════════════════
+  🗑️  barcode-utils → lib\print-mappers\barcode-utils.ts
+  🗑️  shipper-handover → lib\print-mappers\shipper-handover.mapper.ts
+  🗑️  types → lib\print-mappers\types.ts
+
+═══════════════════════════════════════════════════════════════
+   createStoreSettings() AUDIT
+═══════════════════════════════════════════════════════════════
+  attendance-print-helper: ✅ email + logo + fallback
+  complaint-print-helper: ✅ email + logo + fallback
+  cost-adjustment-print-helper: ✅ email + logo + fallback
+  inventory-check-print-helper: ✅ email + logo + fallback
+  leave-print-helper: ✅ email + logo + fallback
+  order-print-helper: ❌ logo
+  payment-print-helper: ✅ email + logo + fallback
+  payroll-print-helper: ✅ email + logo + fallback
+  penalty-print-helper: ✅ email + logo + fallback
+  product-print-helper: ✅ email + logo + fallback
+  purchase-order-print-helper: ✅ email + logo + fallback
+  quote-print-helper: ✅ email + logo + fallback
+  receipt-print-helper: ✅ email + logo + fallback
+  refund-print-helper: ✅ email + logo + fallback
+  sales-return-print-helper: ✅ email + logo + fallback
+  sales-summary-print-helper: ✅ email + logo + fallback
+  shipment-print-helper: ✅ email + logo + fallback
+  stock-in-print-helper: ✅ email + logo + fallback
+  stock-transfer-print-helper: ✅ email + logo + fallback
+  supplier-return-print-helper: ✅ email + logo + fallback
+  warranty-print-helper: ✅ email + logo + fallback

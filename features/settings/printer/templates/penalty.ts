@@ -11,8 +11,7 @@ export const PENALTY_TEMPLATE = `
     <td style="width: 80px; vertical-align: top;">{store_logo}</td>
     <td style="vertical-align: top;">
       <div style="font-size: 14px; font-weight: bold; margin-bottom: 2px;">{store_name}</div>
-      <div>{store_address}</div>
-    </td>
+      <div>{store_address}</div>      <div>ĐT: {store_phone_number} | Email: {store_email}</div>    </td>
   </tr>
 </table>
 

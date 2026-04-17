@@ -12,7 +12,7 @@ export const DELIVERY_TEMPLATE = `
     <td style="vertical-align: top;">
       <div style="font-size: 14px; font-weight: bold; margin-bottom: 2px;">{store_name}</div>
       <div style="font-size: 11px; color: #333;">{store_address}</div>
-      <div style="font-size: 11px; color: #333;">ĐT: {store_phone_number}</div>
+      <div style="font-size: 11px; color: #333;">ĐT: {store_phone_number} | Email: {store_email}</div>
     </td>
   </tr>
 </table>

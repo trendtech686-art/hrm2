@@ -1023,6 +1023,8 @@ export type Packaging = {
   requestorName?: string;
   requestorPhone?: string;
   requestorId?: string;
+  // Shipment relation (included via API)
+  shipment?: { systemId: SystemId; [key: string]: unknown } | null;
 };
 
 /**

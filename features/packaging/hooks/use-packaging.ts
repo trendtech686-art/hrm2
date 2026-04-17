@@ -77,7 +77,7 @@ export function usePackagingMutations(opts?: { onSuccess?: () => void }) {
         if (!result.success) throw new Error(result.error || 'Không thể đánh dấu đã in');
         return result.data!;
       }, 
-      onSuccess: opts?.onSuccess 
+      onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
     }),
   };
 }

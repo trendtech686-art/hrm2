@@ -5,7 +5,28 @@ import { logError } from '@/lib/logger'
 // GET /api/branding - Get branding info (logo, favicon) - public endpoint
 export async function GET() {
   try {
-    // Fetch logoUrl and faviconUrl from settings
+    // Primary source: UserPreference (saved by Settings > General tab)
+    // Key: 'general-settings', category: 'system-settings'
+    // The value is a JSON object with logoUrl and faviconUrl fields
+    const prefs = await prisma.userPreference.findMany({
+      where: {
+        key: 'general-settings',
+        category: 'system-settings',
+      },
+      take: 1,
+    });
+
+    if (prefs.length > 0 && prefs[0].value) {
+      const val = prefs[0].value as Record<string, unknown>;
+      if (val.logoUrl || val.faviconUrl) {
+        return apiSuccess({
+          logoUrl: (val.logoUrl as string) || null,
+          faviconUrl: (val.faviconUrl as string) || null,
+        });
+      }
+    }
+
+    // Fallback: Setting table (legacy)
     const settings = await prisma.setting.findMany({
       where: {
         group: 'general',

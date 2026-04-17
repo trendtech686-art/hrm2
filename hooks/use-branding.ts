@@ -14,6 +14,15 @@ interface BrandingInfo {
 // ✅ Exported for lazy access in print handlers (avoids eager hook call)
 export let brandingCache: BrandingInfo | null = null;
 let brandingPromise: Promise<BrandingInfo> | null = null;
+const listeners = new Set<() => void>();
+
+/** Invalidate branding cache — call after logo/favicon upload/delete */
+export function invalidateBrandingCache() {
+  brandingCache = null;
+  brandingPromise = null;
+  // Trigger refetch for all active useBranding() hooks
+  listeners.forEach(fn => fn());
+}
 
 export async function fetchBranding(): Promise<BrandingInfo> {
   try {
@@ -38,6 +47,14 @@ export function useBranding(): BrandingInfo & { isLoading: boolean } {
     brandingCache || { logoUrl: null, faviconUrl: null }
   );
   const [isLoading, setIsLoading] = React.useState(!brandingCache);
+  const [version, setVersion] = React.useState(0);
+
+  // Subscribe to cache invalidation
+  React.useEffect(() => {
+    const listener = () => setVersion(v => v + 1);
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+  }, []);
 
   React.useEffect(() => {
     if (brandingCache) {
@@ -65,7 +82,7 @@ export function useBranding(): BrandingInfo & { isLoading: boolean } {
       });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [version]);
 
   return { ...branding, isLoading };
 }

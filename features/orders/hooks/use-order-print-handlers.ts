@@ -131,7 +131,7 @@ export function useOrderPrintHandlers() {
   // 1. IN ĐƠN HÀNG (có thể chọn paperSize)
   // ════════════════════════════════════════════════
   const handlePrintOrder = React.useCallback(async (order: Order, paperSize?: PaperSize, templateType?: TemplateType) => {
-    const customer = findCustomerById(order.customerSystemId);
+    const customer = order.customer || findCustomerById(order.customerSystemId);
     const [branch, branding] = await Promise.all([
       findBranchById(order.branchSystemId),
       ensureBranding(),
@@ -191,7 +191,7 @@ export function useOrderPrintHandlers() {
       return;
     }
     
-    const customer = findCustomerById(order.customerSystemId);
+    const customer = order.customer || findCustomerById(order.customerSystemId);
     const branch = await findBranchById(order.branchSystemId);
     const storeSettings = createStoreSettings(branch);
     const packingData = convertToPackingForPrint(order, packaging, { customer });
@@ -215,7 +215,7 @@ export function useOrderPrintHandlers() {
       return;
     }
     
-    const customer = findCustomerById(order.customerSystemId);
+    const customer = order.customer || findCustomerById(order.customerSystemId);
     const branch = await findBranchById(order.branchSystemId);
     const storeSettings = createStoreSettings(branch);
     const labelData = convertToShippingLabelForPrint(order, packaging, { customer });
@@ -238,7 +238,7 @@ export function useOrderPrintHandlers() {
       return;
     }
     
-    const customer = findCustomerById(order.customerSystemId);
+    const customer = order.customer || findCustomerById(order.customerSystemId);
     const branch = await findBranchById(order.branchSystemId);
     const storeSettings = createStoreSettings(branch);
     const deliveryData = convertPackagingToDeliveryForPrint(order, packaging, { customer });
@@ -331,7 +331,7 @@ export function useOrderPrintHandlers() {
     });
 
     // Thêm tem đánh dấu khách hàng ở cuối (cùng khổ giấy 50x30)
-    const customer = findCustomerById(order.customerSystemId);
+    const customer = order.customer || findCustomerById(order.customerSystemId);
     allDocuments.push({
       type: 'customer-mark-label',
       options: {
@@ -463,7 +463,7 @@ export function useOrderPrintHandlers() {
     const importerMap = new Map(importers.map(i => [i.systemId, i]));
 
     const createOrderPrintOptions = (order: Order) => {
-      const customer = findCustomerById(order.customerSystemId);
+      const customer = order.customer || findCustomerById(order.customerSystemId);
       const branch = branchSystemId
         ? findBranch(branchSystemId)
         : findBranch(order.branchSystemId);
@@ -480,7 +480,7 @@ export function useOrderPrintHandlers() {
       const packaging = order.packagings?.find(p => p.status === 'Đã đóng gói')
         ?? order.packagings?.[order.packagings.length - 1];
       if (!packaging) return null;
-      const customer = findCustomerById(order.customerSystemId);
+      const customer = order.customer || findCustomerById(order.customerSystemId);
       const branch = branchSystemId
         ? findBranch(branchSystemId)
         : findBranch(order.branchSystemId);
@@ -496,7 +496,7 @@ export function useOrderPrintHandlers() {
     const createPackingPrintOptions = (order: Order) => {
       const packaging = order.packagings?.[order.packagings.length - 1];
       if (!packaging) return null;
-      const customer = findCustomerById(order.customerSystemId);
+      const customer = order.customer || findCustomerById(order.customerSystemId);
       const branch = branchSystemId
         ? findBranch(branchSystemId)
         : findBranch(order.branchSystemId);
@@ -512,7 +512,7 @@ export function useOrderPrintHandlers() {
     const createShippingLabelPrintOptions = (order: Order) => {
       const packaging = order.packagings?.find(p => p.status === 'Đã đóng gói');
       if (!packaging) return null;
-      const customer = findCustomerById(order.customerSystemId);
+      const customer = order.customer || findCustomerById(order.customerSystemId);
       const branch = branchSystemId
         ? findBranch(branchSystemId)
         : findBranch(order.branchSystemId);

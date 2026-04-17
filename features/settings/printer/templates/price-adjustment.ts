@@ -12,7 +12,7 @@ export const PRICE_ADJUSTMENT_TEMPLATE = `
     <td style="vertical-align: top;">
       <div style="font-size: 14px; font-weight: bold; margin-bottom: 2px;">{store_name}</div>
       <div>{store_address}</div>
-      <div>ĐT: {store_phone}</div>
+      <div>ĐT: {store_phone} | Email: {store_email}</div>
     </td>
   </tr>
 </table>

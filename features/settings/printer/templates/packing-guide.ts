@@ -8,6 +8,8 @@ export const PACKING_GUIDE_TEMPLATE = `
 <div style="text-align: center; margin-bottom: 10px;">
   <div style="margin-bottom: 5px;">{store_logo}</div>
   <div style="font-size: 14px; font-weight: bold; margin-bottom: 2px;">{store_name}</div>
+  <div style="color: #666;">{store_address}</div>
+  <div style="color: #666;">ĐT: {store_phone_number} | Email: {store_email}</div>
 </div>
 
 <!-- TIÊU ĐỀ -->

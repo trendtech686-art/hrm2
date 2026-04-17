@@ -585,6 +585,45 @@ export async function POST(request: Request) {
               })
             }
           }
+
+          // Create Shipment records for packagings that have trackingCode
+          for (const pkg of packagingsCreate) {
+            if (!pkg.trackingCode || !pkg.carrier) continue
+
+            const lastShipment = await tx.shipment.findFirst({
+              orderBy: { systemId: 'desc' },
+              select: { systemId: true },
+              where: { systemId: { startsWith: 'SHIPMENT' } },
+            })
+            const lastNum = lastShipment?.systemId
+              ? parseInt(lastShipment.systemId.replace('SHIPMENT', '')) || 0
+              : 0
+            const shipmentSysId = `SHIPMENT${String(lastNum + 1).padStart(6, '0')}`
+
+            await tx.shipment.create({
+              data: {
+                systemId: shipmentSysId,
+                id: shipmentSysId,
+                orderId: orderSystemId as string,
+                packagingSystemId: pkg.systemId,
+                trackingCode: pkg.trackingCode,
+                carrier: pkg.carrier,
+                status: pkg.deliveryStatus === 'DELIVERED' ? 'DELIVERED'
+                  : pkg.deliveryStatus === 'SHIPPING' ? 'IN_TRANSIT'
+                  : 'PENDING',
+                deliveryStatus: pkg.deliveryStatus === 'DELIVERED' ? 'Đã giao hàng'
+                  : pkg.deliveryStatus === 'SHIPPING' ? 'Đang giao hàng'
+                  : pkg.deliveryStatus === 'PENDING_SHIP' ? 'Chờ lấy hàng'
+                  : undefined,
+                codAmount: pkg.codAmount || 0,
+                shippingFeeToPartner: pkg.shippingFeeToPartner || 0,
+                service: pkg.service || undefined,
+                recipientName: orderInput.customerName,
+                recipientPhone: orderInput.customerPhone || undefined,
+                createdBy,
+              },
+            })
+          }
         }, { timeout: 30000 })
 
         // Track the created order to prevent duplicates within the same batch

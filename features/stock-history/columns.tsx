@@ -44,7 +44,7 @@ export const getStockHistoryColumns = (): ColumnDef<StockHistoryEntry>[] => [
 
           if (docId.startsWith('PO')) linkPath = `/purchase-orders/${docSystemId}`;
           else if (docId.startsWith('PNK') || docId.startsWith('NK')) linkPath = `/inventory-receipts/${docSystemId}`;
-          else if (docId.startsWith('DH')) linkPath = `/orders/${docSystemId}`;
+          else if (docId.startsWith('DH') || docId.startsWith('SON')) linkPath = `/orders/${docSystemId}`;
           else if (docId.startsWith('BH')) linkPath = `/warranty/${docSystemId}`;
           else if (docId.startsWith('PKK') || docId.startsWith('INVCHECK')) linkPath = `/inventory-checks/${docSystemId}`;
           else if (docId.startsWith('PCK')) linkPath = `/stock-transfers/${docSystemId}`;

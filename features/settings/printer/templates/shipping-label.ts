@@ -7,8 +7,9 @@ export const SHIPPING_LABEL_TEMPLATE = `
 
 <!-- HEADER -->
 <div style="text-align: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px dashed #333;">
+  <div style="margin-bottom: 5px;">{store_logo}</div>
   <div style="font-size: 14px; font-weight: bold;">{store_name}</div>
-  <div style="font-size: 12px;">{store_phone_number}</div>
+  <div style="font-size: 12px;">{store_phone_number} | {store_email}</div>
 </div>
 
 <!-- MÃ VẬN ĐƠN -->
@@ -87,8 +88,9 @@ export const SHIPPING_LABEL_TEMPLATE_LARGE = `
 
 <!-- HEADER -->
 <div style="text-align: center; margin-bottom: 10px; padding-bottom: 15px; border-bottom: 2px solid #333;">
+  <div style="margin-bottom: 5px;">{store_logo}</div>
   <div style="font-size: 18px; font-weight: bold;">{store_name}</div>
-  <div>{store_phone_number}</div>
+  <div>{store_phone_number} | {store_email}</div>
 </div>
 
 <!-- MÃ VẠCH + QR -->
@@ -110,7 +112,7 @@ export const SHIPPING_LABEL_TEMPLATE_LARGE = `
     <td style="padding: 15px; background: #f5f5f5; border: 1px solid #333; vertical-align: top; width: 50%;">
       <div style="font-weight: bold; margin-bottom: 5px;">NGƯỜI GỬI</div>
       <div><strong>{store_name}</strong></div>
-      <div>{store_phone_number}</div>
+      <div>{store_phone_number} | {store_email}</div>
       <div style="font-size: 11px;">{store_address}</div>
     </td>
     <td style="padding: 15px; border: 2px solid #333; vertical-align: top; width: 50%;">

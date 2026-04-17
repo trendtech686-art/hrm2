@@ -19,7 +19,8 @@ import {
   mapPackingToPrintData,
   mapPackingLineItems,
 } from '../print-data-mappers';
-import { StoreSettings } from '../print-service';
+import { StoreSettings, getGeneralSettings, getStoreLogo } from '../print-service';
+import { getStoreInfoSync } from '../../features/settings/store-info/store-info-service';
 import { formatOrderAddress } from '../../features/orders/address-utils';
 
 /**
@@ -296,19 +297,24 @@ export function convertToPackingForPrint(
 
 /**
  * Tạo StoreSettings từ Branch và branding info
- * Note: branch param accepts any object with name/address/phone for flexibility with API responses
+ * Fallback lấy email/logo từ storeInfo cache nếu branch không có
  */
 export function createStoreSettings(
   branch?: { name?: string; address?: string; phone?: string } | null,
-  options?: { logo?: string | null }
+  options?: { logo?: string | null; email?: string | null }
 ): StoreSettings {
+  const storeInfo = getStoreInfoSync();
+  const generalSettings = getGeneralSettings();
+  const logo = getStoreLogo(options?.logo || storeInfo.logo || undefined);
+  const email = options?.email || storeInfo.email || generalSettings?.email || '';
+
   if (!branch) {
     return {
-      name: '',
-      address: '',
-      phone: '',
-      email: '',
-      logo: options?.logo || undefined,
+      name: storeInfo.companyName || storeInfo.brandName || generalSettings?.companyName || '',
+      address: storeInfo.headquartersAddress || generalSettings?.companyAddress || '',
+      phone: storeInfo.hotline || generalSettings?.phoneNumber || '',
+      email,
+      logo,
     };
   }
 
@@ -316,8 +322,8 @@ export function createStoreSettings(
     name: branch.name,
     address: branch.address || '',
     phone: branch.phone || '',
-    email: '', // Branch không có email, có thể lấy từ company settings sau
-    logo: options?.logo || undefined,
+    email,
+    logo,
   };
 }
 
