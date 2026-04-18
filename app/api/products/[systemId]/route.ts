@@ -6,6 +6,7 @@ import { updateProductSchema } from '../validation'
 import { transformProduct } from '../transform'
 import { logError } from '@/lib/logger'
 import { getSessionUserName } from '@/lib/get-user-name'
+import { syncSingleProduct, deleteFromIndex } from '@/lib/meilisearch-sync'
 
 // GET /api/products/[systemId]
 export const GET = apiHandler(async (_request, { params }) => {
@@ -286,6 +287,9 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
       }).catch(e => logError('Activity log failed', e))
     }
 
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleProduct(systemId).catch(e => logError('[Meilisearch] Product sync failed', e))
+
     return apiSuccess(transformProduct(product))
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
@@ -308,6 +312,9 @@ export const DELETE = apiHandler(async (_request, { params }) => {
         deletedAt: new Date(),
       },
     })
+
+    // Fire-and-forget: remove from Meilisearch
+    deleteFromIndex('products', systemId).catch(e => logError('[Meilisearch] Product delete failed', e))
 
     return apiSuccess({ success: true })
   } catch (error) {

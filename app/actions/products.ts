@@ -13,6 +13,7 @@ import type { ActionResult } from '@/types/action-result'
 import { productFormSchema, updateProductFormSchema } from '@/features/products/validation'
 import { logError } from '@/lib/logger'
 import { syncSingleProductToPkgx } from '@/lib/pkgx/sync-service'
+import { syncSingleProduct, deleteFromIndex } from '@/lib/meilisearch-sync'
 
 // Types
 type Product = NonNullable<Awaited<ReturnType<typeof prisma.product.findFirst>>>
@@ -348,6 +349,10 @@ export async function createProductAction(
     ).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/products')
+
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleProduct(systemId).catch(e => logError('[Meilisearch] Product create sync failed', e))
+
     return { success: true, data: serializeDecimals(product) }
   } catch (error) {
     logError('Error creating product', error)
@@ -599,6 +604,9 @@ export async function updateProductAction(
     // Fire-and-forget: sync to PKGX if enabled
     syncSingleProductToPkgx(systemId).catch(e => logError('[PKGX] Real-time sync failed', e))
 
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleProduct(systemId).catch(e => logError('[Meilisearch] Product update sync failed', e))
+
     return { success: true, data: serializeDecimals(product) }
   } catch (error) {
     logError('Error updating product', error)
@@ -642,6 +650,10 @@ export async function deleteProductAction(
     ).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/products')
+
+    // Fire-and-forget: remove from Meilisearch
+    deleteFromIndex('products', systemId).catch(e => logError('[Meilisearch] Product delete sync failed', e))
+
     return { success: true, data: serializeDecimals(product) }
   } catch (error) {
     logError('Error deleting product', error)
@@ -684,6 +696,10 @@ export async function restoreProductAction(
     ).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/products')
+
+    // Fire-and-forget: sync restored product back to Meilisearch
+    syncSingleProduct(systemId).catch(e => logError('[Meilisearch] Product restore sync failed', e))
+
     return { success: true, data: serializeDecimals(product) }
   } catch (error) {
     logError('Error restoring product', error)

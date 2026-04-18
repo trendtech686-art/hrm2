@@ -5,6 +5,7 @@ import { updateCustomerSchema } from '../validation'
 import { serializeCustomer } from '../serialize'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { logError } from '@/lib/logger'
+import { syncSingleCustomer, deleteFromIndex } from '@/lib/meilisearch-sync'
 
 // Treats null, undefined, "", [], {} as equivalent "empty"
 function isEmptyValue(val: unknown): boolean {
@@ -306,6 +307,9 @@ export const PUT = apiHandler(async (
       ).catch(logErr => logError('Error logging customer activity', logErr))
     }
 
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleCustomer(systemId).catch(e => logError('[Meilisearch] Customer update sync failed', e))
+
     return apiSuccess(serializeCustomer(customer))
 }, { permission: 'edit_customers' })
 
@@ -340,6 +344,9 @@ export const DELETE = apiHandler(async (
         }
       })
     ).catch(logErr => logError('Error logging customer delete activity', logErr))
+
+    // Fire-and-forget: remove from Meilisearch
+    deleteFromIndex('customers', systemId).catch(e => logError('[Meilisearch] Customer delete sync failed', e))
 
     return apiSuccess({ success: true, systemId: customer.systemId })
 }, { permission: 'delete_customers' })

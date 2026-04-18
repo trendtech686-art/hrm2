@@ -4,6 +4,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { getSessionUserName } from '@/lib/get-user-name'
+import { deleteFromIndex } from '@/lib/meilisearch-sync'
 
 /**
  * DELETE /api/products/[systemId]/permanent - Lưu trữ vĩnh viễn sản phẩm
@@ -111,6 +112,9 @@ export const DELETE = apiHandler(async (
         createdBy: getSessionUserName(session),
       },
     }).catch(e => logError('Activity log failed', e))
+
+    // Fire-and-forget: remove from Meilisearch
+    deleteFromIndex('products', systemId).catch(e => logError('[Meilisearch] Product permanent delete failed', e))
 
     return apiSuccess({ success: true, systemId })
   } catch (error) {

@@ -7,6 +7,7 @@ import { transformProduct } from './transform'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { getSessionUserName } from '@/lib/get-user-name'
+import { syncSingleProduct } from '@/lib/meilisearch-sync'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -493,6 +494,9 @@ export const POST = apiHandler(async (request, { session }) => {
         createdBy: getSessionUserName(session),
       },
     }).catch(e => logError('Activity log failed', e))
+
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleProduct(product.systemId).catch(e => logError('[Meilisearch] Product sync failed', e))
 
     return apiSuccess(product, isUpdate ? 200 : 201)
   } catch (error) {

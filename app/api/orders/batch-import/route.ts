@@ -4,6 +4,7 @@ import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-config-constants'
 import { logError } from '@/lib/logger'
+import { syncOrders, syncCustomers, syncProducts } from '@/lib/meilisearch-sync'
 import {
   parseOrderStatus,
   parsePaymentStatus,
@@ -128,6 +129,29 @@ interface BatchImportBody {
 }
 
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+/**
+ * Build customer address entry from order shipping address
+ */
+function buildCustomerAddress(shippingAddress: string | Record<string, unknown> | null | undefined): Prisma.InputJsonValue[] {
+  if (!shippingAddress) return []
+  const addr = typeof shippingAddress === 'string'
+    ? { street: shippingAddress }
+    : shippingAddress as Record<string, unknown>
+  const street = String(addr.street || addr.formattedAddress || '').trim()
+  if (!street) return []
+  return [{
+    id: crypto.randomUUID(),
+    label: 'Địa chỉ giao hàng',
+    street,
+    ward: String(addr.ward || ''),
+    district: String(addr.district || ''),
+    province: String(addr.province || ''),
+    contactName: String(addr.contactName || ''),
+    contactPhone: String(addr.phone || ''),
+    isDefaultShipping: true,
+  }]
+}
 
 // POST /api/orders/batch-import
 export async function POST(request: Request) {
@@ -309,14 +333,43 @@ export async function POST(request: Request) {
             if (existingCust) {
               customer = existingCust
             } else {
+              // Build initial address from shipping address data
+              const initialAddresses = buildCustomerAddress(orderInput.shippingAddress)
               customer = await tx.customer.create({
                 data: {
                   systemId: custSysId,
                   id: custBizId as string,
                   name: orderInput.customerName || customerKey || 'Khách hàng mới',
                   phone: orderInput.customerPhone || undefined,
+                  ...(initialAddresses.length > 0 ? { addresses: initialAddresses } : {}),
                 },
               })
+            }
+          }
+
+          // Append new address to existing customer if shipping address is new
+          if (customer && orderInput.shippingAddress) {
+            const newAddr = buildCustomerAddress(orderInput.shippingAddress)
+            if (newAddr.length > 0) {
+              const newStreet = (newAddr[0] as { street?: string }).street || ''
+              if (newStreet) {
+                // Fetch current addresses from DB
+                const custWithAddr = await tx.customer.findUnique({
+                  where: { systemId: customer.systemId },
+                  select: { addresses: true },
+                })
+                const addrList = Array.isArray(custWithAddr?.addresses) ? custWithAddr.addresses as Prisma.InputJsonValue[] : []
+                const isDuplicate = addrList.some((a) => {
+                  const addr = a as { street?: string }
+                  return addr.street && addr.street === newStreet
+                })
+                if (!isDuplicate) {
+                  await tx.customer.update({
+                    where: { systemId: customer.systemId },
+                    data: { addresses: [...addrList, ...newAddr] as Prisma.InputJsonValue },
+                  })
+                }
+              }
             }
           }
           customerMap.set(customer.systemId, customer)
@@ -675,6 +728,15 @@ export async function POST(request: Request) {
           message: error instanceof Error ? error.message : 'Unknown error',
         })
       }
+    }
+
+    // Fire-and-forget: full sync to Meilisearch after batch import
+    if (results.success > 0) {
+      Promise.all([
+        syncOrders(),
+        syncCustomers(),
+        syncProducts({ fullSync: true }),
+      ]).catch(e => logError('[Meilisearch] Order batch import sync failed', e))
     }
 
     return apiSuccess(results)

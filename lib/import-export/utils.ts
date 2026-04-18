@@ -63,12 +63,26 @@ export function previewImportData<T>(
       transformedData = config.postTransformRow(transformedData, index, branchSystemId);
     }
 
-    // 2. Validate từng field theo config
+    // 2. Pre-check if record exists (needed to skip required for update/upsert)
+    let preExistingRecord: T | null = null;
+    if (mode !== 'insert-only') {
+      if (config.findExisting) {
+        preExistingRecord = config.findExisting(transformedData as T, existingData);
+      } else if (config.upsertKey) {
+        const businessId = transformedData[config.upsertKey as keyof typeof transformedData];
+        preExistingRecord = existingData.find(
+          (e) => e[config.upsertKey as keyof T] === businessId
+        ) || null;
+      }
+    }
+    const skipRequired = preExistingRecord !== null && (mode === 'update-only' || mode === 'upsert');
+
+    // 2b. Validate từng field theo config
     for (const field of config.fields) {
       if (field.hidden || field.exportOnly) continue; // Skip hidden/export-only fields
       
       const value = transformedData[field.key as keyof typeof transformedData];
-      const fieldErrors = validateField(value, field, transformedData);
+      const fieldErrors = validateField(value, field, transformedData, skipRequired);
       
       // Separate warnings from errors (warnings start with [Warning])
       fieldErrors.forEach(err => {
@@ -92,22 +106,10 @@ export function previewImportData<T>(
       });
     }
 
-    // 4. Check existing record (upsert logic)
-    let existingRecord: T | null = null;
-    let isExisting = false;
+    // 4. Use pre-checked existing record (already computed at step 2)
+    const existingRecord = preExistingRecord;
+    const isExisting = existingRecord !== null;
     let status: ImportPreviewStatus = 'valid';
-
-    if (config.findExisting) {
-      existingRecord = config.findExisting(transformedData as T, existingData);
-    } else if (config.upsertKey) {
-      // Default: find by upsertKey
-      const businessId = transformedData[config.upsertKey as keyof typeof transformedData];
-      existingRecord = existingData.find(
-        (e) => e[config.upsertKey as keyof T] === businessId
-      ) || null;
-    }
-
-    isExisting = existingRecord !== null;
 
     // 5. Determine status based on mode and validation
     if (rowErrors.length > 0) {
@@ -175,13 +177,14 @@ export function previewImportData<T>(
 export function validateField<T>(
   value: unknown,
   field: FieldConfig<T>,
-  row: Partial<T>
+  row: Partial<T>,
+  skipRequired = false
 ): Array<{ field?: string; message: string }> {
   const errors: Array<{ field?: string; message: string }> = [];
   const fieldKey = field.key as string;
 
-  // Check required
-  if (field.required && (value === undefined || value === null || value === '')) {
+  // Check required (skip khi update/upsert record đã tồn tại)
+  if (field.required && !skipRequired && (value === undefined || value === null || value === '')) {
     errors.push({ field: fieldKey, message: `${field.label} là bắt buộc` });
     return errors; // Skip other validations if required field is empty
   }

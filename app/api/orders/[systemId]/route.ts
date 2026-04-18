@@ -5,6 +5,7 @@ import type { Prisma, OrderPayment, OrderLineItem } from '@/generated/prisma/cli
 import { PaymentStatus, DiscountType } from '@/generated/prisma/client';
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { syncSingleOrder } from '@/lib/meilisearch-sync'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/lib/constants/order-enums';
 import {
@@ -618,6 +619,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       })
     }
 
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleOrder(systemId).catch(e => logError('[Meilisearch] Order update sync failed', e))
+
     return apiSuccess(result);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -667,6 +671,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         logError('[Orders DELETE] updateCustomerDebt failed', err)
       })
     }
+
+    // Fire-and-forget: sync to Meilisearch (order cancelled)
+    syncSingleOrder(systemId).catch(e => logError('[Meilisearch] Order delete sync failed', e))
 
     return apiSuccess({ success: true });
   } catch (error) {

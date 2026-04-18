@@ -4,6 +4,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, validateBody } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { syncProductsInventory } from '@/lib/meilisearch-sync'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -368,6 +369,14 @@ export const POST = apiHandler(async (request, { session }) => {
 
   const successCount = results.filter(r => r.success).length
   const errorCount = results.filter(r => !r.success).length
+
+  // Fire-and-forget: batch sync imported products to Meilisearch
+  const successSystemIds = results
+    .filter(r => r.success && r.systemId)
+    .map(r => r.systemId as string)
+  if (successSystemIds.length > 0) {
+    syncProductsInventory(successSystemIds).catch(e => logError('[Meilisearch] Bulk import sync failed', e))
+  }
 
   return apiSuccess({
     total: products.length,

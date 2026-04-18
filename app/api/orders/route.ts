@@ -427,6 +427,7 @@ export async function GET(request: Request) {
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-config-constants'
 import { logError } from '@/lib/logger'
+import { syncSingleOrder } from '@/lib/meilisearch-sync'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -937,6 +938,9 @@ export async function POST(request: Request) {
       }).catch(e => logError('[Orders POST] activity log failed', e))
 
       // ✅ Success - return the order
+      // Fire-and-forget: sync to Meilisearch
+      syncSingleOrder(order.systemId).catch(e => logError('[Meilisearch] Order sync failed', e))
+
       return apiSuccess(order, 201)
       
     } catch (error) {

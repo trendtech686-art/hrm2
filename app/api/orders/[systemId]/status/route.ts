@@ -6,6 +6,7 @@ import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
 import { createNotification } from '@/lib/notifications'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { syncSingleOrder } from '@/lib/meilisearch-sync'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -124,6 +125,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         createdBy: userName,
       }
     }).catch(e => logError('[Orders Status] activity log failed', e))
+
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleOrder(systemId).catch(e => logError('[Meilisearch] Order status sync failed', e))
 
     return apiSuccess(updatedOrder);
   } catch (error) {

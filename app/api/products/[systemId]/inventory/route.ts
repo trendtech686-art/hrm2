@@ -10,6 +10,8 @@ import { apiHandler } from '@/lib/api-handler'
 import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { z } from 'zod'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { syncSingleProduct } from '@/lib/meilisearch-sync'
+import { logError } from '@/lib/logger'
 
 const updateInventorySchema = z.object({
   branchSystemId: z.string(),
@@ -138,6 +140,9 @@ export const PATCH = apiHandler(async (request, { params }) => {
         quantityChange,
       }
     })
+
+    // Fire-and-forget: sync stock to Meilisearch
+    syncSingleProduct(productSystemId).catch(e => logError('[Meilisearch] Inventory sync failed', e))
 
     return apiSuccess(result)
 }, { permission: 'edit_inventory' })

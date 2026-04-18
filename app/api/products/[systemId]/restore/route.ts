@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { syncSingleProduct } from '@/lib/meilisearch-sync'
+import { logError } from '@/lib/logger'
 
 // POST /api/products/[systemId]/restore - Restore soft-deleted product
 export const POST = apiHandler(async (
@@ -31,6 +33,9 @@ export const POST = apiHandler(async (
         deletedAt: null,
       },
     })
+
+    // Fire-and-forget: sync restored product back to Meilisearch
+    syncSingleProduct(systemId).catch(e => logError('[Meilisearch] Product restore sync failed', e))
 
     return apiSuccess(restored)
 })

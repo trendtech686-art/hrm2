@@ -980,6 +980,13 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
   entityDisplayName: 'Sản phẩm',
   fields: productFields,
   upsertKey: 'id', // Dùng mã sản phẩm để đối chiếu khi UPDATE
+  // Tìm sản phẩm đã tồn tại bằng id hoặc barcode
+  findExisting: (row: Partial<Product>, existingData: Product[]) => {
+    return existingData.find((p: Product) =>
+      (row.id && p.id === row.id) ||
+      (row.barcode && p.barcode === row.barcode)
+    ) || null;
+  },
   templateFileName: 'mau-import-san-pham.xlsx',
   requireBranch: true, // Bắt buộc chi nhánh để xử lý tồn kho ban đầu
   

@@ -8,6 +8,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
+import { syncSingleCustomer } from '@/lib/meilisearch-sync'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -239,6 +240,9 @@ export const POST = apiHandler(async (request, { session }) => {
         settingsKey: 'customer:new',
       }).catch(e => logError('[Customer POST] notification failed', e))
     }
+
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleCustomer(customer.systemId).catch(e => logError('[Meilisearch] Customer sync failed', e))
 
     return apiSuccess(serializeCustomer(customer), 201)
 }, { permission: 'create_customers' })

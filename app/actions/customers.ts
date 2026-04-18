@@ -11,6 +11,7 @@ import { requireActionPermission, type ApiSession } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { customerFormSchema } from '@/features/customers/validation'
 import { logError } from '@/lib/logger'
+import { syncSingleCustomer, deleteFromIndex } from '@/lib/meilisearch-sync'
 
 // Types
 type Customer = NonNullable<Awaited<ReturnType<typeof prisma.customer.findFirst>>>
@@ -219,6 +220,10 @@ export async function createCustomerAction(
     ).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
+
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleCustomer(customer.systemId).catch(e => logError('[Meilisearch] Customer create sync failed', e))
+
     return { success: true, data: serializeCustomer(customer) }
   } catch (error) {
     logError('Error creating customer', error)
@@ -400,6 +405,10 @@ export async function updateCustomerAction(
 
     revalidatePath('/customers')
     revalidatePath(`/customers/${systemId}`)
+
+    // Fire-and-forget: sync to Meilisearch
+    syncSingleCustomer(systemId).catch(e => logError('[Meilisearch] Customer update sync failed', e))
+
     return { success: true, data: serializeCustomer(customer) }
   } catch (error) {
     logError('Error updating customer', error)
@@ -442,6 +451,10 @@ export async function deleteCustomerAction(
     ).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
+
+    // Fire-and-forget: remove from Meilisearch
+    deleteFromIndex('customers', systemId).catch(e => logError('[Meilisearch] Customer delete sync failed', e))
+
     return { success: true, data: serializeCustomer(customer) }
   } catch (error) {
     logError('Error deleting customer', error)
@@ -483,6 +496,10 @@ export async function restoreCustomerAction(
     ).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
+
+    // Fire-and-forget: sync restored customer to Meilisearch
+    syncSingleCustomer(systemId).catch(e => logError('[Meilisearch] Customer restore sync failed', e))
+
     return { success: true, data: serializeCustomer(customer) }
   } catch (error) {
     logError('Error restoring customer', error)

@@ -3,6 +3,8 @@ import { Prisma, CustomerStatus } from '@/generated/prisma/client'
 import { apiSuccess, apiError } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { randomUUID } from 'crypto'
+import { syncCustomers } from '@/lib/meilisearch-sync'
+import { logError } from '@/lib/logger'
 
 /**
  * Parse Prisma errors into user-friendly messages
@@ -287,6 +289,11 @@ export const POST = apiHandler(async (request, { session }) => {
     }
 
     result.success = result.inserted + result.updated
+
+    // Fire-and-forget: full customer sync to Meilisearch after batch import
+    if (result.success > 0) {
+      syncCustomers().catch(e => logError('[Meilisearch] Customer batch sync failed', e))
+    }
 
     return apiSuccess(result)
 }, { permission: 'edit_customers' })
