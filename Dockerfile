@@ -74,6 +74,9 @@ COPY --from=builder /app/lib ./lib
 # Create uploads directory
 RUN mkdir -p uploads && chown nextjs:nodejs uploads
 
+# Remove stale 'node' file created by standalone build (breaks docker-entrypoint.sh)
+RUN rm -f /app/node
+
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
 
@@ -84,4 +87,6 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Override node:22-alpine entrypoint to avoid docker-entrypoint.sh issues
+ENTRYPOINT []
 CMD ["node", "server.js"]

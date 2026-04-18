@@ -59,6 +59,8 @@ services:
       dockerfile: Dockerfile
     container_name: hrm2-app
     restart: unless-stopped
+    entrypoint: []
+    command: ["node", "server.js"]
     ports:
       - "3000:3000"
     env_file:
