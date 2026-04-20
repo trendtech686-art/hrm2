@@ -563,11 +563,11 @@ export const getColumns = (
   // Leave
   {
     id: "leaveTaken",
-    accessorKey: "leaveTaken",
-    header: "Phép đã nghỉ",
-    cell: ({ row }) => row.leaveTaken,
+    accessorKey: "annualLeaveBalance",
+    header: "Phép còn lại",
+    cell: ({ row }) => row.annualLeaveBalance ?? '-',
     meta: {
-        displayName: "Phép đã nghỉ",
+        displayName: "Phép còn lại",
         group: "Quản lý nghỉ phép"
     },
   },

@@ -141,7 +141,7 @@ const TooltipContent = React.forwardRef<
 >(({ className, side = 'top', sideOffset = 4, children, ...props }, forwardedRef) => {
   const { open, triggerRef } = useTooltip();
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const [style, setStyle] = React.useState<React.CSSProperties>({ position: 'fixed', top: '-9999px', left: '-9999px' });
+  const [style, setStyle] = React.useState<React.CSSProperties>({ position: 'fixed', top: '-9999px', left: '-9999px', zIndex: 9999 });
 
   React.useImperativeHandle(forwardedRef, () => contentRef.current!);
 
@@ -176,7 +176,7 @@ const TooltipContent = React.forwardRef<
                     break;
             }
 
-            setStyle({ position: 'fixed', top: `${top}px`, left: `${left}px` });
+            setStyle({ position: 'fixed', top: `${top}px`, left: `${left}px`, zIndex: 9999 });
         }
     }, [side, sideOffset, triggerRef]);
 

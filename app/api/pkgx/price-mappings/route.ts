@@ -59,10 +59,10 @@ export async function PATCH(request: Request) {
     // Reverse map for easier lookup
     const fieldToPriceType: Record<string, string> = {
       'shopPrice': 'shop_price',
-      'marketPrice': 'market_price',
       'partnerPrice': 'partner_price', 
-      'acePrice': 'ace_price',
-      'dealPrice': 'deal_price',
+      'price5Vat': 'price_5vat',
+      'price12Novat': 'price_12novat',
+      'price5Novat': 'price_5novat',
     };
 
     // Process each field in the body sequentially (not in transaction for simplicity)
@@ -108,10 +108,10 @@ export async function PATCH(request: Request) {
     // Activity log for price mapping changes
     const priceTypeLabels: Record<string, string> = {
       shopPrice: 'Giá bán',
-      marketPrice: 'Giá thị trường',
       partnerPrice: 'Giá đại lý',
-      acePrice: 'Giá ACE',
-      dealPrice: 'Giá deal',
+      price5Vat: 'Giá 5% VAT',
+      price12Novat: 'Giá 12% Không VAT',
+      price5Novat: 'Giá 5% Không VAT',
     }
     const changedFields = Object.keys(body)
       .filter(f => fieldToPriceType[f])

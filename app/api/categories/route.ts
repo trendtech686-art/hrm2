@@ -114,7 +114,13 @@ export async function GET(request: Request) {
       prisma.category.count({ where }),
     ])
 
-    return apiPaginated(categories, { page, limit, total })
+    // Map thumbnail → thumbnailImage for frontend compatibility
+    const transformed = categories.map(c => ({
+      ...c,
+      thumbnailImage: c.thumbnail || c.imageUrl || null,
+    }))
+
+    return apiPaginated(transformed, { page, limit, total })
   } catch (error) {
     logError('Error fetching categories', error)
     return apiError('Không thể tải danh sách danh mục', 500)

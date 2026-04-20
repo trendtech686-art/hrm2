@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server'
  * - Database-level filtering and sorting
  */
 
-// Select only essential fields for list view
+// Select fields needed for list view columns
 const PRODUCT_LIST_SELECT = {
   systemId: true,
   id: true,
@@ -24,8 +24,14 @@ const PRODUCT_LIST_SELECT = {
   barcode: true,
   status: true,
   isDeleted: true,
+  deletedAt: true,
   createdAt: true,
+  updatedAt: true,
+  createdBy: true,
+  updatedBy: true,
   pkgxId: true,
+  pkgxSyncedAt: true,
+  trendtechId: true,
   // Include productInventory to build inventoryByBranch (the JSON cache field may be stale)
   productInventory: {
     select: {
@@ -40,16 +46,29 @@ const PRODUCT_LIST_SELECT = {
   totalInventory: true,
   totalCommitted: true,
   totalAvailable: true,
+  // Pricing & purchasing
+  lastPurchasePrice: true,
+  lastPurchaseDate: true,
+  primarySupplierId: true,
   // Basic flags
   isPublished: true,
   isFeatured: true,
   isNewArrival: true,
   isBestSeller: true,
+  isOnSale: true,
+  isStockTracked: true,
+  sortOrder: true,
+  publishedAt: true,
   reorderLevel: true,
   safetyStock: true,
   maxStock: true,
   sellerNote: true,
   warrantyPeriodMonths: true,
+  // Sales & analytics
+  totalSold: true,
+  viewCount: true,
+  // Tags & classification
+  tags: true,
   // SEO fields
   ktitle: true,
   seoDescription: true,
@@ -69,11 +88,28 @@ const PRODUCT_LIST_SELECT = {
   weight: true,
   weightUnit: true,
   dimensions: true,
+  warehouseLocation: true,
+  // E-commerce media
+  galleryImages: true,
+  videoLinks: true,
+  // Variants & combos
+  hasVariants: true,
+  variants: true,
+  comboItems: true,
+  // Lifecycle
+  discontinuedDate: true,
   // Include brand name to avoid separate lookup
   brand: {
     select: {
       systemId: true,
       name: true,
+    },
+  },
+  // Include prices for price columns
+  prices: {
+    select: {
+      pricingPolicyId: true,
+      price: true,
     },
   },
 } as const
@@ -244,13 +280,25 @@ export const GET = apiHandler(async (request, _ctx) => {
         }
       }
       
-      // Remove productInventory from response to keep it clean
+      // Remove productInventory and raw prices from response to keep it clean
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { productInventory, ...rest } = product;
+      const { productInventory, prices: pricesArray, brandId, primarySupplierId, ...rest } = product;
+
+      // Transform prices array to Record<policyId, number>
+      const prices: Record<string, number> = {};
+      if (Array.isArray(pricesArray)) {
+        for (const pp of pricesArray) {
+          prices[pp.pricingPolicyId] = Number(pp.price);
+        }
+      }
       
       return {
         ...rest,
         costPrice: product.costPrice ? Number(product.costPrice) : 0,
+        lastPurchasePrice: product.lastPurchasePrice ? Number(product.lastPurchasePrice) : 0,
+        // Map Prisma field names to frontend Product type names
+        brandSystemId: brandId ?? null,
+        primarySupplierSystemId: primarySupplierId ?? null,
         // Denormalize brand name for fast display
         brandName: product.brand?.name ?? null,
         // Derive singular categorySystemId for column display
@@ -260,8 +308,7 @@ export const GET = apiHandler(async (request, _ctx) => {
         committedByBranch,
         inTransitByBranch,
         inDeliveryByBranch,
-        // Prices will be fetched separately when needed
-        prices: {}, // Empty for list view - load on detail
+        prices,
       };
     })
 

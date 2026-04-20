@@ -97,7 +97,7 @@ model PkgxBrandMapping {
 /// Mapping bảng giá HRM → các loại giá PKGX
 model PkgxPriceMapping {
   systemId        String   @id @default(uuid())
-  priceType       String   @unique // shopPrice, marketPrice, partnerPrice, acePrice, dealPrice
+  priceType       String   @unique // shop_price, market_price, partner_price, ace_price, deal_price, price_5vat, price_12novat, price_5novat
   pricingPolicyId String? // FK to PricingPolicy systemId
   description     String?
   isActive        Boolean  @default(true)
@@ -124,6 +124,9 @@ model PkgxProduct {
   partnerPrice  Decimal? @db.Decimal(15, 2) // Giá đối tác
   acePrice      Decimal? @db.Decimal(15, 2) // Giá Ace
   dealPrice     Decimal? @db.Decimal(15, 2) // Giá deal
+  price5Vat     Decimal? @db.Decimal(15, 2) // Giá 5% VAT
+  price12Novat  Decimal? @db.Decimal(15, 2) // Giá 12% Không VAT
+  price5Novat   Decimal? @db.Decimal(15, 2) // Giá 5% Không VAT
   goodsNumber2  String? // Mã sản phẩm phụ
   goodsWeight   Decimal? @db.Decimal(10, 2) // Khối lượng
   goodsQuantity Int?     @default(0) // Số lượng tồn
@@ -141,6 +144,7 @@ model PkgxProduct {
   keywords      String? // SEO keywords
   ktitle        String? // SEO title
   goodsAlias    String? // Slug/alias
+  vat           String? // Tên sản phẩm VAT (tên hàng hóa VAT)
   addTime       Int? // Unix timestamp khởi tạo từ PKGX
   lastUpdate    Int? // Unix timestamp cập nhật từ PKGX
   hrmProductId  String? // Product systemId đã mapping trong HRM (nếu có)

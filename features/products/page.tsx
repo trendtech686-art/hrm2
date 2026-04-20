@@ -221,12 +221,10 @@ export function ProductsPage({ initialStats }: ProductsPageProps = {}) {
     let shopPrice = product.costPrice || 0;
     if (priceMapping.shopPrice && product.prices[priceMapping.shopPrice]) shopPrice = product.prices[priceMapping.shopPrice];
     else if (defaultSellingPolicy) shopPrice = product.prices[defaultSellingPolicy.systemId] || shopPrice;
-    let marketPrice = shopPrice * 1.2;
-    if (priceMapping.marketPrice && product.prices[priceMapping.marketPrice]) marketPrice = product.prices[priceMapping.marketPrice];
     const totalInventory = product.inventoryByBranch ? Object.values(product.inventoryByBranch).reduce((s, q) => s + (q || 0), 0) : 0;
     const seo = product.seoPkgx;
     const isActive = product.status?.toString().toUpperCase() === 'ACTIVE';
-    return { goods_name: product.name, goods_sn: product.id, cat_id: catMap?.pkgxCatId || 0, brand_id: brandMap?.pkgxBrandId || 0, seller_note: product.sellerNote || '', shop_price: shopPrice, market_price: marketPrice, goods_number: totalInventory, goods_desc: seo?.longDescription || product.description || '', goods_brief: seo?.shortDescription || product.shortDescription || '', keywords: seo?.seoKeywords || product.tags?.join(', ') || product.name, meta_title: seo?.seoTitle || product.ktitle || product.name, meta_desc: seo?.metaDescription || product.seoDescription || '', original_img: product.thumbnailImage || product.images?.[0] || '', gallery_images: product.galleryImages || product.images || [], best: product.isFeatured || false, hot: product.isBestSeller || false, new: product.isNewArrival || false, ishome: product.isFeatured || false, is_on_sale: product.isPublished ?? isActive };
+    return { goods_name: product.name, goods_sn: product.id, cat_id: catMap?.pkgxCatId || 0, brand_id: brandMap?.pkgxBrandId || 0, seller_note: product.sellerNote || '', shop_price: shopPrice, goods_number: totalInventory, goods_desc: seo?.longDescription || product.description || '', goods_brief: seo?.shortDescription || product.shortDescription || '', keywords: seo?.seoKeywords || product.tags?.join(', ') || product.name, meta_title: seo?.seoTitle || product.ktitle || product.name, meta_desc: seo?.metaDescription || product.seoDescription || '', original_img: product.thumbnailImage || product.images?.[0] || '', gallery_images: product.galleryImages || product.images || [], best: product.isFeatured || false, hot: product.isBestSeller || false, new: product.isNewArrival || false, ishome: product.isFeatured || false, is_on_sale: product.isPublished ?? isActive };
   }, [pkgxSettings, defaultSellingPolicy, findBrandById]);
 
   // handlePkgxLink vẫn cần local vì mở dialog

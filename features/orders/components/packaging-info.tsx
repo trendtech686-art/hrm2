@@ -345,24 +345,23 @@ export function PackagingInfo({
                 throw new Error(errorData.error || 'Không thể lấy nhãn từ GHTK');
             }
             
-            // Response is PDF blob → mở tab mới để in (tránh cross-origin với blob iframe)
+            // PDF không thể print qua iframe ẩn (Chrome PDF viewer limitation)
+            // → Mở popup nhỏ, auto-trigger print, auto-close sau khi in
             const pdfBlob = await response.blob();
             const pdfUrl = URL.createObjectURL(pdfBlob);
             
-            const printWindow = window.open(pdfUrl, '_blank');
+            const printWindow = window.open(pdfUrl, 'ghtkLabel', 'width=820,height=600,left=100,top=100');
             if (printWindow) {
                 printWindow.addEventListener('load', () => {
-                    printWindow.print();
+                    setTimeout(() => {
+                        printWindow.focus();
+                        printWindow.print();
+                    }, 500);
                 });
-                // Cleanup blob URL sau 60s (đủ thời gian để in)
+                printWindow.addEventListener('afterprint', () => {
+                    printWindow.close();
+                });
                 setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
-            } else {
-                // Popup bị chặn → fallback download
-                const a = document.createElement('a');
-                a.href = pdfUrl;
-                a.download = `label-${packaging.trackingCode}.pdf`;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(pdfUrl), 5000);
             }
             
             toast.success('Đang mở hộp thoại in...');

@@ -136,6 +136,15 @@ const INVALIDATION_MAP: Record<string, readonly (readonly string[])[]> = {
     ['stock-history'],
   ],
 
+  // ── PKGX Integration ────────────────────────────────────
+  'pkgx-products': [
+    ['product-stats'],
+    ['pkgx-mapping'],
+    ['linked-products'],
+    ['products-unlinked'],
+    ['products-unlinked-for-dialog'],
+  ],
+
   // ── Payroll ──────────────────────────────────────────────
   'payroll': [
     ['payslips'],

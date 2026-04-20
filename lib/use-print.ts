@@ -13,6 +13,31 @@ import {
 import { usePrintTemplateConfig } from '../features/settings/printer/hooks/use-print-template-config';
 import { logError } from '@/lib/logger'
 
+/**
+ * Đợi tất cả <img> trong document load xong (hoặc lỗi) trước khi tiếp tục.
+ * Timeout tối đa 3s để tránh treo nếu image chết.
+ */
+function waitForImages(doc: Document): Promise<void> {
+  return new Promise((resolve) => {
+    const images = doc.querySelectorAll('img');
+    if (images.length === 0) { resolve(); return; }
+
+    let loaded = 0;
+    const total = images.length;
+    const done = () => { if (++loaded >= total) resolve(); };
+    const timeout = setTimeout(resolve, 3000); // max wait 3s
+
+    images.forEach((img) => {
+      if (img.complete) { done(); return; }
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+    });
+
+    // If all already complete, resolve immediately and clear timeout
+    if (loaded >= total) { clearTimeout(timeout); resolve(); }
+  });
+}
+
 /** Map template type to Vietnamese label */
 const templateTypeLabels: Record<string, string> = Object.fromEntries(
   TEMPLATE_TYPES.map(t => [t.value, t.label])
@@ -632,8 +657,8 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
       `);
       printDoc.close();
       
-      // Đợi load xong rồi in
-      setTimeout(() => {
+      // Đợi tất cả images load xong rồi in
+      waitForImages(printDoc).then(() => {
         printFrame.contentWindow?.print();
         // Xóa iframe sau khi in
         setTimeout(() => {
@@ -641,7 +666,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
             document.body.removeChild(printFrame);
           }
         }, 1000);
-      }, 100);
+      });
     }
   }, [storeGetDefaultSize, storeGetTemplate, getTemplateContent, processTemplate]);
 
@@ -710,8 +735,8 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
       `);
       printDoc.close();
       
-      // Đợi load xong rồi in
-      setTimeout(() => {
+      // Đợi tất cả images load xong rồi in
+      waitForImages(printDoc).then(() => {
         printFrame.contentWindow?.print();
         // Xóa iframe sau khi in
         setTimeout(() => {
@@ -719,7 +744,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
             document.body.removeChild(printFrame);
           }
         }, 1000);
-      }, 100);
+      });
     }
   }, [storeGetDefaultSize, storeGetTemplate, getTemplateContent, processTemplate]);
 
@@ -802,8 +827,8 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
       `);
       printDoc.close();
       
-      // Đợi load xong rồi in
-      setTimeout(() => {
+      // Đợi tất cả images load xong rồi in
+      waitForImages(printDoc).then(() => {
         printFrame.contentWindow?.print();
         // Xóa iframe sau khi in
         setTimeout(() => {
@@ -811,7 +836,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
             document.body.removeChild(printFrame);
           }
         }, 1000);
-      }, 100);
+      });
     }
   }, [storeGetDefaultSize, getTemplateContent, processTemplate]);
 

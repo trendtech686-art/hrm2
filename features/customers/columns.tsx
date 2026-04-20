@@ -93,15 +93,6 @@ export const getColumns = (
     },
   },
   {
-    id: "email",
-    accessorKey: "email",
-    header: "Email",
-    cell: ({ row }) => row.email,
-    meta: {
-      displayName: "Email",
-    },
-  },
-  {
     id: "phone",
     accessorKey: "phone",
     header: "Số điện thoại",

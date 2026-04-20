@@ -132,12 +132,23 @@ export const GET = apiHandler(async (request, { session }) => {
     ])
 
     // Serialize Decimal fields to numbers for JSON response
+    // Resolve accountManagerName from accountManagerId
+    const accountManagerIds = [...new Set(customers.map(c => c.accountManagerId).filter(Boolean))] as string[]
+    const accountManagers = accountManagerIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: accountManagerIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : []
+    const managerMap = new Map(accountManagers.map(e => [e.systemId, e.fullName]))
+
     const serialized = customers.map(c => ({
       ...c,
       currentDebt: c.currentDebt != null ? Number(c.currentDebt) : null,
       maxDebt: c.maxDebt != null ? Number(c.maxDebt) : null,
       defaultDiscount: c.defaultDiscount != null ? Number(c.defaultDiscount) : null,
       totalSpent: c.totalSpent != null ? Number(c.totalSpent) : null,
+      accountManagerName: c.accountManagerId ? (managerMap.get(c.accountManagerId) || null) : null,
     }))
 
     return apiPaginated(serialized, { page, limit, total })

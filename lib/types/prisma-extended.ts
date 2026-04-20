@@ -3657,10 +3657,10 @@ export type PkgxBrandMapping = {
 
 export type PkgxPriceMapping = {
   shopPrice: SystemId | null;
-  marketPrice: SystemId | null;
   partnerPrice: SystemId | null;
-  acePrice: SystemId | null;
-  dealPrice: SystemId | null;
+  price5Vat: SystemId | null;
+  price12Novat: SystemId | null;
+  price5Novat: SystemId | null;
 };
 
 // Pkgx API Types
@@ -3675,6 +3675,9 @@ export type PkgxProduct = {
   partner_price: number;
   ace_price: number;
   deal_price: number;
+  price_5vat: number;
+  price_12novat: number;
+  price_5novat: number;
   goods_img: string;
   goods_thumb: string;
   original_img: string;
@@ -3707,6 +3710,7 @@ export type PkgxProduct = {
   is_real?: number;
   ktitle?: string;
   goods_alias?: string;
+  vat?: string; // Tên sản phẩm VAT
 };
 
 export type PkgxProductsResponse = {
@@ -3810,6 +3814,9 @@ export type PkgxProductPayload = {
   partner_price?: number;
   ace_price?: number;
   deal_price?: number;
+  price_5vat?: number;
+  price_12novat?: number;
+  price_5novat?: number;
   goods_img?: string;
   goods_thumb?: string;
   original_img?: string;
@@ -3834,6 +3841,7 @@ export type PkgxProductPayload = {
   best?: number | boolean;
   hot?: number | boolean;
   new?: number | boolean;
+  vat?: string; // Tên sản phẩm VAT
   gallery_images?: string[];
 };
 
@@ -3944,10 +3952,10 @@ export const DEFAULT_PKGX_SETTINGS: PkgxSettings = {
   brands: [],
   priceMapping: {
     shopPrice: null,
-    marketPrice: null,
     partnerPrice: null,
-    acePrice: null,
-    dealPrice: null,
+    price5Vat: null,
+    price12Novat: null,
+    price5Novat: null,
   },
   categoryMappings: [],
   brandMappings: [],

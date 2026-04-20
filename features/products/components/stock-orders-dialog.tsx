@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -159,16 +159,19 @@ export function StockOrdersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{config.title}: {productName}</DialogTitle>
+          <DialogTitle className="truncate">{config.title}: {productName}</DialogTitle>
           <DialogDescription>
             Chi nhánh: {branchName} • {config.totalLabel}:{' '}
             <span className="text-primary font-semibold">{quantityDisplay}</span> sản phẩm
+            {totalItems > 0 && (
+              <> • <span className="font-medium">{totalItems}</span> phiếu</>  
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
+        <div className="max-h-[60vh] overflow-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -191,12 +194,13 @@ export function StockOrdersDialog({
               <p>Không có phiếu nào</p>
             </div>
           ) : (
+            <div className="min-w-[600px]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-25">Loại</TableHead>
-                  <TableHead>Mã phiếu</TableHead>
-                  <TableHead>{config.dateLabel}</TableHead>
+                  <TableHead className="w-20 whitespace-nowrap">Loại</TableHead>
+                  <TableHead className="whitespace-nowrap">Mã phiếu</TableHead>
+                  <TableHead className="whitespace-nowrap">{config.dateLabel}</TableHead>
                   {config.showFromTo ? (
                     <>
                       <TableHead>Từ</TableHead>
@@ -206,8 +210,8 @@ export function StockOrdersDialog({
                     <TableHead>Khách hàng</TableHead>
                   )}
                   {config.showShipping && <TableHead>Đơn vị vận chuyển</TableHead>}
-                  <TableHead className="text-right">Số lượng</TableHead>
-                  <TableHead>Trạng thái</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Số lượng</TableHead>
+                  <TableHead className="whitespace-nowrap">Trạng thái</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -261,11 +265,12 @@ export function StockOrdersDialog({
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
-        </ScrollArea>
+        </div>
 
-        {/* Pagination - show if server-side pagination available and total > page size */}
-        {!isLoading && pagination && totalItems > pageSize && (
+        {/* Pagination - show whenever there are items */}
+        {!isLoading && totalItems > 0 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="text-sm text-muted-foreground">
               Hiển thị {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} / {totalItems} phiếu

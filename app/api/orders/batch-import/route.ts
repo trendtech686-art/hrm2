@@ -620,56 +620,97 @@ export async function POST(request: Request) {
             }
           }
 
-          // Deduct stock when stockOutStatus is FULLY_STOCKED_OUT (Đã xuất kho / Xuất kho toàn bộ)
+          // ── Update ProductInventory based on order status ──
           const parsedStockOut = parseStockOutStatus(orderInput.stockOutStatus) || 'NOT_STOCKED_OUT'
-          if (parsedStockOut === 'FULLY_STOCKED_OUT' && branch && lineItemsData.length > 0) {
+          const parsedStatus = parseOrderStatus(orderInput.status) || 'PENDING'
+
+          if (branch && lineItemsData.length > 0) {
             const stockOutDate = orderInput.dispatchedDate
               ? new Date(orderInput.dispatchedDate)
               : orderInput.orderDate
                 ? new Date(orderInput.orderDate)
                 : new Date()
 
+            // Determine which counters to update based on order lifecycle stage
+            const isStockedOut = parsedStockOut === 'FULLY_STOCKED_OUT'
+            const isDelivered = parsedStatus === 'COMPLETED' || parsedStatus === 'DELIVERED'
+            const isShipping = isStockedOut && !isDelivered // Đã xuất kho nhưng chưa giao xong
+            const isPending = !isStockedOut && parsedStatus !== 'CANCELLED'
+
             for (const item of lineItemsData) {
               if (!item.productId || item.quantity <= 0) continue
 
-              // Deduct ProductInventory
-              const updatedInventory = await tx.productInventory.upsert({
-                where: {
-                  productId_branchId: {
+              if (isStockedOut) {
+                // Đã xuất kho: onHand--, inDelivery++ (nếu đang giao)
+                const updatedInventory = await tx.productInventory.upsert({
+                  where: {
+                    productId_branchId: {
+                      productId: item.productId,
+                      branchId: branch.systemId,
+                    },
+                  },
+                  update: {
+                    onHand: { decrement: item.quantity },
+                    ...(isShipping ? { inDelivery: { increment: item.quantity } } : {}),
+                    updatedAt: new Date(),
+                  },
+                  create: {
                     productId: item.productId,
                     branchId: branch.systemId,
+                    onHand: -item.quantity,
+                    committed: 0,
+                    inTransit: 0,
+                    inDelivery: isShipping ? item.quantity : 0,
                   },
-                },
-                update: {
-                  onHand: { decrement: item.quantity },
-                  updatedAt: new Date(),
-                },
-                create: {
-                  productId: item.productId,
-                  branchId: branch.systemId,
-                  onHand: -item.quantity,
-                  committed: 0,
-                  inTransit: 0,
-                  inDelivery: 0,
-                },
-              })
+                })
 
-              // Create StockHistory
-              await tx.stockHistory.create({
-                data: {
-                  productId: item.productId,
-                  branchId: branch.systemId,
-                  action: 'Xuất kho bán hàng',
-                  source: 'Đơn hàng (Sapo import)',
-                  quantityChange: -item.quantity,
-                  newStockLevel: updatedInventory.onHand,
-                  documentId: finalBusinessId,
-                  documentType: 'sales_order',
-                  employeeName: orderInput.salespersonName || orderInput.salesperson || createdBy,
-                  note: `Xuất kho bán hàng - ${finalBusinessId}`,
-                  createdAt: stockOutDate,
-                },
-              })
+                // Update totalSold on Product if delivered/completed
+                if (isDelivered) {
+                  await tx.product.update({
+                    where: { systemId: item.productId },
+                    data: { totalSold: { increment: item.quantity } },
+                  }).catch(() => {}) // product may not exist yet for auto-created
+                }
+
+                // Create StockHistory
+                await tx.stockHistory.create({
+                  data: {
+                    productId: item.productId,
+                    branchId: branch.systemId,
+                    action: 'Xuất kho bán hàng',
+                    source: 'Đơn hàng (Sapo import)',
+                    quantityChange: -item.quantity,
+                    newStockLevel: updatedInventory.onHand,
+                    documentId: finalBusinessId,
+                    documentType: 'sales_order',
+                    employeeName: orderInput.salespersonName || orderInput.salesperson || createdBy,
+                    note: `Xuất kho bán hàng - ${finalBusinessId}`,
+                    createdAt: stockOutDate,
+                  },
+                })
+              } else if (isPending) {
+                // Chưa xuất kho, đơn đang chờ → committed++ (chờ xuất kho)
+                await tx.productInventory.upsert({
+                  where: {
+                    productId_branchId: {
+                      productId: item.productId,
+                      branchId: branch.systemId,
+                    },
+                  },
+                  update: {
+                    committed: { increment: item.quantity },
+                    updatedAt: new Date(),
+                  },
+                  create: {
+                    productId: item.productId,
+                    branchId: branch.systemId,
+                    onHand: 0,
+                    committed: item.quantity,
+                    inTransit: 0,
+                    inDelivery: 0,
+                  },
+                })
+              }
             }
           }
 

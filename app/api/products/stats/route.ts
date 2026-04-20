@@ -79,8 +79,14 @@ export const GET = apiHandler(async () => {
         _sum: { totalReturnValue: true },
         where: { status: 'COMPLETED' },
       }).then(r => Number(r._sum.totalReturnValue ?? 0)),
-      // PKGX linked products count
-      prisma.product.count({ where: { isDeleted: false, pkgxId: { not: null } } }),
+      // PKGX linked products count by DISTINCT pkgxId (not product rows)
+      // to avoid over-counting when multiple HRM products share one pkgxId.
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(DISTINCT "pkgxId")::bigint as count
+        FROM products
+        WHERE "isDeleted" = false
+          AND "pkgxId" IS NOT NULL
+      `.then(r => Number(r[0]?.count ?? 0)),
     ])
 
     return apiSuccess({

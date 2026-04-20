@@ -106,16 +106,16 @@ function buildPushPayload(
       return product.prices.find((p) => p.pricingPolicyId === policyId)?.price
     }
     const shopPrice = findPrice(pm.shopPrice)
-    const marketPrice = findPrice(pm.marketPrice)
     const partnerPrice = findPrice(pm.partnerPrice)
-    const acePrice = findPrice(pm.acePrice)
-    const dealPrice = findPrice(pm.dealPrice)
+    const price5Vat = findPrice(pm.price5Vat)
+    const price12Novat = findPrice(pm.price12Novat)
+    const price5Novat = findPrice(pm.price5Novat)
 
     if (shopPrice !== undefined) payload.shop_price = shopPrice
-    if (marketPrice !== undefined) payload.market_price = marketPrice
     if (partnerPrice !== undefined) payload.partner_price = partnerPrice
-    if (acePrice !== undefined) payload.ace_price = acePrice
-    if (dealPrice !== undefined) payload.deal_price = dealPrice
+    if (price5Vat !== undefined) payload.price_5vat = price5Vat
+    if (price12Novat !== undefined) payload.price_12novat = price12Novat
+    if (price5Novat !== undefined) payload.price_5novat = price5Novat
   }
 
   if (options.syncSeo) {

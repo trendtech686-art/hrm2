@@ -345,6 +345,16 @@ export async function GET(request: Request) {
       prisma.order.count({ where }),
     ])
 
+    // ✅ Resolve createdBy IDs to employee names
+    const creatorIds = [...new Set(orders.map(o => o.createdBy).filter(Boolean))] as string[]
+    const creators = creatorIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: creatorIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : []
+    const creatorNameMap = new Map(creators.map(e => [e.systemId, e.fullName]))
+
     // ✅ Transform using shared status label utilities
     const transformedOrders = orders.map(order => ({
       ...order,
@@ -361,7 +371,7 @@ export async function GET(request: Request) {
       customerId: order.customer?.id || undefined,
       customerSystemId: order.customer?.systemId || undefined, // ✅ Add customerSystemId from relation
       branchSystemId: order.branchId, // ✅ Add branchSystemId for frontend (order.branchId IS the branch systemId)
-      createdByName: order.salespersonName || undefined,
+      createdByName: order.createdBy ? (creatorNameMap.get(order.createdBy) || order.salespersonName || undefined) : (order.salespersonName || undefined),
       // ✅ Add assignedPackerName from packagings
       assignedPackerName: order.packagings?.find(p => p.assignedEmployeeName)?.assignedEmployeeName || undefined,
       // ✅ Transform dates to ISO strings

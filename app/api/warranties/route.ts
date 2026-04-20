@@ -102,7 +102,16 @@ export async function GET(request: Request) {
       prisma.warranty.count({ where }),
     ])
 
-    return apiPaginated(warranties, { page, limit, total })
+    // Serialize Decimal fields to numbers
+    const serialized = warranties.map(w => ({
+      ...w,
+      shippingFee: w.shippingFee != null ? Number(w.shippingFee) : 0,
+      partsCost: w.partsCost != null ? Number(w.partsCost) : 0,
+      laborCost: w.laborCost != null ? Number(w.laborCost) : 0,
+      totalCost: w.totalCost != null ? Number(w.totalCost) : 0,
+    }))
+
+    return apiPaginated(serialized, { page, limit, total })
   } catch (error) {
     logError('Error fetching warranties', error)
     return apiError('Không thể tải danh sách bảo hành', 500)

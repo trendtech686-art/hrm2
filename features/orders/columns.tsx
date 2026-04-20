@@ -401,13 +401,6 @@ export const getColumns = (
     meta: { displayName: 'SĐT khách', group: "Thông tin khách hàng" }
   },
   {
-    id: 'customerEmail',
-    accessorKey: 'customerEmail',
-    header: 'Email khách',
-    cell: ({ row }) => row.customerEmail || '-',
-    meta: { displayName: 'Email khách', group: "Thông tin khách hàng" }
-  },
-  {
     id: 'customerId',
     accessorKey: 'customerId',
     header: 'Mã khách hàng',

@@ -525,6 +525,11 @@ function create_product($data)
         $ace_price = isset($data['ace_price']) ? floatval($data['ace_price']) : 0;
         $deal_price = isset($data['deal_price']) ? floatval($data['deal_price']) : 0;
         
+        $price_5vat = isset($data['price_5vat']) ? floatval($data['price_5vat']) : 0;
+        $price_12novat = isset($data['price_12novat']) ? floatval($data['price_12novat']) : 0;
+        $price_5novat = isset($data['price_5novat']) ? floatval($data['price_5novat']) : 0;
+        $vat = isset($data['vat']) ? trim($data['vat']) : '';
+        
         $goods_number = intval($data['goods_number']);
         $goods_desc = isset($data['goods_desc']) ? trim($data['goods_desc']) : '';
         $keywords = isset($data['keywords']) ? trim($data['keywords']) : '';
@@ -542,8 +547,8 @@ function create_product($data)
         
         // Insert product với đầy đủ fields
         $sql_pre_insert = "INSERT INTO " . $ecs->table('goods') . 
-            " (goods_name, cat_id, brand_id, shop_price, market_price, partner_price, ace_price, deal_price, goods_number, goods_desc, keywords, goods_brief, meta_title, meta_desc, goods_sn, is_on_sale, add_time, last_update, is_alone_sale, goods_type, is_shipping, seller_note, is_best, is_hot, is_new, is_home)" .
-            " VALUES ('" . addslashes($goods_name) . "', '" . $cat_id . "', '" . $brand_id . "', '" . $shop_price . "', '" . $market_price . "', '" . $partner_price . "', '" . $ace_price . "', '" . $deal_price . "', '" . $goods_number . "', '" . addslashes($goods_desc) . "', '" . addslashes($keywords) . "', '" . addslashes($goods_brief) . "', '" . addslashes($meta_title) . "', '" . addslashes($meta_desc) . "', '" . addslashes($goods_sn) . "', '" . $is_on_sale . "', '" . $add_time . "', '" . $last_update . "', '1', '0', '0', '" . addslashes($seller_note) . "', '" . $is_best . "', '" . $is_hot . "', '" . $is_new . "', '" . $is_home . "')";
+            " (goods_name, cat_id, brand_id, shop_price, market_price, partner_price, ace_price, deal_price, price_5vat, price_12novat, price_5novat, vat, goods_number, goods_desc, keywords, goods_brief, meta_title, meta_desc, goods_sn, is_on_sale, add_time, last_update, is_alone_sale, goods_type, is_shipping, seller_note, is_best, is_hot, is_new, is_home)" .
+            " VALUES ('" . addslashes($goods_name) . "', '" . $cat_id . "', '" . $brand_id . "', '" . $shop_price . "', '" . $market_price . "', '" . $partner_price . "', '" . $ace_price . "', '" . $deal_price . "', '" . $price_5vat . "', '" . $price_12novat . "', '" . $price_5novat . "', '" . addslashes($vat) . "', '" . $goods_number . "', '" . addslashes($goods_desc) . "', '" . addslashes($keywords) . "', '" . addslashes($goods_brief) . "', '" . addslashes($meta_title) . "', '" . addslashes($meta_desc) . "', '" . addslashes($goods_sn) . "', '" . $is_on_sale . "', '" . $add_time . "', '" . $last_update . "', '1', '0', '0', '" . addslashes($seller_note) . "', '" . $is_best . "', '" . $is_hot . "', '" . $is_new . "', '" . $is_home . "')";
         
         $db->query($sql_pre_insert);
         $goods_id = $db->insert_id();
@@ -703,7 +708,7 @@ function update_product($goods_id, $data)
         // Boolean keys - luôn chấp nhận (true/false)
         $boolean_keys = ['best', 'hot', 'new', 'ishome', 'is_on_sale', 'on_sale'];
         // Text keys - cho phép gửi giá trị rỗng để xóa nội dung
-        $text_keys = ['meta_desc', 'goods_desc', 'goods_brief', 'keywords', 'meta_title', 'seller_note'];
+        $text_keys = ['meta_desc', 'goods_desc', 'goods_brief', 'keywords', 'meta_title', 'seller_note', 'vat'];
         // Array keys - chấp nhận mảng (gallery images)
         $array_keys = ['gallery_images'];
         
@@ -777,6 +782,18 @@ function update_product($goods_id, $data)
         }
         if (isset($filtered_data['deal_price'])) {
             $update_fields[] = "deal_price = '" . floatval($filtered_data['deal_price']) . "'";
+        }
+        if (isset($filtered_data['price_5vat'])) {
+            $update_fields[] = "price_5vat = '" . floatval($filtered_data['price_5vat']) . "'";
+        }
+        if (isset($filtered_data['price_12novat'])) {
+            $update_fields[] = "price_12novat = '" . floatval($filtered_data['price_12novat']) . "'";
+        }
+        if (isset($filtered_data['price_5novat'])) {
+            $update_fields[] = "price_5novat = '" . floatval($filtered_data['price_5novat']) . "'";
+        }
+        if (isset($filtered_data['vat'])) {
+            $update_fields[] = "vat = '" . addslashes(trim($filtered_data['vat'])) . "'";
         }
         if (isset($filtered_data['goods_number'])) {
             $update_fields[] = "goods_number = '" . intval($filtered_data['goods_number']) . "'";

@@ -159,6 +159,10 @@ export async function GET(request: NextRequest) {
       requiresEvidence: task.requiresEvidence,
       estimatedHours: task.estimatedHours ? Number(task.estimatedHours) : null,
       actualHours: task.actualHours ? Number(task.actualHours) : null,
+      assignerName: task.assignerName || null,
+      totalTrackedSeconds: task.totalTrackedSeconds || 0,
+      timerRunning: task.timerRunning || false,
+      timerStartedAt: task.timerStartedAt?.toISOString() || null,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
     }));

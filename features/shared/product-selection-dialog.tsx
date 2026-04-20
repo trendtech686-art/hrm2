@@ -317,11 +317,11 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
                                                     <TooltipProvider delayDuration={0}>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <button type="button" className="inline-flex">
+                                                                <button type="button" className="inline-flex p-1 -m-1" onClick={(e) => e.stopPropagation()}>
                                                                     <Info className="h-3 w-3 text-muted-foreground hover:text-foreground cursor-help" />
                                                                 </button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent side="left" className="max-w-xs z-25">
+                                                            <TooltipContent side="left" className="max-w-xs">
                                                                 <div className="text-xs space-y-1">
                                                                     <p className="font-medium border-b pb-1 mb-1">Tồn kho theo chi nhánh:</p>
                                                                     {inventory.branchStocks.length > 0 ? (

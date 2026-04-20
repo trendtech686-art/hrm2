@@ -34,6 +34,7 @@ const productItemSchema = z.object({
   seoKeywords: z.string().optional(),
   ktitle: z.string().optional(),
   sellerNote: z.string().optional(),
+  nameVat: z.string().optional(),
   createdAt: z.string().optional(),
   seoPkgx: z.any().optional(),
   isPublished: z.boolean().optional(),
@@ -45,10 +46,10 @@ const productItemSchema = z.object({
   publishedAt: z.string().optional(),
   pkgxPrices: z.object({
     shop_price: z.number().optional(),
-    market_price: z.number().optional(),
     partner_price: z.number().optional(),
-    ace_price: z.number().optional(),
-    deal_price: z.number().optional(),
+    price_5vat: z.number().optional(),
+    price_12novat: z.number().optional(),
+    price_5novat: z.number().optional(),
   }).optional(),
 })
 
@@ -181,9 +182,12 @@ export const POST = apiHandler(async (request, { session }) => {
         ...(brandIdToUse ? { brand: { connect: { systemId: brandIdToUse } } } : {}),
         categorySystemIds: categoryIdsToUse,
         unit: item.unit || 'Cái',
-        costPrice: item.costPrice || 0,
-        lastPurchasePrice: item.lastPurchasePrice ?? 0,
-        lastPurchaseDate: item.lastPurchaseDate ? new Date(item.lastPurchaseDate) : new Date(),
+        // Giữ nguyên giá nhập/giá vốn khi update (chỉ set khi create)
+        ...(existing ? {} : {
+          costPrice: item.costPrice || 0,
+          lastPurchasePrice: item.lastPurchasePrice ?? 0,
+          lastPurchaseDate: item.lastPurchaseDate ? new Date(item.lastPurchaseDate) : new Date(),
+        }),
         reorderLevel: item.reorderLevel || 0,
         // Apply logistics defaults from settings
         weight: item.weight ?? preset?.weight ?? undefined,
@@ -198,6 +202,7 @@ export const POST = apiHandler(async (request, { session }) => {
         seoDescription: item.seoDescription,
         seoKeywords: item.seoKeywords,
         sellerNote: item.sellerNote,
+        nameVat: item.nameVat,
         productTypeSystemId: productTypeSystemId || undefined,
         launchedDate: item.launchedDate ? new Date(item.launchedDate) : undefined,
         publishedAt: item.publishedAt ? new Date(item.publishedAt) : undefined,
@@ -248,18 +253,16 @@ export const POST = apiHandler(async (request, { session }) => {
             })
           })
         } catch (createError) {
-          // P2002 on `id` field - retry with unique timestamp suffix
+          // P2002 on `id` field - retry with fresh generated ID (no custom ID)
           if (createError instanceof Prisma.PrismaClientKnownRequestError && createError.code === 'P2002') {
             product = await prisma.$transaction(async (tx) => {
               const { systemId, businessId } = await generateNextIdsWithTx(tx, 'products')
-              // Append random suffix to ensure uniqueness
-              const uniqueId = `${businessId}-${Date.now().toString(36)}`
-              usedBusinessIds.add(uniqueId)
+              usedBusinessIds.add(businessId)
               return tx.product.create({
                 data: {
                   systemId,
                   ...productData,
-                  id: uniqueId,
+                  id: businessId,
                 } as unknown as Prisma.ProductCreateInput,
                 select: { systemId: true, id: true, name: true },
               })

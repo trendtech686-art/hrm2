@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+﻿import { prisma } from '@/lib/prisma'
 import { getMeiliClient, INDEXES, configureIndexes } from './meilisearch'
 import type { MeiliProduct, MeiliCustomer, MeiliOrder, MeiliEmployee, MeiliPkgxProduct } from './meilisearch'
 
@@ -16,9 +16,8 @@ export async function syncProducts(_options: { fullSync?: boolean } = {}) {
   const index = client.index<MeiliProduct>(INDEXES.PRODUCTS)
   
   // Clear stale documents before full sync
-  await index.deleteAllDocuments()
-  // Wait for delete to complete before re-indexing
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
   
   // Get total count
   const _total = await prisma.product.count({ where: { isDeleted: false } })
@@ -110,9 +109,8 @@ export async function syncCustomers() {
   const index = client.index<MeiliCustomer>(INDEXES.CUSTOMERS)
   
   // Clear stale documents before full sync
-  await index.deleteAllDocuments()
-  // Wait for delete to complete before re-indexing
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
   
   const _total = await prisma.customer.count({ where: { isDeleted: false } })
   
@@ -170,6 +168,9 @@ export async function syncOrders() {
   const client = getMeiliClient()
   const index = client.index<MeiliOrder>(INDEXES.ORDERS)
   
+  // Clear stale documents before full sync
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
   
   // Order doesn't have isDeleted field
   const _total = await prisma.order.count()
@@ -222,6 +223,9 @@ export async function syncEmployees() {
   const client = getMeiliClient()
   const index = client.index<MeiliEmployee>(INDEXES.EMPLOYEES)
   
+  // Clear stale documents before full sync
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
   
   const _total = await prisma.employee.count({ where: { isDeleted: false } })
   
@@ -274,8 +278,8 @@ export async function syncPkgxProducts() {
   const client = getMeiliClient()
   const index = client.index<MeiliPkgxProduct>(INDEXES.PKGX_PRODUCTS)
   
-  await index.deleteAllDocuments()
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
   
   let synced = 0
   let cursor: number | undefined
@@ -553,3 +557,4 @@ export async function deleteFromIndex(indexName: string, documentId: string) {
   const index = client.index(indexName)
   await index.deleteDocument(documentId)
 }
+

@@ -29,7 +29,7 @@ export function getPkgxBrandId(settings: PkgxSettings, hrmBrandId: SystemId | un
 export function getPriceByMapping(
   settings: PkgxSettings,
   product: Product,
-  priceField: 'shopPrice' | 'marketPrice' | 'partnerPrice' | 'acePrice' | 'dealPrice'
+  priceField: 'shopPrice' | 'partnerPrice' | 'price5Vat' | 'price12Novat' | 'price5Novat'
 ): number | undefined {
   const policyId = settings.priceMapping[priceField];
   
@@ -60,6 +60,7 @@ export function mapHrmToPkgxPayload(settings: PkgxSettings, product: Product): P
     goods_sn: product.id,
     goods_number: getTotalInventory(product),
     seller_note: product.sellerNote || '',
+    vat: product.nameVat || '',
   };
 
   // Map category
@@ -74,17 +75,17 @@ export function mapHrmToPkgxPayload(settings: PkgxSettings, product: Product): P
   const shopPrice = getPriceByMapping(settings, product, 'shopPrice');
   if (shopPrice !== undefined) payload.shop_price = shopPrice;
 
-  const marketPrice = getPriceByMapping(settings, product, 'marketPrice');
-  if (marketPrice !== undefined) payload.market_price = marketPrice;
-
   const partnerPrice = getPriceByMapping(settings, product, 'partnerPrice');
   if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
 
-  const acePrice = getPriceByMapping(settings, product, 'acePrice');
-  if (acePrice !== undefined) payload.ace_price = acePrice;
+  const price5Vat = getPriceByMapping(settings, product, 'price5Vat');
+  if (price5Vat !== undefined) payload.price_5vat = price5Vat;
 
-  const dealPrice = getPriceByMapping(settings, product, 'dealPrice');
-  if (dealPrice !== undefined) payload.deal_price = dealPrice;
+  const price12Novat = getPriceByMapping(settings, product, 'price12Novat');
+  if (price12Novat !== undefined) payload.price_12novat = price12Novat;
+
+  const price5Novat = getPriceByMapping(settings, product, 'price5Novat');
+  if (price5Novat !== undefined) payload.price_5novat = price5Novat;
 
   // Map mô tả (giống handlePkgxSyncDescription)
   payload.goods_desc = pkgxSeo?.longDescription || product.description || '';
@@ -97,15 +98,15 @@ export function mapHrmToPkgxPayload(settings: PkgxSettings, product: Product): P
 
   // Map flags - đúng theo các trường của HRM
   // HRM isPublished (Đăng web) -> PKGX is_on_sale
-  // HRM isFeatured (Nổi bật) -> PKGX is_best
-  // HRM isBestSeller (Bán chạy) -> PKGX is_hot
-  // HRM isNewArrival (Mới về) -> PKGX is_new
-  // HRM isFeatured (Nổi bật) -> PKGX is_home (hiển trang chủ)
+  // HRM isFeatured (Nổi bật) -> PKGX best
+  // HRM isBestSeller (Bán chạy) -> PKGX hot
+  // HRM isNewArrival (Mới về) -> PKGX new
+  // HRM isFeatured (Nổi bật) -> PKGX ishome (hiển trang chủ)
   // HRM isOnSale (Đang giảm giá) -> ko có trường tương ứng trong PKGX API
-  payload.is_best = product.isFeatured ? 1 : 0;
-  payload.is_hot = product.isBestSeller ? 1 : 0;
-  payload.is_new = product.isNewArrival ? 1 : 0;
-  payload.is_home = product.isFeatured ? 1 : 0;
+  payload.best = product.isFeatured ? 1 : 0;
+  payload.hot = product.isBestSeller ? 1 : 0;
+  payload.new = product.isNewArrival ? 1 : 0;
+  payload.ishome = product.isFeatured ? 1 : 0;
   payload.is_on_sale = (product.isPublished ?? (product.status === 'active')) ? 1 : 0;
   
   // Map images
@@ -143,17 +144,17 @@ export function createPriceUpdatePayload(settings: PkgxSettings, product: Produc
   const shopPrice = getPriceByMapping(settings, product, 'shopPrice');
   if (shopPrice !== undefined) payload.shop_price = shopPrice;
 
-  const marketPrice = getPriceByMapping(settings, product, 'marketPrice');
-  if (marketPrice !== undefined) payload.market_price = marketPrice;
-
   const partnerPrice = getPriceByMapping(settings, product, 'partnerPrice');
   if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
 
-  const acePrice = getPriceByMapping(settings, product, 'acePrice');
-  if (acePrice !== undefined) payload.ace_price = acePrice;
+  const price5Vat = getPriceByMapping(settings, product, 'price5Vat');
+  if (price5Vat !== undefined) payload.price_5vat = price5Vat;
 
-  const dealPrice = getPriceByMapping(settings, product, 'dealPrice');
-  if (dealPrice !== undefined) payload.deal_price = dealPrice;
+  const price12Novat = getPriceByMapping(settings, product, 'price12Novat');
+  if (price12Novat !== undefined) payload.price_12novat = price12Novat;
+
+  const price5Novat = getPriceByMapping(settings, product, 'price5Novat');
+  if (price5Novat !== undefined) payload.price_5novat = price5Novat;
 
   return payload;
 }
@@ -193,20 +194,20 @@ export function createDescriptionUpdatePayload(product: Product): Partial<PkgxPr
 }
 
 /**
- * Tạo payload chỉ chứa flags (is_best, is_hot, is_new, is_home, is_on_sale) để update
+ * Tạo payload chỉ chứa flags (best, hot, new, ishome, is_on_sale) để update
  * Mapping:
  * - HRM isPublished (Đăng web) -> PKGX is_on_sale
- * - HRM isFeatured (Nổi bật) -> PKGX is_best
- * - HRM isBestSeller (Bán chạy) -> PKGX is_hot  
- * - HRM isNewArrival (Mới về) -> PKGX is_new
- * - HRM isFeatured (Nổi bật) -> PKGX is_home (hiển trang chủ)
+ * - HRM isFeatured (Nổi bật) -> PKGX best
+ * - HRM isBestSeller (Bán chạy) -> PKGX hot  
+ * - HRM isNewArrival (Mới về) -> PKGX new
+ * - HRM isFeatured (Nổi bật) -> PKGX ishome (hiển trang chủ)
  */
 export function createFlagsUpdatePayload(product: Product): Partial<PkgxProductPayload> {
   return {
-    is_best: product.isFeatured ? 1 : 0,
-    is_hot: product.isBestSeller ? 1 : 0,
-    is_new: product.isNewArrival ? 1 : 0,
-    is_home: product.isFeatured ? 1 : 0,
+    best: product.isFeatured ? 1 : 0,
+    hot: product.isBestSeller ? 1 : 0,
+    new: product.isNewArrival ? 1 : 0,
+    ishome: product.isFeatured ? 1 : 0,
     is_on_sale: (product.isPublished ?? (product.status === 'active')) ? 1 : 0,
   };
 }

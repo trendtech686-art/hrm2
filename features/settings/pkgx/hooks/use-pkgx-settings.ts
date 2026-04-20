@@ -75,10 +75,10 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
   
   const priceTypeToField: Record<string, string> = {
     'shop_price': 'shopPrice',
-    'market_price': 'marketPrice',
     'partner_price': 'partnerPrice',
-    'ace_price': 'acePrice',
-    'deal_price': 'dealPrice',
+    'price_5vat': 'price5Vat',
+    'price_12novat': 'price12Novat',
+    'price_5novat': 'price5Novat',
   };
   const priceMapping: Record<string, string | null> = {};
   for (const m of (rawPriceMappings || [])) {
@@ -174,10 +174,10 @@ async function fetchPkgxSettings(productsLimit = 100): Promise<PkgxSettings> {
   // Convert array to object format for UI: { shopPrice: 'POLICY_ID', ... }
   const priceTypeToField: Record<string, string> = {
     'shop_price': 'shopPrice',
-    'market_price': 'marketPrice',
     'partner_price': 'partnerPrice',
-    'ace_price': 'acePrice',
-    'deal_price': 'dealPrice',
+    'price_5vat': 'price5Vat',
+    'price_12novat': 'price12Novat',
+    'price_5novat': 'price5Novat',
   };
   const priceMapping: Record<string, string | null> = {};
   for (const m of priceMappingsArray) {
@@ -200,6 +200,9 @@ async function fetchPkgxSettings(productsLimit = 100): Promise<PkgxSettings> {
     partner_price: p.partnerPrice as string,
     ace_price: p.acePrice as string,
     deal_price: p.dealPrice as string,
+    price_5vat: p.price5Vat as string,
+    price_12novat: p.price12Novat as string,
+    price_5novat: p.price5Novat as string,
     goods_number2: p.goodsNumber2 as string,
     goods_weight: p.goodsWeight as string,
     goods_quantity: p.goodsQuantity as number,
@@ -216,6 +219,7 @@ async function fetchPkgxSettings(productsLimit = 100): Promise<PkgxSettings> {
     is_real: p.isReal as number,
     keywords: p.keywords as string,
     ktitle: p.ktitle as string,
+    meta_title: p.ktitle as string,
     goods_alias: p.goodsAlias as string,
     last_update: p.lastUpdate as number,
   }));
@@ -441,11 +445,11 @@ export function usePkgxConfigMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Integration status updated');
+      toast.success('Đã cập nhật trạng thái tích hợp');
       options?.onSuccess?.();
     },
     onError: (error: Error) => {
-      toast.error(`Failed to update status: ${error.message}`);
+      toast.error(`Cập nhật trạng thái thất bại: ${error.message}`);
     },
   });
 
@@ -499,7 +503,7 @@ export function usePkgxCategoryMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Category added');
+      toast.success('Đã thêm danh mục');
       options?.onSuccess?.();
     },
   });
@@ -514,7 +518,7 @@ export function usePkgxCategoryMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Category updated');
+      toast.success('Đã cập nhật danh mục');
       options?.onSuccess?.();
     },
   });
@@ -527,7 +531,7 @@ export function usePkgxCategoryMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Category deleted');
+      toast.success('Đã xóa danh mục');
       options?.onSuccess?.();
     },
   });
@@ -556,7 +560,7 @@ export function usePkgxBrandMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Brand added');
+      toast.success('Đã thêm thương hiệu');
       options?.onSuccess?.();
     },
   });
@@ -571,7 +575,7 @@ export function usePkgxBrandMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Brand updated');
+      toast.success('Đã cập nhật thương hiệu');
       options?.onSuccess?.();
     },
   });
@@ -584,7 +588,7 @@ export function usePkgxBrandMutations(options?: { onSuccess?: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Brand deleted');
+      toast.success('Đã xóa thương hiệu');
       options?.onSuccess?.();
     },
   });
@@ -603,7 +607,7 @@ export function usePkgxPriceMappingMutations(options?: { onSuccess?: () => void 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Price mapping updated');
+      toast.success('Đã cập nhật mapping giá');
       options?.onSuccess?.();
     },
   });
@@ -622,7 +626,7 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Mapping added');
+      toast.success('Đã thêm mapping danh mục');
       options?.onSuccess?.();
     },
   });
@@ -637,7 +641,7 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Mapping updated');
+      toast.success('Đã cập nhật mapping danh mục');
       options?.onSuccess?.();
     },
   });
@@ -650,7 +654,7 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Mapping deleted');
+      toast.success('Đã xóa mapping danh mục');
       options?.onSuccess?.();
     },
   });
@@ -669,7 +673,7 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Mapping added');
+      toast.success('Đã thêm mapping thương hiệu');
       options?.onSuccess?.();
     },
   });
@@ -684,7 +688,7 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Mapping updated');
+      toast.success('Đã cập nhật mapping thương hiệu');
       options?.onSuccess?.();
     },
   });
@@ -697,7 +701,7 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Mapping deleted');
+      toast.success('Đã xóa mapping thương hiệu');
       options?.onSuccess?.();
     },
   });
@@ -793,6 +797,7 @@ export function usePkgxProductsMutations() {
         keywords: p.keywords,
         ktitle: p.ktitle,
         goodsAlias: p.goods_alias,
+        vat: p.vat,
         lastUpdate: p.last_update,
       }));
       
@@ -874,6 +879,9 @@ export function usePkgxProductsPaginated(options: {
         partner_price: p.partnerPrice as string,
         ace_price: p.acePrice as string,
         deal_price: p.dealPrice as string,
+        price_5vat: p.price5Vat as string,
+        price_12novat: p.price12Novat as string,
+        price_5novat: p.price5Novat as string,
         goods_number2: p.goodsNumber2 as string,
         goods_weight: p.goodsWeight as string,
         goods_quantity: p.goodsQuantity as number,
@@ -890,7 +898,9 @@ export function usePkgxProductsPaginated(options: {
         is_real: p.isReal as number,
         keywords: p.keywords as string,
         ktitle: p.ktitle as string,
+        meta_title: p.ktitle as string,
         goods_alias: p.goodsAlias as string,
+        vat: p.vat as string,
         add_time: ((p.addTime as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
         last_update: ((p.lastUpdate as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
         synced_at: p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0,
@@ -932,6 +942,9 @@ export async function fetchAllPkgxProductsCache() {
     partner_price: p.partnerPrice as string,
     ace_price: p.acePrice as string,
     deal_price: p.dealPrice as string,
+    price_5vat: p.price5Vat as string,
+    price_12novat: p.price12Novat as string,
+    price_5novat: p.price5Novat as string,
     goods_number2: p.goodsNumber2 as string,
     goods_weight: p.goodsWeight as string,
     goods_quantity: p.goodsQuantity as number,
@@ -948,7 +961,9 @@ export async function fetchAllPkgxProductsCache() {
     is_real: p.isReal as number,
     keywords: p.keywords as string,
     ktitle: p.ktitle as string,
+    meta_title: p.ktitle as string,
     goods_alias: p.goodsAlias as string,
+    vat: p.vat as string,
     add_time: ((p.addTime as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
     last_update: ((p.lastUpdate as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
     synced_at: p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0,

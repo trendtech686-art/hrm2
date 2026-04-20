@@ -228,8 +228,9 @@ function BasicInfoTab({ product, router, onCloseDialog }: BasicInfoTabProps) {
                 <ArrowRight className="h-3 w-3 text-green-600 shrink-0 ml-auto" />
               </div>
               <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                <span>SKU: {product.linkedHrmProduct.sku || '-'}</span>
-                <span>Tồn: {product.linkedHrmProduct.quantity || 0}</span>
+                <span>SKU PKGX: {product.goods_sn || '-'}</span>
+                <span>Tồn PKGX: {product.goods_number || 0}</span>
+                <span>SKU HRM: {product.linkedHrmProduct.sku || '-'}</span>
               </div>
             </button>
           ) : (
@@ -276,6 +277,11 @@ function BasicInfoTab({ product, router, onCloseDialog }: BasicInfoTabProps) {
           </div>
         </div>
       </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Tên hàng hóa VAT</Label>
+        <div className="p-2 border rounded text-sm">{product.vat || '-'}</div>
+      </div>
       
       {/* Seller note */}
       {product.seller_note && (
@@ -304,20 +310,20 @@ function PriceInventoryTab({ product }: PriceInventoryTabProps) {
             <div className="font-bold text-green-600">{Number(product.shop_price || 0).toLocaleString('vi-VN')}đ</div>
           </div>
           <div className="p-3 border rounded text-center">
-            <div className="text-xs text-muted-foreground">Thị trường</div>
-            <div>{Number(product.market_price || 0).toLocaleString('vi-VN')}đ</div>
-          </div>
-          <div className="p-3 border rounded text-center">
             <div className="text-xs text-muted-foreground">Đối tác</div>
             <div>{Number(product.partner_price || 0).toLocaleString('vi-VN')}đ</div>
           </div>
           <div className="p-3 border rounded text-center">
-            <div className="text-xs text-muted-foreground">ACE</div>
-            <div>{Number(product.ace_price || 0).toLocaleString('vi-VN')}đ</div>
+            <div className="text-xs text-muted-foreground">5% VAT</div>
+            <div>{Number(product.price_5vat || 0).toLocaleString('vi-VN')}đ</div>
           </div>
           <div className="p-3 border rounded text-center">
-            <div className="text-xs text-muted-foreground">Deal</div>
-            <div>{Number(product.deal_price || 0).toLocaleString('vi-VN')}đ</div>
+            <div className="text-xs text-muted-foreground">12% Ko VAT</div>
+            <div>{Number(product.price_12novat || 0).toLocaleString('vi-VN')}đ</div>
+          </div>
+          <div className="p-3 border rounded text-center">
+            <div className="text-xs text-muted-foreground">5% Ko VAT</div>
+            <div>{Number(product.price_5novat || 0).toLocaleString('vi-VN')}đ</div>
           </div>
         </div>
       </div>
@@ -339,6 +345,22 @@ interface SeoContentTabProps {
 }
 
 function SeoContentTab({ product }: SeoContentTabProps) {
+  const hrmSeoTitle = product.linkedHrmProduct?.ktitle;
+  const hrmSeoKeywords = product.linkedHrmProduct?.seoKeywords;
+  const hrmSeoDescription = product.linkedHrmProduct?.seoDescription;
+  const hrmShortDescription = product.linkedHrmProduct?.shortDescription;
+
+  const normalized = (value?: string | null) => {
+    if (!value) return undefined;
+    const trimmed = value.trim();
+    return trimmed && trimmed !== '-' ? trimmed : undefined;
+  };
+
+  const metaTitle = normalized(product.meta_title) || normalized(product.ktitle) || normalized(hrmSeoTitle) || '-';
+  const keywords = normalized(product.keywords) || normalized(hrmSeoKeywords) || '-';
+  const metaDescription = normalized(product.meta_desc) || normalized(product.goods_brief) || normalized(hrmSeoDescription) || '-';
+  const shortDescription = normalized(product.goods_brief) || normalized(hrmShortDescription) || '-';
+
   return (
     <div className="space-y-4">
       {/* SEO Fields */}
@@ -347,15 +369,15 @@ function SeoContentTab({ product }: SeoContentTabProps) {
         <div className="space-y-2">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Meta Title</Label>
-            <div className="p-2 border rounded text-sm">{product.meta_title || '-'}</div>
+            <div className="p-2 border rounded text-sm">{metaTitle}</div>
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Keywords</Label>
-            <div className="p-2 border rounded text-sm">{product.keywords || '-'}</div>
+            <div className="p-2 border rounded text-sm">{keywords}</div>
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Meta Description</Label>
-            <div className="p-2 border rounded text-sm max-h-20 overflow-y-auto">{product.meta_desc || '-'}</div>
+            <div className="p-2 border rounded text-sm max-h-20 overflow-y-auto">{metaDescription}</div>
           </div>
         </div>
       </div>
@@ -364,7 +386,7 @@ function SeoContentTab({ product }: SeoContentTabProps) {
       <div className="space-y-1">
         <Label className="text-sm font-medium">Mô tả ngắn</Label>
         <div className="p-2 border rounded text-sm max-h-24 overflow-y-auto">
-          {product.goods_brief || '-'}
+          {shortDescription}
         </div>
       </div>
       

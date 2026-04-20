@@ -225,19 +225,60 @@ export const POST = apiHandler(async (request, { session }) => {
             results.skipped++
             continue
           }
-          // For upsert/update: update basic fields only
-          await prisma.purchaseOrder.update({
-            where: { systemId: existingPO.systemId },
-            data: {
-              status: mapStatusToPrismaEnum(poInput.status),
-              deliveryStatus: poInput.deliveryStatus,
-              paymentStatus: poInput.paymentStatus,
-              paid: poInput.paid,
-              debt: poInput.debt,
-              notes: poInput.notes,
-              updatedAt: new Date(),
-            },
-          })
+          // For upsert/update: update basic fields + price if received
+          await prisma.$transaction(async (tx) => {
+            await tx.purchaseOrder.update({
+              where: { systemId: existingPO.systemId },
+              data: {
+                status: mapStatusToPrismaEnum(poInput.status),
+                deliveryStatus: poInput.deliveryStatus,
+                paymentStatus: poInput.paymentStatus,
+                paid: poInput.paid,
+                debt: poInput.debt,
+                notes: poInput.notes,
+                updatedAt: new Date(),
+              },
+            })
+
+            // ─── Update product prices when goods have been received ───
+            const deliveryStr = poInput.deliveryStatus || ''
+            const statusStr = poInput.status || ''
+            const hasReceived =
+              deliveryStr.includes('Đã nhập') ||
+              deliveryStr.includes('Nhập một phần') ||
+              ['Hoàn thành', 'Kết thúc'].includes(statusStr) ||
+              poInput.lineItems.some(li => (li.receivedQty || 0) > 0)
+
+            if (hasReceived && poInput.lineItems.length > 0) {
+              // Fetch existing PO items to get product links
+              const existingItems = await tx.purchaseOrderItem.findMany({
+                where: { purchaseOrderId: existingPO.systemId },
+                select: { productId: true, unitPrice: true, quantity: true, receivedQty: true },
+              })
+
+              // Calculate fee allocation
+              const totalQty = existingItems.reduce((sum, li) => sum + (Number(li.quantity) || 0), 0)
+              const totalFees = (poInput.shippingFee || 0) + (poInput.tax || 0)
+              const feePerUnit = totalQty > 0 ? totalFees / totalQty : 0
+              const receiptDate = poInput.receivedDate ? new Date(poInput.receivedDate) : new Date()
+
+              for (const item of existingItems) {
+                const unitPrice = Number(item.unitPrice) || 0
+                if (!item.productId || unitPrice <= 0) continue
+
+                const costPrice = Math.round(unitPrice + feePerUnit)
+                await tx.product.update({
+                  where: { systemId: item.productId },
+                  data: {
+                    lastPurchasePrice: unitPrice,
+                    lastPurchaseDate: receiptDate,
+                    costPrice,
+                  },
+                })
+              }
+            }
+          }, { timeout: 15000 })
+
           results.updated++
           results.success++
           continue
@@ -534,7 +575,13 @@ export const POST = apiHandler(async (request, { session }) => {
           }
 
           // ─── INVENTORY UPDATE: when goods have been received ───
-          const isReceived = (poInput.deliveryStatus || '').includes('Đã nhập') || (poInput.deliveryStatus || '').includes('Nhập một phần')
+          const deliveryStr = poInput.deliveryStatus || ''
+          const statusStr = poInput.status || ''
+          const isReceived =
+            deliveryStr.includes('Đã nhập') ||
+            deliveryStr.includes('Nhập một phần') ||
+            ['Hoàn thành', 'Kết thúc'].includes(statusStr) ||
+            itemsData.some(li => li.receivedQty > 0)
           if (isReceived && branch && itemsData.length > 0) {
             // Calculate fee allocation per unit
             const totalQty = itemsData.reduce((sum, li) => sum + li.quantity, 0)

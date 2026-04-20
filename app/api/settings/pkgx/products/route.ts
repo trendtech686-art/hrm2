@@ -5,9 +5,14 @@ import { z } from 'zod'
 import { cache, CACHE_TTL } from '@/lib/cache'
 import { logError } from '@/lib/logger'
 
+// Allow longer execution for large batch syncs (2646+ products)
+export const maxDuration = 120
+
 // Schema for syncing products from PKGX
 // Use z.coerce to automatically convert string → number from PKGX API
 const syncProductsSchema = z.object({
+  // Optional: all PKGX product IDs to detect deleted products (sent in final batch)
+  allPkgxIds: z.array(z.coerce.number()).optional(),
   products: z.array(z.object({
     id: z.coerce.number(), // goods_id - may come as string from PKGX
     goodsSn: z.string().optional().nullable(), // SKU from PKGX (goods_sn)
@@ -22,6 +27,9 @@ const syncProductsSchema = z.object({
     partnerPrice: z.coerce.number().optional().nullable(),
     acePrice: z.coerce.number().optional().nullable(),
     dealPrice: z.coerce.number().optional().nullable(),
+    price5Vat: z.coerce.number().optional().nullable(),
+    price12Novat: z.coerce.number().optional().nullable(),
+    price5Novat: z.coerce.number().optional().nullable(),
     goodsNumber2: z.string().optional().nullable(),
     goodsWeight: z.coerce.number().optional().nullable(),
     goodsQuantity: z.coerce.number().optional().nullable(),
@@ -39,6 +47,7 @@ const syncProductsSchema = z.object({
     keywords: z.string().optional().nullable(),
     ktitle: z.string().optional().nullable(),
     goodsAlias: z.string().optional().nullable(),
+    vat: z.string().optional().nullable(), // Tên sản phẩm VAT
     addTime: z.coerce.number().optional().nullable(),
     lastUpdate: z.coerce.number().optional().nullable(),
     hrmProductId: z.string().optional().nullable(),
@@ -147,7 +156,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { products } = validation.data
+    const { products, allPkgxIds } = validation.data
 
     // Get existing products to preserve hrmProductId mappings
     const existingProducts = await prisma.pkgxProduct.findMany({
@@ -184,6 +193,9 @@ export async function POST(request: NextRequest) {
               partnerPrice: prod.partnerPrice,
               acePrice: prod.acePrice,
               dealPrice: prod.dealPrice,
+              price5Vat: prod.price5Vat,
+              price12Novat: prod.price12Novat,
+              price5Novat: prod.price5Novat,
               goodsNumber2: prod.goodsNumber2,
               goodsWeight: prod.goodsWeight,
               goodsQuantity: prod.goodsQuantity,
@@ -201,6 +213,7 @@ export async function POST(request: NextRequest) {
               keywords: prod.keywords,
               ktitle: prod.ktitle,
               goodsAlias: prod.goodsAlias,
+              vat: prod.vat,
               addTime: prod.addTime,
               lastUpdate: prod.lastUpdate,
               hrmProductId,
@@ -220,6 +233,9 @@ export async function POST(request: NextRequest) {
               partnerPrice: prod.partnerPrice,
               acePrice: prod.acePrice,
               dealPrice: prod.dealPrice,
+              price5Vat: prod.price5Vat,
+              price12Novat: prod.price12Novat,
+              price5Novat: prod.price5Novat,
               goodsNumber2: prod.goodsNumber2,
               goodsWeight: prod.goodsWeight,
               goodsQuantity: prod.goodsQuantity,
@@ -237,6 +253,7 @@ export async function POST(request: NextRequest) {
               keywords: prod.keywords,
               ktitle: prod.ktitle,
               goodsAlias: prod.goodsAlias,
+              vat: prod.vat,
               addTime: prod.addTime,
               lastUpdate: prod.lastUpdate,
               hrmProductId,
@@ -244,7 +261,63 @@ export async function POST(request: NextRequest) {
           })
         }
       }, { timeout: 60000 }) // 60 second timeout for batch operations
+
+      // Backfill VAT name for already-linked HRM products if the VAT field is empty.
+      // This keeps existing mappings up-to-date without forcing a full re-import.
+      const vatItems = batch
+        .map(prod => ({ pkgxId: prod.id, vat: (prod.vat || '').trim() }))
+        .filter(item => item.vat.length > 0)
+
+      for (const item of vatItems) {
+        await prisma.product.updateMany({
+          where: {
+            isDeleted: false,
+            pkgxId: item.pkgxId,
+            OR: [
+              { nameVat: null },
+              { nameVat: '' },
+            ],
+          },
+          data: { nameVat: item.vat },
+        })
+      }
+
       synced += batch.length
+    }
+
+    // Cleanup: remove PKGX products that no longer exist on PKGX
+    let deleted = 0
+    let unlinked = 0
+    if (allPkgxIds && allPkgxIds.length > 0) {
+      const validIds = new Set(allPkgxIds)
+      const orphanedProducts = existingProducts.filter(p => !validIds.has(p.id))
+      if (orphanedProducts.length > 0) {
+        const orphanedIds = orphanedProducts.map(p => p.id)
+        
+        // Clear pkgxId on HRM products linked to deleted PKGX products
+        const unlinkResult = await prisma.product.updateMany({
+          where: { pkgxId: { in: orphanedIds }, isDeleted: false },
+          data: { pkgxId: null },
+        })
+        unlinked = unlinkResult.count
+        
+        // Delete orphaned PKGX products from local DB
+        const result = await prisma.pkgxProduct.deleteMany({
+          where: { id: { in: orphanedIds } },
+        })
+        deleted = result.count
+      }
+
+      // Also cleanup any HRM products with pkgxId not in current PKGX catalog
+      // (handles cases where PKGX products were deleted before cleanup logic existed)
+      const staleUnlink = await prisma.product.updateMany({
+        where: {
+          pkgxId: { not: null, notIn: allPkgxIds },
+          isDeleted: false,
+        },
+        data: { pkgxId: null },
+      })
+      unlinked += staleUnlink.count
     }
 
     // Clear server-side cache so GET returns fresh data
@@ -252,8 +325,10 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({ 
       synced,
+      deleted,
+      unlinked,
       total: products.length,
-      message: `Synced ${synced} products to database`,
+      message: `Synced ${synced} products, removed ${deleted} deleted, unlinked ${unlinked} HRM products`,
     })
   } catch (error) {
     logError('[PKGX Products POST] Error syncing', error)

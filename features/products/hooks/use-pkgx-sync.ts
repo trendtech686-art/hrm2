@@ -5,7 +5,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Product } from '../types';
-import { updateProduct, updateMemberPrice, uploadImageSmart, processHtmlImagesForPkgx, createProduct as createPkgxProduct } from '@/lib/pkgx/api-service';
+import { updateProduct, uploadImageSmart, processHtmlImagesForPkgx, createProduct as createPkgxProduct } from '@/lib/pkgx/api-service';
 import { usePkgxMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { useImageStore } from '../image-store';
 import { fetchProduct, updateProduct as updateHrmProduct } from '../api/products-api';
@@ -109,16 +109,16 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
     const priceMapping = pkgxSettings?.priceMapping;
     if (!priceMapping) return undefined;
     
-    // priceMapping is PkgxPriceMapping { shopPrice, marketPrice, partnerPrice, acePrice, dealPrice }
+    // priceMapping is PkgxPriceMapping { shopPrice, partnerPrice, price5Vat, price12Novat, price5Novat }
     // Each field contains SystemId of HRM pricing policy
     let hrmPriceSystemId: string | null = null;
     
     switch (pkgxPriceField) {
       case 'shopPrice': hrmPriceSystemId = priceMapping.shopPrice; break;
-      case 'marketPrice': hrmPriceSystemId = priceMapping.marketPrice; break;
       case 'partnerPrice': hrmPriceSystemId = priceMapping.partnerPrice; break;
-      case 'acePrice': hrmPriceSystemId = priceMapping.acePrice; break;
-      case 'dealPrice': hrmPriceSystemId = priceMapping.dealPrice; break;
+      case 'price5Vat': hrmPriceSystemId = priceMapping.price5Vat; break;
+      case 'price12Novat': hrmPriceSystemId = priceMapping.price12Novat; break;
+      case 'price5Novat': hrmPriceSystemId = priceMapping.price5Novat; break;
     }
     
     if (!hrmPriceSystemId) return undefined;
@@ -132,10 +132,10 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
     const priceMapping = pkgxSettings?.priceMapping;
     return priceMapping && (
       priceMapping.shopPrice || 
-      priceMapping.marketPrice || 
-      priceMapping.partnerPrice || 
-      priceMapping.acePrice || 
-      priceMapping.dealPrice
+      priceMapping.partnerPrice ||
+      priceMapping.price5Vat ||
+      priceMapping.price12Novat ||
+      priceMapping.price5Novat
     );
   }, [pkgxSettings]);
 
@@ -185,17 +185,17 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
       const shopPrice = getPriceByMapping(product, 'shopPrice');
       if (shopPrice !== undefined) payload.shop_price = shopPrice;
       
-      const marketPrice = getPriceByMapping(product, 'marketPrice');
-      if (marketPrice !== undefined) payload.market_price = marketPrice;
-      
       const partnerPrice = getPriceByMapping(product, 'partnerPrice');
       if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
-      
-      const acePrice = getPriceByMapping(product, 'acePrice');
-      if (acePrice !== undefined) payload.ace_price = acePrice;
-      
-      const dealPrice = getPriceByMapping(product, 'dealPrice');
-      if (dealPrice !== undefined) payload.deal_price = dealPrice;
+
+      const price5Vat = getPriceByMapping(product, 'price5Vat');
+      if (price5Vat !== undefined) payload.price_5vat = price5Vat;
+
+      const price12Novat = getPriceByMapping(product, 'price12Novat');
+      if (price12Novat !== undefined) payload.price_12novat = price12Novat;
+
+      const price5Novat = getPriceByMapping(product, 'price5Novat');
+      if (price5Novat !== undefined) payload.price_5novat = price5Novat;
 
       if (Object.keys(payload).length === 0) {
         toast.error('Không có giá nào được mapping. Vui lòng kiểm tra cấu hình.', { id: 'pkgx-sync-price' });
@@ -208,31 +208,16 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
       if (!response.success) {
         throw new Error(response.error);
       }
-
-      // 2. Sync giá ace vào member_price table (ace = rank_id 8)
-      let memberPriceSynced = false;
-      if (acePrice !== undefined && acePrice > 0) {
-        const memberPriceResponse = await updateMemberPrice(pkgxId, [
-          { user_rank: 8, user_price: acePrice }
-        ], pkgxSettings);
-        memberPriceSynced = memberPriceResponse.success;
-      }
       
-      const successMsg = memberPriceSynced 
-        ? `Đã đồng bộ giá + giá ace thành viên: ${product.name}`
-        : `Đã đồng bộ giá: ${product.name}`;
-      
-      toast.success(successMsg, { id: 'pkgx-sync-price' });
+      toast.success(`Đã đồng bộ giá: ${product.name}`, { id: 'pkgx-sync-price' });
       addPkgxLog({
         action: 'sync_price',
         status: 'success',
-        message: successMsg,
+        message: `Đã đồng bộ giá: ${product.name}`,
         details: { 
           productId: product.systemId, 
           pkgxId: product.pkgxId, 
           prices: payload,
-          memberPriceSynced,
-          acePrice: acePrice 
         },
       });
     } catch (error) {
@@ -927,40 +912,24 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
       const shopPrice = getPriceByMapping(product, 'shopPrice');
       if (shopPrice !== undefined) payload.shop_price = shopPrice;
       
-      const marketPrice = getPriceByMapping(product, 'marketPrice');
-      if (marketPrice !== undefined) payload.market_price = marketPrice;
-      
       const partnerPrice = getPriceByMapping(product, 'partnerPrice');
       if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
-      
-      const acePrice = getPriceByMapping(product, 'acePrice');
-      if (acePrice !== undefined) payload.ace_price = acePrice;
-      
-      const dealPrice = getPriceByMapping(product, 'dealPrice');
-      if (dealPrice !== undefined) payload.deal_price = dealPrice;
+
+      const price5Vat = getPriceByMapping(product, 'price5Vat');
+      if (price5Vat !== undefined) payload.price_5vat = price5Vat;
+
+      const price12Novat = getPriceByMapping(product, 'price12Novat');
+      if (price12Novat !== undefined) payload.price_12novat = price12Novat;
+
+      const price5Novat = getPriceByMapping(product, 'price5Novat');
+      if (price5Novat !== undefined) payload.price_5novat = price5Novat;
 
       const response = await updateProduct(pkgxId, payload, pkgxSettings);
       
-      // Sync giá ace vào member_price table (ace = rank_id 8)
-      let memberPriceSynced = false;
-      if (acePrice !== undefined && acePrice > 0) {
-        const memberPriceResponse = await updateMemberPrice(pkgxId, [
-          { user_rank: 8, user_price: acePrice }
-        ], pkgxSettings);
-        memberPriceSynced = memberPriceResponse.success;
-        if (!memberPriceResponse.success) {
-          console.warn('[handlePkgxSyncAll] Failed to sync ace member price:', memberPriceResponse.error);
-        }
-      }
-      
       if (response.success) {
-        let message = imageStats.uploadedCount > 0
+        const message = imageStats.uploadedCount > 0
           ? `Đã đồng bộ tất cả (${imageStats.uploadedCount} ảnh trong mô tả đã upload)`
           : `Đã đồng bộ tất cả thông tin`;
-        
-        if (memberPriceSynced) {
-          message += ' + giá ACE thành viên';
-        }
           
         toast.success(message, { id: 'pkgx-sync-all' });
         addPkgxLog({
@@ -1041,17 +1010,17 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
           if (priceMapping.shopPrice && pkgxData.shop_price) {
             importedData.prices[priceMapping.shopPrice] = pkgxData.shop_price;
           }
-          if (priceMapping.marketPrice && pkgxData.market_price) {
-            importedData.prices[priceMapping.marketPrice] = pkgxData.market_price;
-          }
           if (priceMapping.partnerPrice && pkgxData.partner_price) {
             importedData.prices[priceMapping.partnerPrice] = pkgxData.partner_price;
           }
-          if (priceMapping.acePrice && pkgxData.ace_price) {
-            importedData.prices[priceMapping.acePrice] = pkgxData.ace_price;
+          if (priceMapping.price5Vat && pkgxData.price_5vat) {
+            importedData.prices[priceMapping.price5Vat] = pkgxData.price_5vat;
           }
-          if (priceMapping.dealPrice && pkgxData.deal_price) {
-            importedData.prices[priceMapping.dealPrice] = pkgxData.deal_price;
+          if (priceMapping.price12Novat && pkgxData.price_12novat) {
+            importedData.prices[priceMapping.price12Novat] = pkgxData.price_12novat;
+          }
+          if (priceMapping.price5Novat && pkgxData.price_5novat) {
+            importedData.prices[priceMapping.price5Novat] = pkgxData.price_5novat;
           }
         }
         
@@ -1130,25 +1099,10 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
       shopPrice = fullProduct.prices[defaultSellingPolicy.systemId] || shopPrice;
     }
     
-    let marketPrice = shopPrice * 1.2;
-    if (priceMapping.marketPrice && fullProduct.prices[priceMapping.marketPrice]) {
-      marketPrice = fullProduct.prices[priceMapping.marketPrice];
-    }
-    
     // Get additional prices from mapping
     let partnerPrice: number | undefined;
     if (priceMapping.partnerPrice && fullProduct.prices[priceMapping.partnerPrice]) {
       partnerPrice = fullProduct.prices[priceMapping.partnerPrice];
-    }
-    
-    let acePrice: number | undefined;
-    if (priceMapping.acePrice && fullProduct.prices[priceMapping.acePrice]) {
-      acePrice = fullProduct.prices[priceMapping.acePrice];
-    }
-    
-    let dealPrice: number | undefined;
-    if (priceMapping.dealPrice && fullProduct.prices[priceMapping.dealPrice]) {
-      dealPrice = fullProduct.prices[priceMapping.dealPrice];
     }
     
     // Get inventory based on defaultBranchId setting
@@ -1273,7 +1227,6 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
       brand_id: brandMap?.pkgxBrandId || 0,
       seller_note: fullProduct.sellerNote || '',
       shop_price: shopPrice,
-      market_price: marketPrice,
       goods_number: totalInventory,
       goods_desc: processedLongDesc,
       goods_brief: rawShortDesc,
@@ -1297,8 +1250,6 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
     
     // Add additional prices if mapped
     if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
-    if (acePrice !== undefined) payload.ace_price = acePrice;
-    if (dealPrice !== undefined) payload.deal_price = dealPrice;
     
     const response = await createPkgxProduct(payload, pkgxSettings);
     

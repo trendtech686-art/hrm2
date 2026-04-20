@@ -4,7 +4,7 @@
 export const PKGX_API_CONFIG = {
   baseUrl: 'https://phukiengiaxuong.com.vn/admin/api_product_hrm.php',
   cdnUrl: 'https://phukiengiaxuong.com.vn/cdn/',
-  defaultApiKey: 'a91f2c47e5d8b6f03a7c4e9d12f0b8a6',
+  defaultApiKey: process.env.PKGX_DEFAULT_API_KEY || '',
   
   // Rate limiting
   maxRequestsPerMinute: 60,
@@ -42,8 +42,8 @@ export const FIELD_MAPPING_REFERENCE = {
  */
 export const PKGX_PRICE_FIELDS = [
   { key: 'shopPrice', field: 'shop_price', label: 'Giá bán (shop_price)', description: 'Giá bán chính trên website' },
-  { key: 'marketPrice', field: 'market_price', label: 'Giá thị trường (market_price)', description: 'Giá niêm yết / giá gốc' },
   { key: 'partnerPrice', field: 'partner_price', label: 'Giá đối tác (partner_price)', description: 'Giá dành cho đối tác' },
-  { key: 'acePrice', field: 'ace_price', label: 'Giá ACE (ace_price)', description: 'Giá đặc biệt ACE' },
-  { key: 'dealPrice', field: 'deal_price', label: 'Giá deal (deal_price)', description: 'Giá khuyến mãi' },
+  { key: 'price5Vat', field: 'price_5vat', label: 'Giá 5% VAT (price_5vat)', description: 'Giá đã bao gồm 5% VAT' },
+  { key: 'price12Novat', field: 'price_12novat', label: 'Giá 12% Không VAT (price_12novat)', description: 'Giá chưa bao gồm 12% VAT' },
+  { key: 'price5Novat', field: 'price_5novat', label: 'Giá 5% Không VAT (price_5novat)', description: 'Giá chưa bao gồm 5% VAT' },
 ] as const;

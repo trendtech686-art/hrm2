@@ -243,8 +243,22 @@ export const GET = apiHandler(async (request) => {
     const transactions = allTransactions.slice(skip, skip + limit)
     const total = totalReceipts + totalPayments
 
+    // Resolve createdBy IDs to employee names
+    const creatorIds = [...new Set(transactions.map(t => t.createdBy).filter(Boolean))] as string[]
+    const creators = creatorIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: creatorIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : []
+    const creatorMap = new Map(creators.map(e => [e.systemId, e.fullName]))
+    const transactionsWithNames = transactions.map(t => ({
+      ...t,
+      createdByName: t.createdBy ? (creatorMap.get(t.createdBy) || t.createdBy) : null,
+    }))
+
     return apiSuccess({
-      transactions,
+      transactions: transactionsWithNames,
       summary: {
         openingBalance,
         totalReceipts: totalReceiptsAmount,
