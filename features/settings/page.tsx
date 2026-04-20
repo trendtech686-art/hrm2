@@ -26,6 +26,7 @@ import {
   ListTodo,
   Globe,
   BellRing,
+  Shield,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -213,6 +214,13 @@ const systemSettings: SettingsItem[] = [
     description: 'Tùy chỉnh theme và giao diện ứng dụng', 
     href: '/settings/appearance',
     iconColor: 'text-fuchsia-600'
+  },
+  { 
+    icon: Shield, 
+    title: 'Công cụ quản trị', 
+    description: 'Xóa hàng loạt dữ liệu, reset hệ thống (chỉ Admin)', 
+    href: '/settings/admin-tools',
+    iconColor: 'text-red-600'
   },
   { 
     icon: Settings2, 

@@ -113,8 +113,18 @@ export function ProductMappingTab() {
   const pkgxTotalCount = pkgxPaginatedData?.total ?? 0;
   
   // Fetch linked products from API with server-side pagination
-  const [_linkedSearchTerm, _setLinkedSearchTerm] = React.useState('');
+  const [linkedSearchInput, setLinkedSearchInput] = React.useState('');
+  const [debouncedLinkedSearch, setDebouncedLinkedSearch] = React.useState('');
   const [linkedApiPagination, setLinkedApiPagination] = React.useState({ page: 1, limit: 20 });
+  
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedLinkedSearch(linkedSearchInput);
+      setLinkedApiPagination(prev => ({ ...prev, page: 1 }));
+      setLinkedPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [linkedSearchInput]);
   
   // Fetch unlinked HRM products from API with server-side pagination
   const [unlinkedSearchTerm, setUnlinkedSearchTerm] = React.useState('');
@@ -132,13 +142,13 @@ export function ProductMappingTab() {
   }, [unlinkedSearchTerm]);
   
   const { data: linkedProductsData, isLoading: isLoadingLinked, refetch: refetchLinkedProducts } = useQuery({
-    queryKey: ['products-linked', linkedApiPagination.page, linkedApiPagination.limit, _linkedSearchTerm],
+    queryKey: ['products-linked', linkedApiPagination.page, linkedApiPagination.limit, debouncedLinkedSearch],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(linkedApiPagination.page),
         limit: String(linkedApiPagination.limit),
       });
-      if (_linkedSearchTerm) params.set('search', _linkedSearchTerm);
+      if (debouncedLinkedSearch) params.set('search', debouncedLinkedSearch);
       
       const response = await fetch(`/api/products/linked?${params}`);
       if (!response.ok) throw new Error('Failed to fetch');
@@ -2251,14 +2261,24 @@ export function ProductMappingTab() {
               </TabsContent>
               
               <TabsContent value="linked" className="mt-4">
-                {linkedCount === 0 ? (
+                {linkedCount === 0 && !debouncedLinkedSearch ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Link className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Chưa có sản phẩm nào được liên kết.</p>
                     <p className="text-sm mt-1">Chọn sản phẩm trong tab "Sản phẩm PKGX" và liên kết với HRM.</p>
                   </div>
                 ) : (
-                  <ResponsiveDataTable<PkgxProductRow>
+                  <div className="space-y-4">
+                    <div className="relative max-w-sm">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Tìm sản phẩm đã liên kết..."
+                        value={linkedSearchInput}
+                        onChange={(e) => setLinkedSearchInput(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <ResponsiveDataTable<PkgxProductRow>
                     columns={columns}
                     data={linkedPaginatedData}
                     pageCount={linkedPageCount}
@@ -2287,6 +2307,7 @@ export function ProductMappingTab() {
                     allSelectedRows={allSelectedRows.filter(p => p.linkedHrmProduct)}
                     emptyTitle="Không tìm thấy sản phẩm đã liên kết"
                   />
+                  </div>
                 )}
               </TabsContent>
               

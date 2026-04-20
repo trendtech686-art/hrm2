@@ -47,12 +47,26 @@ export const GET = apiHandler(async (request, _ctx) => {
       pkgxId: { not: null },
     }
 
-    // Text search
+    // Text search - also search in PKGX product data
     if (search) {
+      // Find PKGX products matching the search
+      const matchingPkgxProducts = await prisma.pkgxProduct.findMany({
+        where: {
+          OR: [
+            { goodsSn: { contains: search, mode: 'insensitive' } },
+            { goodsNumber: { contains: search, mode: 'insensitive' } },
+            { name: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      })
+      const matchingPkgxIds = matchingPkgxProducts.map(p => p.id)
+
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { id: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search } },
+        { barcode: { contains: search, mode: 'insensitive' } },
+        ...(matchingPkgxIds.length > 0 ? [{ pkgxId: { in: matchingPkgxIds } }] : []),
       ]
     }
 

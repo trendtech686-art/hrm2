@@ -35,6 +35,7 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user
       const isPublicPage = 
         nextUrl.pathname.startsWith("/login") ||
+        nextUrl.pathname.startsWith("/setup") ||
         nextUrl.pathname.startsWith("/api/") || // All API routes handled by middleware with JSON responses
         nextUrl.pathname.startsWith("/complaint-tracking") ||
         nextUrl.pathname.startsWith("/warranty-tracking") ||

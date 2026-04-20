@@ -90,7 +90,7 @@ function formatId(prefix: string, counter: number, digitCount: number = 6): stri
 function sanitizeBusinessId(id: string): string | null {
   if (!id || typeof id !== 'string') return null;
   const cleaned = id.trim().replace(/[^a-zA-Z0-9\s\-_.]/g, '').replace(/\s+/g, ' ').trim();
-  return cleaned ? cleaned.toUpperCase() : null;
+  return cleaned || null;
 }
 
 // ========================================

@@ -512,6 +512,9 @@ function DesktopDataTable<TData extends { systemId: string }>({
   const isSomePageRowsSelected = !isAllPageRowsSelected && data.some(row => rowSelection[row.systemId]);
   const hasData = data?.length > 0;
   const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>({});
+  const [columnSizing, setColumnSizing] = React.useState<Record<string, number>>({});
+  const columnSizingRef = React.useRef<Record<string, number>>({});
+  const isResizingRef = React.useRef(false);
   const stickyCellBg = 'var(--sticky-column-bg, rgba(255, 255, 255, 1))';
   const stickyHeaderBg = 'var(--sticky-column-header-bg, var(--muted))';
 
@@ -628,8 +631,9 @@ function DesktopDataTable<TData extends { systemId: string }>({
   const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'right'), [displayColumns]);
 
   const getColumnWidth = React.useCallback((column: ColumnDef<TData>) => {
+    if (columnSizing[column.id]) return columnSizing[column.id];
     return column.size ?? columnWidths[column.id] ?? ((column.meta as ColumnMeta | undefined)?.minWidth ?? 140);
-  }, [columnWidths]);
+  }, [columnSizing, columnWidths]);
 
   const leftOffsets = React.useMemo(() => {
       let offset = 0;
@@ -671,6 +675,83 @@ function DesktopDataTable<TData extends { systemId: string }>({
     }
   };
 
+  // Column resize: DOM-direct for zero-lag, commit to state on mouseup
+  const applyColumnWidth = React.useCallback((columnId: string, width: number) => {
+    // Apply via DOM to both header and body tables
+    const allTables = [headerTableRef.current, bodyTableRef.current].filter(Boolean);
+    for (const table of allTables) {
+      if (!table) continue;
+      const cells = table.querySelectorAll(`[data-col-id="${columnId}"]`);
+      cells.forEach((cell) => {
+        const el = cell as HTMLElement;
+        el.style.width = `${width}px`;
+        el.style.minWidth = `${width}px`;
+        el.style.maxWidth = `${width}px`;
+      });
+    }
+  }, []);
+
+  const handleResizeStart = React.useCallback((e: React.MouseEvent, columnId: string, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = currentWidth;
+    isResizingRef.current = true;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const diff = moveEvent.clientX - startX;
+      const newWidth = Math.max(50, startWidth + diff);
+      columnSizingRef.current = { ...columnSizingRef.current, [columnId]: newWidth };
+      applyColumnWidth(columnId, newWidth);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      isResizingRef.current = false;
+      // Commit to state (single re-render)
+      setColumnSizing({ ...columnSizingRef.current });
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [applyColumnWidth]);
+
+  // Double-click: auto-fit column to content width
+  const handleResizeDoubleClick = React.useCallback((columnId: string) => {
+    const bodyTable = bodyTableRef.current;
+    if (!bodyTable) return;
+    const cells = bodyTable.querySelectorAll(`td[data-col-id="${columnId}"]`);
+    let maxWidth = 80; // minimum
+    cells.forEach((cell) => {
+      const child = cell.firstElementChild as HTMLElement | null;
+      if (child) {
+        // Temporarily remove width constraints to measure natural width
+        const prevOverflow = child.style.overflow;
+        const prevWhiteSpace = child.style.whiteSpace;
+        child.style.overflow = 'visible';
+        child.style.whiteSpace = 'nowrap';
+        maxWidth = Math.max(maxWidth, child.scrollWidth + 24); // 24px padding
+        child.style.overflow = prevOverflow;
+        child.style.whiteSpace = prevWhiteSpace;
+      } else {
+        maxWidth = Math.max(maxWidth, (cell as HTMLElement).scrollWidth + 16);
+      }
+    });
+    // Also check header text width
+    const headerCell = headerTableRef.current?.querySelector(`th[data-col-id="${columnId}"]`);
+    if (headerCell) {
+      maxWidth = Math.max(maxWidth, (headerCell as HTMLElement).scrollWidth + 24);
+    }
+    const finalWidth = Math.min(maxWidth, 600); // cap at 600px
+    columnSizingRef.current = { ...columnSizingRef.current, [columnId]: finalWidth };
+    setColumnSizing({ ...columnSizingRef.current });
+  }, []);
+
   React.useEffect(() => {
     if (!hasData) return;
     if (!headerTableRef.current) return;
@@ -691,6 +772,8 @@ function DesktopDataTable<TData extends { systemId: string }>({
       const nextWidthMap: Record<string, number> = {};
 
       displayColumns.forEach((column, index) => {
+        // Skip columns that user has resized
+        if (columnSizing[column.id]) return;
         const sourceCell = bodyCells[index];
         const fallbackCell = headerCells[index];
         const rawWidth = sourceCell?.getBoundingClientRect().width || fallbackCell?.getBoundingClientRect().width;
@@ -738,7 +821,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
       window.removeEventListener('resize', debouncedSync);
       resizeObserver.disconnect();
     };
-  }, [data, displayColumns, hasData]);
+  }, [data, displayColumns, hasData, columnSizing]);
 
   const renderHeaderRow = (isSticky: boolean) => (
     <TableRow className="h-9">
@@ -746,10 +829,16 @@ function DesktopDataTable<TData extends { systemId: string }>({
         const stickyMeta = isSticky ? (column.meta as ColumnMeta | undefined)?.sticky : undefined;
         const hasFixedSize = column.size !== undefined;
         const fallbackMinWidth = (column.meta as ColumnMeta | undefined)?.minWidth ?? 140;
+        const userWidth = columnSizing[column.id];
+        const isFixedColumn = ['control', 'select', 'expander', 'actions'].includes(column.id);
 
         const style: React.CSSProperties = {};
 
-        if (hasFixedSize) {
+        if (userWidth) {
+          style.width = userWidth;
+          style.minWidth = userWidth;
+          style.maxWidth = userWidth;
+        } else if (hasFixedSize) {
           style.width = column.size;
           style.minWidth = column.size;
           style.maxWidth = column.size;
@@ -757,7 +846,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
           style.minWidth = fallbackMinWidth;
         }
 
-        let thClassName = "bg-muted whitespace-nowrap";
+        let thClassName = "bg-muted whitespace-nowrap relative";
 
         const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
         const _isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
@@ -782,13 +871,16 @@ function DesktopDataTable<TData extends { systemId: string }>({
           }
         }
 
-        if (['control', 'select', 'expander', 'actions'].includes(column.id)) {
+        if (isFixedColumn) {
           thClassName = cn(thClassName, "px-2 text-center");
         }
+
+        const currentWidth = userWidth || column.size || columnWidths[column.id] || fallbackMinWidth;
 
         return (
           <TableHead
             key={column.id}
+            data-col-id={column.id}
             style={style}
             className={cn(thClassName, {
               "border-r border-border": isSticky && isLastLeftSticky,
@@ -810,6 +902,19 @@ function DesktopDataTable<TData extends { systemId: string }>({
                     setSorting={setSorting}
                   />
                 : column.header}
+            {/* Resize handle */}
+            {!isFixedColumn && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                onMouseDown={(e) => handleResizeStart(e, column.id, currentWidth)}
+                onDoubleClick={() => handleResizeDoubleClick(column.id)}
+                className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize group/resize z-40 flex items-center justify-center"
+                style={{ touchAction: 'none' }}
+              >
+                <div className="h-4 w-0.5 rounded-full bg-transparent group-hover/resize:bg-primary/50 transition-colors" />
+              </div>
+            )}
           </TableHead>
         );
       })}
@@ -825,7 +930,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
             onScroll={() => syncScroll('header')}
             className="sticky top-28 z-15 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            <Table ref={headerTableRef}>
+            <Table ref={headerTableRef} style={Object.keys(columnSizing).length > 0 ? { tableLayout: 'fixed' } : undefined}>
               <TableHeader className="bg-muted">
                 {numSelected > 0 && (
                   <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted border-b border-border shadow-md">
@@ -903,7 +1008,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
             onScroll={() => syncScroll('body')}
             className="rounded-b-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            <Table ref={bodyTableRef}>
+            <Table ref={bodyTableRef} style={Object.keys(columnSizing).length > 0 ? { tableLayout: 'fixed' } : undefined}>
               <TableBody>
                 {data.map((row, rowIndex) => (
                   <React.Fragment key={`${row.systemId}-${rowIndex}`}>
@@ -920,10 +1025,15 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         const stickyMeta = (column.meta as ColumnMeta | undefined)?.sticky;
                         const hasFixedSize = column.size !== undefined;
                         const fallbackMinWidth = (column.meta as ColumnMeta | undefined)?.minWidth ?? 140;
+                        const userWidth = columnSizing[column.id];
 
                         const style: React.CSSProperties = {};
 
-                        if (hasFixedSize) {
+                        if (userWidth) {
+                          style.width = userWidth;
+                          style.minWidth = userWidth;
+                          style.maxWidth = userWidth;
+                        } else if (hasFixedSize) {
                           style.width = column.size;
                           style.minWidth = column.size;
                           style.maxWidth = column.size;
@@ -968,12 +1078,14 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         return (
                           <TableCell
                             key={column.id}
+                            data-col-id={column.id}
                             style={style}
                             className={cn(tdClassName, {
                               "border-r border-border": isLastLeftSticky,
                             })}
                             onClick={isInteractiveColumn ? (e) => e.stopPropagation() : undefined}
                           >
+                            <div className={userWidth ? "overflow-hidden text-ellipsis whitespace-nowrap" : undefined}>
                             {column.cell({
                               row,
                               isSelected: !!rowSelection[row.systemId],
@@ -991,6 +1103,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                               },
                               onToggleExpand: () => setExpanded(prev => ({ ...prev, [row.systemId]: !prev[row.systemId] })),
                             })}
+                            </div>
                           </TableCell>
                         );
                       })}

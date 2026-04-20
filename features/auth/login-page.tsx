@@ -29,6 +29,22 @@ export function LoginPage() {
   // Get the page user was trying to access
   const from = ROUTES.DASHBOARD;
 
+  // Check if initial setup is needed (no admin account exists)
+  React.useEffect(() => {
+    async function checkSetup() {
+      try {
+        const res = await fetch('/api/setup');
+        const json = await res.json();
+        if (json.data?.needsSetup) {
+          window.location.href = '/setup';
+        }
+      } catch {
+        // Ignore — proceed with login normally
+      }
+    }
+    checkSetup();
+  }, []);
+
   // Countdown timer
   React.useEffect(() => {
     if (countdown <= 0) return;
