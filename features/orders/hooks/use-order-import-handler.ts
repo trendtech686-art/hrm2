@@ -20,6 +20,8 @@ export interface ImportResults {
   inserted: number;
   updated: number;
   skipped: number;
+  newProducts?: number;
+  newCustomers?: number;
   errors: Array<{ row: number; message: string }>;
 }
 
@@ -63,6 +65,8 @@ async function executeImport(
       results.inserted += batchResult.inserted;
       results.updated += batchResult.updated;
       results.skipped += batchResult.skipped;
+      results.newProducts = (results.newProducts || 0) + (batchResult.newProducts || 0);
+      results.newCustomers = (results.newCustomers || 0) + (batchResult.newCustomers || 0);
 
       // Map batch errors to row numbers
       for (const err of batchResult.errors) {

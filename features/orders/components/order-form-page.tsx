@@ -1369,7 +1369,7 @@ export function OrderFormPage() {
                 
                 return {
                     productSystemId: asSystemId(li.productSystemId), 
-                    productId: asBusinessId((li.productId || '').trim().toUpperCase() || `SKU${String(index + 1).padStart(6, '0')}`), 
+                    productId: asBusinessId((li.productId || '').trim() || `SKU${String(index + 1).padStart(6, '0')}`), 
                     productName: sanitizeString(li.productName),
                     quantity: Number(li.quantity), 
                     unitPrice: Number(li.unitPrice), 

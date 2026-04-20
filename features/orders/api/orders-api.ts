@@ -182,6 +182,8 @@ export interface BatchImportResult {
   inserted: number
   updated: number
   skipped: number
+  newProducts?: number
+  newCustomers?: number
   errors: Array<{ index: number; id?: string; message: string }>
 }
 

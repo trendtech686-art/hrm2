@@ -24,11 +24,11 @@ import { asSystemId, asBusinessId } from '@/lib/id-types';
  */
 const findCustomerById = (customerId: string, customers: Customer[]): Customer | undefined => {
   if (!customerId || !customers) return undefined;
-  const normalizedId = String(customerId).trim().toUpperCase();
+  const normalizedId = String(customerId).trim().toLowerCase();
   
   return customers.find(c => 
-    c.id.toUpperCase() === normalizedId ||
-    c.systemId.toUpperCase() === normalizedId
+    c.id.toLowerCase() === normalizedId ||
+    c.systemId.toLowerCase() === normalizedId
   );
 };
 
@@ -37,11 +37,11 @@ const findCustomerById = (customerId: string, customers: Customer[]): Customer |
  */
 const findProductBySku = (sku: string, products: Product[]) => {
   if (!sku || !products) return undefined;
-  const normalizedSku = String(sku).trim().toUpperCase();
+  const normalizedSku = String(sku).trim().toLowerCase();
   
   return products.find(p => 
-    p.id.toUpperCase() === normalizedSku ||
-    p.systemId.toUpperCase() === normalizedSku
+    p.id.toLowerCase() === normalizedSku ||
+    p.systemId.toLowerCase() === normalizedSku
   );
 };
 

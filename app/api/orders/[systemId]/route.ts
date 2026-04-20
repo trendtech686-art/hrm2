@@ -471,7 +471,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             systemId: (li.systemId as string) || `OLI-${timestamp}-${String(idx + 1).padStart(3, '0')}`,
             orderId: systemId,
             productId: (li.productSystemId || null) as string | null,
-            productSku: ((li.productId || '') as string).trim().toUpperCase(),
+            productSku: ((li.productId || '') as string).trim(),
             productName: (li.productName || '') as string,
             quantity: Number(li.quantity) || 1,
             unitPrice: Number(li.unitPrice) || 0,

@@ -279,7 +279,7 @@ async function testUpdate() {
           systemId: crypto.randomUUID(),
           orderId: 'ORDER007717',
           productId: (li.productSystemId || null) as string | null,
-          productSku: ((li.productId || '') as string).trim().toUpperCase(),
+          productSku: ((li.productId || '') as string).trim(),
           productName: (li.productName || '') as string,
           quantity: Number(li.quantity) || 1,
           unitPrice: Number(li.unitPrice) || 0,

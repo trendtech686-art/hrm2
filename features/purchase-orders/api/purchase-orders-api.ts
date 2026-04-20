@@ -62,6 +62,8 @@ interface BatchImportResult {
   inserted: number;
   updated: number;
   skipped: number;
+  newProducts?: number;
+  newSuppliers?: number;
   errors: Array<{ index: number; id?: string; message: string }>;
 }
 

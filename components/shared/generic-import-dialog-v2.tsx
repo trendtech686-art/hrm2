@@ -328,6 +328,9 @@ interface ImportResultData {
   inserted: number
   updated: number
   skipped: number
+  newProducts?: number
+  newCustomers?: number
+  newSuppliers?: number
   errors: Array<{ row: number; message: string }>
   isBackgroundJob?: boolean // Flag for background job imports
 }
@@ -1464,6 +1467,22 @@ export function GenericImportDialogV2<T>({
                     Tổng cộng: <span className="font-medium text-foreground">{importResult.success}</span> thành công 
                     / {importResult.success + importResult.failed + importResult.skipped} dòng
                   </div>
+                  
+                  {/* New entities created info */}
+                  {((importResult.newProducts || 0) > 0 || (importResult.newCustomers || 0) > 0 || (importResult.newSuppliers || 0) > 0) && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3 text-sm space-y-1">
+                      <div className="font-medium text-blue-700 dark:text-blue-400">Dữ liệu tạo mới tự động:</div>
+                      {(importResult.newProducts || 0) > 0 && (
+                        <div className="text-blue-600 dark:text-blue-300">• {importResult.newProducts} sản phẩm mới được tạo</div>
+                      )}
+                      {(importResult.newCustomers || 0) > 0 && (
+                        <div className="text-blue-600 dark:text-blue-300">• {importResult.newCustomers} khách hàng mới được tạo</div>
+                      )}
+                      {(importResult.newSuppliers || 0) > 0 && (
+                        <div className="text-blue-600 dark:text-blue-300">• {importResult.newSuppliers} nhà cung cấp mới được tạo</div>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Error Details */}
                   {importResult.errors.length > 0 && (

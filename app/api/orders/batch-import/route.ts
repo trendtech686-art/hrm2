@@ -176,6 +176,8 @@ export async function POST(request: Request) {
     inserted: 0,
     updated: 0,
     skipped: 0,
+    newProducts: 0,
+    newCustomers: 0,
     errors: [] as Array<{ index: number; id?: string; message: string }>,
   }
 
@@ -236,6 +238,7 @@ export async function POST(request: Request) {
     for (const p of existingProducts) {
       productMap.set(p.systemId, p)
       productMap.set(p.id, p)
+      productMap.set(p.id.toLowerCase(), p)
     }
 
     // 4. Existing orders for duplicate check
@@ -344,6 +347,7 @@ export async function POST(request: Request) {
                   ...(initialAddresses.length > 0 ? { addresses: initialAddresses } : {}),
                 },
               })
+              results.newCustomers++
             }
           }
 
@@ -391,11 +395,11 @@ export async function POST(request: Request) {
           for (let li = 0; li < (orderInput.lineItems || []).length; li++) {
             const item = orderInput.lineItems[li]
             const productKey = item.productSystemId || item.productId || ''
-            let product = productMap.get(productKey)
+            let product = productMap.get(productKey) || productMap.get(productKey.toLowerCase())
             if (!product) {
               // Check DB within transaction (may exist from previous import)
               const existingProd = await tx.product.findFirst({
-                where: { OR: [{ systemId: productKey }, { id: productKey }] },
+                where: { OR: [{ systemId: productKey }, { id: { equals: productKey, mode: 'insensitive' } }] },
                 select: { systemId: true, id: true, name: true },
               })
               if (existingProd) {
@@ -423,6 +427,7 @@ export async function POST(request: Request) {
                     },
                   })
                   product = { systemId: newProd.systemId, id: newProd.id, name: newProd.name }
+                  results.newProducts++
                 }
               }
               productMap.set(product.systemId, product)

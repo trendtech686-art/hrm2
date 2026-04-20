@@ -120,6 +120,8 @@ export const POST = apiHandler(async (request, { session }) => {
     inserted: 0,
     updated: 0,
     skipped: 0,
+    newProducts: 0,
+    newSuppliers: 0,
     errors: [] as Array<{ index: number; id?: string; message: string }>,
   }
 
@@ -200,7 +202,11 @@ export const POST = apiHandler(async (request, { session }) => {
     for (const p of existingProducts) {
       productMap.set(p.systemId, p)
       productMap.set(p.id, p)
-      if (p.barcode) productMap.set(p.barcode, p)
+      productMap.set(p.id.toLowerCase(), p)
+      if (p.barcode) {
+        productMap.set(p.barcode, p)
+        productMap.set(p.barcode.toLowerCase(), p)
+      }
     }
 
     // 5. Existing POs for duplicate check
@@ -339,6 +345,7 @@ export const POST = apiHandler(async (request, { session }) => {
                     phone: '',
                   },
                 })
+                results.newSuppliers++
               }
               supplierMap.set(supplier.systemId, supplier)
               supplierMap.set(supplier.id, supplier)
@@ -362,15 +369,15 @@ export const POST = apiHandler(async (request, { session }) => {
           for (let li = 0; li < (poInput.lineItems || []).length; li++) {
             const item = poInput.lineItems[li]
             const productKey = item.productSku || item.barcode || ''
-            let product = productMap.get(productKey)
+            let product = productMap.get(productKey) || productMap.get(productKey.toLowerCase())
 
             if (!product && productKey) {
               // Check DB within transaction
               const existingProd = await tx.product.findFirst({
                 where: {
                   OR: [
-                    { id: productKey },
-                    { barcode: productKey },
+                    { id: { equals: productKey, mode: 'insensitive' } },
+                    { barcode: { equals: productKey, mode: 'insensitive' } },
                     { systemId: productKey },
                   ],
                 },
@@ -400,6 +407,7 @@ export const POST = apiHandler(async (request, { session }) => {
                     },
                   })
                   product = { systemId: newProd.systemId, id: newProd.id, name: newProd.name }
+                  results.newProducts++
                 }
               }
               if (product) {
