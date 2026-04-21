@@ -556,6 +556,13 @@ async function executeAction(action: ActionType, confirmText: string, extra?: Re
 // ============================================
 // MAIN COMPONENT
 // ============================================
+type ResultKind = 'health' | 'stats' | 'audit' | 'log'
+type ResultState = {
+  kind: ResultKind
+  title: string
+  data: ActionResult
+} | null
+
 export function AdminToolsPage() {
   const { isAdmin } = useAuth()
   const [activeTab, setActiveTab] = React.useState<TabValue>('delete')
@@ -564,10 +571,7 @@ export function AdminToolsPage() {
   const [resetEmail, setResetEmail] = React.useState('')
   const [resetPassword, setResetPassword] = React.useState('')
   const [showResetPassword, setShowResetPassword] = React.useState(false)
-  const [healthResult, setHealthResult] = React.useState<ActionResult | null>(null)
-  const [statsResult, setStatsResult] = React.useState<ActionResult | null>(null)
-  const [auditResult, setAuditResult] = React.useState<ActionResult | null>(null)
-  const [logResult, setLogResult] = React.useState<ActionResult | null>(null)
+  const [resultDialog, setResultDialog] = React.useState<ResultState>(null)
   const [loadingInline, setLoadingInline] = React.useState<ActionType | null>(null)
 
   useSettingsPageHeader({
@@ -592,10 +596,14 @@ export function AdminToolsPage() {
     onSuccess: (data, variables) => {
       toast.success(data.message)
       if (data.details) {
-        // Show details as log result for system actions with details
+        // Show details as popup for system actions with log output
         const systemLogActions: ActionType[] = ['deploy-rebuild', 'prisma-migrate', 'prisma-db-push', 'docker-prune', 'docker-builder-prune']
         if (systemLogActions.includes(variables.action)) {
-          setLogResult(data)
+          setResultDialog({
+            kind: 'log',
+            title: ACTION_CONFIG[variables.action]?.label ?? data.message,
+            data,
+          })
         } else {
           data.details.forEach((d) => toast.info(d))
         }
@@ -624,11 +632,16 @@ export function AdminToolsPage() {
     setLoadingInline(action)
     try {
       const result = await executeAction(action, CONFIRM_MAP[action])
-      if (action === 'system-health-check') setHealthResult(result)
-      else if (action === 'database-statistics') setStatsResult(result)
-      else if (action === 'permission-audit') setAuditResult(result)
-      else if (action === 'check-disk' && result.details) setLogResult(result)
-      else if (action === 'export-db-backup' && result.downloadUrl) {
+      const title = ACTION_CONFIG[action]?.label ?? result.message
+      if (action === 'system-health-check') {
+        setResultDialog({ kind: 'health', title, data: result })
+      } else if (action === 'database-statistics') {
+        setResultDialog({ kind: 'stats', title, data: result })
+      } else if (action === 'permission-audit') {
+        setResultDialog({ kind: 'audit', title, data: result })
+      } else if (action === 'check-disk' && result.details) {
+        setResultDialog({ kind: 'log', title, data: result })
+      } else if (action === 'export-db-backup' && result.downloadUrl) {
         window.open(result.downloadUrl, '_blank')
       }
       toast.success(result.message)
@@ -712,62 +725,6 @@ export function AdminToolsPage() {
         {activeTab === 'system' && (
           <div className="space-y-6">
             <ActionList actions={SYSTEM_ACTIONS} counts={counts} isLoading={countsQuery.isLoading} isPending={actionMutation.isPending} loadingInline={loadingInline} onConfirm={openConfirm} />
-
-            {/* Health Check */}
-            <InlineResult show={!!healthResult?.checks}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium">Kết quả kiểm tra</p>
-                <Badge variant={healthResult?.status === 'healthy' ? 'default' : 'destructive'}>
-                  {healthResult?.status === 'healthy' ? 'Healthy' : 'Degraded'}
-                </Badge>
-              </div>
-              {healthResult?.checks && Object.entries(healthResult.checks).map(([key, check]) => (
-                <div key={key} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
-                  <span className="capitalize">{key.replace('-', ' ')}</span>
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    {check.status === 'ok' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <X className="h-3.5 w-3.5 text-destructive" />}
-                    {check.detail}
-                  </span>
-                </div>
-              ))}
-            </InlineResult>
-
-            {/* Database Stats */}
-            <InlineResult show={!!statsResult?.stats}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium">Thống kê Database</p>
-                <Badge variant="secondary">{statsResult?.dbSize}</Badge>
-              </div>
-              {statsResult?.stats?.map((s) => (
-                <div key={s.name} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
-                  <span>{s.name}</span>
-                  <span className="font-mono text-muted-foreground">{s.count.toLocaleString('vi-VN')}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between text-sm py-1.5 font-medium">
-                <span>Tổng cộng</span>
-                <span className="font-mono">{statsResult?.total?.toLocaleString('vi-VN')}</span>
-              </div>
-            </InlineResult>
-
-            {/* Permission Audit */}
-            <InlineResult show={!!auditResult?.audit}>
-              <p className="text-sm font-medium mb-3">Phân quyền User</p>
-              {auditResult?.audit?.map((u) => (
-                <div key={u.user} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
-                  <span>{u.user} <span className="text-muted-foreground">({u.role})</span></span>
-                  <Badge variant="secondary">{u.permissions} quyền</Badge>
-                </div>
-              ))}
-            </InlineResult>
-
-            {/* Generic Log Result (Disk, etc.) */}
-            <InlineResult show={!!logResult?.details}>
-              <p className="text-sm font-medium mb-3">{logResult?.message}</p>
-              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 rounded-md p-3 max-h-60 overflow-auto">
-                {logResult?.details?.join('\n')}
-              </pre>
-            </InlineResult>
           </div>
         )}
 
@@ -856,6 +813,26 @@ export function AdminToolsPage() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Result Dialog (system-health, db-stats, permission-audit, log output) */}
+      <Dialog open={!!resultDialog} onOpenChange={(open) => { if (!open) setResultDialog(null) }}>
+        <DialogContent className="sm:max-w-lg">
+          {resultDialog && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{resultDialog.title}</DialogTitle>
+                {resultDialog.data.message && (
+                  <DialogDescription className="text-left">{resultDialog.data.message}</DialogDescription>
+                )}
+              </DialogHeader>
+              <ResultContent state={resultDialog} />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setResultDialog(null)}>Đóng</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -868,9 +845,71 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{children}</p>
 }
 
-function InlineResult({ show, children }: { show: boolean; children: React.ReactNode }) {
-  if (!show) return null
-  return <div className="rounded-lg border p-4">{children}</div>
+function ResultContent({ state }: { state: NonNullable<ResultState> }) {
+  const { kind, data } = state
+  if (kind === 'health' && data.checks) {
+    return (
+      <div className="space-y-1 max-h-[60vh] overflow-auto">
+        <div className="flex items-center justify-between pb-2">
+          <p className="text-sm font-medium">Trạng thái</p>
+          <Badge variant={data.status === 'healthy' ? 'default' : 'destructive'}>
+            {data.status === 'healthy' ? 'Healthy' : 'Degraded'}
+          </Badge>
+        </div>
+        {Object.entries(data.checks).map(([key, check]) => (
+          <div key={key} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
+            <span className="capitalize">{key.replace('-', ' ')}</span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              {check.status === 'ok'
+                ? <Check className="h-3.5 w-3.5 text-green-600" />
+                : <X className="h-3.5 w-3.5 text-destructive" />}
+              {check.detail}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (kind === 'stats' && data.stats) {
+    return (
+      <div className="space-y-1 max-h-[60vh] overflow-auto">
+        <div className="flex items-center justify-between pb-2">
+          <p className="text-sm font-medium">Database size</p>
+          <Badge variant="secondary">{data.dbSize}</Badge>
+        </div>
+        {data.stats.map((s) => (
+          <div key={s.name} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
+            <span>{s.name}</span>
+            <span className="font-mono text-muted-foreground">{s.count.toLocaleString('vi-VN')}</span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between text-sm py-1.5 font-medium">
+          <span>Tổng cộng</span>
+          <span className="font-mono">{data.total?.toLocaleString('vi-VN')}</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'audit' && data.audit) {
+    return (
+      <div className="space-y-1 max-h-[60vh] overflow-auto">
+        {data.audit.map((u) => (
+          <div key={u.user} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
+            <span>{u.user} <span className="text-muted-foreground">({u.role})</span></span>
+            <Badge variant="secondary">{u.permissions} quyền</Badge>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (kind === 'log' && data.details) {
+    return (
+      <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 rounded-md p-3 max-h-[60vh] overflow-auto">
+        {data.details.join('\n')}
+      </pre>
+    )
+  }
+  return null
 }
 
 function ActionList({ actions, counts, isLoading, isPending, loadingInline, onConfirm }: {

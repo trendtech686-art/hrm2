@@ -233,6 +233,10 @@ async function deleteAllProducts(userName: string) {
     await tx.productCategory.deleteMany({})
     await tx.inventory.deleteMany({})
 
+    // Price adjustments (snapshot productSystemId, no FK) — drop records
+    await tx.priceAdjustmentItem.deleteMany({})
+    await tx.priceAdjustment.deleteMany({})
+
     // Unlink from shared tables
     await tx.warranty.updateMany({
       where: { productId: { not: null } },
@@ -241,6 +245,12 @@ async function deleteAllProducts(userName: string) {
     await tx.supplierWarrantyItem.deleteMany({})
     await tx.costAdjustmentItem.deleteMany({})
     await tx.costAdjustment.deleteMany({})
+
+    // Unlink PKGX product cache — keep PKGX data for re-sync, just break HRM link
+    await tx.pkgxProduct.updateMany({
+      where: { hrmProductId: { not: null } },
+      data: { hrmProductId: null },
+    })
 
     // Delete products (OrderLineItem & PurchaseOrderItem = SetNull, auto-handled)
     await tx.product.deleteMany({})
@@ -429,7 +439,7 @@ async function purgeAllBusinessData(userName: string) {
   }, { timeout: 180_000 })
   details.push(`Phase 2: ${phase2.orders} đơn bán + ${phase2.purchaseOrders} đơn nhập`)
 
-  // Phase 3: Inventory
+  // Phase 3: Inventory + Price adjustments + PKGX product cache
   const phase3 = await prisma.$transaction(async (tx) => {
     const invCheckItems = await tx.inventoryCheckItem.deleteMany({})
     const invChecks = await tx.inventoryCheck.deleteMany({})
@@ -447,18 +457,37 @@ async function purgeAllBusinessData(userName: string) {
     const productCategories = await tx.productCategory.deleteMany({})
     const inventory = await tx.inventory.deleteMany({})
     const supplierWarrantyItems = await tx.supplierWarrantyItem.deleteMany({})
+    const priceAdjItems = await tx.priceAdjustmentItem.deleteMany({})
+    const priceAdjs = await tx.priceAdjustment.deleteMany({})
+    const pkgxProducts = await tx.pkgxProduct.deleteMany({})
     const products = await tx.product.deleteMany({})
-    return { products: products.count, rest: inventory.count + invCheckItems.count + invChecks.count + stockTransferItems.count + stockTransfers.count + stockHistory.count + stockLocations.count + invReceiptItems.count + invReceipts.count + productSerials.count + productBatches.count + productPrices.count + productConversions.count + productInventory.count + productCategories.count + supplierWarrantyItems.count }
+    return {
+      products: products.count,
+      pkgxProducts: pkgxProducts.count,
+      rest: inventory.count + invCheckItems.count + invChecks.count + stockTransferItems.count + stockTransfers.count + stockHistory.count + stockLocations.count + invReceiptItems.count + invReceipts.count + productSerials.count + productBatches.count + productPrices.count + productConversions.count + productInventory.count + productCategories.count + supplierWarrantyItems.count + priceAdjItems.count + priceAdjs.count,
+    }
   }, { timeout: 180_000 })
-  details.push(`Phase 3: ${phase3.products} sản phẩm + ${phase3.rest} bản ghi kho`)
+  details.push(`Phase 3: ${phase3.products} sản phẩm + ${phase3.pkgxProducts} PKGX cache + ${phase3.rest} bản ghi kho/điều chỉnh`)
 
-  // Phase 4: Main entities
+  // Phase 4: Main entities + Brands/Categories + PKGX mappings
   const phase4 = await prisma.$transaction(async (tx) => {
     const customers = await tx.customer.deleteMany({})
     const suppliers = await tx.supplier.deleteMany({})
-    return { customers: customers.count, suppliers: suppliers.count }
+    const pkgxBrandMappings = await tx.pkgxBrandMapping.deleteMany({})
+    const pkgxCategoryMappings = await tx.pkgxCategoryMapping.deleteMany({})
+    // Clear category hierarchy first, then delete
+    await tx.category.updateMany({ where: { parentId: { not: null } }, data: { parentId: null } })
+    const categories = await tx.category.deleteMany({})
+    const brands = await tx.brand.deleteMany({})
+    return {
+      customers: customers.count,
+      suppliers: suppliers.count,
+      brands: brands.count,
+      categories: categories.count,
+      pkgxMappings: pkgxBrandMappings.count + pkgxCategoryMappings.count,
+    }
   }, { timeout: 60_000 })
-  details.push(`Phase 4: ${phase4.customers} KH + ${phase4.suppliers} NCC`)
+  details.push(`Phase 4: ${phase4.customers} KH + ${phase4.suppliers} NCC + ${phase4.brands} TH + ${phase4.categories} DM + ${phase4.pkgxMappings} PKGX mapping`)
 
   // Phase 5: Activity logs
   const activityLogs = await prisma.activityLog.deleteMany({
@@ -468,7 +497,8 @@ async function purgeAllBusinessData(userName: string) {
           'customer', 'supplier', 'product', 'order', 'purchase_order',
           'payment', 'receipt', 'cashbook', 'complaint', 'warranty',
           'sales_return', 'purchase_return', 'shipment', 'stock_check',
-          'stock_transfer', 'inventory_receipt',
+          'stock_transfer', 'inventory_receipt', 'brand', 'category',
+          'pkgx_settings',
         ],
       },
     },
@@ -574,23 +604,27 @@ async function deleteAllBrands(userName: string) {
   const count = await prisma.brand.count()
   if (count === 0) return apiSuccess({ deleted: 0, message: 'Không có thương hiệu nào' })
   await prisma.$transaction(async (tx) => {
+    // PKGX brand mapping stores hrmBrandId (string, no FK) — clear mappings explicitly
+    await tx.pkgxBrandMapping.deleteMany({})
     await tx.product.updateMany({ where: { brandId: { not: null } }, data: { brandId: null } })
     await tx.brand.deleteMany({})
   })
   await logAdminAction('delete-all-brands', count, userName)
-  return apiSuccess({ deleted: count, message: `Đã xóa ${count} thương hiệu` })
+  return apiSuccess({ deleted: count, message: `Đã xóa ${count} thương hiệu và các mapping PKGX liên quan` })
 }
 
 async function deleteAllCategories(userName: string) {
   const count = await prisma.category.count()
   if (count === 0) return apiSuccess({ deleted: 0, message: 'Không có danh mục nào' })
   await prisma.$transaction(async (tx) => {
+    // PKGX category mapping stores hrmCategoryId (string, no FK) — clear mappings explicitly
+    await tx.pkgxCategoryMapping.deleteMany({})
     await tx.productCategory.deleteMany({})
     await tx.category.updateMany({ where: { parentId: { not: null } }, data: { parentId: null } })
     await tx.category.deleteMany({})
   })
   await logAdminAction('delete-all-categories', count, userName)
-  return apiSuccess({ deleted: count, message: `Đã xóa ${count} danh mục sản phẩm` })
+  return apiSuccess({ deleted: count, message: `Đã xóa ${count} danh mục sản phẩm và các mapping PKGX liên quan` })
 }
 
 // ============================================
@@ -1013,11 +1047,11 @@ async function dockerPrune() {
       details: output.split('\n').filter(Boolean).slice(0, 20),
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('not found') || msg.includes('not recognized')) {
+    const { message } = extractExecError(err)
+    if (/not found|not recognized|command not found/i.test(message)) {
       return apiError('Docker chưa được cài đặt trên server', 400)
     }
-    return apiError(`Docker prune lỗi: ${msg}`, 500)
+    return apiError(`Docker prune lỗi: ${message}`, 500)
   }
 }
 
@@ -1154,14 +1188,45 @@ async function dockerBuilderPrune() {
       details,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('not found') || msg.includes('not recognized')) {
+    const { message, details: errDetails } = extractExecError(err)
+    if (/not found|not recognized|command not found/i.test(message)) {
       return apiError('Docker chưa được cài đặt trên server', 400)
     }
     // Return partial results if one command succeeded
     if (details.length > 0) {
-      return apiSuccess({ message: 'Dọn build cache (partial)', details: [...details, `Lỗi: ${msg.split('\n')[0]}`] })
+      return apiSuccess({
+        message: 'Dọn build cache (partial)',
+        details: [...details, `Lỗi: ${message}`, ...errDetails.slice(0, 5)],
+      })
     }
-    return apiError(`Docker builder prune lỗi: ${msg}`, 500)
+    return apiError(`Docker builder prune lỗi: ${message}`, 500)
+  }
+}
+
+// ============================================
+// HELPER: Extract exec error with full stdout/stderr context
+// ============================================
+function extractExecError(err: unknown): { message: string; details: string[] } {
+  const e = err as { message?: string; stdout?: Buffer | string; stderr?: Buffer | string; status?: number }
+  const stdout = e?.stdout ? e.stdout.toString().trim() : ''
+  const stderr = e?.stderr ? e.stderr.toString().trim() : ''
+  const combined = [stderr, stdout].filter(Boolean).join('\n').trim()
+
+  // Prefer actual command output over generic "Command failed" prefix
+  if (combined) {
+    const lines = combined.split('\n').filter((l) => l.trim()).slice(-8)
+    const firstMeaningful = lines.find((l) => !/^Command failed/i.test(l)) || lines[0] || ''
+    return {
+      message: firstMeaningful.slice(0, 300),
+      details: lines,
+    }
+  }
+
+  const raw = e?.message || String(err)
+  const lines = raw.split('\n').filter((l) => l.trim())
+  const firstMeaningful = lines.find((l) => !/^Command failed/i.test(l)) || lines[0] || raw
+  return {
+    message: firstMeaningful.slice(0, 300),
+    details: lines.slice(-8),
   }
 }
