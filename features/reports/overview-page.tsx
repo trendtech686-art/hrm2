@@ -8,16 +8,14 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useQuery } from '@tanstack/react-query';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { formatCurrency } from '@/lib/format-utils';
-import { useSalesTimeReport } from './business-activity/hooks/use-sales-report';
-import { useCompletedOrdersByDateRange } from './business-activity/hooks/use-report-data';
-import { useInventoryProductReport } from './business-activity/hooks/use-inventory-report';
-import { usePaymentTimeReport } from './business-activity/hooks/use-payment-report';
-import { useAllProducts } from '@/features/products/hooks/use-all-products';
+import { fetchReportsOverview } from '@/features/reports/api/reports-api';
+import type { SalesReportSummary } from './business-activity/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,8 +34,6 @@ import {
   Undo2,
   Warehouse,
 } from 'lucide-react';
-import type { ReportDateRange } from './business-activity/types';
-
 // Helper: percent change
 function percentChange(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : null;
@@ -112,27 +108,46 @@ function MiniBarChart({ data, maxValue }: { data: { label: string; value: number
   );
 }
 
+const EMPTY_SALES_SUMMARY: SalesReportSummary = {
+  orderCount: 0,
+  productAmount: 0,
+  returnAmount: 0,
+  taxAmount: 0,
+  shippingFee: 0,
+  revenue: 0,
+  grossProfit: 0,
+};
+
 export function ReportsOverviewPage() {
-  // Date ranges
-  const currentMonth: ReportDateRange = React.useMemo(() => ({
-    from: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-  }), []);
+  const overviewMonthKey = format(startOfMonth(new Date()), 'yyyy-MM');
 
-  const previousMonth: ReportDateRange = React.useMemo(() => ({
-    from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-    to: format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-  }), []);
+  const { data, isLoading } = useQuery({
+    queryKey: ['reports', 'overview', overviewMonthKey],
+    queryFn: fetchReportsOverview,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
 
-  // Data hooks
-  const { isLoading: ordersLoading } = useCompletedOrdersByDateRange(currentMonth);
-  const { isLoading: productsLoading } = useAllProducts();
-  const { data: currentSalesData, summary: currentSales } = useSalesTimeReport(currentMonth, 'day');
-  const { summary: previousSales } = useSalesTimeReport(previousMonth, 'day');
-  const { data: inventoryData, summary: inventorySummary } = useInventoryProductReport();
-  const { summary: currentPaymentSummary } = usePaymentTimeReport(currentMonth, 'day');
-  
-  const isLoading = ordersLoading || productsLoading;
+  const currentSales = data?.sales.currentMonth ?? EMPTY_SALES_SUMMARY;
+  const previousSales = data?.sales.previousMonth ?? EMPTY_SALES_SUMMARY;
+  const miniChartData = React.useMemo(
+    () => data?.sales.last14Days ?? [],
+    [data?.sales.last14Days],
+  );
+  const currentPaymentSummary = data?.payments.currentMonth ?? {
+    totalAmount: 0,
+    transactionCount: 0,
+  };
+  const inventoryBlock = data?.inventory ?? {
+    outOfStockCount: 0,
+    lowStockCount: 0,
+    alertItems: [] as { productSystemId: string; productName: string; available: number; stockStatus: 'out_of_stock' | 'low_stock' }[],
+  };
+  const lowStockItems = inventoryBlock.alertItems;
+  const inventorySummary = {
+    outOfStockCount: inventoryBlock.outOfStockCount,
+    lowStockCount: inventoryBlock.lowStockCount,
+  };
 
   // Computed KPIs
   const revenueChange = React.useMemo(
@@ -150,22 +165,14 @@ export function ReportsOverviewPage() {
 
 
 
-  // Mini chart data (last 14 days of current month)
-  const miniChartData = React.useMemo(() => {
-    const last14 = currentSalesData.slice(-14);
-    return last14.map(d => ({ label: d.label, value: d.revenue }));
-  }, [currentSalesData]);
-
   const miniChartMax = React.useMemo(
-    () => Math.max(...miniChartData.map(d => d.value), 1),
-    [miniChartData]
+    () => Math.max(...miniChartData.map((d) => d.value), 1),
+    [miniChartData],
   );
 
-  // Low stock alerts
-  const lowStockItems = React.useMemo(
-    () => inventoryData.filter(p => p.stockStatus === 'low_stock' || p.stockStatus === 'out_of_stock'),
-    [inventoryData]
-  );
+  const totalAlertSkus =
+    inventorySummary.outOfStockCount + inventorySummary.lowStockCount;
+  const moreAlertsCount = totalAlertSkus > 8 ? totalAlertSkus - 8 : 0;
 
   const currentMonthLabel = format(new Date(), 'MMMM yyyy', { locale: vi });
 
@@ -228,6 +235,27 @@ export function ReportsOverviewPage() {
       )}
 
       {/* Charts + Alerts Row */}
+      {isLoading ? (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-6 w-56 mb-2" />
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-16 w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-36 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Revenue Mini Chart */}
         <Card className="lg:col-span-2">
@@ -269,14 +297,14 @@ export function ReportsOverviewPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {lowStockItems.length === 0 ? (
+            {totalAlertSkus === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Package className="h-8 w-8 text-muted-foreground/50 mb-2" />
                 <p className="text-sm text-muted-foreground">Không có cảnh báo</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {lowStockItems.slice(0, 8).map(item => (
+                {lowStockItems.map(item => (
                   <div key={item.productSystemId} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{item.productName}</p>
@@ -287,9 +315,9 @@ export function ReportsOverviewPage() {
                     </Badge>
                   </div>
                 ))}
-                {lowStockItems.length > 8 && (
+                {moreAlertsCount > 0 && (
                   <p className="text-xs text-muted-foreground text-center pt-1">
-                    +{lowStockItems.length - 8} sản phẩm khác
+                    +{moreAlertsCount.toLocaleString('vi-VN')} sản phẩm khác cần xem
                   </p>
                 )}
               </div>
@@ -307,6 +335,7 @@ export function ReportsOverviewPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Quick Links */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

@@ -21,6 +21,7 @@
  * ```
  */
 
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { decode } from 'next-auth/jwt'
@@ -174,11 +175,15 @@ export function isValidationError<T>(
   return !result.success
 }
 
+export { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
+
 export interface PaginationParams {
   page: number
   limit: number
   skip: number
-  /** When true, limit/skip are set to fetch all records in a single query */
+  /**
+   * limit=0 trên query: một truy vấn với `limit` tối đa API_MAX_PAGE_LIMIT (không phải toàn bộ DB).
+   */
   noPagination?: boolean
 }
 
@@ -503,13 +508,13 @@ export function apiNotFound(resource = 'Resource'): NextResponse {
 export function parsePagination(searchParams: URLSearchParams): PaginationParams {
   const rawLimit = parseInt(searchParams.get('limit') || '100')
   
-  // limit=0 means "fetch all records" (no pagination)
+  // limit=0: một trang với trần API_MAX_PAGE_LIMIT (legacy); client nên dùng fetchAllPages
   if (rawLimit === 0) {
-    return { page: 1, limit: 100000, skip: 0, noPagination: true }
+    return { page: 1, limit: API_MAX_PAGE_LIMIT, skip: 0, noPagination: true }
   }
-  
+
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  const limit = Math.min(10000, Math.max(1, rawLimit))
+  const limit = Math.min(API_MAX_PAGE_LIMIT, Math.max(1, rawLimit))
   const skip = (page - 1) * limit
   
   return { page, limit, skip }

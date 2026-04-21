@@ -14,6 +14,7 @@ import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
 import { useOrdersByDateRange } from '../hooks/use-report-data';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -125,7 +126,7 @@ export function SalesOrderReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   
-  const { data: orders = [] } = useOrdersByDateRange(dateRange);
+  const { data: orders = [], isLoading, isError, error } = useOrdersByDateRange(dateRange);
   const { findById: findCustomerById } = useCustomerFinder();
   
   // Process data
@@ -315,6 +316,7 @@ export function SalesOrderReportPage() {
         showGroupBy={false}
       />
       
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       <ReportSummaryCards cards={summaryCards} />
       
       <Card>
@@ -328,6 +330,11 @@ export function SalesOrderReportPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {data.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState title="Không có đơn hàng trong khoảng thời gian đã chọn" />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -345,8 +352,10 @@ export function SalesOrderReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

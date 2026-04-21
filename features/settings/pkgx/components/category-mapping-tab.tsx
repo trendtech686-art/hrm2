@@ -50,7 +50,8 @@ export function CategoryMappingTab() {
   // All hooks MUST be called before any conditional returns
   const queryClient = useQueryClient();
   const { data: settings } = usePkgxSettings();
-  const { addCategoryMapping, updateCategoryMapping, deleteCategoryMapping } = usePkgxCategoryMappingMutations({ onSuccess: () => {} });
+  const { addCategoryMapping, updateCategoryMapping, deleteCategoryMapping, deleteCategoryMappingsBulk } =
+    usePkgxCategoryMappingMutations({ onSuccess: () => {} });
   const syncCategories = useSyncPkgxCategories({ onSuccess: () => toast.success('Đã đồng bộ danh mục từ PKGX') });
   const { addLog } = usePkgxLogMutations();
   const { data: productCategoriesData = [] } = useActiveCategories();
@@ -118,17 +119,15 @@ export function CategoryMappingTab() {
   
   const handleCleanupAllOrphans = React.useCallback(() => {
     if (orphanMappings.length === 0) return;
-    if (!window.confirm(
-      `Xoá ${orphanMappings.length} mapping đang trỏ vào danh mục HRM đã xoá?\n\n` +
-      `Sau khi xoá, các danh mục PKGX tương ứng sẽ trở về trạng thái "Chưa liên kết" ` +
-      `và có thể Import lại thành danh mục HRM mới.`
-    )) return;
-    
-    for (const m of orphanMappings) {
-      deleteCategoryMapping.mutate(m.systemId || m.id || '');
-    }
-    toast.success(`Đã dọn ${orphanMappings.length} mapping lỗi`);
-  }, [orphanMappings, deleteCategoryMapping]);
+    const ids = orphanMappings
+      .map((m) => m.systemId || m.id)
+      .filter((id): id is string => Boolean(id));
+    entitySync.handleConfirm(
+      `Dọn ${orphanMappings.length} mapping lỗi`,
+      `Sẽ xoá ${orphanMappings.length} mapping đang trỏ vào danh mục HRM đã xoá. Các danh mục PKGX tương ứng sẽ trở về trạng thái "Chưa liên kết" và có thể Import lại thành danh mục HRM mới.`,
+      () => deleteCategoryMappingsBulk.mutate(ids),
+    );
+  }, [orphanMappings, deleteCategoryMappingsBulk, entitySync]);
   
   // PKGX Categories data for table
   const pkgxCategoriesData = React.useMemo((): PkgxCategoryRow[] => {
@@ -1254,7 +1253,7 @@ export function CategoryMappingTab() {
                   variant="outline"
                   className="shrink-0"
                   onClick={handleCleanupAllOrphans}
-                  disabled={deleteCategoryMapping.isPending}
+                  disabled={deleteCategoryMapping.isPending || deleteCategoryMappingsBulk.isPending}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                   Dọn {orphanMappings.length} mapping lỗi
@@ -1527,7 +1526,7 @@ export function CategoryMappingTab() {
       {/* Confirmation Dialog for sync actions - using shared component */}
       <PkgxSyncConfirmDialog
         confirmAction={entitySync.confirmAction}
-        isSyncing={entitySync.isSyncing}
+        isSyncing={entitySync.isSyncing || deleteCategoryMappingsBulk.isPending}
         onConfirm={entitySync.executeAction}
         onCancel={entitySync.cancelConfirm}
       />

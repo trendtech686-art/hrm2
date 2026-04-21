@@ -16,6 +16,7 @@ import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, PAYMENT_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
 import { usePaymentTimeReport } from '../hooks/use-payment-report';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -110,7 +111,7 @@ export function PaymentTimeReportPage() {
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   const [timeGrouping, setTimeGrouping] = React.useState<TimeGrouping>('day');
 
-  const { data, summary } = usePaymentTimeReport(dateRange, timeGrouping);
+  const { data, summary, isLoading, isError, error } = usePaymentTimeReport(dateRange, timeGrouping);
 
   const tableData = React.useMemo(() => {
     const summaryRow: PaymentTimeReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -193,7 +194,7 @@ export function PaymentTimeReportPage() {
     { title: 'SL giao dịch', value: summary.transactionCount, icon: CreditCard },
     { title: 'Tổng tiền', value: formatCurrency(summary.totalAmount), icon: DollarSign },
     { title: 'TB/giao dịch', value: formatCurrency(summary.averageAmount), icon: TrendingUp }
-  ], [data, summary]);
+  ], [summary]);
 
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
@@ -246,6 +247,7 @@ export function PaymentTimeReportPage() {
         showGroupBy={false}
       />
 
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       <ReportSummaryCards cards={summaryCards} />
 
       <ReportChart
@@ -264,13 +266,18 @@ export function PaymentTimeReportPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>Chi tiết theo thời gian</CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" type="button">
               <Filter className="h-4 w-4 mr-2" />
               Lọc ({data.length})
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {data.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState title="Không có dữ liệu trong khoảng thời gian đã chọn" />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -288,8 +295,10 @@ export function PaymentTimeReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

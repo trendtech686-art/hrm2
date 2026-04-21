@@ -68,6 +68,7 @@ model Shipment {
   packaging Packaging?        @relation(fields: [packagingSystemId], references: [systemId])
 
   @@index([carrier])
+  @@index([createdAt])
   @@index([orderId])
   @@index([warrantyId])
   @@index([status])

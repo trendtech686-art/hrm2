@@ -15,6 +15,7 @@ import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { useSalesTaxReport } from '../hooks/use-sales-report';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -106,7 +107,7 @@ export function SalesTaxReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const { data, summary } = useSalesTaxReport(dateRange);
+  const { data, summary, isLoading, isError, error } = useSalesTaxReport(dateRange);
 
   const tableData = React.useMemo(() => {
     const summaryRow: SalesTaxReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -240,6 +241,7 @@ export function SalesTaxReportPage() {
         showGroupBy={false}
       />
 
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       <ReportSummaryCards cards={summaryCards} />
 
       <ReportChart
@@ -265,6 +267,11 @@ export function SalesTaxReportPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {data.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState title="Không có dữ liệu trong khoảng thời gian đã chọn" />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -282,8 +289,10 @@ export function SalesTaxReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

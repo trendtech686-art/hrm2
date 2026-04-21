@@ -205,7 +205,7 @@ export const POST = apiHandler(async (req, { session }) => {
     case 'docker-builder-prune': return await dockerBuilderPrune()
     default: return apiError('Action không hợp lệ', 400)
   }
-}, { rateLimit: { max: 5 } })
+}, { rateLimit: { max: 40, windowMs: 60_000 } })
 
 // ============================================
 // DELETE ALL PRODUCTS
@@ -994,6 +994,19 @@ async function exportDbBackup() {
 // ============================================
 // PERMISSION AUDIT
 // ============================================
+function countRolePermissions(permissions: unknown): number {
+  if (Array.isArray(permissions)) return permissions.length
+  if (typeof permissions === 'string') {
+    try {
+      const parsed = JSON.parse(permissions) as unknown
+      return Array.isArray(parsed) ? parsed.length : 0
+    } catch {
+      return 0
+    }
+  }
+  return 0
+}
+
 async function permissionAudit() {
   const [employees, roles] = await Promise.all([
     prisma.employee.findMany({
@@ -1007,14 +1020,19 @@ async function permissionAudit() {
     }),
   ])
 
+  // Employee.role lưu theo id vai trò HOẶC tên hiển thị (dữ liệu cũ) — map cả hai.
   const roleMap = new Map<string, { displayName: string; count: number }>()
   for (const r of roles) {
-    const perms = Array.isArray(r.permissions) ? r.permissions.length : 0
-    roleMap.set(r.id, { displayName: r.name, count: perms })
+    const count = countRolePermissions(r.permissions)
+    const entry = { displayName: r.name, count }
+    roleMap.set(r.id, entry)
+    roleMap.set(r.name, entry)
+    roleMap.set(r.name.trim(), entry)
   }
 
   const audit = employees.map((e) => {
-    const roleInfo = roleMap.get(e.role)
+    const key = e.role?.trim() ?? ''
+    const roleInfo = roleMap.get(e.role) ?? roleMap.get(key)
     return {
       user: e.fullName,
       role: roleInfo?.displayName || e.role,

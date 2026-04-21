@@ -16,6 +16,7 @@ import { ReportFilters } from '../components/report-filters';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
 import { useSalesTimeReport } from '../hooks/use-sales-report';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -150,7 +151,7 @@ export function SalesTimeReportPage() {
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   
   // Get report data
-  const { data, summary } = useSalesTimeReport(dateRange, timeGrouping);
+  const { data, summary, isLoading, isError, error } = useSalesTimeReport(dateRange, timeGrouping);
   
   // Prepare data for table (add systemId and summary row)
   const tableData = React.useMemo(() => {
@@ -324,7 +325,8 @@ export function SalesTimeReportPage() {
         onTimeGroupingChange={setTimeGrouping}
         showReportType={false}
       />
-      
+
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       {/* Chart */}
       <ReportChart
         data={chartData}
@@ -345,13 +347,18 @@ export function SalesTimeReportPage() {
             <CardTitle>
               Chi tiết theo {timeGrouping === 'day' ? 'ngày' : timeGrouping === 'week' ? 'tuần' : timeGrouping === 'month' ? 'tháng' : timeGrouping}
             </CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" type="button">
               <Filter className="h-4 w-4 mr-2" />
               Lọc kết quả ({data.length})
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {data.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState title="Không có dữ liệu trong khoảng thời gian đã chọn" />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -369,8 +376,10 @@ export function SalesTimeReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

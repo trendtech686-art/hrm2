@@ -10,6 +10,7 @@ import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchOrders } from '@/features/orders/api/orders-api';
 import { fetchSalesReturns } from '@/features/sales-returns/api/sales-returns-api';
 import type { ReportDateRange } from '../types';
+import { REPORTS_QUERY_GC_MS, REPORTS_QUERY_STALE_MS } from '../lib/reports-query-config';
 
 /**
  * Fetch completed orders within a date range (server-side filtered)
@@ -24,8 +25,8 @@ export function useCompletedOrdersByDateRange(dateRange: ReportDateRange) {
       startDate: dateRange.from,
       endDate: dateRange.to,
     })),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: REPORTS_QUERY_STALE_MS,
+    gcTime: REPORTS_QUERY_GC_MS,
     enabled: !!dateRange.from && !!dateRange.to,
   });
 }
@@ -42,8 +43,8 @@ export function useOrdersByDateRange(dateRange: ReportDateRange) {
       startDate: dateRange.from,
       endDate: dateRange.to,
     })),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: REPORTS_QUERY_STALE_MS,
+    gcTime: REPORTS_QUERY_GC_MS,
     enabled: !!dateRange.from && !!dateRange.to,
   });
 }
@@ -59,8 +60,8 @@ export function useCompletedOrders() {
       ...p,
       status: 'COMPLETED',
     })),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: REPORTS_QUERY_STALE_MS,
+    gcTime: REPORTS_QUERY_GC_MS,
   });
 }
 
@@ -76,8 +77,8 @@ export function useSalesReturnsByDateRange(dateRange: ReportDateRange) {
       startDate: dateRange.from,
       endDate: dateRange.to,
     })),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: REPORTS_QUERY_STALE_MS,
+    gcTime: REPORTS_QUERY_GC_MS,
     enabled: !!dateRange.from && !!dateRange.to,
   });
 }

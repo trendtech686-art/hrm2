@@ -16,6 +16,7 @@ import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
 import { useReturnProductReport } from '../hooks/use-return-report';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,7 +100,7 @@ export function ReturnProductReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const { data, summary } = useReturnProductReport(dateRange);
+  const { data, summary, isLoading, isError, error } = useReturnProductReport(dateRange);
 
   const tableData = React.useMemo(() => {
     const summaryRow: ReturnProductReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -181,7 +182,7 @@ export function ReturnProductReportPage() {
     { title: 'Số sản phẩm', value: summary.totalProducts, icon: Package },
     { title: 'SL trả', value: summary.totalQuantityReturned, icon: RotateCcw },
     { title: 'Tiền trả', value: formatCurrency(summary.totalReturnAmount), icon: DollarSign }
-  ], [data, summary]);
+  ], [summary]);
 
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
@@ -232,6 +233,7 @@ export function ReturnProductReportPage() {
         showGroupBy={false}
       />
 
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       <ReportSummaryCards cards={summaryCards} />
 
       <ReportChart
@@ -250,13 +252,18 @@ export function ReturnProductReportPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>Chi tiết theo sản phẩm</CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" type="button">
               <Filter className="h-4 w-4 mr-2" />
               Lọc ({data.length})
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {data.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState title="Không có dữ liệu trong khoảng thời gian đã chọn" />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -274,8 +281,10 @@ export function ReturnProductReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 /**
  * DeliveryShipmentReport Page
  *
- * Báo cáo giao hàng chi tiết vận đơn
+ * Báo cáo giao hàng chi tiết vận đơn — phân trang server.
  */
 
 import * as React from 'react';
@@ -14,6 +14,7 @@ import { DynamicReportChart as ReportChart } from '../components/dynamic-report-
 import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, DELIVERY_REPORT_GLOSSARY } from '../components/report-header-actions';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { formatCurrency } from '@/lib/format-utils';
 import { useDeliveryShipmentReport } from '../hooks/use-delivery-report';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -23,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, DeliveryShipmentReportRow, ChartType } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import { Package, Truck, TrendingUp, CheckCircle, Filter } from 'lucide-react';
+import { Package, Truck, TrendingUp, Filter } from 'lucide-react';
 
 const getDefaultDateRange = (): ReportDateRange => ({
   from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
@@ -108,7 +109,15 @@ export function DeliveryShipmentReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const { data } = useDeliveryShipmentReport(dateRange);
+  React.useEffect(() => {
+    setPagination((p) => ({ ...p, pageIndex: 0 }));
+  }, [dateRange.from, dateRange.to]);
+
+  const { data, summary, pagination: serverPagination, isLoading, isError, error } = useDeliveryShipmentReport(
+    dateRange,
+    undefined,
+    { page: pagination.pageIndex + 1, pageSize: pagination.pageSize },
+  );
 
   const tableData = React.useMemo(() => {
     const summaryRow: DeliveryShipmentReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -118,8 +127,8 @@ export function DeliveryShipmentReportPage() {
       status: '',
       createdDate: '',
       deliveredDate: '',
-      codAmount: data.reduce((s, r) => s + (r.codAmount || 0), 0),
-      shippingFee: data.reduce((s, r) => s + (r.shippingFee || 0), 0),
+      codAmount: summary.codAmount,
+      shippingFee: summary.shippingFee ?? 0,
       customerName: '',
       deliveryAddress: '',
       shipmentSystemId: '__summary__' as unknown as SystemId,
@@ -132,7 +141,7 @@ export function DeliveryShipmentReportPage() {
       systemId: row.shipmentSystemId,
       _isSummary: false,
     }))];
-  }, [data]);
+  }, [data, summary]);
 
   const sortedData = React.useMemo(() => {
     const sorted = [...tableData];
@@ -152,14 +161,9 @@ export function DeliveryShipmentReportPage() {
     return sorted;
   }, [tableData, sorting]);
 
-  const paginatedData = React.useMemo(() => {
-    const summaryRow = sortedData[0];
-    const dataRows = sortedData.slice(1);
-    const start = pagination.pageIndex * pagination.pageSize;
-    return [summaryRow, ...dataRows.slice(start, start + pagination.pageSize)];
-  }, [sortedData, pagination]);
-
-  const pageCount = Math.ceil(data.length / pagination.pageSize);
+  const totalRows = serverPagination?.total ?? 0;
+  const pageCount = Math.max(1, serverPagination?.totalPages ?? 1);
+  const rowCount = totalRows + 1;
 
   const chartData = React.useMemo(() => {
     return data.map(row => ({
@@ -188,10 +192,10 @@ export function DeliveryShipmentReportPage() {
   ], []);
 
   const summaryCards = React.useMemo(() => [
-    { title: 'Số vận đơn', value: data.length, icon: Package },
-    { title: 'Tổng COD', value: formatCurrency(data.reduce((s, r) => s + (r.codAmount || 0), 0)), icon: Truck },
-    { title: 'Tổng phí VC', value: formatCurrency(data.reduce((s, r) => s + (r.shippingFee || 0), 0)), icon: TrendingUp }
-  ], [data]);
+    { title: 'Số vận đơn', value: summary.totalShipments, icon: Package },
+    { title: 'Tổng COD', value: formatCurrency(summary.codAmount), icon: Truck },
+    { title: 'Tổng phí VC', value: formatCurrency(summary.shippingFee ?? 0), icon: TrendingUp }
+  ], [summary]);
 
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
@@ -242,50 +246,63 @@ export function DeliveryShipmentReportPage() {
         showGroupBy={false}
       />
 
-      <ReportSummaryCards cards={summaryCards} />
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
+          <ReportSummaryCards cards={summaryCards} />
 
-      <ReportChart
-        data={chartData}
-        config={dynamicChartConfig}
-        chartType={chartType}
-        onChartTypeChange={setChartType}
-        displayOptions={DISPLAY_OPTIONS}
-        selectedOptions={selectedChartOptions}
-        onOptionsChange={setSelectedChartOptions}
-        height={350}
-        isCollapsible={true}
-      />
-
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle>Chi tiết vận đơn</CardTitle>
-            <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Lọc ({data.length})
-            </Button>
+          <div className="space-y-1">
+            <ReportChart
+              data={chartData}
+              config={dynamicChartConfig}
+              chartType={chartType}
+              onChartTypeChange={setChartType}
+              displayOptions={DISPLAY_OPTIONS}
+              selectedOptions={selectedChartOptions}
+              onOptionsChange={setSelectedChartOptions}
+              height={350}
+              isCollapsible={true}
+            />
+            <p className="text-xs text-muted-foreground px-1">
+              Biểu đồ theo dữ liệu trang hiện tại ({data.length} vận đơn).
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ResponsiveDataTable
-            columns={columns}
-            data={paginatedData}
-            rowCount={data.length + 1}
-            pageCount={pageCount}
-            pagination={pagination}
-            setPagination={setPagination}
-            sorting={sorting}
-            setSorting={setSorting}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={columnOrder}
-            setColumnOrder={setColumnOrder}
-            pinnedColumns={pinnedColumns}
-            setPinnedColumns={setPinnedColumns}
-            renderMobileCard={renderMobileCard}
-          />
-        </CardContent>
-      </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle>Chi tiết vận đơn</CardTitle>
+                <Button variant="outline" size="sm" type="button">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Lọc ({totalRows})
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {totalRows === 0 ? (
+                <div className="p-6">
+                  <ReportEmptyState title="Không có vận đơn" />
+                </div>
+              ) : (
+                <ResponsiveDataTable
+                  columns={columns}
+                  data={sortedData}
+                  rowCount={rowCount}
+                  pageCount={pageCount}
+                  pagination={pagination}
+                  setPagination={setPagination}
+                  sorting={sorting}
+                  setSorting={setSorting}
+                  columnVisibility={columnVisibility}
+                  setColumnVisibility={setColumnVisibility}
+                  columnOrder={columnOrder}
+                  setColumnOrder={setColumnOrder}
+                  pinnedColumns={pinnedColumns}
+                  setPinnedColumns={setPinnedColumns}
+                  renderMobileCard={renderMobileCard}
+                />
+              )}
+            </CardContent>
+          </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

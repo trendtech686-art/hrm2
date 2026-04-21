@@ -80,6 +80,7 @@ model SalesReturn {
   exchangeOrder Order?            @relation("SalesReturnToExchangeOrder", fields: [exchangeOrderSystemId], references: [systemId])
 
   @@index([orderId])
+  @@index([returnDate])
   @@index([status])
   @@index([exchangeOrderSystemId])
   @@map("sales_returns")

@@ -185,8 +185,12 @@ export async function saveCategoryMapping(data: PkgxCategoryMapping): Promise<Pk
 export async function deleteCategoryMapping(id: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/category-mappings?systemId=${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    credentials: 'include',
   });
-  if (!res.ok) throw new Error('Failed to delete category mapping');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: string; message?: string }
+    throw new Error(err.error || err.message || 'Không xóa được mapping danh mục');
+  }
 }
 
 // ========================================
@@ -239,8 +243,12 @@ export async function saveBrandMapping(data: PkgxBrandMapping): Promise<PkgxBran
 export async function deleteBrandMapping(id: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/brand-mappings?systemId=${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    credentials: 'include',
   });
-  if (!res.ok) throw new Error('Failed to delete brand mapping');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: string; message?: string }
+    throw new Error(err.error || err.message || 'Không xóa được mapping thương hiệu');
+  }
 }
 
 // ========================================

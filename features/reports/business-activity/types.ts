@@ -477,6 +477,8 @@ export interface DeliveryReportSummary {
   deliveryRate: number;
   totalAmount: number;
   codAmount: number;
+  /** Tổng phí vận chuyển (báo cáo chi tiết vận đơn / time-series) */
+  shippingFee?: number;
 }
 
 export interface PaymentReportSummary {

@@ -1,26 +1,27 @@
 /**
  * Auto-pagination utility
  *
- * Compliant with MODULE-QUALITY-CRITERIA §1.3:
- *   "TUYỆT ĐỐI KHÔNG HARDCODE LIMIT"
- *
- * Pattern: fetch page 1 → discover totalPages → fetch remaining pages in parallel.
- * PAGE_SIZE is a batch size, NOT a cap.
+ * Không dùng `limit=100000` (anti-pattern Next.js / API): luôn phân trang với batch
+ * cố định ≤ `API_MAX_PAGE_LIMIT` (`@/lib/pagination-constants`), khớp `parsePagination`.
  *
  * @example
  * ```ts
- * // In a useAll* hook:
  * const query = useQuery({
  *   queryKey: [...keys.all, 'all'],
  *   queryFn: () => fetchAllPages((p) => fetchProducts(p)),
  * });
- *
- * // In a fetchAll* API function:
- * export async function fetchAllTaxes(): Promise<Tax[]> {
- *   return fetchAllPages((p) => fetchTaxes(p));
- * }
  * ```
  */
+
+import {
+  API_MAX_PAGE_LIMIT,
+  FETCH_ALL_DEFAULT_PAGE_SIZE,
+} from '@/lib/pagination-constants';
+
+/** @deprecated dùng `API_MAX_PAGE_LIMIT` từ `@/lib/pagination-constants` */
+export const MAX_API_PAGE_SIZE = API_MAX_PAGE_LIMIT;
+
+export { FETCH_ALL_DEFAULT_PAGE_SIZE } from '@/lib/pagination-constants';
 
 interface PaginatedResult<T> {
   data: T[];
@@ -35,44 +36,54 @@ interface PaginatedResult<T> {
   pageSize?: number;
 }
 
+const PAGE_FETCH_CONCURRENCY = 5;
+
+async function fetchPageBatches<T>(
+  fetchPage: (params: { page: number; limit: number }) => Promise<PaginatedResult<T>>,
+  pageNumbers: number[],
+  limitPerPage: number,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < pageNumbers.length; i += PAGE_FETCH_CONCURRENCY) {
+    const chunk = pageNumbers.slice(i, i + PAGE_FETCH_CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map((page) => fetchPage({ page, limit: limitPerPage })),
+    );
+    for (const r of results) {
+      out.push(...r.data);
+    }
+  }
+  return out;
+}
+
 /**
- * Fetch ALL records from a paginated API endpoint in a single request.
+ * Lấy toàn bộ bản ghi từ API phân trang: page 1 → đọc total/totalPages → gọi các trang còn lại theo batch.
  *
- * Uses limit=0 convention to tell the server to return all records.
- * Falls back to multi-page fetching if the API doesn't support limit=0.
- *
- * @param fetchPage - Function that fetches a single page. Must accept `{ page, limit }`.
- * @returns Flat array of all records.
+ * @param pageSize - Batch size (mặc định FETCH_ALL_DEFAULT_PAGE_SIZE), tối đa API_MAX_PAGE_LIMIT.
  */
 export async function fetchAllPages<T>(
   fetchPage: (params: { page: number; limit: number }) => Promise<PaginatedResult<T>>,
-  _pageSize?: number,
+  pageSize: number = FETCH_ALL_DEFAULT_PAGE_SIZE,
 ): Promise<T[]> {
-  // Use limit=100000 to request all records in a single API call
-  // Note: limit=0 is not used because many client-side API functions use
-  // `if (filters.limit)` which is falsy for 0, causing the param to be omitted.
-  // The server-side parsePagination also treats limit=0 as 100000 internally.
-  const result = await fetchPage({ page: 1, limit: 100000 });
-  const allRecords = [...result.data];
+  const limit = Math.min(Math.max(1, pageSize), API_MAX_PAGE_LIMIT);
+  const first = await fetchPage({ page: 1, limit });
+  const allRecords = [...first.data];
 
-  // If the API returned paginated results despite limit=0, fetch remaining pages
+  const totalFromPagination = first.pagination?.total;
+  const total = totalFromPagination ?? first.total;
+  const perPage = first.pagination?.limit ?? limit;
+
   const totalPages =
-    result.pagination?.totalPages ??
-    (result.pagination?.total != null && result.pagination?.limit
-      ? Math.ceil(result.pagination.total / result.pagination.limit)
-      : 1);
+    first.pagination?.totalPages ??
+    (total != null && perPage > 0 ? Math.ceil(total / perPage) : 1);
 
-  if (totalPages > 1 && result.pagination?.limit && result.pagination.limit < (result.pagination?.total ?? 0)) {
-    const batchSize = result.pagination.limit;
-    const remaining = await Promise.all(
-      Array.from({ length: totalPages - 1 }, (_, i) =>
-        fetchPage({ page: i + 2, limit: batchSize }),
-      ),
-    );
-    for (const r of remaining) {
-      allRecords.push(...r.data);
-    }
+  if (totalPages <= 1) {
+    return allRecords;
   }
+
+  const restPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+  const rest = await fetchPageBatches(fetchPage, restPages, perPage);
+  allRecords.push(...rest);
 
   return allRecords;
 }

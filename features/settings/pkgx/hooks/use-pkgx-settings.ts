@@ -20,6 +20,10 @@ import type {
 import { DEFAULT_PKGX_SETTINGS } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { logError } from '@/lib/logger'
+import {
+  deleteBrandMapping as deleteBrandMappingApi,
+  deleteCategoryMapping as deleteCategoryMappingApi,
+} from '../api/pkgx-api'
 
 // ========================================
 // Query Keys
@@ -652,18 +656,35 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
 
   const deleteCategoryMapping = useMutation({
     mutationFn: async (id: string) => {
-      const settings = getPkgxSettingsFromCache(queryClient);
-      const mappings = settings?.categoryMappings?.filter((m) => m.id !== id) ?? [];
-      await updatePkgxSection('categoryMappings', mappings);
+      await deleteCategoryMappingApi(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
       toast.success('Đã xóa mapping danh mục');
       options?.onSuccess?.();
     },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Không xóa được mapping danh mục');
+    },
   });
 
-  return { addCategoryMapping, updateCategoryMapping, deleteCategoryMapping };
+  /** Xoá nhiều mapping — DELETE Prisma (một PATCH JSON không đồng bộ với DB). */
+  const deleteCategoryMappingsBulk = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const list = ids.filter(Boolean);
+      await Promise.all(list.map((id) => deleteCategoryMappingApi(id)));
+    },
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
+      toast.success(`Đã dọn ${ids.length} mapping lỗi`);
+      options?.onSuccess?.();
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Không xóa hết mapping lỗi');
+    },
+  });
+
+  return { addCategoryMapping, updateCategoryMapping, deleteCategoryMapping, deleteCategoryMappingsBulk };
 }
 
 export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void }) {
@@ -699,18 +720,35 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
 
   const deleteBrandMapping = useMutation({
     mutationFn: async (id: string) => {
-      const settings = getPkgxSettingsFromCache(queryClient);
-      const mappings = settings?.brandMappings?.filter((m) => m.id !== id) ?? [];
-      await updatePkgxSection('brandMappings', mappings);
+      await deleteBrandMappingApi(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
       toast.success('Đã xóa mapping thương hiệu');
       options?.onSuccess?.();
     },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Không xóa được mapping thương hiệu');
+    },
   });
 
-  return { addBrandMapping, updateBrandMapping, deleteBrandMapping };
+  /** Xoá nhiều mapping — DELETE Prisma (PATCH JSON trước đây không xóa DB nên UI vẫn còn orphan). */
+  const deleteBrandMappingsBulk = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const list = ids.filter(Boolean);
+      await Promise.all(list.map((id) => deleteBrandMappingApi(id)));
+    },
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
+      toast.success(`Đã dọn ${ids.length} mapping lỗi`);
+      options?.onSuccess?.();
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Không xóa hết mapping lỗi');
+    },
+  });
+
+  return { addBrandMapping, updateBrandMapping, deleteBrandMapping, deleteBrandMappingsBulk };
 }
 
 export function usePkgxSyncSettingsMutations(options?: { onSuccess?: () => void }) {

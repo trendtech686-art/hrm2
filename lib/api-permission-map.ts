@@ -634,6 +634,14 @@ export const API_PERMISSION_MAP: RoutePermission[] = [
   },
 
   // ============================================
+  // REPORTS (aggregate / tổng hợp)
+  // ============================================
+  {
+    pattern: /^reports\//,
+    methods: { GET: 'view_reports' },
+  },
+
+  // ============================================
   // COMPLAINTS
   // ============================================
   {

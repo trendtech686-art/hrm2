@@ -3,7 +3,7 @@
 /**
  * ReturnOrderReport Page
  *
- * Báo cáo trả hàng theo đơn
+ * Báo cáo trả hàng theo đơn — phân trang server.
  */
 
 import * as React from 'react';
@@ -14,6 +14,7 @@ import { DynamicReportChart as ReportChart } from '../components/dynamic-report-
 import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { formatCurrency } from '@/lib/format-utils';
 import { useReturnOrderReport } from '../hooks/use-return-report';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -125,7 +126,15 @@ export function ReturnOrderReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const { data, summary } = useReturnOrderReport(dateRange);
+  React.useEffect(() => {
+    setPagination((p) => ({ ...p, pageIndex: 0 }));
+  }, [dateRange.from, dateRange.to]);
+
+  const { data, summary, pagination: serverPagination, isLoading, isError, error } = useReturnOrderReport(
+    dateRange,
+    pagination.pageIndex + 1,
+    pagination.pageSize,
+  );
 
   const tableData = React.useMemo(() => {
     const summaryRow: ReturnOrderReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -170,14 +179,9 @@ export function ReturnOrderReportPage() {
     return sorted;
   }, [tableData, sorting]);
 
-  const paginatedData = React.useMemo(() => {
-    const summaryRow = sortedData[0];
-    const dataRows = sortedData.slice(1);
-    const start = pagination.pageIndex * pagination.pageSize;
-    return [summaryRow, ...dataRows.slice(start, start + pagination.pageSize)];
-  }, [sortedData, pagination]);
-
-  const pageCount = Math.ceil(data.length / pagination.pageSize);
+  const totalRows = serverPagination?.total ?? 0;
+  const pageCount = Math.max(1, serverPagination?.totalPages ?? 1);
+  const rowCount = totalRows + 1;
 
   const chartData = React.useMemo(() => {
     return data.map(row => ({
@@ -213,7 +217,7 @@ export function ReturnOrderReportPage() {
     { title: 'SL sản phẩm', value: summary.totalItems, icon: Package },
     { title: 'Tiền trả', value: formatCurrency(summary.totalReturnAmount), icon: DollarSign },
     { title: 'Tiền hoàn', value: formatCurrency(summary.totalRefundAmount), icon: TrendingDown }
-  ], [data, summary]);
+  ], [summary]);
 
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
@@ -264,50 +268,63 @@ export function ReturnOrderReportPage() {
         showGroupBy={false}
       />
 
-      <ReportSummaryCards cards={summaryCards} />
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
+          <ReportSummaryCards cards={summaryCards} />
 
-      <ReportChart
-        data={chartData}
-        config={dynamicChartConfig}
-        chartType={chartType}
-        onChartTypeChange={setChartType}
-        displayOptions={DISPLAY_OPTIONS}
-        selectedOptions={selectedChartOptions}
-        onOptionsChange={setSelectedChartOptions}
-        height={350}
-        isCollapsible={true}
-      />
-
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle>Chi tiết đơn trả hàng</CardTitle>
-            <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Lọc ({data.length})
-            </Button>
+          <div className="space-y-1">
+            <ReportChart
+              data={chartData}
+              config={dynamicChartConfig}
+              chartType={chartType}
+              onChartTypeChange={setChartType}
+              displayOptions={DISPLAY_OPTIONS}
+              selectedOptions={selectedChartOptions}
+              onOptionsChange={setSelectedChartOptions}
+              height={350}
+              isCollapsible={true}
+            />
+            <p className="text-xs text-muted-foreground px-1">
+              Biểu đồ theo dữ liệu trang hiện tại ({data.length} phiếu).
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ResponsiveDataTable
-            columns={columns}
-            data={paginatedData}
-            rowCount={data.length + 1}
-            pageCount={pageCount}
-            pagination={pagination}
-            setPagination={setPagination}
-            sorting={sorting}
-            setSorting={setSorting}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={columnOrder}
-            setColumnOrder={setColumnOrder}
-            pinnedColumns={pinnedColumns}
-            setPinnedColumns={setPinnedColumns}
-            renderMobileCard={renderMobileCard}
-          />
-        </CardContent>
-      </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle>Chi tiết đơn trả hàng</CardTitle>
+                <Button variant="outline" size="sm" type="button">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Lọc ({totalRows})
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {totalRows === 0 ? (
+                <div className="p-6">
+                  <ReportEmptyState title="Không có phiếu trả hàng" />
+                </div>
+              ) : (
+                <ResponsiveDataTable
+                  columns={columns}
+                  data={sortedData}
+                  rowCount={rowCount}
+                  pageCount={pageCount}
+                  pagination={pagination}
+                  setPagination={setPagination}
+                  sorting={sorting}
+                  setSorting={setSorting}
+                  columnVisibility={columnVisibility}
+                  setColumnVisibility={setColumnVisibility}
+                  columnOrder={columnOrder}
+                  setColumnOrder={setColumnOrder}
+                  pinnedColumns={pinnedColumns}
+                  setPinnedColumns={setPinnedColumns}
+                  renderMobileCard={renderMobileCard}
+                />
+              )}
+            </CardContent>
+          </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

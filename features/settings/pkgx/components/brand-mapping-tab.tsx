@@ -49,7 +49,8 @@ interface MappingRow extends PkgxBrandMapping {
 export function BrandMappingTab() {
   const queryClient = useQueryClient();
   const { data: settings } = usePkgxSettings();
-  const { addBrandMapping, updateBrandMapping, deleteBrandMapping } = usePkgxBrandMappingMutations({ onSuccess: () => {} });
+  const { addBrandMapping, updateBrandMapping, deleteBrandMapping, deleteBrandMappingsBulk } =
+    usePkgxBrandMappingMutations({ onSuccess: () => {} });
   const syncBrands = useSyncPkgxBrands({ onSuccess: () => toast.success('Đã đồng bộ thương hiệu từ PKGX') });
   const { addLog } = usePkgxLogMutations();
   const { data: brandsData } = useActiveBrands();
@@ -116,17 +117,15 @@ export function BrandMappingTab() {
   
   const handleCleanupAllOrphans = React.useCallback(() => {
     if (orphanMappings.length === 0) return;
-    if (!window.confirm(
-      `Xoá ${orphanMappings.length} mapping đang trỏ vào thương hiệu HRM đã xoá?\n\n` +
-      `Sau khi xoá, các thương hiệu PKGX tương ứng sẽ trở về trạng thái "Chưa mapping" ` +
-      `và có thể Import lại thành thương hiệu HRM mới.`
-    )) return;
-    
-    for (const m of orphanMappings) {
-      deleteBrandMapping.mutate(m.systemId || m.id || '');
-    }
-    toast.success(`Đã dọn ${orphanMappings.length} mapping lỗi`);
-  }, [orphanMappings, deleteBrandMapping]);
+    const ids = orphanMappings
+      .map((m) => m.systemId || m.id)
+      .filter((id): id is string => Boolean(id));
+    entitySync.handleConfirm(
+      `Dọn ${orphanMappings.length} mapping lỗi`,
+      `Sẽ xoá ${orphanMappings.length} mapping đang trỏ vào thương hiệu HRM đã xoá. Các thương hiệu PKGX tương ứng sẽ trở về trạng thái "Chưa mapping" và có thể Import lại thành thương hiệu HRM mới.`,
+      () => deleteBrandMappingsBulk.mutate(ids),
+    );
+  }, [orphanMappings, deleteBrandMappingsBulk, entitySync]);
   
   // PKGX Brands data for table
   const pkgxBrandsData = React.useMemo((): PkgxBrandRow[] => {
@@ -1005,7 +1004,7 @@ export function BrandMappingTab() {
                   variant="outline"
                   className="shrink-0"
                   onClick={handleCleanupAllOrphans}
-                  disabled={deleteBrandMapping.isPending}
+                  disabled={deleteBrandMapping.isPending || deleteBrandMappingsBulk.isPending}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                   Dọn {orphanMappings.length} mapping lỗi
@@ -1296,7 +1295,7 @@ export function BrandMappingTab() {
       {/* Confirmation Dialog for sync actions - using shared component */}
       <PkgxSyncConfirmDialog
         confirmAction={entitySync.confirmAction}
-        isSyncing={entitySync.isSyncing}
+        isSyncing={entitySync.isSyncing || deleteBrandMappingsBulk.isPending}
         onConfirm={entitySync.executeAction}
         onCancel={entitySync.cancelConfirm}
       />

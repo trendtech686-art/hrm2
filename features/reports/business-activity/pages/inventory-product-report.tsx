@@ -16,6 +16,7 @@ import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
 import { useInventoryProductReport } from '../hooks/use-inventory-report';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -135,7 +136,7 @@ export function InventoryProductReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const { data, summary } = useInventoryProductReport();
+  const { data, summary, isLoading, isError, error } = useInventoryProductReport();
 
   const tableData = React.useMemo(() => {
     const summaryRow: InventoryProductReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -228,7 +229,7 @@ export function InventoryProductReportPage() {
     { title: 'Tổng tồn kho', value: summary.totalOnHand, icon: Warehouse },
     { title: 'Giá trị tồn', value: formatCurrency(summary.totalInventoryValue), icon: DollarSign },
     { title: 'Hết hàng', value: summary.outOfStockCount, icon: AlertTriangle }
-  ], [data, summary]);
+  ], [summary]);
 
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
@@ -272,8 +273,7 @@ export function InventoryProductReportPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      
-
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       <ReportSummaryCards cards={summaryCards} />
 
       <ReportChart
@@ -292,13 +292,18 @@ export function InventoryProductReportPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>Chi tiết tồn kho theo sản phẩm</CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" type="button">
               <Filter className="h-4 w-4 mr-2" />
               Lọc ({data.length})
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {data.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState title="Không có dữ liệu tồn kho" />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -316,8 +321,10 @@ export function InventoryProductReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }

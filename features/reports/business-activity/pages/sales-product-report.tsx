@@ -15,6 +15,7 @@ import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
+import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { useSalesProductReport } from '../hooks/use-sales-report';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -158,7 +159,7 @@ export function SalesProductReportPage() {
   const [categoryFilter, setCategoryFilter] = React.useState('__all__');
   const [showFilters, setShowFilters] = React.useState(false);
   
-  const { data, summary } = useSalesProductReport(dateRange);
+  const { data, summary, isLoading, isError, error } = useSalesProductReport(dateRange);
   
   // Unique categories from data
   const categories = React.useMemo(() => {
@@ -346,6 +347,7 @@ export function SalesProductReportPage() {
         showGroupBy={false}
       />
       
+      <ReportQueryBoundary isLoading={isLoading} isError={isError} error={error}>
       <ReportSummaryCards cards={summaryCards} />
       
       <ReportChart
@@ -410,6 +412,13 @@ export function SalesProductReportPage() {
           )}
         </CardHeader>
         <CardContent className="p-0">
+          {filteredData.length === 0 ? (
+            <div className="p-6">
+              <ReportEmptyState
+                title={data.length === 0 ? 'Không có dữ liệu trong khoảng thời gian đã chọn' : 'Không có dòng phù hợp bộ lọc'}
+              />
+            </div>
+          ) : (
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
@@ -427,8 +436,10 @@ export function SalesProductReportPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
           />
+          )}
         </CardContent>
       </Card>
+      </ReportQueryBoundary>
     </div>
   );
 }
