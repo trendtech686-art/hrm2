@@ -5,6 +5,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-config-constants'
 import { logError } from '@/lib/logger'
 import { syncOrders, syncCustomers, syncProducts } from '@/lib/meilisearch-sync'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 import {
   parseOrderStatus,
   parsePaymentStatus,
@@ -784,6 +785,27 @@ export async function POST(request: Request) {
         syncProducts({ fullSync: true }),
       ]).catch(e => logError('[Meilisearch] Order batch import sync failed', e))
     }
+
+    // Log the batch import as a single aggregated activity
+    createActivityLog({
+      entityType: 'order',
+      entityId: 'BATCH',
+      action: `Nhập hàng loạt đơn hàng (${results.success}/${orders.length})`,
+      actionType: 'system',
+      note: `Mode: ${mode} · Inserted: ${results.inserted} · Updated: ${results.updated} · Skipped: ${results.skipped} · Failed: ${results.failed}`,
+      metadata: {
+        userName: createdBy,
+        total: orders.length,
+        inserted: results.inserted,
+        updated: results.updated,
+        skipped: results.skipped,
+        failed: results.failed,
+        newCustomers: results.newCustomers,
+        newProducts: results.newProducts,
+        mode,
+      },
+      createdBy: session.user?.employeeId || createdBy,
+    }).catch(() => undefined)
 
     return apiSuccess(results)
   } catch (error) {

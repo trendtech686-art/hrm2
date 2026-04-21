@@ -1,18 +1,18 @@
 model PaymentMethod {
-  systemId      String   @id
-  id            String   @unique
-  name          String
-  description   String?
-  isDefault     Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  color         String? // e.g., '#10b981'
-  icon          String? // e.g., 'Wallet', 'CreditCard'
-  code          String?  @default("UNKNOWN") @db.VarChar(50)
-  type          String?  @default("other") @db.VarChar(50)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdBy     String?
-  updatedBy     String?
+  systemId    String   @id
+  id          String   @unique
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  color       String? // e.g., '#10b981'
+  icon        String? // e.g., 'Wallet', 'CreditCard'
+  code        String?  @default("UNKNOWN") @db.VarChar(50)
+  type        String?  @default("other") @db.VarChar(50)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  updatedBy   String?
 
   @@map("payment_methods")
 }

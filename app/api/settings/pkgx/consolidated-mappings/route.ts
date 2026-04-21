@@ -13,6 +13,10 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import {
+  enrichBrandMappingsWithOrphanFlag,
+  enrichCategoryMappingsWithOrphanFlag,
+} from '@/lib/pkgx/orphan-helpers'
 
 const SETTINGS_KEY = 'settings'
 const SETTINGS_GROUP = 'pkgx'
@@ -86,13 +90,50 @@ export async function GET() {
       }
     })
 
+    // Orphan detection: mapping trỏ vào Brand/Category HRM đã xoá/soft-delete.
+    // Chạy song song + cũng enrich mảng `mappings` nested bên trong categories/brands.
+    const [
+      enrichedCategoryMappings,
+      enrichedBrandMappings,
+      enrichedCategoriesMappingsNested,
+      enrichedBrandsMappingsNested,
+    ] = await Promise.all([
+      enrichCategoryMappingsWithOrphanFlag(categoryMappings),
+      enrichBrandMappingsWithOrphanFlag(brandMappings),
+      enrichCategoryMappingsWithOrphanFlag(
+        categories.flatMap((c) => c.mappings),
+      ),
+      enrichBrandMappingsWithOrphanFlag(
+        brands.flatMap((b) => b.mappings),
+      ),
+    ])
+
+    const catMappingById = new Map(
+      enrichedCategoriesMappingsNested.map((m) => [m.systemId, m]),
+    )
+    const brandMappingById = new Map(
+      enrichedBrandsMappingsNested.map((m) => [m.systemId, m]),
+    )
+    const categoriesWithOrphan = categories.map((c) => ({
+      ...c,
+      mappings: c.mappings.map((m) => catMappingById.get(m.systemId) ?? { ...m, hrmEntityMissing: false }),
+    }))
+    const brandsWithOrphan = brands.map((b) => ({
+      ...b,
+      mappings: b.mappings.map((m) => brandMappingById.get(m.systemId) ?? { ...m, hrmEntityMissing: false }),
+    }))
+
     return apiSuccess({
       settings: lightSettings,
-      categories,
-      brands,
-      categoryMappings,
-      brandMappings,
+      categories: categoriesWithOrphan,
+      brands: brandsWithOrphan,
+      categoryMappings: enrichedCategoryMappings,
+      brandMappings: enrichedBrandMappings,
       priceMappings: enrichedPriceMappings,
+      orphanCount: {
+        brand: enrichedBrandMappings.filter((m) => m.hrmEntityMissing).length,
+        category: enrichedCategoryMappings.filter((m) => m.hrmEntityMissing).length,
+      },
     })
   } catch (error) {
     logError('Error fetching consolidated PKGX mappings', error)

@@ -169,6 +169,7 @@ export async function GET(request: NextRequest) {
       message: parts.join(' • '),
       link: '/tasks?sort=dueDate&order=asc',
       recipientIds: allRecipients,
+      settingsKey: 'task:overdue',
     });
 
     return NextResponse.json({

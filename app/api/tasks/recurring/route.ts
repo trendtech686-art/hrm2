@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // GET - List all recurring tasks
 export async function GET() {
@@ -58,6 +59,15 @@ export async function POST(request: NextRequest) {
         },
       });
     });
+
+    createActivityLog({
+      entityType: 'recurring_task',
+      entityId: task.systemId,
+      action: `Tạo công việc lặp lại "${task.title}"`,
+      actionType: 'create',
+      metadata: { userName: body.createdBy },
+      createdBy: body.createdBy || undefined,
+    }).catch(() => undefined);
 
     return apiSuccess(task);
   } catch (error) {

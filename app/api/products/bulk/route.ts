@@ -35,18 +35,42 @@ export const POST = apiHandler(async (request, { session }) => {
 
     switch (action) {
       case 'delete': {
-        const deleteResult = await prisma.product.updateMany({
-          where: { systemId: { in: systemIds } },
-          data: { isDeleted: true, updatedAt: new Date() },
+        // Transaction: khi soft-delete product, đồng thời "unlink" PKGX side
+        // (PkgxProduct.hrmProductId) để UI "Đã liên kết" không còn coi là linked.
+        // Lưu ý: KHÔNG clear `product.pkgxId` — giữ lại để lúc restore auto-relink được.
+        const deleteResult = await prisma.$transaction(async (tx) => {
+          await tx.pkgxProduct.updateMany({
+            where: { hrmProductId: { in: systemIds } },
+            data: { hrmProductId: null },
+          })
+          return tx.product.updateMany({
+            where: { systemId: { in: systemIds } },
+            data: { isDeleted: true, updatedAt: new Date() },
+          })
         })
         updatedCount = deleteResult.count
         break
       }
 
       case 'restore': {
-        const restoreResult = await prisma.product.updateMany({
-          where: { systemId: { in: systemIds } },
-          data: { isDeleted: false, updatedAt: new Date() },
+        // Transaction: khi restore, re-link PKGX side dựa vào `product.pkgxId`.
+        const restoreResult = await prisma.$transaction(async (tx) => {
+          const restored = await tx.product.findMany({
+            where: { systemId: { in: systemIds }, pkgxId: { not: null } },
+            select: { systemId: true, pkgxId: true },
+          })
+          for (const p of restored) {
+            if (p.pkgxId != null) {
+              await tx.pkgxProduct.updateMany({
+                where: { id: p.pkgxId, hrmProductId: null },
+                data: { hrmProductId: p.systemId },
+              })
+            }
+          }
+          return tx.product.updateMany({
+            where: { systemId: { in: systemIds } },
+            data: { isDeleted: false, updatedAt: new Date() },
+          })
         })
         updatedCount = restoreResult.count
         break

@@ -64,10 +64,10 @@ model Payment {
   customerName     String?
 
   // Financial
-  affectsDebt            Boolean  @default(true)
-  affectsBusinessReport  Boolean  @default(false)
-  runningBalance         Decimal? @db.Decimal(15, 2)
-  orderAllocations Json? // Array of { purchaseOrderSystemId, purchaseOrderId, amount }
+  affectsDebt           Boolean  @default(true)
+  affectsBusinessReport Boolean  @default(false)
+  runningBalance        Decimal? @db.Decimal(15, 2)
+  orderAllocations      Json? // Array of { purchaseOrderSystemId, purchaseOrderId, amount }
 
   // === RELATIONS ===
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [systemId])

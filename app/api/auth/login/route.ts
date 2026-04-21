@@ -6,6 +6,7 @@ import { validateBody, apiError } from '@/lib/api-utils'
 import { checkRateLimit } from '@/lib/security-utils'
 import { loginSchema } from './validation'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const JWT_SECRET = process.env.JWT_SECRET!
 const TOKEN_COOKIE_NAME = 'auth_token'
@@ -42,16 +43,42 @@ export async function POST(request: Request) {
     })
 
     if (!user) {
+      createActivityLog({
+        entityType: 'user',
+        entityId: 'UNKNOWN',
+        action: 'Đăng nhập thất bại',
+        actionType: 'system',
+        note: `Email không tồn tại: ${email}`,
+        metadata: { email, ip, reason: 'user_not_found' },
+      }).catch(() => undefined)
       return apiError('Email hoặc mật khẩu không đúng', 401)
     }
 
     if (!user.isActive) {
+      createActivityLog({
+        entityType: 'user',
+        entityId: user.systemId,
+        action: 'Đăng nhập thất bại',
+        actionType: 'system',
+        note: 'Tài khoản bị vô hiệu hóa',
+        metadata: { email, ip, reason: 'account_disabled' },
+        createdBy: user.systemId,
+      }).catch(() => undefined)
       return apiError('Tài khoản đã bị vô hiệu hóa', 401)
     }
 
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password)
     if (!isValidPassword) {
+      createActivityLog({
+        entityType: 'user',
+        entityId: user.systemId,
+        action: 'Đăng nhập thất bại',
+        actionType: 'system',
+        note: 'Sai mật khẩu',
+        metadata: { email, ip, reason: 'invalid_password' },
+        createdBy: user.systemId,
+      }).catch(() => undefined)
       return apiError('Email hoặc mật khẩu không đúng', 401)
     }
 
@@ -72,6 +99,15 @@ export async function POST(request: Request) {
       where: { systemId: user.systemId },
       data: { lastLogin: new Date() },
     })
+
+    createActivityLog({
+      entityType: 'user',
+      entityId: user.systemId,
+      action: 'Đăng nhập',
+      actionType: 'system',
+      metadata: { email, ip, userName: user.employee?.fullName || user.email },
+      createdBy: user.systemId,
+    }).catch(() => undefined)
 
     // Prepare user data for response
     const userData = {

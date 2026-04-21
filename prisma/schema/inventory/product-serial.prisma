@@ -21,8 +21,8 @@ model ProductSerial {
 
   // Thông tin bổ sung
   supplierName String? // NCC nhập vào
-  costPrice    Decimal? @db.Decimal(15, 2) // Giá nhập thực tế của cá thể này
-  soldPrice    Decimal? @db.Decimal(15, 2) // Giá bán thực tế
+  costPrice    Decimal?  @db.Decimal(15, 2) // Giá nhập thực tế của cá thể này
+  soldPrice    Decimal?  @db.Decimal(15, 2) // Giá bán thực tế
   soldDate     DateTime? // Ngày bán
   notes        String?
 

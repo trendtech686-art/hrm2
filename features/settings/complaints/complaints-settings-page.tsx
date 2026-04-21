@@ -54,6 +54,7 @@ import {
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { useDirtyState } from '@/hooks/use-dirty-state';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useTabActionRegistry } from '../use-tab-action-registry';
 
@@ -544,13 +545,17 @@ export function ComplaintsSettingsPage() {
     savePublicTracking: handleSavePublicTracking,
   };
 
-  // Single effect that registers header actions when active tab changes
+  const isSLADirty = useDirtyState(storedSla, sla);
+  const isCardColorsDirty = useDirtyState(storedCardColors, cardColors);
+  const isPublicTrackingDirty = useDirtyState(storedPublicTracking, publicTracking);
+  const isSaving = updateSection.isPending;
+
   React.useEffect(() => {
     switch (activeTab) {
       case 'sla':
         setHeaderActions([
-          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={updateSection.isPending}>
-            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
+          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={!isSLADirty || isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
@@ -563,8 +568,8 @@ export function ComplaintsSettingsPage() {
         break;
       case 'card-colors':
         setHeaderActions([
-          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={updateSection.isPending}>
-            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
+          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={!isCardColorsDirty || isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
@@ -577,13 +582,13 @@ export function ComplaintsSettingsPage() {
         break;
       case 'public-tracking':
         setHeaderActions([
-          <SettingsActionButton key="save-tracking" onClick={() => handlersRef.current.savePublicTracking()} disabled={updateSection.isPending}>
-            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
+          <SettingsActionButton key="save-tracking" onClick={() => handlersRef.current.savePublicTracking()} disabled={!isPublicTrackingDirty || isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
     }
-  }, [activeTab, setHeaderActions, updateSection.isPending]);
+  }, [activeTab, setHeaderActions, isSLADirty, isCardColorsDirty, isPublicTrackingDirty, isSaving]);
 
   const tabs = React.useMemo(
     () => [

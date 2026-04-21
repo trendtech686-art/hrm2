@@ -1,6 +1,6 @@
 model SupplierWarranty {
-  systemId    String                  @id
-  id          String                  @unique // BHCC000001
+  systemId String @id
+  id       String @unique // BHCC000001
 
   // Supplier
   supplierSystemId String
@@ -11,9 +11,9 @@ model SupplierWarranty {
   branchName     String?
 
   // Shipping
-  trackingNumber String?  // Mã vận đơn
+  trackingNumber String? // Mã vận đơn
   sentDate       DateTime? // Ngày gửi
-  deliveryMethod String?  // deliver-later, shipping-partner, external, in-store
+  deliveryMethod String? // deliver-later, shipping-partner, external, in-store
 
   // Status
   status SupplierWarrantyStatus @default(DRAFT)
@@ -22,12 +22,12 @@ model SupplierWarranty {
   subtasks Json? // Array of workflow subtasks
 
   // People
-  createdBySystemId  String?
-  createdByName      String?
-  assignedToSystemId String?  // Người phụ trách
-  assignedToName     String?
-  approvedBySystemId String?  // Người duyệt
-  approvedByName     String?
+  createdBySystemId   String?
+  createdByName       String?
+  assignedToSystemId  String? // Người phụ trách
+  assignedToName      String?
+  approvedBySystemId  String? // Người duyệt
+  approvedByName      String?
   confirmedBySystemId String? // Người xác nhận
   confirmedByName     String?
 
@@ -48,8 +48,8 @@ model SupplierWarranty {
   confirmedAt DateTime?
   completedAt DateTime?
   cancelledAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Soft delete
   isDeleted Boolean @default(false)
@@ -71,7 +71,7 @@ model SupplierWarrantyItem {
 
   // Product
   productSystemId String?
-  productId       String  // SKU / Business ID
+  productId       String // SKU / Business ID
   productName     String
   productImage    String?
 
@@ -93,5 +93,3 @@ model SupplierWarrantyItem {
 
   @@map("supplier_warranty_items")
 }
-
-

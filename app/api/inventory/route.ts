@@ -4,6 +4,7 @@ import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePag
 import { createInventorySchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/inventory - List all inventory
 export async function GET(request: Request) {
@@ -103,6 +104,20 @@ export async function POST(request: Request) {
         location: true,
       },
     })
+
+    createActivityLog({
+      entityType: 'inventory',
+      entityId: systemId,
+      action: `Tạo tồn kho cho sản phẩm ${inventory.product?.name || body.productId}`,
+      actionType: 'create',
+      metadata: {
+        productId: body.productId,
+        locationId: body.locationId,
+        quantity: body.quantity,
+        userName: session.user?.name || session.user?.email,
+      },
+      createdBy: session.user?.employeeId || session.user?.id,
+    }).catch(() => undefined)
 
     return apiSuccess(inventory, 201)
   } catch (error) {

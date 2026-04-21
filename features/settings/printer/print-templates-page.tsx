@@ -900,15 +900,15 @@ export function PrintTemplatesPage() {
           </div>
         </div>
 
-        {/* Action Buttons - moved to header */}
+        {/* Toolbar actions — kept inline because the editor is a full-bleed workspace. */}
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleExit}>
             Thoát
           </Button>
-          <Button variant="outline" onClick={handleSaveAllBranches}>
+          <Button variant="outline" onClick={handleSaveAllBranches} disabled={!hasUnsavedChanges}>
             Lưu & áp dụng tất cả chi nhánh
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={!hasUnsavedChanges}>
             <Save className="h-4 w-4 mr-2" />
             Lưu
           </Button>

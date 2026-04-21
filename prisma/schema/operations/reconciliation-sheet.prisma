@@ -1,21 +1,21 @@
 model ReconciliationSheet {
-  systemId  String @id
-  id        String @unique
+  systemId String @id
+  id       String @unique
 
-  carrier      String  // Đối tác vận chuyển (GHTK, GHN, etc.)
-  branchId     String? // Chi nhánh
-  status       ReconciliationSheetStatus @default(DRAFT)
+  carrier  String // Đối tác vận chuyển (GHTK, GHN, etc.)
+  branchId String? // Chi nhánh
+  status   ReconciliationSheetStatus @default(DRAFT)
 
   // Totals (auto-calculated)
-  totalCodSystem     Decimal @default(0) @db.Decimal(15, 2) // Tổng COD hệ thống
-  totalCodPartner    Decimal @default(0) @db.Decimal(15, 2) // Tổng COD đối tác
-  totalFeeSystem     Decimal @default(0) @db.Decimal(15, 2) // Tổng phí GH hệ thống
-  totalFeePartner    Decimal @default(0) @db.Decimal(15, 2) // Tổng phí GH đối tác
-  codDifference      Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch COD
-  feeDifference      Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch phí GH
+  totalCodSystem  Decimal @default(0) @db.Decimal(15, 2) // Tổng COD hệ thống
+  totalCodPartner Decimal @default(0) @db.Decimal(15, 2) // Tổng COD đối tác
+  totalFeeSystem  Decimal @default(0) @db.Decimal(15, 2) // Tổng phí GH hệ thống
+  totalFeePartner Decimal @default(0) @db.Decimal(15, 2) // Tổng phí GH đối tác
+  codDifference   Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch COD
+  feeDifference   Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch phí GH
 
-  note      String?
-  tags      String[] @default([])
+  note String?
+  tags String[] @default([])
 
   // Metadata
   createdBy     String?
@@ -23,12 +23,12 @@ model ReconciliationSheet {
   updatedBy     String?
   confirmedAt   DateTime?
   confirmedBy   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
   items  ReconciliationSheetItem[]
-  branch Branch? @relation(fields: [branchId], references: [systemId])
+  branch Branch?                   @relation(fields: [branchId], references: [systemId])
 
   @@index([carrier])
   @@index([status])
@@ -40,20 +40,20 @@ model ReconciliationSheetItem {
   systemId String @id @default(uuid())
   sheetId  String
 
-  packagingId  String // Packaging systemId
-  trackingCode String // Mã vận đơn
-  orderId      String // Mã đơn hàng (business ID)
+  packagingId   String // Packaging systemId
+  trackingCode  String // Mã vận đơn
+  orderId       String // Mã đơn hàng (business ID)
   orderSystemId String // Order systemId
-  customerName String?
+  customerName  String?
 
   // COD comparison
-  codSystem    Decimal @default(0) @db.Decimal(15, 2) // COD hệ thống
-  codPartner   Decimal @default(0) @db.Decimal(15, 2) // COD đối tác (nhập tay)
+  codSystem     Decimal @default(0) @db.Decimal(15, 2) // COD hệ thống
+  codPartner    Decimal @default(0) @db.Decimal(15, 2) // COD đối tác (nhập tay)
   codDifference Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch
 
   // Shipping fee comparison
-  feeSystem    Decimal @default(0) @db.Decimal(15, 2) // Phí GH hệ thống
-  feePartner   Decimal @default(0) @db.Decimal(15, 2) // Phí GH đối tác (nhập tay)
+  feeSystem     Decimal @default(0) @db.Decimal(15, 2) // Phí GH hệ thống
+  feePartner    Decimal @default(0) @db.Decimal(15, 2) // Phí GH đối tác (nhập tay)
   feeDifference Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch
 
   note String?
@@ -73,7 +73,7 @@ model ReconciliationSheetItem {
 }
 
 enum ReconciliationSheetStatus {
-  DRAFT      // Nháp
-  CONFIRMED  // Đã xác nhận
-  CANCELLED  // Đã hủy
+  DRAFT // Nháp
+  CONFIRMED // Đã xác nhận
+  CANCELLED // Đã hủy
 }

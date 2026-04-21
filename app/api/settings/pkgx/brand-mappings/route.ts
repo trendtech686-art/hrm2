@@ -1,10 +1,11 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { v4 as uuidv4 } from 'uuid'
 import { createBrandMappingSchema } from './validation'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { enrichBrandMappingsWithOrphanFlag } from '@/lib/pkgx/orphan-helpers'
 
 // GET /api/settings/pkgx/brand-mappings - List all brand mappings
 export async function GET(_request: NextRequest) {
@@ -20,9 +21,14 @@ export async function GET(_request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return apiSuccess({ 
-      data: mappings,
-      total: mappings.length,
+    // Đánh cờ `hrmEntityMissing` cho mapping trỏ vào Brand HRM đã xoá/soft-delete.
+    // UI sẽ render badge cảnh báo + nút "Dọn".
+    const enriched = await enrichBrandMappingsWithOrphanFlag(mappings)
+
+    return apiSuccess({
+      data: enriched,
+      total: enriched.length,
+      orphanCount: enriched.filter((m) => m.hrmEntityMissing).length,
     })
   } catch (error) {
     logError('Error fetching brand mappings', error)
@@ -42,6 +48,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const { hrmBrandId, hrmBrandName, pkgxBrandId, pkgxBrandName } = validation.data
+    const { searchParams } = new URL(request.url)
+    // Nếu client xác nhận thay thế mapping orphan cũ (qua dialog confirm).
+    const replaceOrphan = searchParams.get('replaceOrphan') === '1'
 
     // Check if mapping already exists
     const existing = await prisma.pkgxBrandMapping.findFirst({
@@ -54,7 +63,63 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return apiError('Mapping already exists for this HRM brand or PKGX brand', 409)
+      // Nếu mapping cũ trỏ vào Brand HRM đã xoá ⇒ orphan ⇒ cho phép thay thế.
+      const oldBrand = await prisma.brand.findUnique({
+        where: { systemId: existing.hrmBrandId },
+        select: { systemId: true, name: true, isDeleted: true },
+      })
+      const isOrphan = !oldBrand || oldBrand.isDeleted === true
+
+      if (isOrphan && replaceOrphan) {
+        // Transaction: xoá mapping orphan rồi tạo mapping mới.
+        const mapping = await prisma.$transaction(async (tx) => {
+          await tx.pkgxBrandMapping.delete({ where: { systemId: existing.systemId } })
+          return tx.pkgxBrandMapping.create({
+            data: {
+              systemId: uuidv4(),
+              hrmBrandId,
+              hrmBrandName: hrmBrandName || '',
+              pkgxBrandId,
+              pkgxBrandName: pkgxBrandName || '',
+              createdBy: session.user?.id,
+            },
+            include: { pkgxBrand: true },
+          })
+        })
+        createActivityLog({
+          entityType: 'pkgx_settings',
+          entityId: mapping.systemId,
+          action: `Thay thế mapping thương hiệu orphan: ${existing.hrmBrandName} → ${hrmBrandName || ''}`,
+          actionType: 'update',
+          createdBy: session.user?.id ?? '',
+        }).catch(e => logError('brand-mapping replace activity log failed', e))
+        return apiSuccess({ data: mapping, replacedOrphan: true }, 201)
+      }
+
+      // Duplicate thật (brand cũ còn sống) hoặc orphan nhưng user chưa xác nhận.
+      // Dùng NextResponse.json trực tiếp để đảm bảo payload `canReplace` / `existing`
+      // đến được client ở cả dev lẫn production (apiError() strip details ở prod).
+      const message = isOrphan
+        ? 'Mapping cũ trỏ vào thương hiệu HRM đã xoá. Xác nhận thay thế bằng mapping mới?'
+        : 'Mapping already exists for this HRM brand or PKGX brand'
+      return NextResponse.json(
+        {
+          success: false,
+          error: message,
+          message,
+          code: isOrphan ? 'MAPPING_ORPHAN_CONFLICT' : 'MAPPING_DUPLICATE',
+          canReplace: isOrphan,
+          existing: {
+            systemId: existing.systemId,
+            hrmBrandId: existing.hrmBrandId,
+            hrmBrandName: existing.hrmBrandName,
+            pkgxBrandId: existing.pkgxBrandId,
+            pkgxBrandName: existing.pkgxBrandName,
+            hrmEntityMissing: isOrphan,
+          },
+        },
+        { status: 409 },
+      )
     }
 
     const mapping = await prisma.pkgxBrandMapping.create({

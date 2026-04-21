@@ -3,6 +3,7 @@ import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import type { PayrollComponentEntry, PayrollTotals } from '@/lib/payroll-types'
 import { logError } from '@/lib/logger'
 import { createBulkNotifications } from '@/lib/notifications'
+import { toMonthKey } from '@/lib/payroll/lock-guard'
 
 interface GeneratedPayslip {
   employeeSystemId: string;
@@ -39,6 +40,36 @@ export async function POST(request: Request) {
     // Validate required fields
     if (!month || !year || !generatedPayslips?.length) {
       return apiError('Missing required fields: month, year, generatedPayslips', 400)
+    }
+
+    // Pre-check: tháng chấm công PHẢI được khóa trước khi chạy lương.
+    // Cho phép bypass bằng header `x-payroll-skip-lock-check: true` (dev/debug only).
+    const skipLockCheck = request.headers.get('x-payroll-skip-lock-check') === 'true'
+      && process.env.NODE_ENV !== 'production'
+    if (!skipLockCheck) {
+      const monthKey = toMonthKey(year, month)
+      const attendanceLock = await prisma.attendanceLock.findUnique({
+        where: { monthKey },
+        select: { isLocked: true },
+      })
+      if (!attendanceLock?.isLocked) {
+        return apiError(
+          `Tháng chấm công ${monthKey} chưa được khóa. Vui lòng khóa chấm công trước khi chạy bảng lương để bảo đảm số liệu không đổi.`,
+          409,
+        )
+      }
+
+      // Chặn tạo trùng kỳ lương cho cùng (year, month, branch=null).
+      const existingBatch = await prisma.payroll.findFirst({
+        where: { year, month, branchId: null },
+        select: { systemId: true, id: true, status: true },
+      })
+      if (existingBatch) {
+        return apiError(
+          `Đã có bảng lương ${existingBatch.id} cho tháng ${monthKey} (trạng thái: ${existingBatch.status}). Muốn chạy lại, hãy huỷ kỳ hiện tại.`,
+          409,
+        )
+      }
     }
 
     // Generate business ID
@@ -118,6 +149,15 @@ export async function POST(request: Request) {
             .filter(c => c.componentId?.toLowerCase().includes('bonus') || c.label?.toLowerCase().includes('thưởng'))
             .reduce((sum, c) => sum + (c.amount || 0), 0)
 
+          // Tính OT pay từ component nếu có (component có id/label chứa 'ot' hoặc 'tăng ca')
+          const otPay = components
+            .filter(c => {
+              const id = (c.componentId || '').toLowerCase()
+              const label = (c.label || '').toLowerCase()
+              return id.includes('ot') || id.includes('overtime') || label.includes('tăng ca') || label.includes('làm thêm')
+            })
+            .reduce((sum, c) => sum + (c.amount || 0), 0)
+
           payslipCounter++
           return tx.payrollItem.create({
             data: {
@@ -130,7 +170,7 @@ export async function POST(request: Request) {
               otHours: totals.otHours || 0,
               leaveDays: totals.leaveDays || 0,
               baseSalary: employee?.baseSalary || 0,
-              otPay: 0, // Calculate based on OT components if needed
+              otPay,
               allowances,
               bonus,
               grossSalary: totals.grossEarnings || totals.earnings || 0,
@@ -141,6 +181,20 @@ export async function POST(request: Request) {
               otherDeductions: (totals.penaltyDeductions || 0) + (totals.otherDeductions || 0),
               totalDeductions: totals.deductions || 0,
               netSalary: totals.netPay || 0,
+              personalDeduction: totals.personalDeduction || 0,
+              dependentDeduction: totals.dependentDeduction || 0,
+              numberOfDependents: totals.numberOfDependents || 0,
+              // Snapshot toàn bộ công thức & kết quả tính tại thời điểm chạy để audit sau này.
+              calculationSnapshot: JSON.parse(JSON.stringify({
+                engineVersion: '1.0',
+                snapshotAt: new Date().toISOString(),
+                templateSystemId: body.templateSystemId,
+                periodMonthKey: payslip.periodMonthKey,
+                attendanceSnapshotSystemId: payslip.attendanceSnapshotSystemId,
+                deductedPenaltySystemIds: payslip.deductedPenaltySystemIds || [],
+                components,
+                totals,
+              })),
               notes: notes,
             },
           })

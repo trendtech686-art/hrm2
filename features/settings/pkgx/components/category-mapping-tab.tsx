@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, FolderEdit, Link2, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, FolderEdit, Link2, Download, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert';
 import { Progress } from '../../../../components/ui/progress';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu';
@@ -35,6 +36,8 @@ import { sanitizeHtml } from '@/lib/sanitize'
 interface PkgxCategoryRow extends PkgxCategory {
   systemId: string;
   mappedToHrm?: string;
+  /** True nếu mapping đang trỏ vào Category HRM đã xoá (orphan). */
+  mappingOrphan?: boolean;
 }
 
 // Extended type for mappings table - include alias fields for backward compat
@@ -107,6 +110,26 @@ export function CategoryMappingTab() {
     return settings?.categoryMappings.find(m => m.pkgxCatId === pkgxCatId);
   }, [settings?.categoryMappings]);
   
+  // Tổng số mapping orphan (trỏ vào Category HRM đã xoá).
+  const orphanMappings = React.useMemo(
+    () => (settings?.categoryMappings ?? []).filter(m => m.hrmEntityMissing === true),
+    [settings?.categoryMappings],
+  );
+  
+  const handleCleanupAllOrphans = React.useCallback(() => {
+    if (orphanMappings.length === 0) return;
+    if (!window.confirm(
+      `Xoá ${orphanMappings.length} mapping đang trỏ vào danh mục HRM đã xoá?\n\n` +
+      `Sau khi xoá, các danh mục PKGX tương ứng sẽ trở về trạng thái "Chưa liên kết" ` +
+      `và có thể Import lại thành danh mục HRM mới.`
+    )) return;
+    
+    for (const m of orphanMappings) {
+      deleteCategoryMapping.mutate(m.systemId || m.id || '');
+    }
+    toast.success(`Đã dọn ${orphanMappings.length} mapping lỗi`);
+  }, [orphanMappings, deleteCategoryMapping]);
+  
   // PKGX Categories data for table
   const pkgxCategoriesData = React.useMemo((): PkgxCategoryRow[] => {
     if (!settings) return [];
@@ -118,11 +141,15 @@ export function CategoryMappingTab() {
         c.id.toString().includes(term)
       );
     }
-    return filtered.map(c => ({
-      ...c,
-      systemId: c.id.toString(),
-      mappedToHrm: findMapping(c.id)?.hrmCategoryName,
-    }));
+    return filtered.map(c => {
+      const mapping = findMapping(c.id);
+      return {
+        ...c,
+        systemId: c.id.toString(),
+        mappedToHrm: mapping?.hrmCategoryName,
+        mappingOrphan: mapping?.hrmEntityMissing === true,
+      };
+    });
   }, [settings, searchTerm, findMapping]);
   
   // Mappings data for table
@@ -243,16 +270,24 @@ export function CategoryMappingTab() {
     {
       id: 'mappedToHrm',
       header: 'Mapping HRM',
-      cell: ({ row }) => (
-        row.mappedToHrm ? (
+      cell: ({ row }) => {
+        if (row.mappingOrphan) {
+          return (
+            <Badge variant="destructive" title="Danh mục HRM đã bị xoá — nhấn 'Dọn' ở dropdown để xoá mapping lỗi">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              HRM đã xoá
+            </Badge>
+          );
+        }
+        return row.mappedToHrm ? (
           <Badge variant="default" className="bg-green-500">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             {row.mappedToHrm}
           </Badge>
         ) : (
           <Badge variant="secondary">Chưa liên kết</Badge>
-        )
-      ),
+        );
+      },
     },
     {
       id: 'actions',
@@ -372,7 +407,19 @@ export function CategoryMappingTab() {
       id: 'hrmCategoryName',
       accessorKey: 'hrmCategoryName',
       header: 'Danh mục HRM',
-      cell: ({ row }) => <span className="font-medium">{row.hrmCategoryName}</span>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span className={`font-medium ${row.hrmEntityMissing ? 'line-through text-muted-foreground' : ''}`}>
+            {row.hrmCategoryName}
+          </span>
+          {row.hrmEntityMissing && (
+            <Badge variant="destructive" className="text-[10px]">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Đã xoá
+            </Badge>
+          )}
+        </div>
+      ),
     },
     {
       id: 'pkgxCatName',
@@ -529,7 +576,33 @@ export function CategoryMappingTab() {
         body: JSON.stringify(mappingData),
       });
       
-      if (!mappingResponse.ok) {
+      // Xử lý 409 orphan: hỏi user có muốn thay thế mapping cũ (trỏ danh mục HRM đã xoá) không.
+      if (mappingResponse.status === 409) {
+        const body = await mappingResponse.json().catch(() => null) as {
+          canReplace?: boolean;
+          existing?: { hrmCategoryName?: string; pkgxCategoryName?: string };
+        } | null;
+        if (body?.canReplace) {
+          const confirmed = window.confirm(
+            `Đã có mapping cũ trỏ vào danh mục HRM "${body.existing?.hrmCategoryName ?? '?'}" (đã xoá).\n\n` +
+            `Thay thế bằng mapping mới: "${newCategory.name}"?`,
+          );
+          if (confirmed) {
+            const retry = await fetch('/api/settings/pkgx/category-mappings?replaceOrphan=1', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mappingData),
+            });
+            if (!retry.ok) {
+              logError('Mapping replace retry failed', await retry.text());
+            }
+          } else {
+            logError('User skipped orphan replacement', body);
+          }
+        } else {
+          logError('Mapping error (409)', body);
+        }
+      } else if (!mappingResponse.ok) {
         logError('Mapping error', await mappingResponse.text());
       }
       
@@ -1080,7 +1153,12 @@ export function CategoryMappingTab() {
           <div className="font-medium">{row.name}</div>
           <div className="text-sm text-muted-foreground">ID: {row.id}</div>
         </div>
-        {row.mappedToHrm ? (
+        {row.mappingOrphan ? (
+          <Badge variant="destructive" className="shrink-0">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            HRM đã xoá
+          </Badge>
+        ) : row.mappedToHrm ? (
           <Badge variant="default" className="bg-green-500 shrink-0">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Đã mapping
@@ -1089,7 +1167,7 @@ export function CategoryMappingTab() {
           <Badge variant="secondary" className="shrink-0">Chưa mapping</Badge>
         )}
       </div>
-      {row.mappedToHrm && (
+      {row.mappedToHrm && !row.mappingOrphan && (
         <div className="text-sm">
           <span className="text-muted-foreground">HRM: </span>
           <span>{row.mappedToHrm}</span>
@@ -1161,6 +1239,29 @@ export function CategoryMappingTab() {
               </Button>
             </div>
           </div>
+          {orphanMappings.length > 0 && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>
+                Có {orphanMappings.length} mapping trỏ vào danh mục HRM đã bị xoá
+              </AlertTitle>
+              <AlertDescription className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Những mapping này khiến chức năng &ldquo;Import &amp; Mapping&rdquo; báo trùng dù danh mục HRM không còn tồn tại. Hãy dọn để import lại được.
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={handleCleanupAllOrphans}
+                  disabled={deleteCategoryMapping.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Dọn {orphanMappings.length} mapping lỗi
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           {isImporting && importProgress.total > 0 && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">

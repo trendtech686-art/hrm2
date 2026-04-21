@@ -30,9 +30,16 @@ export async function POST(request: Request) {
 
     switch (action) {
       case 'delete': {
-        const result = await prisma.brand.updateMany({
-          where: { systemId: { in: systemIds } },
-          data: { isDeleted: true, updatedAt: new Date() },
+        // Transaction: dọn mapping PKGX trước để không để lại orphan (zombie)
+        // khi brand bị soft-delete. Khớp với logic của DELETE /api/brands/[systemId].
+        const result = await prisma.$transaction(async (tx) => {
+          await tx.pkgxBrandMapping.deleteMany({
+            where: { hrmBrandId: { in: systemIds } },
+          })
+          return tx.brand.updateMany({
+            where: { systemId: { in: systemIds } },
+            data: { isDeleted: true, updatedAt: new Date() },
+          })
         })
         updatedCount = result.count
         break

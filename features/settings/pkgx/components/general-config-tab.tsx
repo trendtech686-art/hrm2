@@ -6,6 +6,7 @@ import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { Badge } from '../../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+import { SettingsActionButton } from '../../../../components/settings/SettingsActionButton';
 import { Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePkgxSettings, usePkgxConfigMutations, usePkgxSyncSettingsMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
@@ -23,7 +24,7 @@ export function GeneralConfigTab() {
   const [isTesting, setIsTesting] = React.useState(false);
   const [localApiUrl, setLocalApiUrl] = React.useState(settings?.apiUrl ?? '');
   const [localApiKey, setLocalApiKey] = React.useState(settings?.apiKey ?? '');
-  
+
   // Update local state when settings change
   React.useEffect(() => {
     if (settings) {
@@ -31,6 +32,11 @@ export function GeneralConfigTab() {
       setLocalApiKey(settings.apiKey);
     }
   }, [settings]);
+
+  const isConfigDirty = React.useMemo(
+    () => localApiUrl !== (settings?.apiUrl ?? '') || localApiKey !== (settings?.apiKey ?? ''),
+    [localApiUrl, localApiKey, settings?.apiUrl, settings?.apiKey],
+  );
   
   const handleSaveConfig = () => {
     setApiUrl.mutate(localApiUrl, {
@@ -214,14 +220,22 @@ export function GeneralConfigTab() {
           </div>
           
           <div className="flex items-center gap-2 pt-2">
-            <Button onClick={handleSaveConfig} variant="default">
-              <Save className="h-4 w-4 mr-2" />
+            <SettingsActionButton
+              onClick={handleSaveConfig}
+              variant="default"
+              disabled={!isConfigDirty || setApiUrl.isPending || setApiKey.isPending}
+            >
+              {setApiUrl.isPending || setApiKey.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
               Lưu cấu hình
-            </Button>
-            <Button onClick={handleTestConnection} disabled={isTesting} variant="outline">
-              {isTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            </SettingsActionButton>
+            <SettingsActionButton onClick={handleTestConnection} disabled={isTesting} variant="outline">
+              {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Test Connection
-            </Button>
+            </SettingsActionButton>
           </div>
           
           <div className="flex items-center gap-3">

@@ -20,11 +20,7 @@ interface GeneralSettings {
   timeFormat: '24h' | '12h'
   language: string
   currency: string
-  storeName: string
-  storeAddress: string
-  storePhone: string
   logoUrl?: string
-  // Add more fields as needed
 }
 
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
@@ -33,9 +29,6 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   timeFormat: '24h',
   language: 'vi',
   currency: 'VND',
-  storeName: '',
-  storeAddress: '',
-  storePhone: '',
 }
 
 // In-memory cache

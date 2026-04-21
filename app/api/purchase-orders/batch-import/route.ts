@@ -6,6 +6,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import type { EntityType } from '@/lib/id-config-constants'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -711,6 +712,24 @@ export const POST = apiHandler(async (request, { session }) => {
         })
       }
     }
+
+    createActivityLog({
+      entityType: 'purchase_order',
+      entityId: 'BATCH',
+      action: `Nhập hàng loạt PO (${results.success}/${purchaseOrders.length})`,
+      actionType: 'system',
+      note: `Mode: ${mode} · Inserted: ${results.inserted} · Updated: ${results.updated} · Skipped: ${results.skipped} · Failed: ${results.failed}`,
+      metadata: {
+        userName: createdBy,
+        total: purchaseOrders.length,
+        inserted: results.inserted,
+        updated: results.updated,
+        skipped: results.skipped,
+        failed: results.failed,
+        mode,
+      },
+      createdBy: session?.user?.employeeId || createdBy,
+    }).catch(() => undefined)
 
     return apiSuccess(results)
   } catch (error) {

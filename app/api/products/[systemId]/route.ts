@@ -304,13 +304,20 @@ export const DELETE = apiHandler(async (_request, { params }) => {
   try {
     const { systemId } = await params
 
-    // Soft delete
-    await prisma.product.update({
-      where: { systemId },
-      data: { 
-        isDeleted: true,
-        deletedAt: new Date(),
-      },
+    // Transaction: soft-delete product + unlink PKGX side (PkgxProduct.hrmProductId).
+    // KHÔNG clear `product.pkgxId` để restore có thể tự re-link.
+    await prisma.$transaction(async (tx) => {
+      await tx.pkgxProduct.updateMany({
+        where: { hrmProductId: systemId },
+        data: { hrmProductId: null },
+      })
+      await tx.product.update({
+        where: { systemId },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+      })
     })
 
     // Fire-and-forget: remove from Meilisearch

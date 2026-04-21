@@ -752,6 +752,92 @@ export const API_PERMISSION_MAP: RoutePermission[] = [
     pattern: /^comments/,
     methods: { GET: 'view_tasks', POST: 'edit_tasks', PUT: 'edit_tasks', DELETE: 'edit_tasks' },
   },
+
+  // ============================================
+  // TASKS (explicit entries — không skip)
+  // ============================================
+  // Stats / notifications-process: chỉ đọc, view_tasks là đủ
+  {
+    pattern: /^tasks\/(stats|dashboard-stats|notifications\/process)/,
+    methods: { GET: 'view_tasks', POST: 'view_tasks' },
+  },
+  // Boards
+  {
+    pattern: /^tasks\/boards\/[^/]+$/,
+    methods: { GET: 'view_tasks', PUT: 'edit_tasks', DELETE: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks\/boards$/,
+    methods: { GET: 'view_tasks', POST: 'create_tasks' },
+  },
+  // Templates
+  {
+    pattern: /^tasks\/templates\/[^/]+\/use/,
+    methods: { POST: 'create_tasks' },
+  },
+  {
+    pattern: /^tasks\/templates\/[^/]+$/,
+    methods: { GET: 'view_tasks', PUT: 'edit_tasks', DELETE: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks\/templates$/,
+    methods: { GET: 'view_tasks', POST: 'create_tasks' },
+  },
+  // Recurring tasks
+  {
+    pattern: /^tasks\/recurring\/process/,
+    methods: { POST: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks\/recurring\/[^/]+\/toggle-pause/,
+    methods: { POST: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks\/recurring\/[^/]+$/,
+    methods: { GET: 'view_tasks', PUT: 'edit_tasks', DELETE: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks\/recurring$/,
+    methods: { GET: 'view_tasks', POST: 'create_tasks' },
+  },
+  // Dependencies + evidence
+  {
+    pattern: /^tasks\/dependencies/,
+    methods: { POST: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks\/[^/]+\/evidence/,
+    methods: { GET: 'view_tasks', POST: 'edit_tasks' },
+  },
+  // Generic task routes
+  {
+    pattern: /^tasks\/[^/]+$/,
+    methods: { GET: 'view_tasks', PUT: 'edit_tasks', PATCH: 'edit_tasks', DELETE: 'edit_tasks' },
+  },
+  {
+    pattern: /^tasks$/,
+    methods: { GET: 'view_tasks', POST: 'create_tasks' },
+  },
+
+  // ============================================
+  // UPLOAD (auth-only; tất cả user đăng nhập đều có thể upload avatar/file công việc)
+  // ============================================
+  {
+    pattern: /^upload\/cleanup/,
+    methods: { POST: 'manage_roles' },
+  },
+  {
+    pattern: /^upload(\/|$)/,
+    methods: {}, // Auth-only — không yêu cầu permission cụ thể
+  },
+
+  // ============================================
+  // ADMINISTRATIVE UNITS (reference data: GET auth-only, writes admin)
+  // ============================================
+  {
+    pattern: /^administrative-units/,
+    methods: { POST: 'manage_roles', PUT: 'manage_roles', DELETE: 'manage_roles' },
+  },
   {
     pattern: /^wiki\/[^/]+$/,
     methods: { GET: 'view_wiki', PUT: 'edit_wiki', DELETE: 'delete_wiki' },
@@ -884,26 +970,36 @@ export const API_PERMISSION_MAP: RoutePermission[] = [
 
 /**
  * Routes that SKIP permission checks (public, system, user-scoped).
+ *
+ * ⚠️ Chỉ thêm route vào đây nếu:
+ * - Endpoint công khai (no auth), HOẶC
+ * - Endpoint user-scoped (mọi user đăng nhập đều có thể gọi), HOẶC
+ * - Endpoint hệ thống/cron (có cơ chế xác thực riêng như cron secret).
  */
 export const SKIP_PERMISSION_ROUTES: RegExp[] = [
   /^auth\//,
   /^public\//,
   /^health$/,
   /^debug\//,
-  /^administrative-units/,
-  /^branding$/,
-  /^cron\//,
-  /^shipping\/ghtk\/webhook/,
-  /^upload/,
-  /^user-preferences/,
-  /^active-timer/,
-  /^id\/generate/,
-  /^tasks/,
+  /^branding$/, // Public logo/favicon
+  /^cron\//, // Cron secret check trong handler
+  /^shipping\/ghtk\/webhook/, // External webhook
+  /^user-preferences/, // User-scoped (per-user preferences)
+  /^active-timer/, // User-scoped attendance timer
+  /^id\/generate/, // Internal ID generation utility
+  /^notifications(\/|$)/, // User-scoped notifications
 ]
 
 /**
  * Look up the required permission for a given API path and HTTP method.
- * Returns null if no permission check is needed.
+ *
+ * Return values:
+ * - `Permission` (string) → route có permission rõ ràng, middleware enforce.
+ * - `null` → route không yêu cầu permission (skip list HOẶC match route có method
+ *   trống như auth-only). Middleware chỉ check đăng nhập.
+ *
+ * Dev mode: log warning khi route không nằm skip list mà cũng không match
+ * bất kỳ pattern nào → đây là dấu hiệu route mới chưa được khai báo RBAC.
  */
 export function getRequiredPermission(
   apiPath: string,
@@ -918,6 +1014,13 @@ export function getRequiredPermission(
     if (route.pattern.test(apiPath)) {
       return route.methods[httpMethod] ?? null
     }
+  }
+
+  // Dev-mode coverage warning: dễ phát hiện route mới chưa khai báo permission.
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(
+      `[RBAC] Unmapped API route: ${method} /api/${apiPath} — thêm vào API_PERMISSION_MAP hoặc SKIP_PERMISSION_ROUTES`,
+    )
   }
 
   return null

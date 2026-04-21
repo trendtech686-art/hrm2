@@ -1,27 +1,27 @@
 model Supplier {
-  systemId       String    @id
-  id             String    @unique
-  name           String
-  phone          String?
-  email          String?
-  address        String?
-  addressData    Json?
-  taxCode        String?
-  contactPerson  String?
-  totalOrders    Int       @default(0)
-  totalPurchased Decimal   @default(0) @db.Decimal(15, 2)
-  totalDebt      Decimal   @default(0) @db.Decimal(15, 2)
-  isActive       Boolean   @default(true)
-  isTrashed      Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdBy      String?
-  updatedBy      String?
-  bankAccount    String?
-  deletedAt      DateTime?
-  isDeleted      Boolean   @default(false)
+  systemId             String    @id
+  id                   String    @unique
+  name                 String
+  phone                String?
+  email                String?
+  address              String?
+  addressData          Json?
+  taxCode              String?
+  contactPerson        String?
+  totalOrders          Int       @default(0)
+  totalPurchased       Decimal   @default(0) @db.Decimal(15, 2)
+  totalDebt            Decimal   @default(0) @db.Decimal(15, 2)
+  isActive             Boolean   @default(true)
+  isTrashed            Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdBy            String?
+  updatedBy            String?
+  bankAccount          String?
+  deletedAt            DateTime?
+  isDeleted            Boolean   @default(false)
   permanentlyDeletedAt DateTime?
-  website        String?
+  website              String?
 
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
   accountManager String? // Employee's full name
@@ -31,10 +31,10 @@ model Supplier {
   notes          String? // Ghi chú
 
   // === RELATIONS ===
-  payments             Payment[]
-  purchaseOrders       PurchaseOrder[]
-  purchase_returns     PurchaseReturn[]
-  supplier_warranties  SupplierWarranty[]
+  payments            Payment[]
+  purchaseOrders      PurchaseOrder[]
+  purchase_returns    PurchaseReturn[]
+  supplier_warranties SupplierWarranty[]
 
   @@map("suppliers")
 }

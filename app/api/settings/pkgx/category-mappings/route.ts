@@ -1,10 +1,11 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { v4 as uuidv4 } from 'uuid'
 import { createCategoryMappingSchema } from './validation'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { enrichCategoryMappingsWithOrphanFlag } from '@/lib/pkgx/orphan-helpers'
 
 // GET /api/settings/pkgx/category-mappings - List all category mappings
 export async function GET(_request: NextRequest) {
@@ -20,9 +21,12 @@ export async function GET(_request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return apiSuccess({ 
-      data: mappings,
-      total: mappings.length,
+    const enriched = await enrichCategoryMappingsWithOrphanFlag(mappings)
+
+    return apiSuccess({
+      data: enriched,
+      total: enriched.length,
+      orphanCount: enriched.filter((m) => m.hrmEntityMissing).length,
     })
   } catch (error) {
     logError('Error fetching category mappings', error)
@@ -42,6 +46,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const { hrmCategoryId, hrmCategoryName, pkgxCategoryId, pkgxCategoryName } = validation.data
+    const { searchParams } = new URL(request.url)
+    const replaceOrphan = searchParams.get('replaceOrphan') === '1'
 
     // Check if mapping already exists
     const existing = await prisma.pkgxCategoryMapping.findFirst({
@@ -54,7 +60,58 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return apiError('Mapping already exists for this HRM category or PKGX category', 409)
+      const oldCategory = await prisma.category.findUnique({
+        where: { systemId: existing.hrmCategoryId },
+        select: { systemId: true, name: true, isDeleted: true },
+      })
+      const isOrphan = !oldCategory || oldCategory.isDeleted === true
+
+      if (isOrphan && replaceOrphan) {
+        const mapping = await prisma.$transaction(async (tx) => {
+          await tx.pkgxCategoryMapping.delete({ where: { systemId: existing.systemId } })
+          return tx.pkgxCategoryMapping.create({
+            data: {
+              systemId: uuidv4(),
+              hrmCategoryId,
+              hrmCategoryName: hrmCategoryName || '',
+              pkgxCategoryId,
+              pkgxCategoryName: pkgxCategoryName || '',
+              createdBy: session.user?.id,
+            },
+            include: { pkgxCategory: true },
+          })
+        })
+        createActivityLog({
+          entityType: 'pkgx_settings',
+          entityId: mapping.systemId,
+          action: `Thay thế mapping danh mục orphan: ${existing.hrmCategoryName} → ${hrmCategoryName || ''}`,
+          actionType: 'update',
+          createdBy: session.user?.id ?? '',
+        }).catch(e => logError('category-mapping replace activity log failed', e))
+        return apiSuccess({ data: mapping, replacedOrphan: true }, 201)
+      }
+
+      const message = isOrphan
+        ? 'Mapping cũ trỏ vào danh mục HRM đã xoá. Xác nhận thay thế bằng mapping mới?'
+        : 'Mapping already exists for this HRM category or PKGX category'
+      return NextResponse.json(
+        {
+          success: false,
+          error: message,
+          message,
+          code: isOrphan ? 'MAPPING_ORPHAN_CONFLICT' : 'MAPPING_DUPLICATE',
+          canReplace: isOrphan,
+          existing: {
+            systemId: existing.systemId,
+            hrmCategoryId: existing.hrmCategoryId,
+            hrmCategoryName: existing.hrmCategoryName,
+            pkgxCategoryId: existing.pkgxCategoryId,
+            pkgxCategoryName: existing.pkgxCategoryName,
+            hrmEntityMissing: isOrphan,
+          },
+        },
+        { status: 409 },
+      )
     }
 
     const mapping = await prisma.pkgxCategoryMapping.create({

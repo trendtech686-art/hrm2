@@ -307,7 +307,7 @@ export async function cancelOrderAction(
         recipientId: result.salespersonId,
         senderId: session.user?.employeeId,
         senderName: session.user?.employee?.fullName || session.user?.name,
-        settingsKey: 'order:status',
+        settingsKey: 'order:cancelled',
       }).catch(e => logError('[Cancel Order] notification failed', e))
     }
 

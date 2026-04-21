@@ -128,12 +128,12 @@ enum PurchaseOrderStatus {
 
 enum SupplierWarrantyStatus {
   DRAFT
-  APPROVED   // Duyệt
-  PACKED     // Đóng gói
-  EXPORTED   // Xuất kho
-  SENT       // Legacy — giữ cho backward compat
-  DELIVERED  // Giao thành công
-  CONFIRMED  // Xác nhận từ NCC
+  APPROVED // Duyệt
+  PACKED // Đóng gói
+  EXPORTED // Xuất kho
+  SENT // Legacy — giữ cho backward compat
+  DELIVERED // Giao thành công
+  CONFIRMED // Xác nhận từ NCC
   COMPLETED
   CANCELLED
 }

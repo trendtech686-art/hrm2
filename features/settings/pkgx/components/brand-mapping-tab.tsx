@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label as _Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2, Download, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert';
 import { Progress } from '../../../../components/ui/progress';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu';
@@ -36,6 +37,8 @@ import { sanitizeHtml } from '@/lib/sanitize'
 interface PkgxBrandRow extends PkgxBrand {
   systemId: string;
   mappedToHrm?: string;
+  /** True nếu mapping đang trỏ vào Brand HRM đã xoá (orphan). */
+  mappingOrphan?: boolean;
 }
 
 // Extended type for mappings table
@@ -105,6 +108,26 @@ export function BrandMappingTab() {
     return settings?.brandMappings?.find(m => m.pkgxBrandId === pkgxBrandId);
   }, [settings?.brandMappings]);
   
+  // Tổng số mapping orphan (trỏ vào Brand HRM đã xoá).
+  const orphanMappings = React.useMemo(
+    () => (settings?.brandMappings ?? []).filter(m => m.hrmEntityMissing === true),
+    [settings?.brandMappings],
+  );
+  
+  const handleCleanupAllOrphans = React.useCallback(() => {
+    if (orphanMappings.length === 0) return;
+    if (!window.confirm(
+      `Xoá ${orphanMappings.length} mapping đang trỏ vào thương hiệu HRM đã xoá?\n\n` +
+      `Sau khi xoá, các thương hiệu PKGX tương ứng sẽ trở về trạng thái "Chưa mapping" ` +
+      `và có thể Import lại thành thương hiệu HRM mới.`
+    )) return;
+    
+    for (const m of orphanMappings) {
+      deleteBrandMapping.mutate(m.systemId || m.id || '');
+    }
+    toast.success(`Đã dọn ${orphanMappings.length} mapping lỗi`);
+  }, [orphanMappings, deleteBrandMapping]);
+  
   // PKGX Brands data for table
   const pkgxBrandsData = React.useMemo((): PkgxBrandRow[] => {
     let filtered = settings?.brands ?? [];
@@ -115,11 +138,15 @@ export function BrandMappingTab() {
         b.id.toString().includes(term)
       );
     }
-    return filtered.map(b => ({
-      ...b,
-      systemId: b.id.toString(),
-      mappedToHrm: findMapping(b.id)?.hrmBrandName,
-    }));
+    return filtered.map(b => {
+      const mapping = findMapping(b.id);
+      return {
+        ...b,
+        systemId: b.id.toString(),
+        mappedToHrm: mapping?.hrmBrandName,
+        mappingOrphan: mapping?.hrmEntityMissing === true,
+      };
+    });
   }, [settings?.brands, searchTerm, findMapping]);
   
   // Mappings data for table
@@ -223,16 +250,24 @@ export function BrandMappingTab() {
     {
       id: 'mappedToHrm',
       header: 'Mapping HRM',
-      cell: ({ row }) => (
-        row.mappedToHrm ? (
+      cell: ({ row }) => {
+        if (row.mappingOrphan) {
+          return (
+            <Badge variant="destructive" title="Brand HRM đã bị xoá — nhấn 'Dọn' ở dropdown để xoá mapping lỗi">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              HRM đã xoá
+            </Badge>
+          );
+        }
+        return row.mappedToHrm ? (
           <Badge variant="default" className="bg-green-500">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             {row.mappedToHrm}
           </Badge>
         ) : (
           <Badge variant="secondary">Chưa mapping</Badge>
-        )
-      ),
+        );
+      },
     },
     {
       id: 'actions',
@@ -350,7 +385,19 @@ export function BrandMappingTab() {
       id: 'hrmBrandName',
       accessorKey: 'hrmBrandName',
       header: 'Thương hiệu HRM',
-      cell: ({ row }) => <span className="font-medium">{row.hrmBrandName}</span>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span className={`font-medium ${row.hrmEntityMissing ? 'line-through text-muted-foreground' : ''}`}>
+            {row.hrmBrandName}
+          </span>
+          {row.hrmEntityMissing && (
+            <Badge variant="destructive" className="text-[10px]">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Đã xoá
+            </Badge>
+          )}
+        </div>
+      ),
     },
     {
       id: 'pkgxBrandName',
@@ -857,7 +904,12 @@ export function BrandMappingTab() {
           <div className="font-medium">{row.name}</div>
           <div className="text-sm text-muted-foreground">ID: {row.id}</div>
         </div>
-        {row.mappedToHrm ? (
+        {row.mappingOrphan ? (
+          <Badge variant="destructive" className="shrink-0">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            HRM đã xoá
+          </Badge>
+        ) : row.mappedToHrm ? (
           <Badge variant="default" className="bg-green-500 shrink-0">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Đã mapping
@@ -938,6 +990,29 @@ export function BrandMappingTab() {
               </Button>
             </div>
           </div>
+          {orphanMappings.length > 0 && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>
+                Có {orphanMappings.length} mapping trỏ vào thương hiệu HRM đã bị xoá
+              </AlertTitle>
+              <AlertDescription className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Những mapping này khiến chức năng &ldquo;Import &amp; Mapping&rdquo; báo trùng dù thương hiệu HRM không còn tồn tại. Hãy dọn để import lại được.
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={handleCleanupAllOrphans}
+                  disabled={deleteBrandMapping.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Dọn {orphanMappings.length} mapping lỗi
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           {isImporting && importProgress.total > 0 && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">

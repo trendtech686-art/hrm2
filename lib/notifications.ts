@@ -204,6 +204,15 @@ export async function shouldNotify(settingsKey?: string): Promise<boolean> {
   if (!general.enabled) return false
   if (!settingsKey) return true
 
+  // General due-date category gates — respect Cài đặt → Thông báo → Chung
+  // Any settingsKey ending in these suffixes must also pass the corresponding
+  // general toggle (notifyOverdue/notifyDueToday/…).
+  const suffix = settingsKey.split(':').pop() ?? ''
+  if (suffix === 'overdue' && !general.notifyOverdue) return false
+  if (suffix === 'dueToday' && !general.notifyDueToday) return false
+  if (suffix === 'dueTomorrow' && !general.notifyDueTomorrow) return false
+  if (suffix === 'dueSoon' && !general.notifyDueSoon) return false
+
   // Check unified settings map (Sales, Warehouse, HR, System)
   const mapping = NOTIFICATION_SETTINGS_MAP[settingsKey]
   if (mapping) {
@@ -221,6 +230,19 @@ export async function shouldNotify(settingsKey?: string): Promise<boolean> {
   }
 
   return true
+}
+
+/**
+ * Master gate for outbound email notifications.
+ * Honors the General master toggle at `/settings/notifications` → Chung.
+ *
+ * Call this at the top of every module email sender (tasks, complaints, warranty, …)
+ * before evaluating module-specific flags. Returns `false` when the master switch is off
+ * so users can confidently mute the whole system from one place.
+ */
+export async function areEmailNotificationsEnabled(): Promise<boolean> {
+  const general = await getGeneralNotificationSettings()
+  return !!general.enabled
 }
 
 export interface CreateNotificationInput {

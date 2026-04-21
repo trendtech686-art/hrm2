@@ -1,12 +1,12 @@
 model RecurringTask {
-  systemId    String   @id
-  id          String   @unique
+  systemId    String  @id
+  id          String  @unique
   title       String
   description String?
 
   // Assignment
   assigneeSystemId String?
-  assignees        Json?    // Array of TaskAssignee { systemId, employeeSystemId, employeeName, role, assignedAt, assignedBy }
+  assignees        Json? // Array of TaskAssignee { systemId, employeeSystemId, employeeName, role, assignedAt, assignedBy }
   assignerId       String?
   assignerName     String?
 
@@ -16,17 +16,17 @@ model RecurringTask {
   type           String?
 
   // Recurrence pattern
-  recurrencePattern Json     // RecurrencePattern { frequency, interval, daysOfWeek, dayOfMonth, etc. }
+  recurrencePattern Json // RecurrencePattern { frequency, interval, daysOfWeek, dayOfMonth, etc. }
   startDate         DateTime
   durationDays      Int      @default(1)
   createDaysBefore  Int      @default(0)
 
   // Status
-  isActive  Boolean @default(true)
-  isPaused  Boolean @default(false)
+  isActive Boolean @default(true)
+  isPaused Boolean @default(false)
 
   // Tracking
-  createdTaskIds     Json?     // String[] - IDs of tasks created from this recurring task
+  createdTaskIds     Json? // String[] - IDs of tasks created from this recurring task
   lastCreatedDate    DateTime?
   nextOccurrenceDate DateTime?
   occurrenceCount    Int       @default(0)
@@ -53,8 +53,8 @@ model TaskTemplate {
   description String?
 
   // Template content
-  category    String?
-  title       String?    // Default task title
+  category        String?
+  title           String? // Default task title
   taskDescription String? // Default task description
 
   // Default values
@@ -63,10 +63,10 @@ model TaskTemplate {
   type           String?
 
   // Pre-configured structure
-  assigneeRoles  Json?  // Array of { role, description }
-  subtasks       Json?  // Array of { title, description, estimatedHours, order }
-  checklistItems Json?  // String[]
-  customFields   Json?  // Record<string, unknown>
+  assigneeRoles  Json? // Array of { role, description }
+  subtasks       Json? // Array of { title, description, estimatedHours, order }
+  checklistItems Json? // String[]
+  customFields   Json? // Record<string, unknown>
 
   // Metadata
   usageCount Int     @default(0)

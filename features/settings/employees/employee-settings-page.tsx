@@ -20,7 +20,8 @@ import { Separator } from '../../../components/ui/separator';
 import { TimePicker } from '../../../components/ui/time-picker';
 import { NumberInput } from '../../../components/ui/number-input';
 import { CurrencyInput } from '../../../components/ui/currency-input';
-import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Calculator } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
@@ -160,7 +161,8 @@ export function EmployeeSettingsPage() {
   // Header actions thay đổi theo tab - Chức vụ, Phòng ban và Loại nhân viên có UI riêng nên không cần Hủy/Lưu
   const isIndependentTab = activeTab === 'job-titles' || activeTab === 'departments' || activeTab === 'employee-types' || activeTab === 'history';
   const isSaving = saveMutation.isPending;
-  
+  const isDirty = form.formState.isDirty;
+
   const headerActions = React.useMemo(() => {
     // Tabs có CRUD độc lập không cần nút Hủy/Lưu
     if (isIndependentTab) {
@@ -170,12 +172,12 @@ export function EmployeeSettingsPage() {
       <SettingsActionButton key="cancel" variant="outline" onClick={handleCancel} disabled={isSaving}>
         Hủy
       </SettingsActionButton>,
-      <SettingsActionButton key="save" onClick={handleSave} disabled={isSaving}>
+      <SettingsActionButton key="save" onClick={handleSave} disabled={isSaving || !isDirty}>
         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Lưu thay đổi
       </SettingsActionButton>,
     ];
-  }, [handleCancel, handleSave, isIndependentTab, isSaving]);
+  }, [handleCancel, handleSave, isIndependentTab, isSaving, isDirty]);
 
   useSettingsPageHeader({
     title: 'Cài đặt nhân viên',
@@ -565,9 +567,17 @@ export function EmployeeSettingsPage() {
             {/* Tab 3: Lương & Phúc lợi */}
             <TabsContent value="payroll" className="mt-0">
               <Card>
-                <CardHeader>
-                  <CardTitle>Lương & Phúc lợi</CardTitle>
-                  <CardDescription>Cài đặt các thành phần lương, công thức tính và chu kỳ trả lương.</CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Lương & Phúc lợi</CardTitle>
+                    <CardDescription>Cài đặt các thành phần lương, công thức tính và chu kỳ trả lương.</CardDescription>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <Link href="/settings/payroll-simulator">
+                      <Calculator className="h-4 w-4 mr-1.5" />
+                      Tính thử công thức
+                    </Link>
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

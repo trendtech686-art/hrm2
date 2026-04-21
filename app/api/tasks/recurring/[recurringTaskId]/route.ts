@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // GET - Single recurring task
 export async function GET(
@@ -74,6 +75,15 @@ export async function PUT(
       },
     });
 
+    createActivityLog({
+      entityType: 'recurring_task',
+      entityId: recurringTaskId,
+      action: `Cập nhật công việc lặp lại "${existing.title}"`,
+      actionType: 'update',
+      metadata: { userName: body.updatedBy },
+      createdBy: body.updatedBy || undefined,
+    }).catch(() => undefined);
+
     return apiSuccess(task);
   } catch (error) {
     logError('Failed to update recurring task', error);
@@ -92,10 +102,22 @@ export async function DELETE(
   const { recurringTaskId } = await params;
 
   try {
+    const existing = await prisma.recurringTask.findUnique({
+      where: { systemId: recurringTaskId },
+      select: { title: true },
+    });
+
     await prisma.recurringTask.update({
       where: { systemId: recurringTaskId },
       data: { isDeleted: true },
     });
+
+    createActivityLog({
+      entityType: 'recurring_task',
+      entityId: recurringTaskId,
+      action: existing?.title ? `Xóa công việc lặp lại "${existing.title}"` : 'Xóa công việc lặp lại',
+      actionType: 'delete',
+    }).catch(() => undefined);
 
     return apiSuccess({ message: 'Đã xóa' });
   } catch (error) {

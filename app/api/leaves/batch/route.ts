@@ -17,6 +17,7 @@ import { generateIdWithPrefix } from '@/lib/id-generator';
 import { z } from 'zod';
 import { logError } from '@/lib/logger'
 import { createBulkNotifications } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Vietnamese name → Prisma LeaveType enum mapping
 const LEAVE_TYPE_NAME_MAP: Record<string, string> = {
@@ -155,6 +156,22 @@ export async function POST(request: NextRequest) {
 
       const skipped = data.systemIds.length - approved - errors.length;
 
+      createActivityLog({
+        entityType: 'leave',
+        entityId: 'BATCH',
+        action: `Duyệt hàng loạt đơn nghỉ phép (${approved}/${data.systemIds.length})`,
+        actionType: 'status',
+        note: `Approved: ${approved} · Skipped: ${skipped} · Errors: ${errors.length}`,
+        metadata: {
+          userName: data.approvedBy,
+          total: data.systemIds.length,
+          approved,
+          skipped,
+          errors: errors.length,
+        },
+        createdBy: session.user?.employeeId || session.user?.id,
+      }).catch(() => undefined)
+
       // Notify approved employees
       const approvedEmployeeIds = leaves
         .filter(l => !errors.some(e => e.startsWith(l.systemId)))
@@ -212,6 +229,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      createActivityLog({
+        entityType: 'leave',
+        entityId: 'BATCH',
+        action: `Từ chối hàng loạt đơn nghỉ phép (${result.count}/${data.systemIds.length})`,
+        actionType: 'status',
+        note: data.reason ? `Lý do: ${data.reason}` : undefined,
+        metadata: {
+          userName: data.rejectedBy,
+          total: data.systemIds.length,
+          rejected: result.count,
+          skipped: data.systemIds.length - result.count,
+          reason: data.reason,
+        },
+        createdBy: session.user?.employeeId || session.user?.id,
+      }).catch(() => undefined)
+
       return apiSuccess({
         rejected: result.count,
         skipped: data.systemIds.length - result.count,
@@ -260,6 +293,21 @@ export async function POST(request: NextRequest) {
           }
         }
       });
+
+      createActivityLog({
+        entityType: 'leave',
+        entityId: 'BATCH',
+        action: `Nhập hàng loạt đơn nghỉ phép (${created.length}/${data.items.length})`,
+        actionType: 'system',
+        note: `Created: ${created.length} · Errors: ${errors.length}`,
+        metadata: {
+          userName: session.user?.name || session.user?.id,
+          total: data.items.length,
+          created: created.length,
+          errors: errors.length,
+        },
+        createdBy: session.user?.employeeId || session.user?.id,
+      }).catch(() => undefined)
 
       return apiSuccess({ created: created.length, errors });
     }

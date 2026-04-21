@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // GET - List all boards
 export async function GET() {
@@ -48,6 +49,15 @@ export async function POST(request: NextRequest) {
         },
       });
     });
+
+    createActivityLog({
+      entityType: 'task_board',
+      entityId: board.systemId,
+      action: `Tạo bảng công việc "${board.name}"`,
+      actionType: 'create',
+      metadata: { userName: body.createdBy },
+      createdBy: body.createdBy || undefined,
+    }).catch(() => undefined);
 
     return apiSuccess(board);
   } catch (error) {

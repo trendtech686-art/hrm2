@@ -4,6 +4,7 @@ import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { invalidateRolePermissionsCache } from '@/lib/rbac/resolve-permissions'
 import { z } from 'zod'
 
 const SETTING_KEY = 'role-settings'
@@ -102,6 +103,52 @@ export async function PUT(request: Request) {
         description: 'Role permissions settings',
       },
     })
+
+    // Đồng bộ sang bảng RoleSetting (nguồn chính của resolver RBAC).
+    // Upsert từng role + soft-delete role đã xoá khỏi UI.
+    const newIds = new Set(roles.map(r => r.id))
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const role of roles) {
+          await tx.roleSetting.upsert({
+            where: { id: role.id },
+            update: {
+              name: role.name,
+              description: role.description || null,
+              permissions: role.permissions as unknown as Prisma.InputJsonValue,
+              isActive: true,
+              isDeleted: false,
+              deletedAt: null,
+              updatedBy: session.user?.id,
+            },
+            create: {
+              systemId: role.systemId,
+              id: role.id,
+              name: role.name,
+              description: role.description || null,
+              permissions: role.permissions as unknown as Prisma.InputJsonValue,
+              isSystem: role.isDefault === true,
+              isActive: true,
+              sortOrder: 0,
+              createdBy: session.user?.id,
+            },
+          })
+        }
+        // Soft delete những role không còn trong payload và không phải system.
+        await tx.roleSetting.updateMany({
+          where: {
+            isDeleted: false,
+            isSystem: false,
+            NOT: { id: { in: Array.from(newIds) } },
+          },
+          data: { isDeleted: true, deletedAt: new Date() },
+        })
+      })
+      // Clear cache permissions cho toàn bộ role (đơn giản + an toàn).
+      invalidateRolePermissionsCache()
+    } catch (syncErr) {
+      logError('[roles] failed to sync RoleSetting table', syncErr)
+    }
 
     // Generate activity logs by diffing old vs new roles
     const oldMap = new Map(existingRoles.map(r => [r.id, r]))

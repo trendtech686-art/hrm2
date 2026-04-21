@@ -8,6 +8,7 @@ import { useAppearanceStore, type Theme, type FontSize, type CustomThemeConfig, 
 import { getThemeConfig } from './themes';
 import { Button } from '../../../components/ui/button'
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton'
+import { useDirtyState } from '@/hooks/use-dirty-state'
 import { cn } from '../../../lib/utils'
 import { CustomThemeForm } from './custom-theme-form'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../../components/ui/resizable'
@@ -119,11 +120,21 @@ export function AppearancePage() {
         toast.success('Đã lưu giao diện thành công!');
     }, [updateAppearance]);
 
+    const storedAppearance = React.useMemo(
+        () => ({ theme: savedTheme, fontSize: savedFontSize, colorMode: savedColorMode, customThemeConfig: savedCustomThemeConfig }),
+        [savedTheme, savedFontSize, savedColorMode, savedCustomThemeConfig],
+    );
+    const localAppearance = React.useMemo(
+        () => ({ theme: localTheme, fontSize: localFontSize, colorMode: localColorMode, customThemeConfig: localCustomThemeConfig }),
+        [localTheme, localFontSize, localColorMode, localCustomThemeConfig],
+    );
+    const isDirty = useDirtyState(storedAppearance, localAppearance);
+
     const headerActions = React.useMemo(() => [
-        <SettingsActionButton key="save" onClick={handleSave}>
+        <SettingsActionButton key="save" onClick={handleSave} disabled={!isDirty}>
             Lưu
         </SettingsActionButton>,
-    ], [handleSave]);
+    ], [handleSave, isDirty]);
 
     useSettingsPageHeader({
         title: 'Giao diện',

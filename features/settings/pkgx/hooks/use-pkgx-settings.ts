@@ -61,6 +61,7 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
     pkgxCatId: m.pkgxCategoryId as number,
     pkgxCategoryName: m.pkgxCategoryName as string,
     pkgxCatName: m.pkgxCategoryName as string,
+    hrmEntityMissing: m.hrmEntityMissing === true,
   }));
   
   const brandMappings = (rawBrandMappings || []).map((m: Record<string, unknown>) => ({
@@ -71,6 +72,7 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
     hrmBrandName: m.hrmBrandName as string,
     pkgxBrandId: m.pkgxBrandId as number,
     pkgxBrandName: m.pkgxBrandName as string,
+    hrmEntityMissing: m.hrmEntityMissing === true,
   }));
   
   const priceTypeToField: Record<string, string> = {
@@ -157,6 +159,7 @@ async function fetchPkgxSettings(productsLimit = 100): Promise<PkgxSettings> {
     pkgxCatId: m.pkgxCategoryId as number,
     pkgxCategoryName: m.pkgxCategoryName as string,
     pkgxCatName: m.pkgxCategoryName as string,
+    hrmEntityMissing: m.hrmEntityMissing === true,
   }));
   
   const brandMappings = (brandMappingsJson.data || []).map((m: Record<string, unknown>) => ({
@@ -167,6 +170,7 @@ async function fetchPkgxSettings(productsLimit = 100): Promise<PkgxSettings> {
     hrmBrandName: m.hrmBrandName as string,
     pkgxBrandId: m.pkgxBrandId as number,
     pkgxBrandName: m.pkgxBrandName as string,
+    hrmEntityMissing: m.hrmEntityMissing === true,
   }));
   
   const priceMappingsArray = priceMappingsJson.success ? priceMappingsJson.data : [];

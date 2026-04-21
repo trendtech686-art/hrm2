@@ -75,11 +75,11 @@ model Packaging {
   requestorPhone String? // SĐT người lấy hàng
 
   // Relations
-  order            Order?            @relation(fields: [orderId], references: [systemId])
-  warranty         SupplierWarranty? @relation(fields: [warrantyId], references: [systemId])
-  assignedEmployee Employee?         @relation(fields: [assignedEmployeeId], references: [systemId])
-  shipment               Shipment?
-  reconciliationItems    ReconciliationSheetItem[]
+  order               Order?                    @relation(fields: [orderId], references: [systemId])
+  warranty            SupplierWarranty?         @relation(fields: [warrantyId], references: [systemId])
+  assignedEmployee    Employee?                 @relation(fields: [assignedEmployeeId], references: [systemId])
+  shipment            Shipment?
+  reconciliationItems ReconciliationSheetItem[]
 
   @@index([warrantyId])
   @@map("packagings")

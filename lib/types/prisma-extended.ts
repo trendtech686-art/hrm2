@@ -32,6 +32,7 @@ export type ActivityLogEntityType =
   | 'payment'
   | 'leave'
   | 'penalty'
+  | 'payroll'
   | 'branch'
   | 'category'
   | 'cash_account'
@@ -91,7 +92,15 @@ export type ActivityLogEntityType =
   | 'inventory_sla_settings'
   | 'logistics_settings'
   | 'payroll_template'
-  | 'reconciliation_sheet';
+  | 'reconciliation_sheet'
+  | 'task'
+  | 'task_board'
+  | 'task_template'
+  | 'recurring_task'
+  | 'task_dependency'
+  | 'task_evidence'
+  | 'attendance_lock'
+  | 'inventory';
 
 /**
  * ActivityLog - Centralized activity history for all entities
@@ -3643,6 +3652,8 @@ export type PkgxCategoryMapping = {
   pkgxCatId?: number; // Alias for backward compat
   pkgxCategoryName: string;
   pkgxCatName?: string; // Alias for backward compat
+  /** Server-enriched: true nếu Category HRM đã bị xoá hoặc soft-deleted — mapping orphan. */
+  hrmEntityMissing?: boolean;
 };
 
 export type PkgxBrandMapping = {
@@ -3653,6 +3664,8 @@ export type PkgxBrandMapping = {
   hrmBrandName: string;
   pkgxBrandId: number;
   pkgxBrandName: string;
+  /** Server-enriched: true nếu Brand HRM đã bị xoá hoặc soft-deleted — mapping orphan. */
+  hrmEntityMissing?: boolean;
 };
 
 export type PkgxPriceMapping = {

@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authConfig } from "./auth.config"
+import { resolvePermissions } from "@/lib/rbac/resolve-permissions"
 
 const debugAuth = process.env.NEXTAUTH_DEBUG === 'true'
 
@@ -70,6 +71,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               data: { lastLogin: new Date() },
             }).catch(e => console.warn('[Auth] Failed to update lastLogin:', e.message))
 
+            // Resolve permissions (custom from DB > default from code)
+            // Ưu tiên employee.role (business role) → fallback user.role (enum UserRole)
+            const effectiveRole = user.employee?.role || (user.role as string)
+            const permissions = await resolvePermissions(effectiveRole)
+
             // Return only serializable data (no Decimal, Date objects etc.)
             const returnUser = {
               id: user.systemId,
@@ -77,6 +83,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               name: user.employee?.fullName || user.email,
               role: user.role as string,
               employeeId: user.employeeId ?? undefined,
+              permissions,
               employee: user.employee ? {
                 systemId: user.employee.systemId,
                 name: user.employee.fullName,

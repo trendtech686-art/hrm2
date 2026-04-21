@@ -15,7 +15,7 @@ import {
   mapShipperHandoverToPrintData,
   mapShipperHandoverLineItems,
 } from '../print-mappers/shipper-handover.mapper';
-import { StoreSettings, getStoreLogo, getGeneralSettings } from '../print-service';
+import { StoreSettings, getStoreLogo } from '../print-service';
 
 // Re-export types with aliases for backward compatibility
 export type HandoverForPrint = ShipperHandoverForPrint;
@@ -220,14 +220,12 @@ export function createStoreSettings(storeInfo?: {
   province?: string;
   logo?: string;
 } | null): StoreSettings {
-  // Fallback lấy từ general-settings nếu storeInfo trống
-  const generalSettings = getGeneralSettings();
   return {
-    name: storeInfo?.companyName || storeInfo?.brandName || generalSettings?.companyName || '',
-    address: storeInfo?.headquartersAddress || generalSettings?.companyAddress || '',
-    phone: storeInfo?.hotline || generalSettings?.phoneNumber || '',
+    name: storeInfo?.companyName || storeInfo?.brandName || '',
+    address: storeInfo?.headquartersAddress || '',
+    phone: storeInfo?.hotline || '',
     hotline: storeInfo?.hotline || '',
-    email: storeInfo?.email || generalSettings?.email || '',
+    email: storeInfo?.email || '',
     website: storeInfo?.website,
     taxCode: storeInfo?.taxCode,
     province: storeInfo?.province,

@@ -13,7 +13,7 @@ import {
   mapPayslipToPrintData,
   mapPayslipComponentLineItems,
 } from '../print-mappers/payroll.mapper';
-import { StoreSettings, getStoreLogo, getGeneralSettings } from '../print-service';
+import { StoreSettings, getStoreLogo } from '../print-service';
 import type { PayrollComponentEntry, PayrollTotals } from '../payroll-types';
 
 // ============================================
@@ -253,8 +253,6 @@ export function createStoreSettings(storeInfo?: {
   province?: string;
   logo?: string;
 } | null): StoreSettings {
-  const generalSettings = getGeneralSettings();
-  
   // Fallback: lấy từ service cache nếu storeInfo rỗng
   let storeInfoFromStorage: typeof storeInfo | null = null;
   if (!storeInfo?.companyName && !storeInfo?.brandName) {
@@ -268,10 +266,10 @@ export function createStoreSettings(storeInfo?: {
   const info = storeInfo?.companyName || storeInfo?.brandName ? storeInfo : storeInfoFromStorage;
   
   return {
-    name: info?.companyName || info?.brandName || generalSettings?.companyName || '',
-    address: info?.headquartersAddress || generalSettings?.companyAddress || '',
-    phone: info?.hotline || generalSettings?.phoneNumber || '',
-    email: info?.email || generalSettings?.email || '',
+    name: info?.companyName || info?.brandName || '',
+    address: info?.headquartersAddress || '',
+    phone: info?.hotline || '',
+    email: info?.email || '',
     website: info?.website,
     taxCode: info?.taxCode,
     province: info?.province,

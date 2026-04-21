@@ -9,7 +9,7 @@ import {
   mapPurchaseOrderToPrintData, 
   mapPurchaseOrderLineItems,
 } from '../print-mappers/purchase-order.mapper';
-import { StoreSettings, getStoreLogo, getGeneralSettings } from '../print-service';
+import { StoreSettings, getStoreLogo } from '../print-service';
 
 // Interface cho purchase order item - flexible để nhận nhiều loại
 interface PurchaseOrderItemLike {
@@ -231,13 +231,11 @@ export function createStoreSettings(storeInfo?: {
   address?: string;
   phone?: string;
 } | null): StoreSettings {
-  // Fallback lấy từ general-settings nếu storeInfo trống
-  const generalSettings = getGeneralSettings();
   return {
-    name: storeInfo?.companyName || storeInfo?.brandName || storeInfo?.name || generalSettings?.companyName || '',
-    address: storeInfo?.headquartersAddress || storeInfo?.address || generalSettings?.companyAddress || '',
-    phone: storeInfo?.hotline || storeInfo?.phone || generalSettings?.phoneNumber || '',
-    email: storeInfo?.email || generalSettings?.email || '',
+    name: storeInfo?.companyName || storeInfo?.brandName || storeInfo?.name || '',
+    address: storeInfo?.headquartersAddress || storeInfo?.address || '',
+    phone: storeInfo?.hotline || storeInfo?.phone || '',
+    email: storeInfo?.email || '',
     website: storeInfo?.website,
     taxCode: storeInfo?.taxCode,
     province: storeInfo?.province,

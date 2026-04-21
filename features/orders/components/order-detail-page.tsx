@@ -133,7 +133,7 @@ export function OrderDetailPage() {
         onError: (err) => toast.error(err.message),
     });
     const { update: updateOrder } = useOrderMutations();
-    const { employee: authEmployee, user: authUser, can, isAdmin } = useAuth();
+    const { employee: authEmployee, can, isAdmin, isAdminOrManager } = useAuth();
     const { isMobile } = useBreakpoint();
     
     const order = React.useMemo(() => {
@@ -265,10 +265,7 @@ export function OrderDetailPage() {
     
     const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
     // Check if current user can view financial info (cost, profit)
-    const canViewFinancials = React.useMemo(() => {
-        const role = authUser?.role?.toUpperCase();
-        return role === 'ADMIN' || role === 'MANAGER';
-    }, [authUser?.role]);
+    const canViewFinancials = isAdminOrManager;
     const [isCopying, setIsCopying] = React.useState(false);
 
     // State for image preview in ReturnHistoryTab

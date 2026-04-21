@@ -8,9 +8,9 @@ model ProductBatch {
   branchId  String
 
   // Thông tin lô
-  batchNumber    String // Mã/số lô
+  batchNumber     String // Mã/số lô
   manufactureDate DateTime? // Ngày sản xuất
-  expiryDate     DateTime? // Hạn sử dụng
+  expiryDate      DateTime? // Hạn sử dụng
 
   // Tồn kho theo lô
   quantity   Int @default(0) // Số lượng hiện tại trong lô

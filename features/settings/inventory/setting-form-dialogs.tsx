@@ -27,6 +27,13 @@ import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
 import type { ProductType, ProductCategory } from './types';
 
 // ProductType Form Schema
@@ -432,21 +439,24 @@ export function ProductCategoryFormDialog({
                     <FormItem>
                       <FormLabel>Danh mục cha</FormLabel>
                       <FormControl>
-                        <select
-                          {...field}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value || undefined)}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        <Select
+                          value={field.value ?? '__none__'}
+                          onValueChange={(value) => field.onChange(value === '__none__' ? undefined : value)}
                         >
-                          <option value="">-- Không có (Danh mục gốc) --</option>
-                          {categories
-                            .filter(c => c.systemId !== initialData?.systemId && (c.level ?? 0) < 2) // Only allow parent with level < 2
-                            .map(cat => (
-                              <option key={cat.systemId} value={cat.systemId}>
-                                {'—'.repeat(cat.level || 0)} {cat.name} {cat.level === 1 ? '(cấp 2)' : ''}
-                              </option>
-                            ))}
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="-- Không có (Danh mục gốc) --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">-- Không có (Danh mục gốc) --</SelectItem>
+                            {categories
+                              .filter(c => c.systemId !== initialData?.systemId && (c.level ?? 0) < 2)
+                              .map(cat => (
+                                <SelectItem key={cat.systemId} value={cat.systemId}>
+                                  {'—'.repeat(cat.level || 0)} {cat.name} {cat.level === 1 ? '(cấp 2)' : ''}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormDescription>
                         Hệ thống hỗ trợ tối đa 3 cấp danh mục

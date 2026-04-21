@@ -53,14 +53,13 @@ export async function GET(request: Request) {
       const batch = item.payroll
       const monthKey = `${batch.year}-${String(batch.month).padStart(2, '0')}`
       
-      // Map DB status to frontend status
+      // Map DB status (enum: DRAFT/PROCESSING/COMPLETED/PAID) → frontend status.
+      // Đồng bộ với app/api/payroll/[systemId]/route.ts. Không còn 'LOCKED'/'REVIEWED' trong enum DB.
       const statusMap: Record<string, string> = {
-        'DRAFT': 'draft',
-        'REVIEWED': 'reviewed',
-        'LOCKED': 'locked',
-        'CANCELLED': 'cancelled',
-        'PAID': 'locked',
-        'PROCESSING': 'draft',
+        DRAFT: 'draft',
+        PROCESSING: 'reviewed',
+        COMPLETED: 'locked',
+        PAID: 'locked',
       }
 
       return {

@@ -6,6 +6,7 @@ import { logError } from '@/lib/logger'
 import { generateNextIds } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-system'
 import { cache } from '@/lib/cache'
+import { healOrphanCategoryMapping } from '@/lib/pkgx/orphan-helpers'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -58,6 +59,48 @@ export const POST = apiHandler(async (request, { session }) => {
   const { categories } = result.data
   const results: { pkgxId: number; success: boolean; error?: string; systemId?: string }[] = []
 
+  /**
+   * Helper: tạo mapping category, tự heal orphan nếu trùng pkgxCategoryId.
+   */
+  const createMappingWithHeal = async (
+    hrmCategoryId: string,
+    hrmCategoryName: string,
+    pkgxCategoryId: number,
+    pkgxCategoryName: string,
+  ): Promise<void> => {
+    try {
+      await prisma.pkgxCategoryMapping.create({
+        data: {
+          systemId: uuidv4(),
+          hrmCategoryId,
+          hrmCategoryName,
+          pkgxCategoryId,
+          pkgxCategoryName,
+          createdBy: session?.user?.id,
+        },
+      })
+    } catch (e) {
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError) || e.code !== 'P2002') {
+        logError(`[Bulk Category] Mapping error: ${hrmCategoryName}`, e)
+        return
+      }
+      // P2002: trùng unique. Nếu orphan ⇒ xoá mapping cũ + tạo lại.
+      const healed = await healOrphanCategoryMapping(pkgxCategoryId)
+      if (healed === 'orphan_deleted') {
+        await prisma.pkgxCategoryMapping.create({
+          data: {
+            systemId: uuidv4(),
+            hrmCategoryId,
+            hrmCategoryName,
+            pkgxCategoryId,
+            pkgxCategoryName,
+            createdBy: session?.user?.id,
+          },
+        }).catch(err => logError(`[Bulk Category] Mapping retry failed: ${hrmCategoryName}`, err))
+      }
+    }
+  }
+
   for (const item of categories) {
     try {
       const isUpdate = !!item.existingMappingHrmId
@@ -109,21 +152,7 @@ export const POST = apiHandler(async (request, { session }) => {
           },
         })
 
-        // Also create mapping
-        await prisma.pkgxCategoryMapping.create({
-          data: {
-            systemId: uuidv4(),
-            hrmCategoryId: category.systemId,
-            hrmCategoryName: category.name,
-            pkgxCategoryId: item.pkgxId,
-            pkgxCategoryName: item.name,
-            createdBy: session?.user?.id,
-          },
-        }).catch(e => {
-          // Duplicate mapping is OK
-          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return
-          logError(`[Bulk Category] Mapping error: ${item.name}`, e)
-        })
+        await createMappingWithHeal(category.systemId, category.name, item.pkgxId, item.name)
 
         results.push({ pkgxId: item.pkgxId, success: true, systemId: category.systemId })
       }
@@ -135,17 +164,7 @@ export const POST = apiHandler(async (request, { session }) => {
           select: { systemId: true },
         })
         if (existing) {
-          // Create mapping for it
-          await prisma.pkgxCategoryMapping.create({
-            data: {
-              systemId: uuidv4(),
-              hrmCategoryId: existing.systemId,
-              hrmCategoryName: item.name,
-              pkgxCategoryId: item.pkgxId,
-              pkgxCategoryName: item.name,
-              createdBy: session?.user?.id,
-            },
-          }).catch(() => {})
+          await createMappingWithHeal(existing.systemId, item.name, item.pkgxId, item.name)
           results.push({ pkgxId: item.pkgxId, success: true, systemId: existing.systemId })
           continue
         }

@@ -76,7 +76,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
     onUpdateSuccess: () => toast.success('Đã cập nhật thông tin đăng nhập'),
     onError: (error) => toast.error('Có lỗi: ' + error.message),
   });
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isAdmin } = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
@@ -86,7 +86,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
   const [selectedRole, setSelectedRole] = React.useState<EmployeeRole>(userRole);
 
   // Check if current user can change roles (only Admin can)
-  const canChangeRole = currentUser?.role === 'admin';
+  const canChangeRole = isAdmin;
   // Check if trying to edit own account
   const _isOwnAccount = currentUser?.employeeId === employee.systemId;
 

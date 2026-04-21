@@ -523,7 +523,7 @@ export function StoreInfoPage() {
                             </section>
 
                             <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-                                <Button type="submit" className="h-9" disabled={form.formState.isSubmitting}>
+                                <Button type="submit" className="h-9" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
                                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Lưu thông tin
                                 </Button>

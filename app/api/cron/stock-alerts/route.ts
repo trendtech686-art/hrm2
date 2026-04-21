@@ -51,8 +51,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, skipped: true, reason: 'lowStockAlert disabled' });
     }
 
+    // Prefer the explicit alert threshold from notification settings;
+    // fallback to inventory SLA defaultReorderLevel when the toggle is not configured.
     const slaSettings = await getSlaSettings();
-    const threshold = slaSettings.defaultReorderLevel;
+    const threshold =
+      settings.lowStockThreshold && settings.lowStockThreshold > 0
+        ? settings.lowStockThreshold
+        : slaSettings.defaultReorderLevel;
 
     // Find products with stock below threshold
     const lowStockProducts = await prisma.product.findMany({

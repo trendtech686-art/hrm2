@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { logError } from '@/lib/logger';
-import { getSystemNotificationSettings } from '@/lib/notifications';
+import { getSystemNotificationSettings, areEmailNotificationsEnabled } from '@/lib/notifications';
 
 export const maxDuration = 60;
 
@@ -46,6 +46,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Respect master email switch (Cài đặt → Thông báo → Chung)
+    if (!(await areEmailNotificationsEnabled())) {
+      return NextResponse.json({ success: true, skipped: true, reason: 'master email switch off' });
+    }
+
     const settings = await getSystemNotificationSettings();
     if (!settings.dailySummaryEmail) {
       return NextResponse.json({ success: true, skipped: true, reason: 'dailySummaryEmail disabled' });

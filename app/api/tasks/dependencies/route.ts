@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // POST - Add or remove task dependency
 // Body: { taskId: string, dependsOn: string, action: 'add' | 'remove' }
@@ -72,6 +73,16 @@ export async function POST(request: NextRequest) {
     const updated = await prisma.task.findUnique({
       where: { systemId: taskId },
     });
+
+    createActivityLog({
+      entityType: 'task',
+      entityId: taskId,
+      action: action === 'add'
+        ? `Thêm dependency: bị chặn bởi ${dependsOn}`
+        : `Gỡ dependency: bị chặn bởi ${dependsOn}`,
+      actionType: 'update',
+      metadata: { dependsOn, action },
+    }).catch(() => undefined);
 
     return apiSuccess(updated);
   } catch (error) {

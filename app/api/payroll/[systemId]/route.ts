@@ -6,6 +6,7 @@ import { generateIdWithPrefix } from '@/lib/id-generator'
 import { logError } from '@/lib/logger'
 import { createBulkNotifications } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { isPayrollLocked, lockedPayrollMessage } from '@/lib/payroll/lock-guard'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -61,6 +62,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
       'COMPLETED': 'locked',
       'PAID': 'locked',
     }
+
+    type SnapshotShape = {
+      components?: unknown[]
+      totals?: Record<string, number>
+      templateSystemId?: string
+      deductedPenaltySystemIds?: string[]
+    }
     
     const result = {
       systemId: payroll.systemId,
@@ -88,18 +96,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
       updatedAt: payroll.updatedAt.toISOString(),
       createdBy: payroll.createdBy,
       // Include items for the detail page
-      items: payroll.items.map(item => ({
-        systemId: item.systemId,
-        employeeSystemId: item.employeeId,
-        employeeId: item.employeeCode,
-        employeeName: item.employeeName,
-        departmentSystemId: item.employee?.department?.systemId,
-        departmentName: item.employee?.department?.name || 'N/A',
-        periodMonthKey: monthKey,
-        workDays: item.workDays,
-        otHours: item.otHours,
-        leaveDays: item.leaveDays,
-        totals: {
+      items: payroll.items.map(item => {
+        // Ưu tiên snapshot JSON đã lưu khi chạy lương (đúng chi tiết nhất).
+        // Nếu không có (data cũ trước migration) thì dựng lại từ các cột scalar + fields mới.
+        const snapshot = (item.calculationSnapshot ?? null) as SnapshotShape | null
+        const socialInsurance = Number(item.socialInsurance)
+        const healthInsurance = Number(item.healthInsurance)
+        const unemploymentIns = Number(item.unemploymentIns)
+        const totalEmployeeInsurance = socialInsurance + healthInsurance + unemploymentIns
+        const fallbackTotals = {
           workDays: item.workDays,
           standardWorkDays: 26,
           leaveDays: item.leaveDays,
@@ -112,31 +117,45 @@ export async function GET(_request: Request, { params }: RouteParams) {
           earlyDepartures: 0,
           grossEarnings: Number(item.grossSalary),
           earnings: Number(item.grossSalary),
-          employeeSocialInsurance: Number(item.socialInsurance),
-          employeeHealthInsurance: Number(item.healthInsurance),
-          employeeUnemploymentInsurance: Number(item.unemploymentIns),
-          totalEmployeeInsurance: Number(item.socialInsurance) + Number(item.healthInsurance) + Number(item.unemploymentIns),
+          employeeSocialInsurance: socialInsurance,
+          employeeHealthInsurance: healthInsurance,
+          employeeUnemploymentInsurance: unemploymentIns,
+          totalEmployeeInsurance,
           employerSocialInsurance: 0,
           employerHealthInsurance: 0,
           employerUnemploymentInsurance: 0,
           totalEmployerInsurance: 0,
-          taxableIncome: Number(item.grossSalary) - Number(item.socialInsurance) - Number(item.healthInsurance) - Number(item.unemploymentIns),
+          taxableIncome: Number(item.grossSalary) - totalEmployeeInsurance,
           personalIncomeTax: Number(item.tax),
-          personalDeduction: 11000000,
-          dependentDeduction: 0,
-          numberOfDependents: 0,
+          // CHUẨN: đọc từ cột DB (đúng theo hồ sơ/settings tại thời điểm chạy), không hard-code.
+          personalDeduction: Number(item.personalDeduction),
+          dependentDeduction: Number(item.dependentDeduction),
+          numberOfDependents: item.numberOfDependents,
           penaltyDeductions: Number(item.otherDeductions),
           otherDeductions: 0,
           deductions: Number(item.totalDeductions),
           contributions: 0,
           socialInsuranceBase: Number(item.baseSalary),
           netPay: Number(item.netSalary),
-        },
-        components: [],
-        deductedPenaltySystemIds: [],
-        createdAt: payroll.createdAt.toISOString(),
-        updatedAt: payroll.updatedAt.toISOString(),
-      })),
+        }
+        return {
+          systemId: item.systemId,
+          employeeSystemId: item.employeeId,
+          employeeId: item.employeeCode,
+          employeeName: item.employeeName,
+          departmentSystemId: item.employee?.department?.systemId,
+          departmentName: item.employee?.department?.name || 'N/A',
+          periodMonthKey: monthKey,
+          workDays: item.workDays,
+          otHours: item.otHours,
+          leaveDays: item.leaveDays,
+          totals: snapshot?.totals ? { ...fallbackTotals, ...snapshot.totals } : fallbackTotals,
+          components: Array.isArray(snapshot?.components) ? snapshot.components : [],
+          deductedPenaltySystemIds: Array.isArray(snapshot?.deductedPenaltySystemIds) ? snapshot.deductedPenaltySystemIds : [],
+          createdAt: payroll.createdAt.toISOString(),
+          updatedAt: payroll.updatedAt.toISOString(),
+        }
+      }),
       // Include audit logs transformed for frontend
       auditLogs: auditLogs.map(log => ({
         systemId: log.systemId,
@@ -169,6 +188,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params
+
+    // Lock guard: kỳ đã COMPLETED/PAID → chặn mọi thay đổi.
+    // Nhưng cho phép transition status (VD: COMPLETED → PAID) qua endpoint riêng /status.
+    const currentPayroll = await prisma.payroll.findUnique({
+      where: { systemId },
+      select: { status: true },
+    })
+    if (!currentPayroll) return apiError('Bảng lương không tồn tại', 404)
+    if (isPayrollLocked(currentPayroll.status) && (body.items !== undefined)) {
+      return apiError(lockedPayrollMessage(currentPayroll.status), 409)
+    }
 
     // Delete existing items if new items provided
     if (body.items) {
@@ -248,6 +278,16 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params
+
+    // Lock guard: không cho xoá kỳ đã chốt. Dùng endpoint /cancel để huỷ kỳ DRAFT/PROCESSING.
+    const currentPayroll = await prisma.payroll.findUnique({
+      where: { systemId },
+      select: { status: true },
+    })
+    if (!currentPayroll) return apiError('Bảng lương không tồn tại', 404)
+    if (isPayrollLocked(currentPayroll.status)) {
+      return apiError(lockedPayrollMessage(currentPayroll.status), 409)
+    }
 
     // Delete items first, then payroll
     await prisma.payrollItem.deleteMany({

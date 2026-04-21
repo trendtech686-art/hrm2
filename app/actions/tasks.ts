@@ -9,7 +9,8 @@ import type { ActionResult } from '@/types/action-result';
 import { createTaskSchema, updateTaskSchema } from '@/features/tasks/validation';
 import { logError } from '@/lib/logger'
 import { requireActionPermission, getSessionFromCookie } from '@/lib/api-utils';
-import { hasPermission } from '@/features/employees/permissions';
+import { getEffectiveRole } from '@/lib/rbac/get-role';
+import { resolvePermissions } from '@/lib/rbac/resolve-permissions';
 import { notifyTaskAssigned, notifyTaskStatusChanged, notifyTaskCompleted, notifyTaskCreated, notifyTaskApprovalPending } from '@/lib/task-notifications';
 import { getSessionUserName } from '@/lib/get-user-name'
 
@@ -221,9 +222,10 @@ export async function updateTaskAction(input: UpdateTaskInput): Promise<ActionRe
   if (!session?.user) {
     return { success: false, error: 'Phiên đăng nhập hết hạn. Vui lòng tải lại trang (F5) hoặc đăng nhập lại.' }
   }
-  const role = session.user.role
-  const canEdit = hasPermission(role, 'edit_tasks')
-  const canView = hasPermission(role, 'view_tasks')
+  const role = getEffectiveRole(session.user) ?? session.user.role
+  const resolved = await resolvePermissions(role)
+  const canEdit = resolved.includes('edit_tasks')
+  const canView = resolved.includes('view_tasks')
   if (!canEdit && !canView) {
     return { success: false, error: 'Bạn không có quyền thực hiện thao tác này' }
   }

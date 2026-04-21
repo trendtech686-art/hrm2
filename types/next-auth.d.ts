@@ -7,6 +7,7 @@ declare module "next-auth" {
       id: string
       role: string
       employeeId?: string
+      permissions?: string[]
       employee?: {
         id: string
         fullName: string
@@ -32,6 +33,7 @@ declare module "next-auth" {
     id: string
     role: string
     employeeId?: string
+    permissions?: string[]
     employee?: { systemId: string; name: string; [key: string]: unknown }
   }
 }
@@ -41,6 +43,7 @@ declare module "next-auth/jwt" {
     id: string
     role: string
     employeeId?: string
+    permissions?: string[]
     employee?: { systemId: string; name: string; [key: string]: unknown }
   }
 }

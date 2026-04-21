@@ -12,6 +12,7 @@ import { getFileSizeLimits, getMaxFileSizeBytes } from '@/lib/file-size-limits';
 import { v4 as uuidv4 } from 'uuid';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 type Props = {
   params: Promise<{ taskId: string }>;
@@ -104,6 +105,17 @@ export async function POST(
     if (uploadedFiles.length === 0) {
       return apiError('Không có file nào được tải lên thành công', 400);
     }
+
+    createActivityLog({
+      entityType: 'task',
+      entityId: taskId,
+      action: `Upload ${uploadedFiles.length} file bằng chứng`,
+      actionType: 'update',
+      metadata: {
+        fileCount: uploadedFiles.length,
+        fileNames: uploadedFiles.map(f => f.name),
+      },
+    }).catch(() => undefined);
 
     return apiSuccess({
       message: `Đã upload ${uploadedFiles.length} file bằng chứng`,

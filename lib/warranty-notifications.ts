@@ -12,7 +12,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { logError } from '@/lib/logger';
-import { getWarrantyNotificationSettings } from '@/lib/notifications';
+import { getWarrantyNotificationSettings, areEmailNotificationsEnabled } from '@/lib/notifications';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -87,6 +87,7 @@ export async function notifyWarrantyCreated(warranty: {
 }) {
   if (!warranty.assigneeId) return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getWarrantyNotificationSettings();
   if (!settings.emailOnCreate) return;
 
@@ -126,6 +127,7 @@ export async function notifyWarrantyAssigned(warranty: {
   assigneeId: string;
   assignerName?: string | null;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getWarrantyNotificationSettings();
   if (!settings.emailOnAssign) return;
 
@@ -171,6 +173,7 @@ export async function notifyWarrantyStatusChanged(warranty: {
   status: string;
   oldStatus: string;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getWarrantyNotificationSettings();
 
   // Map status to the correct email toggle
@@ -227,6 +230,7 @@ export async function notifyWarrantyOverdue(warranty: {
 }) {
   if (!warranty.assigneeId) return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getWarrantyNotificationSettings();
   if (!settings.emailOnOverdue) return;
 

@@ -11,7 +11,8 @@ import type { ActionResult } from '@/types/action-result'
 import { employeeFormValidationSchema } from '@/features/employees/validation'
 import { logError } from '@/lib/logger'
 import { requireActionPermission, serializeDecimals } from '@/lib/api-utils'
-import { hasPermission } from '@/features/employees/permissions'
+import { getEffectiveRole } from '@/lib/rbac/get-role'
+import { resolvePermissions } from '@/lib/rbac/resolve-permissions'
 import { getSessionUserName } from '@/lib/get-user-name'
 
 /** Convert a date value to a valid Date or null (rejects Invalid Date) */
@@ -317,7 +318,9 @@ export async function updateEmployeeAction(
     if (data.employmentStatus !== undefined) updateData.employmentStatus = data.employmentStatus
     // Role changes require manage_roles permission (privilege escalation prevention)
     if (data.role !== undefined && data.role !== existing.role) {
-      if (!hasPermission(authResult.session.user.role, 'manage_roles')) {
+      const actorRole = getEffectiveRole(authResult.session.user) ?? authResult.session.user.role
+      const actorPerms = await resolvePermissions(actorRole)
+      if (!actorPerms.includes('manage_roles')) {
         return { success: false, error: 'Bạn không có quyền thay đổi vai trò nhân viên' }
       }
       updateData.role = data.role

@@ -3,6 +3,8 @@ import { authConfig } from "./auth.config"
 import { NextResponse } from "next/server"
 import { hasPermission } from "./features/employees/permissions"
 import { getRequiredPermission } from "./lib/api-permission-map"
+import { getEffectiveRole } from "./lib/rbac/get-role"
+import { resolvePermissionsSync } from "./lib/rbac/resolve-permissions-edge"
 
 /**
  * Combined middleware:
@@ -32,10 +34,24 @@ export default NextAuth(authConfig).auth((request) => {
       )
     }
 
-    const role = (session.user as { role?: string; employee?: { role?: string } }).employee?.role
-      || (session.user as { role?: string }).role
+    const sessionUser = session.user as {
+      role?: string
+      employee?: { role?: string } | null
+      permissions?: string[]
+    }
+    const role = getEffectiveRole(sessionUser)
 
-    if (!role || !hasPermission(role, requiredPermission)) {
+    // Ưu tiên permissions trong JWT (đã resolve custom role ở DB lúc login).
+    // Fallback về DEFAULT_ROLE_PERMISSIONS nếu token cũ chưa có permissions.
+    const permissions = Array.isArray(sessionUser.permissions) && sessionUser.permissions.length > 0
+      ? sessionUser.permissions
+      : resolvePermissionsSync(role)
+
+    const allowed = permissions.includes(requiredPermission)
+      // Backwards-compat: token cũ có thể thiếu permissions → dùng hasPermission theo role
+      || (permissions.length === 0 && !!role && hasPermission(role, requiredPermission))
+
+    if (!allowed) {
       return NextResponse.json(
         { success: false, error: 'Forbidden', message: 'Bạn không có quyền thực hiện thao tác này' },
         { status: 403 }

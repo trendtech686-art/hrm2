@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/attendance/locks - Get all locked months
 export async function GET() {
@@ -56,6 +57,15 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'attendance_lock',
+      entityId: monthKey,
+      action: `Khóa chấm công tháng ${monthKey}`,
+      actionType: 'status',
+      metadata: { userName: session.user?.name || session.user?.email, monthKey },
+      createdBy: session.user?.employeeId || session.user?.id,
+    }).catch(() => undefined)
+
     return apiSuccess(lock, 201)
   } catch (error) {
     logError('Error locking month', error)
@@ -85,6 +95,15 @@ export async function DELETE(request: Request) {
         unlockedBy: session.user?.email || undefined,
       },
     })
+
+    createActivityLog({
+      entityType: 'attendance_lock',
+      entityId: monthKeyParam,
+      action: `Mở khóa chấm công tháng ${monthKeyParam}`,
+      actionType: 'status',
+      metadata: { userName: session.user?.name || session.user?.email, monthKey: monthKeyParam },
+      createdBy: session.user?.employeeId || session.user?.id,
+    }).catch(() => undefined)
 
     return apiSuccess(lock)
   } catch (error) {

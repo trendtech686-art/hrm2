@@ -15,6 +15,7 @@ export const authConfig: NextAuthConfig = {
         token.role = user.role
         token.employeeId = user.employeeId
         token.employee = user.employee
+        token.permissions = user.permissions
       }
       if (debugAuth) console.warn("[Auth Config] jwt callback - token:", { id: token.id, role: token.role });
       return token
@@ -28,6 +29,7 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string
         session.user.employeeId = token.employeeId as string | undefined
         session.user.employee = token.employee as Session['user']['employee']
+        session.user.permissions = token.permissions as string[] | undefined
       }
       return session
     },

@@ -19,7 +19,7 @@ import {
   mapPackingToPrintData,
   mapPackingLineItems,
 } from '../print-data-mappers';
-import { StoreSettings, getGeneralSettings, getStoreLogo } from '../print-service';
+import { StoreSettings, getStoreLogo } from '../print-service';
 import { getStoreInfoSync } from '../../features/settings/store-info/store-info-service';
 import { formatOrderAddress } from '../../features/orders/address-utils';
 
@@ -304,15 +304,14 @@ export function createStoreSettings(
   options?: { logo?: string | null; email?: string | null }
 ): StoreSettings {
   const storeInfo = getStoreInfoSync();
-  const generalSettings = getGeneralSettings();
   const logo = getStoreLogo(options?.logo || storeInfo.logo || undefined);
-  const email = options?.email || storeInfo.email || generalSettings?.email || '';
+  const email = options?.email || storeInfo.email || '';
 
   if (!branch) {
     return {
-      name: storeInfo.companyName || storeInfo.brandName || generalSettings?.companyName || '',
-      address: storeInfo.headquartersAddress || generalSettings?.companyAddress || '',
-      phone: storeInfo.hotline || generalSettings?.phoneNumber || '',
+      name: storeInfo.companyName || storeInfo.brandName || '',
+      address: storeInfo.headquartersAddress || '',
+      phone: storeInfo.hotline || '',
       email,
       logo,
     };

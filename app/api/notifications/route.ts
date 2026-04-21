@@ -12,6 +12,7 @@ import { requireAuth, apiPaginated, apiSuccess, apiError, parsePagination } from
 import { logError } from '@/lib/logger'
 import { z } from 'zod'
 import { getTypesForGroup, type NotificationGroup } from '@/lib/notification-groups'
+import { createNotification } from '@/lib/notifications'
 
 const VALID_GROUPS = ['orders', 'shipping', 'inventory', 'system'] as const
 
@@ -64,6 +65,7 @@ const createSchema = z.object({
   senderId: z.string().optional(),
   senderName: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  settingsKey: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -77,13 +79,15 @@ export async function POST(request: NextRequest) {
       return apiError(parsed.error.issues.map(i => i.message).join(', '), 400)
     }
 
+    // Route through central helper → honors master switch + module toggles
     const { metadata, ...rest } = parsed.data
-    const notification = await prisma.notification.create({
-      data: {
-        ...rest,
-        metadata: metadata as Prisma.InputJsonValue | undefined,
-      },
+    const notification = await createNotification({
+      ...rest,
+      metadata: metadata as Prisma.InputJsonValue | undefined,
     })
+    if (!notification) {
+      return apiSuccess(null, 200)
+    }
 
     return apiSuccess(notification, 201)
   } catch (error) {

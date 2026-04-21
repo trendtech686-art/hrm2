@@ -21,15 +21,7 @@ export const systemSettingsKeys = {
 // ============================================================================
 
 export interface GeneralSettings {
-  // Thông tin doanh nghiệp
-  companyName: string;
-  companyAddress: string;
-  taxCode: string;
-  phoneNumber: string;
-  website: string;
-  email: string;
-  legalRepresentative: string;
-  adminEmail: string;
+  // Mặc định người dùng mới
   defaultRole: string;
   // Branding
   logoUrl: string;
@@ -48,14 +40,6 @@ export interface GeneralSettings {
 }
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
-  companyName: '',
-  companyAddress: '',
-  taxCode: '',
-  phoneNumber: '',
-  website: '',
-  email: '',
-  legalRepresentative: '',
-  adminEmail: '',
   defaultRole: 'employee',
   logoUrl: '',
   faviconUrl: '',

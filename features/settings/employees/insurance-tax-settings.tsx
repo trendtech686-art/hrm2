@@ -230,27 +230,8 @@ export function InsuranceTaxSettings() {
             </div>
           </div>
 
-          {/* Summary */}
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>Tổng tỷ lệ đóng bảo hiểm</AlertTitle>
-            <AlertDescription>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div>
-                  <span className="font-medium">Người lao động:</span>{' '}
-                  {(watch('insuranceRates.socialInsurance.employeeRate') ?? 0) +
-                    (watch('insuranceRates.healthInsurance.employeeRate') ?? 0) +
-                    (watch('insuranceRates.unemploymentInsurance.employeeRate') ?? 0)}%
-                </div>
-                <div>
-                  <span className="font-medium">Doanh nghiệp:</span>{' '}
-                  {(watch('insuranceRates.socialInsurance.employerRate') ?? 0) +
-                    (watch('insuranceRates.healthInsurance.employerRate') ?? 0) +
-                    (watch('insuranceRates.unemploymentInsurance.employerRate') ?? 0)}%
-                </div>
-              </div>
-            </AlertDescription>
-          </Alert>
+          {/* Summary — hiển thị tổng tỷ lệ + ví dụ tính với lương 15tr */}
+          <InsuranceSummary />
         </CardContent>
       </Card>
 
@@ -518,5 +499,71 @@ export function InsuranceTaxSettings() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Tổng kết tỷ lệ đóng BH + ví dụ tính cho lương 15 triệu.
+ * Cảnh báo nếu tổng tỷ lệ lệch so với chuẩn VN (10.5% NV / 21.5% DN).
+ */
+function InsuranceSummary() {
+  const { watch } = useFormContext<EmployeeSettings>();
+
+  const empSocial = watch('insuranceRates.socialInsurance.employeeRate') ?? 0;
+  const empHealth = watch('insuranceRates.healthInsurance.employeeRate') ?? 0;
+  const empUnempl = watch('insuranceRates.unemploymentInsurance.employeeRate') ?? 0;
+  const erSocial = watch('insuranceRates.socialInsurance.employerRate') ?? 0;
+  const erHealth = watch('insuranceRates.healthInsurance.employerRate') ?? 0;
+  const erUnempl = watch('insuranceRates.unemploymentInsurance.employerRate') ?? 0;
+
+  const empTotal = empSocial + empHealth + empUnempl;
+  const erTotal = erSocial + erHealth + erUnempl;
+
+  const EMP_STANDARD = 10.5;
+  const ER_STANDARD = 21.5;
+  const empDrift = Math.abs(empTotal - EMP_STANDARD) > 0.01;
+  const erDrift = Math.abs(erTotal - ER_STANDARD) > 0.01;
+
+  const exampleSalary = 15_000_000;
+  const empAmount = (exampleSalary * empTotal) / 100;
+  const erAmount = (exampleSalary * erTotal) / 100;
+
+  return (
+    <Alert>
+      <Info className="h-4 w-4" />
+      <AlertTitle>Tổng tỷ lệ đóng & Ví dụ với lương 15.000.000đ</AlertTitle>
+      <AlertDescription>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-medium">Người lao động đóng:</span>
+              <span className={empDrift ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'font-semibold'}>
+                {empTotal.toFixed(1)}%
+              </span>
+              {empDrift && (
+                <span className="text-xs text-muted-foreground">(chuẩn VN: {EMP_STANDARD}%)</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+              = {formatCurrency(empAmount)} / tháng
+            </div>
+          </div>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-medium">Doanh nghiệp đóng:</span>
+              <span className={erDrift ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'font-semibold'}>
+                {erTotal.toFixed(1)}%
+              </span>
+              {erDrift && (
+                <span className="text-xs text-muted-foreground">(chuẩn VN: {ER_STANDARD}%)</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+              = {formatCurrency(erAmount)} / tháng
+            </div>
+          </div>
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 }

@@ -3,6 +3,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const SETTING_KEY = 'employee-documents'
 const SETTING_GROUP = 'hrm'
@@ -89,6 +90,19 @@ export async function POST(request: Request) {
         description: 'Employee documents metadata',
       },
     })
+
+    createActivityLog({
+      entityType: 'employee',
+      entityId: body.employeeSystemId || 'UNKNOWN',
+      action: `Thêm tài liệu nhân sự (${body.documentType || 'document'})`,
+      actionType: 'create',
+      metadata: {
+        documentType: body.documentType,
+        documentUrl: body.documentUrl,
+        userName: session.user?.name || session.user?.email,
+      },
+      createdBy: session.user?.employeeId || session.user?.id,
+    }).catch(() => undefined)
 
     return apiSuccess({ data: body })
   } catch (error) {

@@ -26,7 +26,9 @@ import { cookies } from 'next/headers'
 import { decode } from 'next-auth/jwt'
 import { z } from 'zod'
 import { logError } from '@/lib/logger'
-import { hasPermission, hasAllPermissions, normalizeRole, type Permission } from '@/features/employees/permissions'
+import { type Permission } from '@/features/employees/permissions'
+import { getEffectiveRole, isAdminRole, isAdminOrManagerRole } from '@/lib/rbac/get-role'
+import { resolvePermissions } from '@/lib/rbac/resolve-permissions'
 
 // ============================================
 // DECIMAL SERIALIZATION HELPER
@@ -141,6 +143,8 @@ export interface ApiSession {
       systemId: string
       name: string
       fullName: string
+      role?: string | null
+      workEmail?: string | null
       departmentName: string | null
       branchName: string | null
       jobTitleName: string | null
@@ -242,8 +246,9 @@ export async function requirePermission(
     )
   }
 
-  const role = session.user.role
-  if (!hasPermission(role, permission)) {
+  const role = getEffectiveRole(session.user) ?? session.user.role
+  const resolved = await resolvePermissions(role)
+  if (!resolved.includes(permission)) {
     return NextResponse.json(
       { success: false, error: 'Forbidden', message: 'Bạn không có quyền thực hiện thao tác này' },
       { status: 403 }
@@ -268,7 +273,9 @@ export async function requireAllPermissions(
     )
   }
 
-  if (!hasAllPermissions(session.user.role, permissions)) {
+  const role = getEffectiveRole(session.user) ?? session.user.role
+  const resolved = await resolvePermissions(role)
+  if (!permissions.every(p => resolved.includes(p))) {
     return NextResponse.json(
       { success: false, error: 'Forbidden', message: 'Bạn không có quyền thực hiện thao tác này' },
       { status: 403 }
@@ -301,8 +308,9 @@ export async function requireActionPermission(
       return { success: false, error: 'Phiên đăng nhập hết hạn. Vui lòng tải lại trang (F5) hoặc đăng nhập lại.' }
     }
 
-    const role = session.user.role
-    if (!hasPermission(role, permission)) {
+    const role = getEffectiveRole(session.user) ?? session.user.role
+    const resolved = await resolvePermissions(role)
+    if (!resolved.includes(permission)) {
       return { success: false, error: 'Bạn không có quyền thực hiện thao tác này' }
     }
 
@@ -317,16 +325,14 @@ export async function requireActionPermission(
  * Helper: check if session user is admin
  */
 export function isAdmin(session: ApiSession): boolean {
-  const role = normalizeRole(session.user.role)
-  return role === 'Admin'
+  return isAdminRole(session.user)
 }
 
 /**
  * Helper: check if session user is admin or manager
  */
 export function isAdminOrManager(session: ApiSession): boolean {
-  const role = normalizeRole(session.user.role)
-  return role === 'Admin' || role === 'Manager'
+  return isAdminOrManagerRole(session.user)
 }
 
 // ============================================

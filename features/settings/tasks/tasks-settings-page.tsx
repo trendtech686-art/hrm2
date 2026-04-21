@@ -53,6 +53,7 @@ import { SimpleSettingsTable } from '../../../components/settings/SimpleSettings
 import type { ColumnDef } from '../../../components/data-table/types';
 import { toast } from 'sonner';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { useDirtyState } from '@/hooks/use-dirty-state';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import type { TaskPriority } from '../../tasks/types';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
@@ -591,19 +592,24 @@ export function TasksSettingsPage() {
     addTemplate: handleAddTemplate,
   };
 
+  const isSLADirty = useDirtyState(storedSla, sla);
+  const isEvidenceDirty = useDirtyState(storedEvidence, evidence);
+  const isCardColorsDirty = useDirtyState(storedCardColors, cardColors);
+  const isSaving = updateSection.isPending;
+
   React.useEffect(() => {
     switch (activeTab) {
       case 'sla':
         setHeaderActions([
-          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={updateSection.isPending}>
-            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
+          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={!isSLADirty || isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'evidence':
         setHeaderActions([
-          <SettingsActionButton key="save-evidence" onClick={() => handlersRef.current.saveEvidence()} disabled={updateSection.isPending}>
-            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
+          <SettingsActionButton key="save-evidence" onClick={() => handlersRef.current.saveEvidence()} disabled={!isEvidenceDirty || isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
@@ -616,8 +622,8 @@ export function TasksSettingsPage() {
         break;
       case 'card-colors':
         setHeaderActions([
-          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={updateSection.isPending}>
-            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
+          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={!isCardColorsDirty || isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
@@ -629,7 +635,7 @@ export function TasksSettingsPage() {
         ]);
         break;
     }
-  }, [activeTab, setHeaderActions, updateSection.isPending]);
+  }, [activeTab, setHeaderActions, isSLADirty, isEvidenceDirty, isCardColorsDirty, isSaving]);
 
   const tabs = React.useMemo(
     () => [

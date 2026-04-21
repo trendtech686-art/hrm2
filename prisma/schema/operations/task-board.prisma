@@ -3,8 +3,8 @@ model TaskBoard {
   id          String   @unique
   name        String
   description String?
-  color       String?  // Hex color for visual identification
-  icon        String?  // Lucide icon name
+  color       String? // Hex color for visual identification
+  icon        String? // Lucide icon name
   isActive    Boolean  @default(true)
   isDefault   Boolean  @default(false)
   sortOrder   Int      @default(0)

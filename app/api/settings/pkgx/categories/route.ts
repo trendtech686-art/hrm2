@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { syncCategoriesSchema } from './validation'
 import { logError } from '@/lib/logger'
+import { enrichCategoryMappingsWithOrphanFlag } from '@/lib/pkgx/orphan-helpers'
 
 // GET /api/settings/pkgx/categories - List all PKGX categories
 export async function GET(_request: NextRequest) {
@@ -20,9 +21,20 @@ export async function GET(_request: NextRequest) {
       },
     })
 
-    return apiSuccess({ 
-      data: categories,
-      total: categories.length,
+    // Enrich mappings nested để UI biết mapping nào đang trỏ Category HRM đã xoá.
+    const allMappings = categories.flatMap((c) => c.mappings)
+    const enrichedMappings = await enrichCategoryMappingsWithOrphanFlag(allMappings)
+    const byId = new Map(enrichedMappings.map((m) => [m.systemId, m]))
+    const categoriesWithOrphan = categories.map((c) => ({
+      ...c,
+      mappings: c.mappings.map(
+        (m) => byId.get(m.systemId) ?? { ...m, hrmEntityMissing: false },
+      ),
+    }))
+
+    return apiSuccess({
+      data: categoriesWithOrphan,
+      total: categoriesWithOrphan.length,
     })
   } catch (error) {
     logError('Error fetching PKGX categories', error)

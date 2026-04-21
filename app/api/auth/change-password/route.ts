@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { logError } from '@/lib/logger'
 import { getPasswordRules, validatePassword } from '@/lib/password-rules'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
@@ -50,6 +51,15 @@ export async function POST(request: Request) {
       where: { systemId: user.systemId },
       data: { password: hashedNewPassword },
     })
+
+    createActivityLog({
+      entityType: 'user',
+      entityId: user.systemId,
+      action: 'Đổi mật khẩu',
+      actionType: 'update',
+      note: 'Người dùng tự đổi mật khẩu',
+      createdBy: user.systemId,
+    }).catch(() => undefined)
 
     return apiSuccess({ message: 'Đổi mật khẩu thành công' })
   } catch (error) {

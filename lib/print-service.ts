@@ -9,36 +9,6 @@ import { getGeneralSettingsSync } from '@/lib/settings-cache';
 // ============================================
 
 /**
- * Lấy general-settings từ cache (loaded from database)
- */
-export function getGeneralSettings(): {
-  companyName?: string;
-  companyAddress?: string;
-  phoneNumber?: string;
-  email?: string;
-  website?: string;
-  taxCode?: string;
-  logoUrl?: string;
-  storeName?: string;
-  storeAddress?: string;
-  storePhone?: string;
-} | null {
-  try {
-    const settings = getGeneralSettingsSync();
-    return {
-      companyName: settings.storeName,
-      companyAddress: settings.storeAddress,
-      phoneNumber: settings.storePhone,
-      storeName: settings.storeName,
-      storeAddress: settings.storeAddress,
-      storePhone: settings.storePhone,
-      logoUrl: settings.logoUrl,
-    };
-  } catch (_e) { /* ignore */ }
-  return null;
-}
-
-/**
  * Lấy logo từ general-settings (fallback khi storeInfo không có logo)
  */
 export function getStoreLogo(storeInfoLogo?: string): string | undefined {

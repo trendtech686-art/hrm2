@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // GET - List all templates
 export async function GET() {
@@ -54,6 +55,15 @@ export async function POST(request: NextRequest) {
         },
       });
     });
+
+    createActivityLog({
+      entityType: 'task_template',
+      entityId: template.systemId,
+      action: `Tạo mẫu công việc "${template.name}"`,
+      actionType: 'create',
+      metadata: { userName: body.createdBy },
+      createdBy: body.createdBy || undefined,
+    }).catch(() => undefined);
 
     return apiSuccess(template);
   } catch (error) {

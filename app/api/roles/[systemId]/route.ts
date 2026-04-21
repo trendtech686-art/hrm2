@@ -4,6 +4,7 @@ import { requireAuth, validateBody, apiSuccess, apiError, apiNotFound } from '@/
 import { updateRoleSchema } from '../validation'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { invalidateRolePermissionsCache } from '@/lib/rbac/resolve-permissions'
 
 type RouteParams = { params: Promise<{ systemId: string }> }
 
@@ -69,6 +70,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
+    // Invalidate permission cache for this role so changes take effect within 60s.
+    // Clear both old id (nếu đổi id) và id mới.
+    invalidateRolePermissionsCache(existingRole.id)
+    if (body.id && body.id !== existingRole.id) {
+      invalidateRolePermissionsCache(body.id)
+    }
+
     // Activity log with diff
     const changes: Record<string, { from: unknown; to: unknown }> = {}
     if (body.name !== undefined && body.name !== existingRole.name) changes.name = { from: existingRole.name, to: body.name }
@@ -126,6 +134,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
         deletedAt: new Date(),
       },
     })
+
+    invalidateRolePermissionsCache(existingRole.id)
 
     await createActivityLog({
       entityType: 'role',

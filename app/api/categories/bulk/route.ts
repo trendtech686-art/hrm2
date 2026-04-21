@@ -30,9 +30,16 @@ export async function POST(request: Request) {
 
     switch (action) {
       case 'delete': {
-        const result = await prisma.category.updateMany({
-          where: { systemId: { in: systemIds } },
-          data: { isDeleted: true, updatedAt: new Date() },
+        // Transaction: dọn mapping PKGX trước để không để lại orphan
+        // khi category bị soft-delete. Khớp logic DELETE /api/categories/[systemId].
+        const result = await prisma.$transaction(async (tx) => {
+          await tx.pkgxCategoryMapping.deleteMany({
+            where: { hrmCategoryId: { in: systemIds } },
+          })
+          return tx.category.updateMany({
+            where: { systemId: { in: systemIds } },
+            data: { isDeleted: true, updatedAt: new Date() },
+          })
         })
         updatedCount = result.count
         break

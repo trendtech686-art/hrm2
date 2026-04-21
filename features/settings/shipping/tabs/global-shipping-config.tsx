@@ -61,7 +61,7 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
     });
   }, []);
 
-  const [_hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   const handleChange = <K extends keyof GlobalShippingConfig>(
     section: K,
@@ -119,11 +119,11 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
     }
 
     onRegisterActionsRef.current([
-      <SettingsActionButton key="save" onClick={handleSave} disabled={saveMutation.isPending}>
+      <SettingsActionButton key="save" onClick={handleSave} disabled={!hasChanges || saveMutation.isPending}>
         {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />} {saveMutation.isPending ? 'Đang lưu...' : 'Lưu cấu hình'}
       </SettingsActionButton>,
     ]);
-  }, [handleSave, isActive, saveMutation.isPending]);
+  }, [handleSave, isActive, hasChanges, saveMutation.isPending]);
 
   return (
     <Card>

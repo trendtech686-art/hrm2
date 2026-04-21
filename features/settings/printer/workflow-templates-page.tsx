@@ -18,6 +18,7 @@ import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useColumnLayout } from '../../../hooks/use-column-visibility';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
@@ -453,10 +454,10 @@ export function WorkflowTemplatesPage() {
           {wt.label}: {workflowCounts[wt.value]}
         </Badge>
       )),
-      <Button key="add" onClick={handleCreate}>
+      <SettingsActionButton key="add" onClick={handleCreate}>
         <Plus className="h-4 w-4" />
         Tạo quy trình
-      </Button>
+      </SettingsActionButton>
     ],
   });
 

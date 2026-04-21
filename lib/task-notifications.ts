@@ -13,7 +13,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { logError } from '@/lib/logger';
-import { getTaskNotificationSettings } from '@/lib/notifications';
+import { getTaskNotificationSettings, areEmailNotificationsEnabled } from '@/lib/notifications';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -102,6 +102,7 @@ export async function notifyTaskCreated(task: {
   priority: string;
   dueDate: Date | null;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getTaskNotificationSettings();
   if (!settings.emailOnCreate) return;
 
@@ -145,6 +146,7 @@ export async function notifyTaskApprovalPending(task: {
   assigneeId: string | null;
   creatorId: string;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getTaskNotificationSettings();
   if (!settings.emailOnApprovalPending) return;
 
@@ -188,6 +190,7 @@ export async function notifyTaskAssigned(task: {
 }) {
   if (!task.assigneeId) return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getTaskNotificationSettings();
   if (!settings.emailOnAssign) return;
 
@@ -231,10 +234,16 @@ export async function notifyTaskStatusChanged(task: {
   status: string;
   oldStatus: string;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getTaskNotificationSettings();
 
-  // Check the right setting based on new status
-  if (task.status === 'DONE' && !settings.emailOnComplete) return;
+  // Only fire email for status changes that have a dedicated toggle.
+  // REVIEW is handled by notifyTaskApprovalPending; other transitions are silent.
+  if (task.status === 'DONE') {
+    if (!settings.emailOnComplete) return;
+  } else {
+    return;
+  }
 
   // Notify both assignee and creator (deduplicated)
   const recipients = new Set<string>();
@@ -278,6 +287,7 @@ export async function notifyTaskCompleted(task: {
   // Notify the creator that their assigned task is complete
   if (!task.creatorId || task.creatorId === 'SYSTEM') return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getTaskNotificationSettings();
   if (!settings.emailOnComplete) return;
 
@@ -317,7 +327,12 @@ export async function notifyTaskDeadlineApproaching(task: {
 }) {
   if (!task.assigneeId) return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getTaskNotificationSettings();
+  // Only send email when the task is truly overdue (daysLeft <= 0).
+  // Approaching-deadline reminders (1/3 days left) are delivered via in-app
+  // notifications in the task-reminders cron — no dedicated email toggle exists.
+  if (task.daysLeft > 0) return;
   if (!settings.emailOnOverdue) return;
 
   const email = await getEmployeeEmail(task.assigneeId);
@@ -385,8 +400,8 @@ export async function processTaskDeadlineNotifications() {
       const diffMs = task.dueDate.getTime() - now.getTime();
       const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-      // Only send for overdue, 1 day, or 3 days
-      if (daysLeft <= 0 || daysLeft === 1 || daysLeft === 3) {
+      // Email only for overdue; approaching-deadline (1d/3d) handled by in-app cron
+      if (daysLeft <= 0) {
         await notifyTaskDeadlineApproaching({
           systemId: task.systemId,
           title: task.title,

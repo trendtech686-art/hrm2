@@ -32,7 +32,9 @@ import { checkRateLimit } from '@/lib/security-utils'
 import * as Sentry from '@sentry/nextjs'
 import type { ApiSession } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
-import { hasPermission, type Permission } from '@/features/employees/permissions'
+import { type Permission } from '@/features/employees/permissions'
+import { getEffectiveRole } from '@/lib/rbac/get-role'
+import { resolvePermissions } from '@/lib/rbac/resolve-permissions'
 
 // ============================================
 // TYPES
@@ -138,8 +140,9 @@ export function apiHandler(
       // 2b. Permission check
       if (requiredPermission && session) {
         const perms = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission]
-        const role = session.user.role
-        const hasAll = perms.every(p => hasPermission(role, p))
+        const role = getEffectiveRole(session.user) ?? session.user.role
+        const resolved = await resolvePermissions(role)
+        const hasAll = perms.every(p => resolved.includes(p))
         if (!hasAll) {
           return NextResponse.json(
             { success: false, error: 'Forbidden', message: 'Bạn không có quyền thực hiện thao tác này' },

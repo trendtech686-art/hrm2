@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
+
+// Build field-level diff between existing record and new values
+function buildChanges<T extends Record<string, unknown>>(
+  existing: T,
+  updates: Partial<T>,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [key, next] of Object.entries(updates)) {
+    if (next === undefined) continue;
+    const prev = existing[key as keyof T];
+    if (prev !== next) changes[key] = { from: prev, to: next };
+  }
+  return Object.keys(changes).length > 0 ? changes : undefined;
+}
 
 // GET - Single board with task count
 export async function GET(
@@ -55,19 +70,31 @@ export async function PUT(
       return apiError('Không tìm thấy bảng công việc', 404);
     }
 
+    const updateData: Record<string, unknown> = {};
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.color !== undefined) updateData.color = body.color;
+    if (body.icon !== undefined) updateData.icon = body.icon;
+    if (body.isActive !== undefined) updateData.isActive = body.isActive;
+    if (body.isDefault !== undefined) updateData.isDefault = body.isDefault;
+    if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
+    if (body.updatedBy !== undefined) updateData.updatedBy = body.updatedBy;
+
     const board = await prisma.taskBoard.update({
       where: { systemId: boardId },
-      data: {
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.color !== undefined && { color: body.color }),
-        ...(body.icon !== undefined && { icon: body.icon }),
-        ...(body.isActive !== undefined && { isActive: body.isActive }),
-        ...(body.isDefault !== undefined && { isDefault: body.isDefault }),
-        ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
-        ...(body.updatedBy !== undefined && { updatedBy: body.updatedBy }),
-      },
+      data: updateData,
     });
+
+    const changes = buildChanges(existing as unknown as Record<string, unknown>, updateData);
+    createActivityLog({
+      entityType: 'task_board',
+      entityId: boardId,
+      action: `Cập nhật bảng công việc "${existing.name}"`,
+      actionType: 'update',
+      changes,
+      metadata: { userName: body.updatedBy },
+      createdBy: body.updatedBy || undefined,
+    }).catch(() => undefined);
 
     return apiSuccess(board);
   } catch (error) {
@@ -105,6 +132,13 @@ export async function DELETE(
       where: { systemId: boardId },
       data: { isDeleted: true },
     });
+
+    createActivityLog({
+      entityType: 'task_board',
+      entityId: boardId,
+      action: `Xóa bảng công việc "${existing.name}"`,
+      actionType: 'delete',
+    }).catch(() => undefined);
 
     return apiSuccess(board);
   } catch (error) {

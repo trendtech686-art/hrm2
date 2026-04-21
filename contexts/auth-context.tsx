@@ -9,6 +9,7 @@ import { loadGeneralSettings, clearGeneralSettingsCache } from '../lib/settings-
 import { logError } from '@/lib/logger'
 import { hasPermission as checkPermission, type Permission, normalizeRole } from '@/features/employees/permissions';
 import { useRoleSettings } from '@/features/settings/employees/hooks/use-role-settings';
+import { getEffectiveRole, isAdminRole, isAdminOrManagerRole } from '@/lib/rbac/get-role';
 
 interface User {
   systemId: string;
@@ -33,6 +34,7 @@ interface AuthContextType {
   employee: Employee | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isAdminOrManager: boolean;
   isLoading: boolean;
   /** Check if current user has a specific permission */
   can: (permission: Permission) => boolean;
@@ -141,8 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Employee.role stores the actual role ID ('Warehouse', 'Sales', etc.)
   // User.role is the UserRole enum (ADMIN/MANAGER/STAFF) — less granular
-  // Prefer employee role for permission resolution
-  const effectiveRole = user?.employee?.role as string || user?.role;
+  // Use unified helper to keep in sync with middleware/server.
+  const effectiveRole = getEffectiveRole(user);
 
   // Resolve the current user's actual permissions (custom role > default)
   const userPermissions = React.useMemo<Permission[] | undefined>(() => {
@@ -173,7 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       employee,
       isAuthenticated: !!user,
-      isAdmin: user?.role === 'ADMIN' || user?.role === 'admin',
+      isAdmin: isAdminRole(user),
+      isAdminOrManager: isAdminOrManagerRole(user),
       isLoading,
       can,
       canAll,
@@ -201,6 +204,7 @@ export function useAuth() {
       employee: null,
       isAuthenticated: false,
       isAdmin: false,
+      isAdminOrManager: false,
       isLoading: true,
       can: () => false,
       canAll: () => false,

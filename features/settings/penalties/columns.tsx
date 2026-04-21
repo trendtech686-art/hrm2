@@ -54,12 +54,14 @@ export const getColumns = (
     accessorKey: "id",
     header: "Mã Phiếu",
     cell: ({ row }) => (
-      <button
+      <Button
+        variant="link"
+        size="sm"
         onClick={() => router.push(`/penalties/${row.systemId}`)}
-        className="font-medium text-primary hover:underline"
+        className="h-auto p-0 font-medium"
       >
         {row.id}
-      </button>
+      </Button>
     ),
     meta: { displayName: "Mã Phiếu phạt" },
   },
@@ -144,12 +146,14 @@ export const getColumns = (
     accessorKey: "linkedComplaintSystemId",
     header: "Mã Khiếu nại",
     cell: ({ row }) => row.linkedComplaintSystemId ? (
-      <button
+      <Button
+        variant="link"
+        size="sm"
         onClick={(e) => { e.stopPropagation(); router.push(`/complaints/${row.linkedComplaintSystemId}`); }}
-        className="text-primary hover:underline font-mono text-xs"
+        className="h-auto p-0 font-mono text-xs"
       >
         {row.linkedComplaintSystemId}
-      </button>
+      </Button>
     ) : '-',
     meta: { displayName: "Mã Khiếu nại liên quan" },
   },
@@ -158,12 +162,14 @@ export const getColumns = (
     accessorKey: "linkedOrderSystemId",
     header: "Mã Đơn hàng",
     cell: ({ row }) => row.linkedOrderSystemId ? (
-      <button
+      <Button
+        variant="link"
+        size="sm"
         onClick={(e) => { e.stopPropagation(); router.push(`/orders/${row.linkedOrderSystemId}`); }}
-        className="text-primary hover:underline font-mono text-xs"
+        className="h-auto p-0 font-mono text-xs"
       >
         {row.linkedOrderSystemId}
-      </button>
+      </Button>
     ) : '-',
     meta: { displayName: "Mã Đơn hàng liên quan" },
   },

@@ -67,17 +67,17 @@ model Customer {
   followUpReason     String?
   followUpAssigneeId String?
 
-  isDeleted            Boolean   @default(false)
+  isDeleted            Boolean     @default(false)
   deletedAt            DateTime?
   permanentlyDeletedAt DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt  DateTime    @updatedAt
-  createdBy  String?
-  complaints Complaint[]
-  orders     Order[]
-  payments   Payment[]
-  receipts   Receipt[]
-  warranties Warranty[]
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  createdBy            String?
+  complaints           Complaint[]
+  orders               Order[]
+  payments             Payment[]
+  receipts             Receipt[]
+  warranties           Warranty[]
 
   @@index([phone])
   @@index([status])

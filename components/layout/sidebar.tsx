@@ -187,7 +187,7 @@ function SidebarNavLink({
 
 export function Sidebar() {
     const [search, setSearch] = React.useState('');
-  const { employee: authEmployee } = useAuth();
+  const { employee: authEmployee, isAdmin } = useAuth();
   const loggedInUser = authEmployee;
     const { isSidebarCollapsed, toggleSidebarCollapse: _toggleSidebarCollapse } = useUiStore();
     const { data: customRoles } = useRoleSettings();
@@ -195,8 +195,6 @@ export function Sidebar() {
 
     const filteredMenuGroups = React.useMemo(() => {
     const userRole = loggedInUser?.role || 'Sales';
-    // Admin always sees everything
-    const isAdmin = userRole === 'Admin';
     // Find the custom role matching the user's role to get their configured permissions
     const matchedRole = customRoles?.find(r => r.id === userRole);
     // Use matched role permissions; empty array while still loading real data for non-admin
@@ -212,7 +210,7 @@ export function Sidebar() {
             return { ...group, links: filteredLinks };
           })
           .filter(group => group.links.length > 0);
-    }, [search, loggedInUser, customRoles]);
+    }, [search, loggedInUser, customRoles, isAdmin]);
 
     return (
         <SidebarPrimitive>

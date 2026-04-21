@@ -8,6 +8,7 @@ import { SettingsActionButton } from '../../../components/settings/SettingsActio
 import { useSalesManagementSettingsData } from './hooks/use-sales-management-settings';
 import type { SalesManagementSettingsValues } from './sales-management-service';
 import type { RegisterTabActions } from '../use-tab-action-registry';
+import { useDirtyState } from '@/hooks/use-dirty-state';
 import { toast } from 'sonner';
 
 type SalesManagementSettingsProps = {
@@ -16,7 +17,8 @@ type SalesManagementSettingsProps = {
 };
 
 export function SalesManagementSettings({ isActive, onRegisterActions }: SalesManagementSettingsProps) {
-    const { settings, isLoading, updateSetting, saveSettings, isSaving } = useSalesManagementSettingsData();
+    const { settings, storedSettings, isLoading, updateSetting, saveSettings, isSaving } = useSalesManagementSettingsData();
+    const isDirty = useDirtyState(storedSettings ?? settings, settings);
 
     // Store the latest callback in a ref to avoid re-registering on every render
     const onRegisterActionsRef = React.useRef(onRegisterActions);
@@ -34,17 +36,17 @@ export function SalesManagementSettings({ isActive, onRegisterActions }: SalesMa
     }, [saveSettings]);
 
     const headerActions = React.useMemo(() => [
-        <SettingsActionButton key="save" onClick={handleSave} disabled={isSaving}>
+        <SettingsActionButton key="save" onClick={handleSave} disabled={!isDirty || isSaving}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Lưu cài đặt
         </SettingsActionButton>,
-    ], [handleSave, isSaving]);
+    ], [handleSave, isDirty, isSaving]);
 
-    // Only register once when component becomes active
+    // Re-register whenever actions change (dirty/isSaving) while tab is active
     React.useEffect(() => {
         if (!isActive || !onRegisterActionsRef.current) return;
         onRegisterActionsRef.current(headerActions);
-    }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isActive, headerActions]);
 
     const handleCheckedChange = (key: keyof SalesManagementSettingsValues) => (checked: boolean) => {
         updateSetting(key, checked);

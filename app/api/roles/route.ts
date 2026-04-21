@@ -5,6 +5,7 @@ import { createRoleSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { invalidateRolePermissionsCache } from '@/lib/rbac/resolve-permissions'
 
 // GET /api/roles - List all roles
 export async function GET(request: Request) {
@@ -79,6 +80,8 @@ export async function POST(request: Request) {
         sortOrder: body.sortOrder ?? 0,
       },
     })
+
+    invalidateRolePermissionsCache(role.id)
 
     await createActivityLog({
       entityType: 'role',

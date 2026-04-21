@@ -8,7 +8,7 @@ import {
   mapProductLabelToPrintData,
   mapProductToLabelPrintData,
 } from '../print-mappers/product-label.mapper';
-import { StoreSettings, getStoreLogo, getGeneralSettings } from '../print-service';
+import { StoreSettings, getStoreLogo } from '../print-service';
 
 // Interface cho product
 interface Product {
@@ -98,13 +98,11 @@ export function createStoreSettings(storeInfo?: {
   province?: string;
   logo?: string;
 } | null): StoreSettings {
-  // Fallback lấy từ general-settings nếu storeInfo trống
-  const generalSettings = getGeneralSettings();
   return {
-    name: storeInfo?.companyName || storeInfo?.brandName || generalSettings?.companyName || '',
-    address: storeInfo?.headquartersAddress || generalSettings?.companyAddress || '',
-    phone: storeInfo?.hotline || generalSettings?.phoneNumber || '',
-    email: storeInfo?.email || generalSettings?.email || '',
+    name: storeInfo?.companyName || storeInfo?.brandName || '',
+    address: storeInfo?.headquartersAddress || '',
+    phone: storeInfo?.hotline || '',
+    email: storeInfo?.email || '',
     website: storeInfo?.website,
     taxCode: storeInfo?.taxCode,
     province: storeInfo?.province,

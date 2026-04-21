@@ -5,6 +5,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { randomUUID } from 'crypto'
 import { syncCustomers } from '@/lib/meilisearch-sync'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 /**
  * Parse Prisma errors into user-friendly messages
@@ -294,6 +295,24 @@ export const POST = apiHandler(async (request, { session }) => {
     if (result.success > 0) {
       syncCustomers().catch(e => logError('[Meilisearch] Customer batch sync failed', e))
     }
+
+    createActivityLog({
+      entityType: 'customer',
+      entityId: 'BATCH',
+      action: `Nhập hàng loạt khách hàng (${result.success}/${data.length})`,
+      actionType: 'system',
+      note: `Mode: ${mode} · Inserted: ${result.inserted} · Updated: ${result.updated} · Skipped: ${result.skipped} · Failed: ${result.failed}`,
+      metadata: {
+        userName: session?.user?.name || session?.user?.id,
+        total: data.length,
+        inserted: result.inserted,
+        updated: result.updated,
+        skipped: result.skipped,
+        failed: result.failed,
+        mode,
+      },
+      createdBy: session?.user?.id,
+    }).catch(() => undefined)
 
     return apiSuccess(result)
 }, { permission: 'edit_customers' })

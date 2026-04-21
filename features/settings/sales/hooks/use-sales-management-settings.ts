@@ -161,6 +161,7 @@ export function useSalesManagementSettingsData() {
   
   return {
     settings,
+    storedSettings: query.data ?? null,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

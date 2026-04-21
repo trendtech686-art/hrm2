@@ -39,7 +39,7 @@ import type {
   WarehouseNotificationSettings,
   HrNotificationSettings,
 } from './types';
-import { useNotificationSettings as useClientNotificationSettings } from '@/hooks/use-due-date-notifications';
+import { useDirtyState } from '@/hooks/use-dirty-state';
 
 export function NotificationSettingsPage() {
   const [activeTab, setActiveTab] = React.useState('general');
@@ -117,7 +117,6 @@ export function NotificationSettingsPage() {
 
 function GeneralNotificationTab({ isActive, onRegisterActions }: { isActive: boolean; onRegisterActions: (actions?: React.ReactNode[]) => void }) {
   const { settings: stored } = useGeneralNotificationSettings();
-  const { saveSettings: saveClientSettings } = useClientNotificationSettings();
   const { updateGeneralNotifications } = useNotificationSettingsMutations();
 
   const [settings, setSettings] = React.useState<GeneralNotificationSettings>(stored);
@@ -127,9 +126,6 @@ function GeneralNotificationTab({ isActive, onRegisterActions }: { isActive: boo
 
   React.useEffect(() => { setSettings(stored); }, [stored]);
 
-  // Sync server settings to client-side runtime
-  React.useEffect(() => { saveClientSettings(stored); }, [stored, saveClientSettings]);
-
   const hasChanges = JSON.stringify(stored) !== JSON.stringify(settings);
 
   const handleToggle = (key: keyof GeneralNotificationSettings) => {
@@ -137,14 +133,12 @@ function GeneralNotificationTab({ isActive, onRegisterActions }: { isActive: boo
   };
 
   const handleSave = React.useCallback(() => {
-    // Save to server (with activity log) + sync to client runtime
     updateGeneralNotifications.mutate(settings, {
       onSuccess: () => {
-        saveClientSettings(settings);
         toast.success('Đã lưu cài đặt thông báo');
       },
     });
-  }, [settings, updateGeneralNotifications, saveClientSettings]);
+  }, [settings, updateGeneralNotifications]);
 
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
@@ -290,14 +284,19 @@ function TaskNotificationTab({ isActive, onRegisterActions }: { isActive: boolea
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isNotifDirty = useDirtyState(stored, notifications);
+  const isReminderDirty = useDirtyState(storedReminders, reminders);
+  const isDirty = isNotifDirty || isReminderDirty;
+  const isSaving = updateTaskNotifications.isPending || updateTaskReminders.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateTaskNotifications.isPending}>
-        {updateTaskNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateTaskNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>
@@ -396,14 +395,19 @@ function ComplaintNotificationTab({ isActive, onRegisterActions }: { isActive: b
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isNotifDirty = useDirtyState(stored, notifications);
+  const isReminderDirty = useDirtyState(storedReminders, reminders);
+  const isDirty = isNotifDirty || isReminderDirty;
+  const isSaving = updateComplaintNotifications.isPending || updateComplaintReminders.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateComplaintNotifications.isPending}>
-        {updateComplaintNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateComplaintNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>
@@ -492,14 +496,17 @@ function WarrantyNotificationTab({ isActive, onRegisterActions }: { isActive: bo
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isDirty = useDirtyState(stored, notifications);
+  const isSaving = updateWarrantyNotifications.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateWarrantyNotifications.isPending}>
-        {updateWarrantyNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateWarrantyNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>
@@ -564,14 +571,17 @@ function SalesNotificationTab({ isActive, onRegisterActions }: { isActive: boole
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isDirty = useDirtyState(stored, settings);
+  const isSaving = updateSalesNotifications.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateSalesNotifications.isPending}>
-        {updateSalesNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateSalesNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>
@@ -668,14 +678,17 @@ function WarehouseNotificationTab({ isActive, onRegisterActions }: { isActive: b
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isDirty = useDirtyState(stored, settings);
+  const isSaving = updateWarehouseNotifications.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateWarehouseNotifications.isPending}>
-        {updateWarehouseNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateWarehouseNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>
@@ -779,14 +792,17 @@ function HrNotificationTab({ isActive, onRegisterActions }: { isActive: boolean;
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isDirty = useDirtyState(stored, settings);
+  const isSaving = updateHrNotifications.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateHrNotifications.isPending}>
-        {updateHrNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateHrNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>
@@ -852,14 +868,17 @@ function SystemNotificationTab({ isActive, onRegisterActions }: { isActive: bool
   const handleSaveRef = React.useRef(handleSave);
   handleSaveRef.current = handleSave;
 
+  const isDirty = useDirtyState(stored, settings);
+  const isSaving = updateSystemNotifications.isPending;
+
   React.useEffect(() => {
     if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={updateSystemNotifications.isPending}>
-        {updateSystemNotifications.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
+      <SettingsActionButton key="save" onClick={() => handleSaveRef.current()} disabled={!isDirty || isSaving}>
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Lưu cài đặt
       </SettingsActionButton>,
     ]);
-  }, [isActive, updateSystemNotifications.isPending, onRegisterActions]);
+  }, [isActive, isDirty, isSaving, onRegisterActions]);
 
   return (
     <Card>

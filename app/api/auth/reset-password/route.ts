@@ -5,6 +5,7 @@ import { cache } from '@/lib/cache'
 import { getPasswordRules, validatePassword } from '@/lib/password-rules'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const resetPasswordSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
@@ -66,6 +67,16 @@ export const POST = apiHandler(async (req) => {
 
   // Xóa OTP sau khi dùng
   cache.delete(otpKey)
+
+  createActivityLog({
+    entityType: 'user',
+    entityId: stored.userId,
+    action: 'Đặt lại mật khẩu',
+    actionType: 'update',
+    note: 'Đặt lại mật khẩu qua OTP',
+    metadata: { email },
+    createdBy: stored.userId,
+  }).catch(() => undefined)
 
   return apiSuccess({ message: 'Đặt lại mật khẩu thành công' })
 }, { auth: false })

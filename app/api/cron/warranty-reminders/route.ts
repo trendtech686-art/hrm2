@@ -178,6 +178,7 @@ export async function GET(request: NextRequest) {
       message: parts.join(' • '),
       link: '/warranty?sort=createdAt&order=asc',
       recipientIds: allRecipients,
+      settingsKey: 'warranty:overdue',
     });
 
     // Send individual overdue emails to assignees (fire-and-forget)

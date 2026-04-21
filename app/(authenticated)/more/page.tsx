@@ -96,13 +96,11 @@ const MENU_SECTIONS: MenuSection[] = [
 
 export default function MorePage() {
   const router = useRouter()
-  const { logout } = useAuth()
-  const { employee } = useAuth()
+  const { logout, employee, isAdmin } = useAuth()
   const { data: customRoles } = useRoleSettings()
   const unreadCount = useUnreadNotificationCount()
 
   const userRole = employee?.role || 'Sales'
-  const isAdmin = userRole === 'Admin'
 
   const filteredSections = React.useMemo(() => {
     const matchedRole = customRoles?.find(r => r.id === userRole)

@@ -12,7 +12,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { logError } from '@/lib/logger';
-import { getComplaintNotificationSettings } from '@/lib/notifications';
+import { getComplaintNotificationSettings, areEmailNotificationsEnabled } from '@/lib/notifications';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -78,6 +78,7 @@ export async function notifyComplaintCreated(complaint: {
 }) {
   if (!complaint.assigneeId) return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getComplaintNotificationSettings();
   if (!settings.emailOnCreate) return;
 
@@ -117,6 +118,7 @@ export async function notifyComplaintAssigned(complaint: {
   assigneeId: string;
   assignerName?: string | null;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getComplaintNotificationSettings();
   if (!settings.emailOnAssign) return;
 
@@ -161,6 +163,7 @@ export async function notifyComplaintStatusChanged(complaint: {
   status: string;
   oldStatus: string;
 }) {
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getComplaintNotificationSettings();
 
   // Map status to the correct email toggle
@@ -215,6 +218,7 @@ export async function notifyComplaintOverdue(complaint: {
 }) {
   if (!complaint.assigneeId) return;
 
+  if (!(await areEmailNotificationsEnabled())) return;
   const settings = await getComplaintNotificationSettings();
   if (!settings.emailOnOverdue) return;
 

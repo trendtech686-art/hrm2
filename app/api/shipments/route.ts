@@ -262,7 +262,7 @@ export async function POST(request: Request) {
         recipientId: salespersonId,
         senderId: session.user?.employeeId,
         senderName: session.user?.name,
-        settingsKey: 'order:created',
+        settingsKey: 'order:shipment',
       }).catch(e => logError('[Shipments POST] notification failed', e))
     }
 

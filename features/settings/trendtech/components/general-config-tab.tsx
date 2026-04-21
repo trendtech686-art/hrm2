@@ -5,6 +5,7 @@ import { Input } from '../../../../components/ui/input';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { Badge } from '../../../../components/ui/badge';
+import { SettingsActionButton } from '../../../../components/settings/SettingsActionButton';
 import { Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrendtechSettings, useTrendtechConfigMutations, useTrendtechSyncSettingsMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
@@ -27,7 +28,12 @@ export function GeneralConfigTab() {
       setLocalApiKey(settings.apiKey);
     }
   }, [settings]);
-  
+
+  const isConfigDirty = React.useMemo(
+    () => localApiUrl !== (settings?.apiUrl ?? '') || localApiKey !== (settings?.apiKey ?? ''),
+    [localApiUrl, localApiKey, settings?.apiUrl, settings?.apiKey],
+  );
+
   const handleSaveConfig = () => {
     setApiUrl.mutate(localApiUrl, {
       onSuccess: () => toast.success('Đã lưu cấu hình API'),
@@ -183,18 +189,26 @@ export function GeneralConfigTab() {
           </div>
           
           <div className="flex items-center gap-2 pt-2">
-            <Button onClick={handleSaveConfig} variant="default">
-              <Save className="h-4 w-4 mr-2" />
-              Lưu cấu hình
-            </Button>
-            <Button onClick={handleTestConnection} variant="outline" disabled={isTesting}>
-              {isTesting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <SettingsActionButton
+              onClick={handleSaveConfig}
+              variant="default"
+              disabled={!isConfigDirty || setApiUrl.isPending || setApiKey.isPending}
+            >
+              {setApiUrl.isPending || setApiKey.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4" />
+              )}
+              Lưu cấu hình
+            </SettingsActionButton>
+            <SettingsActionButton onClick={handleTestConnection} variant="outline" disabled={isTesting}>
+              {isTesting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
               )}
               Test Connection
-            </Button>
+            </SettingsActionButton>
           </div>
           
           <div className="flex items-center gap-2 pt-2">

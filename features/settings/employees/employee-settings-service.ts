@@ -11,7 +11,20 @@ import type { EmployeeSettings, WorkShift, LeaveType, SalaryComponent } from '@/
 import { fetchEmployeeSettings } from './api/employee-settings-api';
 import { logError } from '@/lib/logger'
 
-// Default settings (fallback when API fails or no data in DB)
+/**
+ * DEFAULT_EMPLOYEE_SETTINGS — CHỈ dùng làm fallback khi:
+ *   1) API `/api/settings/employees` lỗi (ví dụ DB down), HOẶC
+ *   2) DB chưa có bản ghi `setting` cho key `employee-settings`.
+ *
+ * ⚠ ĐÂY KHÔNG PHẢI NGUỒN GỐC CẤU HÌNH. Mỗi lần seed hệ thống phải:
+ *   - Chạy `prisma/seeds/seed-employee-settings.ts` để nạp config thật vào DB.
+ *   - Vào UI `/settings/employees` > tab "Bảo hiểm & Thuế" và "Lương & Phúc lợi"
+ *     để điều chỉnh cho đúng chính sách doanh nghiệp.
+ *
+ * Khi engine rơi về các mặc định này, payroll sẽ tính với tỷ lệ BH/thuế
+ * chuẩn VN 2024 — có thể KHÁC với cấu hình thật của doanh nghiệp. Kiểm tra
+ * console để thấy log `[EmployeeSettingsService] Failed to fetch settings`.
+ */
 export const DEFAULT_EMPLOYEE_SETTINGS: EmployeeSettings = {
   workStartTime: '08:30',
   workEndTime: '18:00',

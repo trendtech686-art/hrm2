@@ -5,6 +5,7 @@ import { apiSuccess, apiError, validateBody } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { generateNextIds } from '@/lib/id-system'
 import { cache } from '@/lib/cache'
+import { healOrphanBrandMapping } from '@/lib/pkgx/orphan-helpers'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -51,6 +52,53 @@ export const POST = apiHandler(async (request, { session }) => {
 
   const results: { pkgxId: number; success: boolean; error?: string; systemId?: string }[] = []
 
+  /**
+   * Helper: tạo mapping, tự heal orphan nếu trùng pkgxBrandId.
+   * Return `true` nếu mapping đã được tạo/đã tồn tại với brand sống tương ứng.
+   */
+  const createMappingWithHeal = async (
+    hrmBrandId: string,
+    hrmBrandName: string,
+    pkgxBrandId: number,
+    pkgxBrandName: string,
+  ): Promise<boolean> => {
+    try {
+      await prisma.pkgxBrandMapping.create({
+        data: {
+          systemId: uuidv4(),
+          hrmBrandId,
+          hrmBrandName,
+          pkgxBrandId,
+          pkgxBrandName,
+          createdBy: session?.user?.id,
+        },
+      })
+      return true
+    } catch (e) {
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError) || e.code !== 'P2002') {
+        logError(`[Bulk Brand] Mapping error: ${hrmBrandName}`, e)
+        return false
+      }
+      // P2002: trùng unique (hrmBrandId hoặc pkgxBrandId).
+      // Nếu là orphan (mapping cũ trỏ brand đã xoá) ⇒ xoá rồi tạo lại.
+      const healed = await healOrphanBrandMapping(pkgxBrandId)
+      if (healed === 'orphan_deleted') {
+        await prisma.pkgxBrandMapping.create({
+          data: {
+            systemId: uuidv4(),
+            hrmBrandId,
+            hrmBrandName,
+            pkgxBrandId,
+            pkgxBrandName,
+            createdBy: session?.user?.id,
+          },
+        }).catch(err => logError(`[Bulk Brand] Mapping retry failed: ${hrmBrandName}`, err))
+        return true
+      }
+      return true
+    }
+  }
+
   // Process sequentially to avoid systemId race condition
   for (const item of brands) {
     try {
@@ -58,20 +106,12 @@ export const POST = apiHandler(async (request, { session }) => {
       const existing = existingByName.get(item.name.toLowerCase())
 
       if (existing) {
-        // Create mapping for existing brand
-        await prisma.pkgxBrandMapping.create({
-          data: {
-            systemId: uuidv4(),
-            hrmBrandId: existing.systemId,
-            hrmBrandName: existing.name,
-            pkgxBrandId: item.pkgxId,
-            pkgxBrandName: item.name,
-            createdBy: session?.user?.id,
-          },
-        }).catch(e => {
-          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return
-          logError(`[Bulk Brand] Mapping error: ${item.name}`, e)
-        })
+        await createMappingWithHeal(
+          existing.systemId,
+          existing.name,
+          item.pkgxId,
+          item.name,
+        )
         results.push({ pkgxId: item.pkgxId, success: true, systemId: existing.systemId })
         continue
       }
@@ -97,20 +137,7 @@ export const POST = apiHandler(async (request, { session }) => {
         },
       })
 
-      // Create mapping
-      await prisma.pkgxBrandMapping.create({
-        data: {
-          systemId: uuidv4(),
-          hrmBrandId: brand.systemId,
-          hrmBrandName: brand.name,
-          pkgxBrandId: item.pkgxId,
-          pkgxBrandName: item.name,
-          createdBy: session?.user?.id,
-        },
-      }).catch(e => {
-        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return
-        logError(`[Bulk Brand] Mapping error: ${item.name}`, e)
-      })
+      await createMappingWithHeal(brand.systemId, brand.name, item.pkgxId, item.name)
 
       results.push({ pkgxId: item.pkgxId, success: true, systemId: brand.systemId })
     } catch (error) {
@@ -120,16 +147,12 @@ export const POST = apiHandler(async (request, { session }) => {
           select: { systemId: true },
         })
         if (existingBrand) {
-          await prisma.pkgxBrandMapping.create({
-            data: {
-              systemId: uuidv4(),
-              hrmBrandId: existingBrand.systemId,
-              hrmBrandName: item.name,
-              pkgxBrandId: item.pkgxId,
-              pkgxBrandName: item.name,
-              createdBy: session?.user?.id,
-            },
-          }).catch(() => {})
+          await createMappingWithHeal(
+            existingBrand.systemId,
+            item.name,
+            item.pkgxId,
+            item.name,
+          )
           results.push({ pkgxId: item.pkgxId, success: true, systemId: existingBrand.systemId })
           continue
         }

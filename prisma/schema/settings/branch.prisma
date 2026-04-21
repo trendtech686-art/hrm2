@@ -1,31 +1,31 @@
 model Branch {
-  systemId         String             @id
-  id               String             @unique
-  name             String
-  address          String?
-  phone            String?
-  isDefault        Boolean            @default(false)
-  province         String?
-  provinceId       String?
-  district         String?
-  districtId       Int?
-  ward             String?
-  wardCode         String?
-  addressLevel     String? // '2-level' or '3-level'
-  managerId        String?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  createdBy        String?
-  updatedBy        String?
-  deletedAt        DateTime?
-  isDeleted        Boolean            @default(false)
-  thumbnail        String?
-  website          String?
-  employees        Employee[]
-  orders           Order[]
-  productInventory ProductInventory[]
-  stockHistory           StockHistory[]
-  reconciliationSheets   ReconciliationSheet[]
+  systemId             String                @id
+  id                   String                @unique
+  name                 String
+  address              String?
+  phone                String?
+  isDefault            Boolean               @default(false)
+  province             String?
+  provinceId           String?
+  district             String?
+  districtId           Int?
+  ward                 String?
+  wardCode             String?
+  addressLevel         String? // '2-level' or '3-level'
+  managerId            String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  createdBy            String?
+  updatedBy            String?
+  deletedAt            DateTime?
+  isDeleted            Boolean               @default(false)
+  thumbnail            String?
+  website              String?
+  employees            Employee[]
+  orders               Order[]
+  productInventory     ProductInventory[]
+  stockHistory         StockHistory[]
+  reconciliationSheets ReconciliationSheet[]
 
   @@map("branches")
 }

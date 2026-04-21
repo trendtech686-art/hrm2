@@ -149,6 +149,7 @@ export async function GET(request: NextRequest) {
       message: parts.join(' • '),
       link: '/complaints?sort=createdAt&order=asc',
       recipientIds: allRecipients,
+      settingsKey: 'complaint:overdue',
     });
 
     // Send individual overdue emails to assignees (fire-and-forget)

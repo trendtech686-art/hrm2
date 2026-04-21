@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // GET - Single template
 export async function GET(
@@ -69,6 +70,15 @@ export async function PUT(
       },
     });
 
+    createActivityLog({
+      entityType: 'task_template',
+      entityId: templateId,
+      action: `Cập nhật mẫu công việc "${existing.name}"`,
+      actionType: 'update',
+      metadata: { userName: body.updatedBy },
+      createdBy: body.updatedBy || undefined,
+    }).catch(() => undefined);
+
     return apiSuccess(template);
   } catch (error) {
     logError('Failed to update task template', error);
@@ -87,10 +97,22 @@ export async function DELETE(
   const { templateId } = await params;
 
   try {
+    const existing = await prisma.taskTemplate.findUnique({
+      where: { systemId: templateId },
+      select: { name: true },
+    });
+
     await prisma.taskTemplate.update({
       where: { systemId: templateId },
       data: { isDeleted: true },
     });
+
+    createActivityLog({
+      entityType: 'task_template',
+      entityId: templateId,
+      action: existing?.name ? `Xóa mẫu công việc "${existing.name}"` : 'Xóa mẫu công việc',
+      actionType: 'delete',
+    }).catch(() => undefined);
 
     return apiSuccess({ message: 'Đã xóa' });
   } catch (error) {

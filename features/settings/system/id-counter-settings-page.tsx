@@ -35,6 +35,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../../components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
 import { 
   RefreshCw, 
   CheckCircle2, 
@@ -330,16 +337,17 @@ export function IDCounterSettingsPage() {
                 
                 <div className="w-64">
                   <Label>Danh mục</Label>
-                  <select
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                  >
-                    <option value="all">Tất cả</option>
-                    {Object.keys(categories).map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tất cả" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      {Object.keys(categories).map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
