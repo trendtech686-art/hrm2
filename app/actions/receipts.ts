@@ -19,6 +19,7 @@ import { createReceiptSchema, updateReceiptSchema } from '@/features/receipts/va
 import { logError } from '@/lib/logger'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
 import { getSessionUserName } from '@/lib/get-user-name'
+import { resolveDefaultCashAccountSystemId } from '@/lib/finance/resolve-default-cash-account'
 
 // ====================================
 // HELPERS
@@ -733,6 +734,20 @@ export async function createOrderReceiptAction(
         throw new Error('ORDER_NO_BRANCH')
       }
 
+      const pmForType = paymentMethodSystemId
+        ? await tx.paymentMethod.findUnique({
+            where: { systemId: paymentMethodSystemId },
+            select: { type: true },
+          })
+        : await tx.paymentMethod.findFirst({
+            where: { isDefault: true, isActive: true },
+            select: { type: true },
+          })
+      const accountSystemId = await resolveDefaultCashAccountSystemId({
+        branchId: order.branchId,
+        paymentMethodType: pmForType?.type,
+      })
+
       const now = new Date()
       const userName = session.user?.name || session.user?.email || 'Unknown'
 
@@ -761,6 +776,7 @@ export async function createOrderReceiptAction(
           // Payment method
           paymentMethodSystemId: paymentMethodSystemId || null,
           paymentMethodName: paymentMethodName || null,
+          accountSystemId,
           // Receipt type
           paymentReceiptTypeName: 'Thu tá»« khÃ¡ch hÃ ng',
           // Branch info

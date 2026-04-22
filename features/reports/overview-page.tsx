@@ -92,18 +92,27 @@ function KpiCard({
   return content;
 }
 
-// Mini bar chart (pure CSS, no recharts dependency)
+// Mini bar chart (pure CSS) — dùng px cho chiều cao cột; % trong flex cột dễ co về 0 nên vẽ không thấy.
+const MINI_CHART_PX = 64;
+
 function MiniBarChart({ data, maxValue }: { data: { label: string; value: number }[]; maxValue: number }) {
   return (
-    <div className="flex items-end gap-1 h-16">
-      {data.map((item, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+    <div className="flex items-end gap-1 w-full" style={{ height: MINI_CHART_PX }}>
+      {data.map((item, i) => {
+        const h =
+          maxValue > 0 ? Math.max(2, (item.value / maxValue) * MINI_CHART_PX) : 2
+        return (
           <div
-            className="w-full bg-primary/80 rounded-t-sm min-h-0.5 transition-all"
-            style={{ height: maxValue > 0 ? `${(item.value / maxValue) * 100}%` : '2px' }}
-          />
-        </div>
-      ))}
+            key={i}
+            className="flex-1 flex flex-col items-stretch justify-end h-full min-h-0"
+          >
+            <div
+              className="w-full bg-primary/80 rounded-t-sm transition-all"
+              style={{ height: h }}
+            />
+          </div>
+        )
+      })}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { resolveDefaultCashAccountSystemId } from '@/lib/finance/resolve-default-cash-account'
 import { SalesReturnStatus, DeliveryStatus, OrderStatus, StockOutStatus, PaymentStatus } from '@/generated/prisma/client'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
@@ -73,15 +74,22 @@ export async function POST(request: Request, { params }: RouteParams) {
     const { payments, sales_returns, customer, branch, ...order } = orderWithRelations;
 
     // Get payment method info if provided
-    const paymentMethod = paymentMethodId ? await prisma.paymentMethod.findFirst({
-      where: { 
-        OR: [
-          { systemId: paymentMethodId },
-          { name: paymentMethodId }
-        ]
-      },
-      select: { systemId: true, name: true }
-    }) : null;
+    const paymentMethod = paymentMethodId
+      ? await prisma.paymentMethod.findFirst({
+          where: {
+            OR: [{ systemId: paymentMethodId }, { name: paymentMethodId }],
+          },
+          select: { systemId: true, name: true, type: true },
+        })
+      : await prisma.paymentMethod.findFirst({
+          where: { isDefault: true, isActive: true },
+          select: { systemId: true, name: true, type: true },
+        })
+
+    const accountSystemId = await resolveDefaultCashAccountSystemId({
+      branchId: order.branchId,
+      paymentMethodType: paymentMethod?.type,
+    })
 
     // Calculate paid amount
     const paidAmount = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
@@ -144,6 +152,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           // Payment method info
           paymentMethodSystemId: paymentMethod?.systemId,
           paymentMethodName: paymentMethod?.name || paymentMethodId || 'Tiền mặt',
+          accountSystemId,
           // Receipt type
           paymentReceiptTypeSystemId: 'SALE',
           paymentReceiptTypeName: 'Thu tiền bán hàng',

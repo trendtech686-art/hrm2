@@ -59,6 +59,7 @@ export function useStorageLocationMutations(options: UseStorageLocationMutations
     mutationFn: createStorageLocation,
     onSuccess: (data) => {
       invalidateRelated(queryClient, 'storage-locations');
+      void queryClient.invalidateQueries({ queryKey: ['stock-locations'] });
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -78,6 +79,7 @@ export function useStorageLocationMutations(options: UseStorageLocationMutations
     mutationFn: deleteStorageLocation,
     onSuccess: () => {
       invalidateRelated(queryClient, 'storage-locations');
+      void queryClient.invalidateQueries({ queryKey: ['stock-locations'] });
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

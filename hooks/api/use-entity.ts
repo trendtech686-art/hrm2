@@ -176,12 +176,6 @@ export const stockLocationHooks = createEntityHooks<{ systemId: string; name: st
   apiPath: '/api/stock-locations',
 })
 
-// Payment Methods
-export const paymentMethodHooks = createEntityHooks<{ systemId: string; name: string }>({
-  name: 'payment-methods',
-  apiPath: '/api/payment-methods',
-})
-
 // ============================================================
 // Convenience exports
 // ============================================================
@@ -203,5 +197,3 @@ export const useBrand = brandHooks.useOne
 
 export const useStockLocations = stockLocationHooks.useList
 export const useStockLocation = stockLocationHooks.useOne
-
-export const usePaymentMethods = paymentMethodHooks.useList

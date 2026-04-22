@@ -6,24 +6,7 @@ import { createSettingsDataSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
 import { logError } from '@/lib/logger'
 
-// Valid settings data types
-const VALID_TYPES = [
-  'unit',
-  'tax',
-  'shipping-partner',
-  'sales-channel',
-  'receipt-type',
-  'pricing-policy',
-  'penalty',
-  'penalty-type',
-  'payment-type',
-  'target-group',
-  'task-template',
-  'recurring-task',
-  'custom-field',
-];
-
-// GET - List all settings data (optionally filter by type)
+// GET - List all settings data (optionally filter by type). Any `type` is allowed for read (legacy / migration).
 export async function GET(request: NextRequest) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
@@ -33,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const where: { type?: string; isDeleted?: boolean } = { isDeleted: false };
-    if (type && VALID_TYPES.includes(type)) {
+    if (type) {
       where.type = type;
     }
 

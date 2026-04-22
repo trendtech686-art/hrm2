@@ -939,8 +939,8 @@ export async function createWarrantyReceiptAction(
     // Lookup branch name if warranty has branchSystemId but missing branchName
     let branchName = existing.branchName || ''
     if (existing.branchSystemId && !branchName) {
-      const branch = await prisma.settingsData.findFirst({
-        where: { systemId: existing.branchSystemId, type: 'branches' },
+      const branch = await prisma.branch.findFirst({
+        where: { systemId: existing.branchSystemId, isDeleted: false },
         select: { name: true },
       })
       branchName = branch?.name || ''

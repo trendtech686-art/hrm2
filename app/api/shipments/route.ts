@@ -95,6 +95,7 @@ export async function GET(request: Request) {
               packagings: {
                 select: {
                   systemId: true,
+                  requestDate: true,
                   confirmDate: true,
                   requestingEmployeeName: true,
                   cancelingEmployeeName: true,
@@ -163,7 +164,10 @@ export async function GET(request: Request) {
         customerPhone: customer?.phone || '-',
         customerAddress: shippingAddress,
         branchName: order?.branchName || warranty?.branchName || '-',
-        packagingDate: packaging?.confirmDate?.toISOString() || undefined,
+        packagingDate:
+          packaging?.confirmDate?.toISOString()
+          || packaging?.requestDate?.toISOString()
+          || undefined,
         totalProductQuantity: order?.lineItems?.reduce((sum, item) => sum + item.quantity, 0) || 0,
         customerDue: (typeof order?.grandTotal === 'number' ? order.grandTotal : Number(order?.grandTotal) || 0) - totalPaid,
         creatorEmployeeName: packaging?.requestingEmployeeName || '-',

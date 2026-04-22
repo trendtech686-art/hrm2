@@ -35,8 +35,7 @@ export interface PricingPolicyCreateInput {
 
 export interface PricingPolicyUpdateInput extends Partial<PricingPolicyCreateInput> {}
 
-const BASE_URL = '/api/settings/pricing-policies';
-const LEGACY_URL = '/api/settings/data?type=pricing-policy';
+const BASE_URL = '/api/settings/pricing-policies'
 
 /**
  * Fetch pricing policies with filters
@@ -51,16 +50,8 @@ export async function fetchPricingPolicies(
   if (filters.type) params.set('type', filters.type);
   if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
 
-  // Try new endpoint first, fallback to legacy
-  let url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
-  
-  let response = await fetch(url, { credentials: 'include' });
-  
-  // Fallback to legacy endpoint
-  if (!response.ok && response.status === 404) {
-    url = `${LEGACY_URL}${params.toString() ? '&' + params : ''}`;
-    response = await fetch(url, { credentials: 'include' });
-  }
+  const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL
+  const response = await fetch(url, { credentials: 'include' })
   
   if (!response.ok) {
     logError('[fetchPricingPolicies] Response not OK', null, { status: response.status, statusText: response.statusText });

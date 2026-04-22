@@ -17,6 +17,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess } from '@/lib/api-utils'
+import { stockLocationToStorageDto } from '@/lib/stock-location-storage-dto'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,9 +59,9 @@ export const GET = apiHandler(async () => {
         orderBy: { name: 'asc' },
         select: { systemId: true, id: true, name: true },
       }),
-      // 3. Storage locations - all active (not deleted)
-      prisma.settingsData.findMany({
-        where: { type: 'storage-location', isDeleted: false },
+      // 3. Điểm lưu kho — single source: stock_locations
+      prisma.stockLocation.findMany({
+        where: { isActive: true },
         orderBy: { name: 'asc' },
       }),
       // 4. Product types - all active (not deleted)
@@ -92,11 +93,7 @@ export const GET = apiHandler(async () => {
       prisma.setting.findFirst({ where: { key: 'logistics-settings' } }),
     ])
 
-    // Transform storage locations (merge metadata)
-    const storageLocations = storageLocationsRaw.map(item => ({
-      ...item,
-      ...((item.metadata as Record<string, unknown>) || {}),
-    }))
+    const storageLocations = storageLocationsRaw.map(stockLocationToStorageDto)
 
     // Transform pricing policies dates
     const transformedPolicies = pricingPolicies.map(p => ({

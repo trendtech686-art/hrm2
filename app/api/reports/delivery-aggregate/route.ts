@@ -290,7 +290,7 @@ export const GET = apiHandler(async (request) => {
           codAmount: number
           shippingFee: number
           avgHoursSum: number
-          avgHoursWeight: number
+          deliveredWithHours: number
         }
       >()
 

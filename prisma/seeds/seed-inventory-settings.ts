@@ -120,28 +120,35 @@ export async function seedInventorySettings() {
       { id: 'LOC-008', name: 'Sàn trống', description: 'Sàn chưa phân bổ' },
     ];
 
-    for (const location of storageLocations) {
-      await prisma.settingsData.upsert({
-        where: { 
-          id_type: { 
-            id: location.id, 
-            type: 'storage-location' 
-          } 
-        },
-        update: {},
-        create: {
-          systemId: randomUUID(),
-          id: location.id,
-          name: location.name,
-          type: 'storage-location',
-          description: location.description,
-          isActive: true,
-          isDefault: location.isDefault || false,
-          metadata: {},
-        },
-      });
+    const defaultBranchForStorage =
+      (await prisma.branch.findFirst({ where: { isDeleted: false, isDefault: true } })) ||
+      (await prisma.branch.findFirst({ where: { isDeleted: false } }))
+    if (!defaultBranchForStorage) {
+      console.log('  ⚠ Skip storage / stock locations — no branch in DB (seed branch first).');
+    } else {
+      for (const location of storageLocations) {
+        await prisma.stockLocation.upsert({
+          where: { id: location.id },
+          update: {
+            name: location.name,
+            description: location.description,
+            isDefault: location.isDefault || false,
+          },
+          create: {
+            systemId: randomUUID(),
+            id: location.id,
+            name: location.name,
+            description: location.description,
+            code: location.id,
+            branchId: defaultBranchForStorage.id,
+            branchSystemId: defaultBranchForStorage.systemId,
+            isDefault: location.isDefault || false,
+            isActive: true,
+          },
+        })
+      }
+      console.log(`  ✓ Upserted ${storageLocations.length} storage locations (stock_locations)`);
     }
-    console.log(`  ✓ Created ${storageLocations.length} storage locations`);
 
     // 5. Seed Logistics Settings (Khối lượng & kích thước)
     console.log('  → Seeding logistics settings...');

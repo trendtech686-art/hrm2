@@ -10,7 +10,7 @@
  * - Brand: systemId, id, name, logo, logoUrl, thumbnail
  * - Employee: systemId, id, fullName, branchId, employmentStatus
  * - Customer: systemId, id, name, phone, email, address, status
- * - SettingsData: systemId, id, name, type, description, isActive, isDefault, metadata
+ * - SettingsData: EAV rows (type + metadata) — không dùng cho shipping; shipping ở bảng `setting`
  */
 
 import { unstable_cache } from 'next/cache';
@@ -106,8 +106,7 @@ export const getSettingsByType = cache(async (type: string) => {
 });
 
 /**
- * Get all settings - CACHED (10 min)
- * Use for preloading settings on app init
+ * Legacy map: `settings_data` rows (active). Nếu cùng `type` có nhiều bản ghi, giá trị sau ghi đè — không dùng cho type dạng danh sách (receipt-type, …).
  */
 export const getAllSettings = unstable_cache(
   async () => {
@@ -115,7 +114,6 @@ export const getAllSettings = unstable_cache(
       where: { isActive: true },
     });
     
-    // Convert to map for easy access
     return settings.reduce((acc, setting) => {
       acc[setting.type] = setting.metadata;
       return acc;
@@ -181,81 +179,90 @@ export const getCustomersForSelect = unstable_cache(
 );
 
 /**
- * Get payment methods - CACHED (10 min)
+ * Hình thức thanh toán — single source: bảng `payment_methods` (see also `getPaymentFormOptions`).
+ * Previously read legacy blob `settings_data.type = 'payment_types'`; do not reintroduce.
  */
 export const getPaymentMethods = unstable_cache(
   async () => {
-    const setting = await prisma.settingsData.findFirst({
-      where: { type: 'payment_types' },
+    return prisma.paymentMethod.findMany({
+      where: { isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        isDefault: true,
+        code: true,
+        type: true,
+      },
     });
-    
-    if (!setting?.metadata) {
-      return [
-        { id: 'cash', name: 'Tiền mặt', isDefault: true },
-        { id: 'transfer', name: 'Chuyển khoản', isDefault: false },
-      ];
-    }
-    
-    const metadata = setting.metadata as { items?: unknown[] };
-    return metadata.items || [];
   },
-  ['payment-methods'],
+  ['payment-methods', 'v2', 'prisma'],
   { revalidate: CACHE_TTL.LONG, tags: [CACHE_TAGS.SETTINGS] }
 );
 
 /**
- * Get tax settings - CACHED (10 min)
+ * Thuế mặc định — nguồn chuẩn: bảng `taxes` (không còn blob `settings_data.type = tax_settings`).
  */
 export const getTaxSettings = unstable_cache(
   async () => {
-    const setting = await prisma.settingsData.findFirst({
-      where: { type: 'tax_settings' },
-    });
-    
-    return setting?.metadata as {
-      taxRate: number;
-      includesTax: boolean;
-      taxId: string;
-    } | null;
+    const row =
+      (await prisma.tax.findFirst({
+        where: { isDeleted: false, isActive: true, isDefaultSale: true },
+      })) ||
+      (await prisma.tax.findFirst({
+        where: { isDeleted: false, isActive: true },
+        orderBy: { name: 'asc' },
+      }));
+    if (!row) return null;
+    const taxRate = Number(row.rate);
+    return {
+      taxRate,
+      includesTax: true,
+      taxId: row.id,
+    };
   },
-  ['tax-settings'],
+  ['tax-settings', 'v2', 'taxes-table'],
   { revalidate: CACHE_TTL.LONG, tags: [CACHE_TAGS.SETTINGS] }
 );
 
 /**
- * Get shipping settings - CACHED (10 min)
+ * Cài đặt vận chuyển — cùng nguồn với GET /api/settings/shipping (key `shipping-settings`, group `operations`).
+ * Không đọc legacy `settings_data.type = shipping_settings`.
  */
 export const getShippingSettings = unstable_cache(
   async () => {
-    const setting = await prisma.settingsData.findFirst({
-      where: { type: 'shipping_settings' },
+    const setting = await prisma.setting.findUnique({
+      where: { key_group: { key: 'shipping-settings', group: 'operations' } },
     });
-    
-    return setting?.metadata || null;
+    const v = setting?.value;
+    return v != null && typeof v === 'object' ? (v as Record<string, unknown>) : null;
   },
-  ['shipping-settings'],
+  ['shipping-settings', 'v2', 'prisma-setting'],
   { revalidate: CACHE_TTL.LONG, tags: [CACHE_TAGS.SETTINGS] }
 );
 
 /**
- * Get company info - CACHED (10 min)
+ * Thông tin doanh nghiệp — cùng nguồn với GET /api/settings/store-info (key store-info / group store).
+ * Trả về shape cũ { name, address, ... } để tương thích; map từ JSON store-info.
  */
 export const getCompanyInfo = unstable_cache(
   async () => {
-    const setting = await prisma.settingsData.findFirst({
-      where: { type: 'company_info' },
+    const setting = await prisma.setting.findUnique({
+      where: { key_group: { key: 'store-info', group: 'store' } },
     });
-    
-    return setting?.metadata as {
-      name: string;
-      address: string;
-      phone: string;
-      email: string;
-      taxId: string;
-      logo: string;
-    } | null;
+    if (!setting?.value) return null;
+    const v = setting.value as Record<string, unknown>;
+    return {
+      name: (v.companyName as string) || (v.brandName as string) || '',
+      address: (v.headquartersAddress as string) || '',
+      phone: (v.hotline as string) || '',
+      email: (v.email as string) || '',
+      taxId: (v.taxCode as string) || '',
+      logo: (v.logo as string) || '',
+    };
   },
-  ['company-info'],
+  ['company-info', 'v2', 'store-setting'],
   { revalidate: CACHE_TTL.LONG, tags: [CACHE_TAGS.SETTINGS] }
 );
 
@@ -264,12 +271,10 @@ export const getCompanyInfo = unstable_cache(
  * Call this in layout.tsx for faster page loads
  */
 export async function preloadSettings() {
-  // Fire all requests in parallel
   await Promise.all([
     getBranches(),
     getCategories(),
     getBrands(),
-    getAllSettings(),
     getPaymentMethods(),
   ]);
 }

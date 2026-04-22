@@ -147,8 +147,8 @@ export const getPaymentSummary = cache(async (branchId?: string, startDate?: Dat
 
       const [total, completed, cancelled, totalAmountResult] = await Promise.all([
         prisma.payment.count({ where }),
-        prisma.payment.count({ where: { ...where, status: 'COMPLETED' } }),
-        prisma.payment.count({ where: { ...where, status: 'CANCELLED' } }),
+        prisma.payment.count({ where: { ...where, status: 'completed' } }),
+        prisma.payment.count({ where: { ...where, status: 'cancelled' } }),
         prisma.payment.aggregate({ where, _sum: { amount: true } }),
       ]);
 

@@ -35,13 +35,13 @@ export const GET = apiHandler(async (request) => {
     const fetchPayments = type !== 'receipt'
 
     // Build where clauses for receipts and payments
+    // Không bắt buộc accountSystemId: nhiều phiếu thu/chi cũ hoặc chưa gán TK quỹ vẫn phải hiện trên sổ quỹ
+    // (trước đây filter not: null khiến toàn bộ dữ liệu không có TK = bảng trống).
     const baseReceiptWhere: Prisma.ReceiptWhereInput = {
       status: { not: 'cancelled' },
-      accountSystemId: { not: null },
     }
     const basePaymentWhere: Prisma.PaymentWhereInput = {
       status: { not: 'cancelled' },
-      accountSystemId: { not: null },
     }
 
     // Date filters for period transactions

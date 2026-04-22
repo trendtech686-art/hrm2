@@ -22,7 +22,7 @@ export interface CashbookTransaction {
   amount: number;
   description?: string | null;
   targetName?: string | null;
-  accountSystemId: string;
+  accountSystemId: string | null;
   branchSystemId?: string | null;
   branchName?: string | null;
   status: string;

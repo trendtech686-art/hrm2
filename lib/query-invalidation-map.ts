@@ -16,6 +16,15 @@
 import type { QueryClient } from '@tanstack/react-query'
 
 const INVALIDATION_MAP: Record<string, readonly (readonly string[])[]> = {
+  // ── Order form bundle (GET /api/settings/order-form) ──────
+  'payment-methods': [['settings', 'order-form']],
+  'sales-channels': [['settings', 'order-form']],
+  'pricing-policies': [['settings', 'order-form']],
+  'shipping-partners': [['settings', 'order-form']],
+  'taxes': [['settings', 'order-form']],
+  'branches': [['settings', 'order-form']],
+  'shipping-settings': [['settings', 'order-form']],
+
   // ── Sales ────────────────────────────────────────────────
   'orders': [
     ['customers'],

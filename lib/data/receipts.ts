@@ -154,8 +154,8 @@ export const getReceiptStats = cache(async (branchId?: string) => {
 
       const [total, completed, cancelled, totalAmountResult] = await Promise.all([
         prisma.receipt.count({ where }),
-        prisma.receipt.count({ where: { ...where, status: 'COMPLETED' } }),
-        prisma.receipt.count({ where: { ...where, status: 'CANCELLED' } }),
+        prisma.receipt.count({ where: { ...where, status: 'completed' } }),
+        prisma.receipt.count({ where: { ...where, status: 'cancelled' } }),
         prisma.receipt.aggregate({
           where,
           _sum: { amount: true },

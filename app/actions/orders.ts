@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActionPermission, serializeDecimals } from '@/lib/api-utils'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { resolveDefaultCashAccountSystemId } from '@/lib/finance/resolve-default-cash-account'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
 import { OrderStatus } from '@/generated/prisma/client'
 import type { ActionResult } from '@/types/action-result'
@@ -620,7 +621,7 @@ export async function addOrderPaymentAction(
               { name: paymentMethodId },
             ],
           },
-          select: { systemId: true, name: true },
+          select: { systemId: true, name: true, type: true },
         })
         if (pm) {
           resolvedPaymentMethodSystemId = pm.systemId
@@ -630,6 +631,20 @@ export async function addOrderPaymentAction(
           resolvedPaymentMethodName = paymentMethodId
         }
       }
+
+      const pmForType = resolvedPaymentMethodSystemId
+        ? await tx.paymentMethod.findUnique({
+            where: { systemId: resolvedPaymentMethodSystemId },
+            select: { type: true },
+          })
+        : await tx.paymentMethod.findFirst({
+            where: { isDefault: true, isActive: true },
+            select: { type: true },
+          })
+      const accountSystemId = await resolveDefaultCashAccountSystemId({
+        branchId: order.branchId,
+        paymentMethodType: pmForType?.type,
+      })
 
       // Create receipt (phiếu thu)
       await tx.receipt.create({
@@ -655,6 +670,7 @@ export async function addOrderPaymentAction(
           paymentMethodSystemId: resolvedPaymentMethodSystemId,
           paymentMethodName: resolvedPaymentMethodName,
           paymentMethod: resolvedPaymentMethodName,
+          accountSystemId,
           // Receipt type
           paymentReceiptTypeSystemId: 'SALE',
           paymentReceiptTypeName: 'Thu tiền bán hàng',

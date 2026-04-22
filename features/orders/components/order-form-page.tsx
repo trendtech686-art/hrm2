@@ -18,20 +18,15 @@ import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, 
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 // ✅ REMOVED: useAllProducts - no longer needed, use API validation instead
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
-import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useOrder } from '../hooks/use-orders';
+import { useOrderFormSettingsData } from '../hooks/use-order-form-settings';
 import { useOrderMutations } from '../hooks/use-order-mutations';
 import { useOrderActions } from '../hooks/use-order-actions';
 // ✅ REMOVED: useOrderFinder - no longer needed, React Query fetches orders directly
 import { validateStockAvailability } from '@/features/products/api/products-api';
-import { usePaymentMethods } from '@/features/settings/payments/methods/hooks/use-payment-methods';
-import { useSalesChannels } from '@/features/settings/sales-channels/hooks/use-sales-channels';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { getSalesSettingsSync } from '@/features/settings/sales/sales-management-service';
-import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import { useStockHistoryMutations } from '@/features/stock-history/hooks/use-stock-history';
-import { useAllShippingPartners } from '@/features/settings/shipping/hooks/use-all-shipping-partners';
-import { useAllTaxesData } from '@/features/settings/taxes/hooks/use-all-taxes';
 import { SUPPORTED_SHIPPING_PARTNERS as _SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES as _SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId as _ShippingPartnerId } from '../shipping-partners-config';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { generateTempId } from '@/lib/id-utils';
@@ -303,19 +298,30 @@ export function OrderFormPage() {
     const { data: copySourceOrderFromQuery } = useOrder(copyOrderSystemId || undefined);
     
     const { data: employees } = useAllEmployees();
-    const { data: branches } = useAllBranches();
-    const { data: pricingPolicies } = useAllPricingPolicies();
+    const { data: orderFormBundle, getDefaultSale } = useOrderFormSettingsData();
+    const branches = React.useMemo(
+      () => (orderFormBundle?.branches ?? []) as import('@/lib/types/prisma-extended').Branch[],
+      [orderFormBundle?.branches],
+    );
+    const pricingPolicies = React.useMemo(
+      () => (orderFormBundle?.pricingPolicies ?? []) as import('@/lib/types/prisma-extended').PricingPolicy[],
+      [orderFormBundle?.pricingPolicies],
+    );
     const { findById: findProductById } = useProductFinder();
     // ✅ REMOVED: useProductStore, useStockHistoryStore - replaced with React Query hooks
     const { create: createStockHistoryEntry } = useStockHistoryMutations();
-    const { data: partners } = useAllShippingPartners();
-    const { getDefaultSale } = useAllTaxesData();
-    
-    // React Query for payment methods and sales channels
-    const { data: pmData } = usePaymentMethods({ isActive: true });
-    const paymentMethods = React.useMemo(() => pmData?.data ?? [], [pmData?.data]);
-    const { data: scData } = useSalesChannels({});
-    const salesChannels = React.useMemo(() => scData?.data ?? [], [scData?.data]);
+    const partners = React.useMemo(
+      () => (orderFormBundle?.shippingPartners ?? []) as import('@/lib/types/prisma-extended').ShippingPartner[],
+      [orderFormBundle?.shippingPartners],
+    );
+    const paymentMethods = React.useMemo(
+      () => (orderFormBundle?.paymentMethods ?? []) as import('@/lib/types/prisma-extended').PaymentMethod[],
+      [orderFormBundle?.paymentMethods],
+    );
+    const salesChannels = React.useMemo(
+      () => (orderFormBundle?.salesChannels ?? []) as import('@/lib/types/prisma-extended').SalesChannel[],
+      [orderFormBundle?.salesChannels],
+    );
 
     const isEditing = !!systemId;
     // ✅ Ưu tiên React Query - không cần fallback vì useOrder đã fetch từ API

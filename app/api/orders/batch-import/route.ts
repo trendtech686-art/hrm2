@@ -485,11 +485,18 @@ export async function POST(request: Request) {
               : pkg.deliveryMethod === 'Lấy tại kho' ? 'PICKUP'
               : 'SHIPPING'
 
+            // Thời gian đóng gói / thao tác Sapo: không mặc định theo thời điểm import (now)
+            const requestDateFallback = orderInput.orderDate
+              ? new Date(orderInput.orderDate)
+              : orderInput.createdAt
+                ? new Date(orderInput.createdAt)
+                : new Date()
+
             return {
               systemId: `PACKAGE${orderNumPadded}-${packagingIndex}`,
               id: `DG${orderNumPadded}-${packagingIndex}`,
               branchId: branchId,
-              requestDate: pkg.requestDate ? new Date(pkg.requestDate) : new Date(),
+              requestDate: pkg.requestDate ? new Date(pkg.requestDate) : requestDateFallback,
               confirmDate: pkg.confirmDate ? new Date(pkg.confirmDate) : null,
               cancelDate: pkg.cancelDate ? new Date(pkg.cancelDate) : null,
               deliveredDate: pkg.deliveredDate ? new Date(pkg.deliveredDate) : null,
@@ -720,6 +727,25 @@ export async function POST(request: Request) {
             }
           }
 
+          /** Mốc thời gian mã vận đơn: ưu tiên ngày từ packaging Sapo → đơn Sapo, không mặc định theo thời điểm import. */
+          const waybillEventAt = (
+            p: (typeof packagingsCreate)[number],
+            o: OrderInput,
+          ): Date => {
+            if (p.requestDate) return p.requestDate
+            if (p.confirmDate) return p.confirmDate
+            if (p.deliveredDate) return p.deliveredDate
+            if (o.createdAt) {
+              const d = new Date(o.createdAt)
+              if (!Number.isNaN(d.getTime())) return d
+            }
+            if (o.orderDate) {
+              const d = new Date(o.orderDate)
+              if (!Number.isNaN(d.getTime())) return d
+            }
+            return new Date()
+          }
+
           // Create Shipment records for packagings that have trackingCode
           for (const pkg of packagingsCreate) {
             if (!pkg.trackingCode || !pkg.carrier) continue
@@ -733,6 +759,8 @@ export async function POST(request: Request) {
               ? parseInt(lastShipment.systemId.replace('SHIPMENT', '')) || 0
               : 0
             const shipmentSysId = `SHIPMENT${String(lastNum + 1).padStart(6, '0')}`
+            const at = waybillEventAt(pkg, orderInput)
+            const isDelivered = pkg.deliveryStatus === 'DELIVERED'
 
             await tx.shipment.create({
               data: {
@@ -742,10 +770,10 @@ export async function POST(request: Request) {
                 packagingSystemId: pkg.systemId,
                 trackingCode: pkg.trackingCode,
                 carrier: pkg.carrier,
-                status: pkg.deliveryStatus === 'DELIVERED' ? 'DELIVERED'
+                status: isDelivered ? 'DELIVERED'
                   : pkg.deliveryStatus === 'SHIPPING' ? 'IN_TRANSIT'
                   : 'PENDING',
-                deliveryStatus: pkg.deliveryStatus === 'DELIVERED' ? 'Đã giao hàng'
+                deliveryStatus: isDelivered ? 'Đã giao hàng'
                   : pkg.deliveryStatus === 'SHIPPING' ? 'Đang giao hàng'
                   : pkg.deliveryStatus === 'PENDING_SHIP' ? 'Chờ lấy hàng'
                   : undefined,
@@ -755,6 +783,9 @@ export async function POST(request: Request) {
                 recipientName: orderInput.customerName,
                 recipientPhone: orderInput.customerPhone || undefined,
                 createdBy,
+                createdAt: at,
+                updatedAt: at,
+                deliveredAt: isDelivered ? (pkg.deliveredDate ?? at) : null,
               },
             })
           }

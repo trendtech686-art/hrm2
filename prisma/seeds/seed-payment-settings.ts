@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '../../generated/prisma/client';
+import { PrismaClient, CashAccountType } from '../../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { randomUUID } from 'crypto';
 
@@ -120,50 +120,108 @@ export async function seedPaymentSettings() {
     ];
 
     for (const item of paymentMethods) {
-      await prisma.settingsData.upsert({
-        where: { id_type: { id: item.id, type: 'payment-method' } },
-        update: { name: item.name, description: item.description, isDefault: item.isDefault, metadata: item.metadata },
+      const typeMap: Record<string, string> = {
+        'PM-001': 'cash',
+        'PM-002': 'bank',
+        'PM-003': 'wallet',
+        'PM-004': 'card',
+        'PM-005': 'cod',
+        'PM-006': 'other',
+      }
+      await prisma.paymentMethod.upsert({
+        where: { id: item.id },
+        update: {
+          name: item.name,
+          description: item.description,
+          isDefault: item.isDefault,
+          isActive: true,
+        },
         create: {
           systemId: randomUUID(),
           id: item.id,
           name: item.name,
-          type: 'payment-method',
+          code: item.id,
+          type: typeMap[item.id] || 'other',
           description: item.description,
           isActive: true,
           isDefault: item.isDefault,
-          metadata: item.metadata,
         },
       });
     }
     console.log(`  ✓ Created ${paymentMethods.length} payment methods`);
 
-    // 5. Seed Cash Accounts (Tài khoản quỹ)
-    console.log('  → Seeding cash accounts...');
-    const cashAccounts = [
-      { id: 'CA-001', name: 'Quỹ tiền mặt', description: 'Quỹ tiền mặt tại cửa hàng', isDefault: true, metadata: { accountNumber: '', bankName: '', balance: 0 } },
-      { id: 'CA-002', name: 'Ngân hàng VCB', description: 'Tài khoản Vietcombank', isDefault: false, metadata: { accountNumber: '0001000xxxxx', bankName: 'Vietcombank', balance: 0 } },
-      { id: 'CA-003', name: 'Ngân hàng TCB', description: 'Tài khoản Techcombank', isDefault: false, metadata: { accountNumber: '19035xxxxx', bankName: 'Techcombank', balance: 0 } },
-      { id: 'CA-004', name: 'Ngân hàng MB', description: 'Tài khoản MB Bank', isDefault: false, metadata: { accountNumber: '0013xxxxx', bankName: 'MB Bank', balance: 0 } },
-      { id: 'CA-005', name: 'Ví MoMo', description: 'Ví điện tử MoMo', isDefault: false, metadata: { accountNumber: '0987654321', bankName: 'MoMo', balance: 0 } },
+    // 5. Seed Cash Accounts — nguồn duy nhất: bảng cash_accounts (không còn settings_data type cash-account)
+    console.log('  → Seeding cash accounts (cash_accounts)...');
+    const cashAccountSeed: Array<{
+      id: string
+      name: string
+      accountType: CashAccountType
+      isDefault: boolean
+      bankName?: string
+      bankAccountNumber?: string
+    }> = [
+      { id: 'CA-001', name: 'Quỹ tiền mặt', accountType: CashAccountType.CASH, isDefault: true },
+      {
+        id: 'CA-002',
+        name: 'Ngân hàng VCB',
+        accountType: CashAccountType.BANK,
+        isDefault: false,
+        bankName: 'Vietcombank',
+        bankAccountNumber: '0001000xxxxx',
+      },
+      {
+        id: 'CA-003',
+        name: 'Ngân hàng TCB',
+        accountType: CashAccountType.BANK,
+        isDefault: false,
+        bankName: 'Techcombank',
+        bankAccountNumber: '19035xxxxx',
+      },
+      {
+        id: 'CA-004',
+        name: 'Ngân hàng MB',
+        accountType: CashAccountType.BANK,
+        isDefault: false,
+        bankName: 'MB Bank',
+        bankAccountNumber: '0013xxxxx',
+      },
+      {
+        id: 'CA-005',
+        name: 'Ví MoMo',
+        accountType: CashAccountType.WALLET,
+        isDefault: false,
+        bankName: 'MoMo',
+        bankAccountNumber: '0987654321',
+      },
     ];
 
-    for (const item of cashAccounts) {
-      await prisma.settingsData.upsert({
-        where: { id_type: { id: item.id, type: 'cash-account' } },
-        update: { name: item.name, description: item.description, isDefault: item.isDefault, metadata: item.metadata },
+    for (const item of cashAccountSeed) {
+      await prisma.cashAccount.upsert({
+        where: { id: item.id },
         create: {
           systemId: randomUUID(),
           id: item.id,
           name: item.name,
-          type: 'cash-account',
-          description: item.description,
+          type: item.accountType,
+          initialBalance: 0,
+          balance: 0,
           isActive: true,
           isDefault: item.isDefault,
-          metadata: item.metadata,
+          bankName: item.bankName,
+          bankAccountNumber: item.bankAccountNumber,
+          accountType: item.accountType === CashAccountType.CASH ? 'cash' : item.accountType === CashAccountType.WALLET ? 'wallet' : 'bank',
+        },
+        update: {
+          name: item.name,
+          type: item.accountType,
+          isActive: true,
+          bankName: item.bankName ?? null,
+          bankAccountNumber: item.bankAccountNumber ?? null,
+          accountType: item.accountType === CashAccountType.CASH ? 'cash' : item.accountType === CashAccountType.WALLET ? 'wallet' : 'bank',
         },
       });
     }
-    console.log(`  ✓ Created ${cashAccounts.length} cash accounts`);
+    console.log(`  ✓ Upserted ${cashAccountSeed.length} cash accounts`);
 
     console.log('✅ Payment settings seeded successfully!');
   } catch (error) {
