@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
-import { X, Upload } from 'lucide-react'
+import { X, Upload, Camera } from 'lucide-react'
 
 interface QrScannerDialogProps {
   open: boolean
@@ -12,25 +12,33 @@ interface QrScannerDialogProps {
   title?: string
 }
 
+function canUseCamera(): boolean {
+  if (typeof window === 'undefined') return false
+  if (typeof navigator === 'undefined') return false
+  // Some browsers expose mediaDevices only in secure contexts; trust isSecureContext
+  // and also verify the getUserMedia method is actually callable.
+  if (window.isSecureContext === false) return false
+  return !!navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function'
+}
+
 export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã QR / Barcode' }: QrScannerDialogProps) {
   const scannerRef = React.useRef<HTMLDivElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const html5QrCodeRef = React.useRef<import('html5-qrcode').Html5Qrcode | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [isStarting, setIsStarting] = React.useState(false)
-  const [isInsecureContext, setIsInsecureContext] = React.useState(false)
+  // true → hiển thị UI "Chụp/Chọn ảnh"; false → hiển thị live camera stream.
+  const [useFileFallback, setUseFileFallback] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
 
-    // Check if camera API is available (requires HTTPS or localhost)
-    const hasMediaDevices = typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function'
-    if (!hasMediaDevices) {
-      setIsInsecureContext(true)
+    if (!canUseCamera()) {
+      setUseFileFallback(true)
       setError(null)
       return
     }
-    setIsInsecureContext(false)
+    setUseFileFallback(false)
 
     let cancelled = false
     let isRunning = false
@@ -66,11 +74,21 @@ export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã
         isRunning = true
       } catch (err) {
         if (!cancelled) {
+          const name = err instanceof Error ? err.name : ''
           const msg = err instanceof Error ? err.message : String(err)
-          if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
-            setError('Vui lòng cấp quyền truy cập camera để quét mã.')
-          } else if (msg.includes('NotFoundError') || msg.includes('no camera')) {
-            setError('Không tìm thấy camera trên thiết bị.')
+          // Camera runtime errors → switch to file fallback automatically so user still có đường dùng.
+          if (
+            name === 'NotAllowedError' ||
+            name === 'SecurityError' ||
+            name === 'NotReadableError' ||
+            msg.includes('NotAllowedError') ||
+            msg.includes('Permission')
+          ) {
+            setError('Vui lòng cấp quyền camera hoặc chọn ảnh mã để quét.')
+            setUseFileFallback(true)
+          } else if (name === 'NotFoundError' || msg.includes('NotFoundError') || msg.includes('no camera')) {
+            setError('Không tìm thấy camera — bạn có thể chọn ảnh mã để quét.')
+            setUseFileFallback(true)
           } else {
             setError('Không thể khởi động camera: ' + msg)
           }
@@ -105,7 +123,6 @@ export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã
     } catch {
       setError('Không tìm thấy mã QR/Barcode trong ảnh. Vui lòng chụp rõ hơn.')
     } finally {
-      // Reset file input
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }, [onScan, onOpenChange])
@@ -120,12 +137,12 @@ export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã
           </Button>
         </DialogHeader>
 
-        {isInsecureContext ? (
-          /* Fallback mode: khi không có HTTPS, cho phép chụp/chọn ảnh để scan */
+        {useFileFallback ? (
+          /* Fallback: chụp/chọn ảnh mã để quét (khi camera không khả dụng hoặc bị chặn). */
           <div className="p-6 space-y-4">
             <div className="text-center space-y-2">
               <p className="text-sm text-muted-foreground">
-                Camera không khả dụng (cần HTTPS). Bạn có thể chụp ảnh mã QR/Barcode để quét.
+                Camera không khả dụng. Bạn có thể chụp ảnh mã QR/Barcode để quét.
               </p>
             </div>
             <Button
@@ -136,6 +153,20 @@ export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã
               <Upload className="h-4 w-4" />
               Chọn ảnh / Chụp ảnh
             </Button>
+            {canUseCamera() && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full gap-2 text-muted-foreground"
+                onClick={() => {
+                  setError(null)
+                  setUseFileFallback(false)
+                }}
+              >
+                <Camera className="h-4 w-4" />
+                Thử lại camera
+              </Button>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -169,11 +200,17 @@ export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã
               )}
               {error && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6">
-                  <div className="text-center">
-                    <p className="text-sm text-white mb-3">{error}</p>
-                    <Button variant="secondary" size="sm" onClick={() => onOpenChange(false)}>
-                      Đóng
-                    </Button>
+                  <div className="text-center space-y-3">
+                    <p className="text-sm text-white">{error}</p>
+                    <div className="flex flex-col gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => setUseFileFallback(true)}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Chuyển sang chụp ảnh
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-white" onClick={() => onOpenChange(false)}>
+                        Đóng
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

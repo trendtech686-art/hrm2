@@ -15,38 +15,155 @@ import {
  * Floating indicator that surfaces how many actions are waiting to replay.
  * Renders nothing unless the queue is non-empty or the user is offline, so it
  * stays out of the way during normal use.
+ *
+ * Detection strategy:
+ *  - Trust `navigator.onLine === false` immediately (browser is confident).
+ *  - When `navigator.onLine === true`, verify reachability by pinging the
+ *    health endpoint periodically (and on tab focus/visibility change).
+ *    Only mark offline after two consecutive ping failures so transient
+ *    network blips don't flip the UI.
  */
+
+const HEALTH_URL = "/api/health";
+const PING_INTERVAL_MS = 30_000;
+const PING_TIMEOUT_MS = 5_000;
+const OFFLINE_CONFIRM_FAILURES = 2;
+const OFFLINE_DEBOUNCE_MS = 1_500;
+
+async function pingHealth(signal: AbortSignal): Promise<boolean> {
+  try {
+    const res = await fetch(HEALTH_URL, {
+      method: "GET",
+      cache: "no-store",
+      signal,
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export function OfflineQueueIndicator() {
   const [queue, setQueue] = React.useState<QueuedAction[]>([]);
-  const [online, setOnline] = React.useState<boolean>(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  const [online, setOnline] = React.useState<boolean>(true);
   const [syncing, setSyncing] = React.useState(false);
 
+  const offlineTimerRef = React.useRef<number | null>(null);
+  const failureCountRef = React.useRef(0);
+  const mountedRef = React.useRef(false);
+
+  // Debounced setOnline(false) to avoid flickering on transient network blips.
+  const scheduleOffline = React.useCallback(() => {
+    if (offlineTimerRef.current !== null) return;
+    offlineTimerRef.current = window.setTimeout(() => {
+      offlineTimerRef.current = null;
+      if (mountedRef.current) setOnline(false);
+    }, OFFLINE_DEBOUNCE_MS);
+  }, []);
+
+  const cancelOffline = React.useCallback(() => {
+    if (offlineTimerRef.current !== null) {
+      window.clearTimeout(offlineTimerRef.current);
+      offlineTimerRef.current = null;
+    }
+  }, []);
+
+  const markOnline = React.useCallback(() => {
+    cancelOffline();
+    failureCountRef.current = 0;
+    if (mountedRef.current) setOnline(true);
+  }, [cancelOffline]);
+
+  const verifyReachability = React.useCallback(async () => {
+    if (typeof navigator === "undefined") return;
+    if (!navigator.onLine) {
+      failureCountRef.current = OFFLINE_CONFIRM_FAILURES;
+      scheduleOffline();
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      PING_TIMEOUT_MS,
+    );
+    const ok = await pingHealth(controller.signal);
+    window.clearTimeout(timeout);
+
+    if (!mountedRef.current) return;
+
+    if (ok) {
+      markOnline();
+    } else {
+      failureCountRef.current += 1;
+      if (failureCountRef.current >= OFFLINE_CONFIRM_FAILURES) {
+        scheduleOffline();
+      }
+    }
+  }, [markOnline, scheduleOffline]);
+
   React.useEffect(() => {
+    mountedRef.current = true;
     const uninstall = installOfflineQueueRunner();
     const unsub = subscribeOfflineQueue(setQueue);
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
+
+    // Sync with current browser state immediately after hydration.
+    if (typeof navigator !== "undefined") {
+      setOnline(navigator.onLine);
+    }
+
+    const handleOnline = () => {
+      // Browser thinks we're online — verify before trusting.
+      void verifyReachability();
+    };
+    const handleOffline = () => {
+      failureCountRef.current = OFFLINE_CONFIRM_FAILURES;
+      scheduleOffline();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void verifyReachability();
+      }
+    };
+    const handleFocus = () => {
+      void verifyReachability();
+    };
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+
     void getOfflineQueue().then(setQueue);
+
+    // Initial verify + periodic re-check.
+    void verifyReachability();
+    const intervalId = window.setInterval(verifyReachability, PING_INTERVAL_MS);
+
     return () => {
+      mountedRef.current = false;
       uninstall();
       unsub();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+      window.clearInterval(intervalId);
+      cancelOffline();
     };
-  }, []);
+  }, [verifyReachability, scheduleOffline, cancelOffline]);
 
   const handleRetry = React.useCallback(async () => {
     setSyncing(true);
     try {
       await processQueue();
+      await verifyReachability();
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [verifyReachability]);
 
   const count = queue.length;
   if (online && count === 0) return null;

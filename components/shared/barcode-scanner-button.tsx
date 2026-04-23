@@ -3,19 +3,15 @@
 /**
  * BarcodeScannerButton
  * ─────────────────────────────────────────────────────────────────────────
- * Mobile-first barcode scanner using the native `BarcodeDetector` API where
- * available (Chrome Android, Safari iOS 17+). Falls back to hiding on
- * unsupported browsers so the button never shows up as dead UI on desktop
- * Chrome or older devices.
+ * Mobile-first barcode scanner. Prefers the native `BarcodeDetector` API
+ * (Chrome Android) for best performance, and falls back to the
+ * `html5-qrcode` library when unavailable (iOS Safari, Firefox, WebView)
+ * so the button keeps working across every modern browser on HTTPS.
  *
  * Usage:
  *   <BarcodeScannerButton onDetect={(code) => searchProduct(code)} />
  *
- * The component is entirely self-contained: it opens a full-screen camera
- * dialog (mobile-full-screen sheet on small screens) that continuously scans
- * frames and fires `onDetect` the first time a supported code is found, then
- * closes automatically. Formats scanned: EAN-13, EAN-8, UPC-A, Code-128,
- * QR codes.
+ * Formats scanned: EAN-13, EAN-8, UPC-A, UPC-E, Code-128, Code-39, QR, ITF.
  */
 
 import * as React from "react";
@@ -24,9 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-// Minimal typing for the experimental BarcodeDetector API. We don't depend on
-// DOM lib updates so we declare what we need and fall back gracefully when the
-// API is missing.
 type DetectedBarcode = { rawValue: string; format: string };
 type BarcodeDetectorCtor = new (init?: { formats?: string[] }) => {
   detect: (source: CanvasImageSource) => Promise<DetectedBarcode[]>;
@@ -38,7 +31,14 @@ function getBarcodeDetector(): BarcodeDetectorCtor | null {
   return maybe ?? null;
 }
 
-const SUPPORTED_FORMATS = [
+function hasCamera(): boolean {
+  if (typeof window === "undefined") return false;
+  if (typeof navigator === "undefined") return false;
+  if (window.isSecureContext === false) return false;
+  return !!navigator.mediaDevices?.getUserMedia;
+}
+
+const NATIVE_FORMATS = [
   "ean_13",
   "ean_8",
   "upc_a",
@@ -48,6 +48,8 @@ const SUPPORTED_FORMATS = [
   "qr_code",
   "itf",
 ];
+
+type Support = "native" | "html5" | "unsupported" | "pending";
 
 export interface BarcodeScannerButtonProps {
   /** Called with the detected code (rawValue) on successful scan. */
@@ -70,18 +72,17 @@ export function BarcodeScannerButton({
   disabled,
 }: BarcodeScannerButtonProps) {
   const [open, setOpen] = React.useState(false);
-  const [supported, setSupported] = React.useState<boolean | null>(null);
+  const [support, setSupport] = React.useState<Support>("pending");
 
-  // Feature-detect BarcodeDetector on mount. Hide the button entirely if the
-  // browser has no camera API or no BarcodeDetector.
   React.useEffect(() => {
-    const hasMedia = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
-    const ctor = getBarcodeDetector();
-    setSupported(hasMedia && !!ctor);
+    if (!hasCamera()) {
+      setSupport("unsupported");
+      return;
+    }
+    setSupport(getBarcodeDetector() ? "native" : "html5");
   }, []);
 
-  if (supported === false) return null; // unsupported browser → no UI
-  if (supported === null) return null; // still feature-detecting on SSR/initial
+  if (support === "unsupported" || support === "pending") return null;
 
   const handleDetected = (code: string) => {
     setOpen(false);
@@ -126,14 +127,15 @@ export function BarcodeScannerButton({
               <X className="h-4 w-4" />
             </button>
           </DialogHeader>
-          {open && <ScannerSurface onDetected={handleDetected} />}
+          {open && support === "native" && <NativeScannerSurface onDetected={handleDetected} />}
+          {open && support === "html5" && <Html5ScannerSurface onDetected={handleDetected} />}
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-function ScannerSurface({ onDetected }: { onDetected: (code: string) => void }) {
+function NativeScannerSurface({ onDetected }: { onDetected: (code: string) => void }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [starting, setStarting] = React.useState(true);
@@ -147,7 +149,7 @@ function ScannerSurface({ onDetected }: { onDetected: (code: string) => void }) 
     let stream: MediaStream | null = null;
     let rafId = 0;
     let cancelled = false;
-    const detector = new Detector({ formats: SUPPORTED_FORMATS });
+    const detector = new Detector({ formats: NATIVE_FORMATS });
 
     const stop = () => {
       cancelled = true;
@@ -191,15 +193,99 @@ function ScannerSurface({ onDetected }: { onDetected: (code: string) => void }) 
   }, [onDetected]);
 
   return (
+    <ScannerFrame starting={starting} error={error}>
+      <video
+        ref={videoRef}
+        playsInline
+        muted
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    </ScannerFrame>
+  );
+}
+
+function Html5ScannerSurface({ onDetected }: { onDetected: (code: string) => void }) {
+  const regionId = React.useId().replace(/:/g, "_") + "-barcode-region";
+  const [error, setError] = React.useState<string | null>(null);
+  const [starting, setStarting] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    let scanner: import("html5-qrcode").Html5Qrcode | null = null;
+    let running = false;
+
+    (async () => {
+      try {
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        if (cancelled) return;
+
+        const formats = [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.ITF,
+        ];
+
+        scanner = new Html5Qrcode(regionId, { verbose: false, formatsToSupport: formats });
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 260, height: 180 }, aspectRatio: 4 / 3 },
+          (decoded) => {
+            if (cancelled) return;
+            onDetected(decoded);
+          },
+          () => {
+            // ignore per-frame "no code detected" errors
+          },
+        );
+        running = true;
+        if (!cancelled) setStarting(false);
+      } catch (err) {
+        if (cancelled) return;
+        const name = err instanceof Error ? err.name : "";
+        const msg = err instanceof Error ? err.message : String(err);
+        if (name === "NotAllowedError" || msg.includes("Permission")) {
+          setError("Vui lòng cấp quyền truy cập camera để quét.");
+        } else if (name === "NotFoundError" || msg.includes("no camera")) {
+          setError("Không tìm thấy camera trên thiết bị.");
+        } else {
+          setError("Không thể khởi động camera: " + msg);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (scanner && running) {
+        scanner.stop().then(() => scanner?.clear()).catch(() => {});
+      }
+    };
+  }, [onDetected, regionId]);
+
+  return (
+    <ScannerFrame starting={starting} error={error}>
+      <div id={regionId} className="absolute inset-0 [&>video]:h-full [&>video]:w-full [&>video]:object-cover" />
+    </ScannerFrame>
+  );
+}
+
+function ScannerFrame({
+  children,
+  starting,
+  error,
+}: {
+  children: React.ReactNode;
+  starting: boolean;
+  error: string | null;
+}) {
+  return (
     <div className="relative bg-black w-full">
       <div className="relative aspect-3/4 md:aspect-video w-full overflow-hidden">
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        {/* Targeting reticle */}
+        {children}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="relative w-[78%] max-w-80 aspect-4/3">
             <div className="absolute inset-0 rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
