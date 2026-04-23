@@ -4,72 +4,21 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import type {
+  PublicComplaintData,
+  PublicTrackingResponse,
+} from '@/lib/types/public-complaint';
 
-export interface PublicTrackingSettings {
-  enabled: boolean;
-  showEmployeeName: boolean;
-  showTimeline: boolean;
-  allowCustomerComments: boolean;
-  showOrderInfo: boolean;
-  showProducts: boolean;
-  showImages: boolean;
-  showResolution: boolean;
-}
-
-export interface PublicTrackingComment {
-  systemId: string;
-  content: string;
-  contentText: string;
-  createdBy: string;
-  createdBySystemId: string;
-  createdAt: string;
-  attachments: string[];
-  mentions: string[];
-  isEdited: boolean;
-  parentId: string | undefined;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type PublicComplaintData = Record<string, any>;
-
-export interface PublicTimelineAction {
-  id: string;
-  actionType: string;
-  performedBy?: string;
-  performedByName?: string;
-  performedAt: string;
-  note?: string;
-  images?: string[];
-  metadata?: Record<string, unknown>;
-}
-
-export interface PublicRelatedOrder {
-  systemId?: string;
-  id?: string;
-  packagings?: Array<{ trackingCode?: string; requestDate?: string | Date }>;
-  shippingAddress?: string;
-  salesperson?: string;
-  orderDate?: string | Date;
-  grandTotal?: number;
-  expectedDeliveryDate?: string | Date;
-  [key: string]: unknown;
-}
-
-export interface PublicCompensationItem {
-  amount: number;
-  description?: string;
-  createdAt: string | Date;
-}
-
-interface PublicTrackingResponse {
-  complaint: PublicComplaintData;
-  relatedOrder: PublicRelatedOrder | null;
-  comments: PublicTrackingComment[];
-  timelineActions: PublicTimelineAction[];
-  settings: PublicTrackingSettings;
-  hotline: string;
-  companyName: string;
-}
+export type {
+  PublicAffectedProduct,
+  PublicTrackingSettings,
+  PublicTrackingComment,
+  PublicComplaintData,
+  PublicTimelineAction,
+  PublicRelatedOrder,
+  PublicCompensationItem,
+  PublicTrackingResponse,
+} from '@/lib/types/public-complaint';
 
 async function fetchPublicComplaintTracking(code: string): Promise<PublicTrackingResponse> {
   const res = await fetch(`/api/public/complaint-tracking?code=${encodeURIComponent(code)}`);
@@ -90,8 +39,7 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
   });
 
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    complaint: (data?.complaint as any) ?? null,
+    complaint: (data?.complaint as PublicComplaintData | undefined) ?? null,
     relatedOrder: data?.relatedOrder ?? null,
     comments: data?.comments ?? [],
     timelineActions: data?.timelineActions ?? [],

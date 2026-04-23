@@ -9,8 +9,21 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import debounce from 'lodash/debounce';
 import { logError } from '@/lib/logger'
+
+// Simple debounce utility (replaces lodash/debounce to avoid extra dependency)
+function debounce<Args extends unknown[]>(
+  fn: (...args: Args) => void | Promise<void>,
+  wait: number,
+): (...args: Args) => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return (...args: Args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      void fn(...args);
+    }, wait);
+  };
+}
 
 // ============================================================================
 // Types

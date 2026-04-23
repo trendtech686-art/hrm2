@@ -37,6 +37,7 @@
     "strict": false,
     "strictNullChecks": true,
     "noImplicitThis": true,
+    "noImplicitAny": true,
     "alwaysStrict": true,
     "strictBindCallApply": true,
     "strictFunctionTypes": true,
