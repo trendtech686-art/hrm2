@@ -2264,7 +2264,7 @@ export function OrderDetailPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {order.packagings.length === 0 && (
-                            <div className="text-center text-muted-foreground py-4">
+                            <div className="flex min-h-[160px] items-center justify-center text-sm text-muted-foreground">
                                 Chưa có yêu cầu đóng gói.
                             </div>
                         )}

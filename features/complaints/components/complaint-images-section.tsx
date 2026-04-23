@@ -43,7 +43,11 @@ function ImageGrid({ images, altPrefix, onImagePreview }: {
   onImagePreview: (urls: string[], index: number) => void;
 }) {
   if (images.length === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-4">Chưa có hình ảnh</p>;
+    return (
+      <div className="flex min-h-[120px] items-center justify-center text-sm text-muted-foreground">
+        Chưa có hình ảnh
+      </div>
+    );
   }
 
   const imageUrls = images.map(i => i.url);

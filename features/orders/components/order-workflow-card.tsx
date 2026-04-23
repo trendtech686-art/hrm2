@@ -100,7 +100,7 @@ export function OrderWorkflowCard({
           <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-4 text-muted-foreground">
+          <div className="flex min-h-[200px] flex-col items-center justify-center px-4 py-8 text-center text-muted-foreground">
             <p className="text-sm">Chưa cấu hình quy trình</p>
             <p className="text-xs mt-1">
               Vào <Link href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</Link> để thiết lập

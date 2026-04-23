@@ -622,7 +622,9 @@ export function WarrantyDetailPage() {
                 {ticket.notes ? (
                   <p className="text-sm whitespace-pre-wrap">{ticket.notes}</p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Không có ghi chú</p>
+                  <div className="flex min-h-[120px] items-center justify-center text-sm text-muted-foreground">
+                    Không có ghi chú
+                  </div>
                 )}
               </CardContent>
             </Card>

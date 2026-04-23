@@ -162,7 +162,9 @@ export function ProductItemsCard({ items, status }: ProductItemsCardProps) {
       </CardHeader>
       <CardContent className="p-0 md:p-6 md:pt-0">
         {items.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8 text-sm">Chưa có sản phẩm nào</div>
+          <div className="flex min-h-[200px] items-center justify-center text-sm text-muted-foreground">
+            Chưa có sản phẩm nào
+          </div>
         ) : (
           <>
             {/* Mobile View - Card Layout */}
