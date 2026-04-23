@@ -319,7 +319,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
         </CardContent>
       </Card>
 
-      <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
+      <Card className={`${mobileBleedCardClass} border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 max-md:border-blue-200`}>
         <CardContent className="pt-6">
           <div className="space-y-2">
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100">

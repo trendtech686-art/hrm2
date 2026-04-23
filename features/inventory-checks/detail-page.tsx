@@ -13,6 +13,7 @@ import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Tabs } from '../../components/ui/tabs';
 import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
+import { MobileCard, MobileCardBody } from '@/components/mobile/mobile-card';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Check, Pencil, XCircle, Printer, Copy, Package, Eye, MoreHorizontal } from 'lucide-react';
@@ -646,78 +647,76 @@ export function InventoryCheckDetailPage() {
               const imageUrl = itemAny.productImage;
               
               return (
-              <Card key={globalIndex}>
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex gap-3">
-                    {imageUrl ? (
-                      <div
-                        className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer shrink-0"
-                        onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+              <MobileCard key={globalIndex} inert>
+                <div className="flex gap-3">
+                  {imageUrl ? (
+                    <div
+                      className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer shrink-0"
+                      onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                    >
+                      <OptimizedImage
+                        src={imageUrl}
+                        alt={item.productName}
+                        className="w-full h-full object-cover"
+                        width={48}
+                        height={40}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-10 bg-muted rounded flex items-center justify-center shrink-0">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{item.productName}</div>
+                    <div className="text-sm text-muted-foreground">
+                      <Link href={`/products/${item.productSystemId}`}
+                        className="text-primary hover:underline font-medium"
                       >
-                        <OptimizedImage 
-                          src={imageUrl} 
-                          alt={item.productName} 
-                          className="w-full h-full object-cover" 
-                          width={48} 
-                          height={40} 
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-10 bg-muted rounded flex items-center justify-center shrink-0">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{item.productName}</div>
-                      <div className="text-sm text-muted-foreground">
-                        <Link href={`/products/${item.productSystemId}`}
-                          className="text-primary hover:underline font-medium"
-                        >
-                          {item.productId}
-                        </Link>
-                      </div>
+                        {item.productId}
+                      </Link>
                     </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-center py-2">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Hệ thống</div>
-                      <div className="font-medium">{item.systemQuantity}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Thực tế</div>
-                      <div className="font-medium">{item.actualQuantity}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Lệch</div>
-                      <div className={`font-medium ${item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}`}>
-                        {item.difference > 0 ? '+' : ''}{item.difference}
-                      </div>
+                <MobileCardBody className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Hệ thống</div>
+                    <div className="font-medium">{item.systemQuantity}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Thực tế</div>
+                    <div className="font-medium">{item.actualQuantity}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Lệch</div>
+                    <div className={`font-medium ${item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}`}>
+                      {item.difference > 0 ? '+' : ''}{item.difference}
                     </div>
                   </div>
+                </MobileCardBody>
 
-                  {item.reason && (
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Lý do: </span>
-                      <span className="font-medium">
-                        {item.reason === 'damaged' ? 'Hư Hỏng' : 
-                         item.reason === 'wear' ? 'Hao Mòn' :
-                         item.reason === 'return' ? 'Trả Hàng' :
-                         item.reason === 'transfer' ? 'Chuyển Hàng' :
-                         item.reason === 'production' ? 'Sản Xuất' :
-                         item.reason === 'other' ? 'Khác' : ''}
-                      </span>
-                    </div>
-                  )}
+                {item.reason && (
+                  <div className="mt-2 text-sm">
+                    <span className="text-muted-foreground">Lý do: </span>
+                    <span className="font-medium">
+                      {item.reason === 'damaged' ? 'Hư Hỏng' :
+                       item.reason === 'wear' ? 'Hao Mòn' :
+                       item.reason === 'return' ? 'Trả Hàng' :
+                       item.reason === 'transfer' ? 'Chuyển Hàng' :
+                       item.reason === 'production' ? 'Sản Xuất' :
+                       item.reason === 'other' ? 'Khác' : ''}
+                    </span>
+                  </div>
+                )}
 
-                  {item.note && (
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Ghi chú: </span>
-                      {item.note}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                {item.note && (
+                  <div className="mt-1 text-sm">
+                    <span className="text-muted-foreground">Ghi chú: </span>
+                    {item.note}
+                  </div>
+                )}
+              </MobileCard>
               );
             })}
           </div>

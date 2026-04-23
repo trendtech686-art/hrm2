@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { mobileBleedCardClass } from '@/components/layout/page-section'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
@@ -273,7 +274,7 @@ export function CustomerActivityTable({ customerSystemId }: CustomerActivityTabl
   
   return (
     <>
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-3">
           <CardTitle size="sm" className="font-medium flex items-center gap-2">
             <History className="h-4 w-4" />

@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../../components/ui/badge';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
 import { Separator } from '../../../components/ui/separator';
-import { Card, CardContent } from '../../../components/ui/card';
+import { MobileCard } from '@/components/mobile/mobile-card';
 import { LazyImage } from '../../../components/ui/lazy-image';
 import { cn } from '../../../lib/utils';
 import { RESOLUTION_LABELS } from '../types';
@@ -94,9 +94,8 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
     const hasWarrantyImages = warrantyImages.length > 0;
     
     return (
-      <Card className="overflow-hidden">
-        <CardContent className="p-3 sm:p-4">
-          <div className="space-y-3">
+      <MobileCard inert className="overflow-hidden">
+        <div className="space-y-3">
             {/* Header: Ảnh SP + Tên sản phẩm + Badge */}
             <div className="flex gap-3">
               {/* Hình ảnh sản phẩm gốc */}
@@ -243,9 +242,8 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 </span>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </MobileCard>
     );
   };
 
@@ -254,8 +252,9 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
       {/* Mobile View - Card Layout */}
       <div className="block lg:hidden space-y-3">
         {products.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8 text-sm">
-            Chưa có sản phẩm nào
+          <div className="flex min-h-[200px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+            <Package className="mb-3 h-10 w-10 text-muted-foreground/60" strokeWidth={1.5} />
+            <p className="text-sm">Chưa có sản phẩm nào</p>
           </div>
         ) : (
           products.map((product, index) => (
@@ -283,8 +282,11 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
           <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground py-6 sm:py-8">
-                Chưa có sản phẩm nào
+              <TableCell colSpan={9} className="h-[200px] text-center align-middle text-muted-foreground">
+                <div className="flex min-h-[160px] flex-col items-center justify-center gap-2">
+                  <Package className="h-8 w-8 text-muted-foreground/60" strokeWidth={1.5} />
+                  <span className="text-sm">Chưa có sản phẩm nào</span>
+                </div>
               </TableCell>
             </TableRow>
           ) : (

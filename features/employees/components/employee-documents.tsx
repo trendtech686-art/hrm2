@@ -417,7 +417,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     if (Object.keys(documentsByName[type]).length === 0) return null;
     
     return (
-      <Card className={`border-l-4 ${borderColor}`}>
+      <Card className={`${mobileBleedCardClass} border-l-4 ${borderColor}`}>
         <CardHeader className="pb-3">
           <CardTitle className="text-primary">{index}. {title}</CardTitle>
         </CardHeader>
@@ -463,10 +463,10 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
         </div>
       ) : employeeDocuments.length === 0 ? (
         <Card className={mobileBleedCardClass}>
-          <CardContent className="py-8">
-            <div className="text-center text-muted-foreground">
-              <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              {searchQuery ? 'Không tìm thấy tài liệu phù hợp' : 'Chưa có tài liệu nào'}
+          <CardContent className="p-0">
+            <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+              <FolderOpen className="h-12 w-12 mb-3 text-muted-foreground/60" strokeWidth={1.5} />
+              <p className="text-sm">{searchQuery ? 'Không tìm thấy tài liệu phù hợp' : 'Chưa có tài liệu nào'}</p>
             </div>
           </CardContent>
         </Card>
@@ -478,7 +478,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
             Object.keys(documentsByName['decisions']).length > 0 ||
             Object.keys(documentsByName['kpi']).length > 0 ||
             Object.keys(documentsByName['requests']).length > 0) && (
-            <Card className="border-l-4 border-l-green-500">
+            <Card className={`${mobileBleedCardClass} border-l-4 border-l-green-500`}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
               </CardHeader>
