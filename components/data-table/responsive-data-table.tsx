@@ -1173,8 +1173,10 @@ function DesktopDataTable<TData extends { systemId: string }>({
             </TableHeader>
             <TableBody>
               <TableRow>
-                <TableCell colSpan={displayColumns.length} className="h-24 text-center">
-                  Không có dữ liệu.
+                <TableCell colSpan={displayColumns.length} className="h-[240px] text-center align-middle text-muted-foreground">
+                  <div className="flex min-h-[200px] flex-col items-center justify-center">
+                    Không có dữ liệu.
+                  </div>
                 </TableCell>
               </TableRow>
             </TableBody>

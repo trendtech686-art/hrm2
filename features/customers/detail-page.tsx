@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
-import { ArrowLeft, Edit, Trash2, Phone, Mail, ExternalLink, Copy, Plus, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Phone, Mail, ExternalLink, Copy, Plus, MoreHorizontal, Building2, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1150,9 +1150,10 @@ export function CustomerDetailPage() {
               </Card>
             ) : (
               <Card className={mobileBleedCardClass}>
-                <CardContent className="py-12">
-                  <div className="text-center text-muted-foreground">
-                    <p>Chưa có thông tin doanh nghiệp</p>
+                <CardContent className="p-0">
+                  <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+                    <Building2 className="mb-3 h-12 w-12 text-muted-foreground/60" strokeWidth={1.5} />
+                    <p className="text-sm">Chưa có thông tin doanh nghiệp</p>
                   </div>
                 </CardContent>
               </Card>
@@ -1312,8 +1313,9 @@ export function CustomerDetailPage() {
               </CardHeader>
               <CardContent>
                 {!customer.contacts || customer.contacts.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <p>Chưa có thông tin liên hệ nào</p>
+                  <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+                    <Users className="mb-3 h-12 w-12 text-muted-foreground/60" strokeWidth={1.5} />
+                    <p className="text-sm">Chưa có thông tin liên hệ nào</p>
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

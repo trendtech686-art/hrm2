@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import * as React from 'react';
-import { Phone, Mail } from 'lucide-react';
+import { Phone, Mail, Users } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import type { Customer } from '@/lib/types/prisma-extended';
@@ -19,8 +19,9 @@ export function ContactsTab({ customer }: ContactsTabProps) {
       </CardHeader>
       <CardContent>
         {!customer.contacts || customer.contacts.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p>Chưa có thông tin liên hệ nào</p>
+          <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+            <Users className="mb-3 h-12 w-12 text-muted-foreground/60" strokeWidth={1.5} />
+            <p className="text-sm">Chưa có thông tin liên hệ nào</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

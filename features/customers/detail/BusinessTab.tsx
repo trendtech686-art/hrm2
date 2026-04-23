@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { formatDate as formatDateUtil } from '@/lib/date-utils';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Building2 } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { CopyableText } from '../../../components/shared/copy-button';
@@ -43,9 +43,10 @@ export function BusinessTab({ customer }: BusinessTabProps) {
         </Card>
       ) : (
         <Card className={mobileBleedCardClass}>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              <p>Chưa có thông tin doanh nghiệp</p>
+          <CardContent className="p-0">
+            <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+              <Building2 className="mb-3 h-12 w-12 text-muted-foreground/60" strokeWidth={1.5} />
+              <p className="text-sm">Chưa có thông tin doanh nghiệp</p>
             </div>
           </CardContent>
         </Card>

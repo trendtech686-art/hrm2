@@ -5,7 +5,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Switch } from '../../components/ui/switch';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Plus, Trash2, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, MoreHorizontal, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -221,8 +221,11 @@ export function CustomerContacts({ contacts = [], onUpdate }: CustomerContactsPr
 
       {contacts.length === 0 ? (
         <Card className={mobileBleedCardClass}>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Chưa có liên hệ nào. Nhấn "Thêm liên hệ" để tạo mới.
+          <CardContent className="p-0">
+            <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
+              <Users className="mb-3 h-12 w-12 text-muted-foreground/60" strokeWidth={1.5} />
+              <p className="text-sm">Chưa có liên hệ nào. Nhấn "Thêm liên hệ" để tạo mới.</p>
+            </div>
           </CardContent>
         </Card>
       ) : (

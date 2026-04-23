@@ -30,19 +30,19 @@ export function EmptyState({
 }: EmptyStateProps) {
   const sizeClasses = {
     sm: {
-      container: "py-8",
+      container: "py-8 min-h-[160px]",
       icon: "h-12 w-12 mb-3",
       title: "text-base",
       description: "text-sm",
     },
     md: {
-      container: "py-12",
+      container: "py-12 min-h-[240px]",
       icon: "h-16 w-16 mb-4",
       title: "text-lg",
       description: "text-sm",
     },
     lg: {
-      container: "py-16",
+      container: "py-16 min-h-[320px]",
       icon: "h-20 w-20 mb-6",
       title: "text-xl",
       description: "text-base",
