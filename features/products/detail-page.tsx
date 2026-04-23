@@ -279,18 +279,28 @@ export function ProductDetailPage() {
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  // ✅ Fetch stock history from API (database)
-  const { data: stockHistoryResponse } = useProductStockHistory(product?.systemId);
+  // ✅ Fetch stock history từ API với server-side pagination để load toàn bộ dữ liệu + infinite scroll mobile
+  const [stockHistoryPage, setStockHistoryPage] = React.useState(1);
+  const [stockHistoryPageSize, setStockHistoryPageSize] = React.useState(20);
+  const { data: stockHistoryResponse } = useProductStockHistory(product?.systemId, {
+    page: stockHistoryPage,
+    limit: stockHistoryPageSize,
+    branchId: historyBranchFilter,
+  });
   const stockHistoryData = stockHistoryResponse?.data ?? [];
-  
-  // Transform and filter API data by branch
+  const stockHistoryTotal = stockHistoryResponse?.pagination?.total ?? stockHistoryData.length;
+
+  // Reset về trang 1 khi đổi filter chi nhánh
+  React.useEffect(() => {
+    setStockHistoryPage(1);
+  }, [historyBranchFilter]);
+
+  // API đã trả về dữ liệu đã lọc theo branch + sort theo ngày giảm dần; không cần client-side filter thêm
   const productHistory = React.useMemo(() => {
-    let filtered = stockHistoryData;
-    if (historyBranchFilter !== 'all') {
-      filtered = stockHistoryData.filter(e => e.branchSystemId === historyBranchFilter);
-    }
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [stockHistoryData, historyBranchFilter]);
+    return [...stockHistoryData].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [stockHistoryData]);
   
   const purchasePriceHistory = React.useMemo<PriceHistoryEntry[]>(() => {
     if (!productSystemId) return [];
@@ -1433,7 +1443,22 @@ export function ProductDetailPage() {
               
               {/* Sub-tab: Lịch sử xuất nhập kho */}
               <TabsContent value="stock-history" className="mt-4">
-                <RelatedDataTable data={productHistory} columns={stockHistoryColumns} searchKeys={['action', 'documentId', 'employeeName']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_kho_${product.id}`}>
+                <RelatedDataTable
+                  data={productHistory}
+                  columns={stockHistoryColumns}
+                  searchKeys={['action', 'documentId', 'employeeName']}
+                  searchPlaceholder="Tìm kiếm..."
+                  dateFilterColumn="date"
+                  dateFilterTitle="Ngày"
+                  exportFileName={`Lich_su_kho_${product.id}`}
+                  serverPagination={{
+                    page: stockHistoryPage,
+                    pageSize: stockHistoryPageSize,
+                    totalItems: stockHistoryTotal,
+                    onPageChange: setStockHistoryPage,
+                    onPageSizeChange: setStockHistoryPageSize,
+                  }}
+                >
                   <Select value={historyBranchFilter} onValueChange={(v) => setHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
                     <SelectTrigger className="h-8 w-full sm:w-50"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
                     <SelectContent>

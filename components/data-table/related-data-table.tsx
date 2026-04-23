@@ -49,6 +49,11 @@ interface RelatedDataTableProps<TData extends { systemId: string }> {
     search?: string;
     onSearchChange?: (search: string) => void;
   };
+  /**
+   * Bật infinite scroll mobile (kéo xuống auto-load trang kế tiếp).
+   * Mặc định TRUE khi có `serverPagination` — có thể override bằng `false`.
+   */
+  mobileInfiniteScroll?: boolean;
 }
 
 export function RelatedDataTable<TData extends { systemId: string }>({
@@ -70,7 +75,10 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   defaultSorting,
   customBulkActions,
   serverPagination,
+  mobileInfiniteScroll,
 }: RelatedDataTableProps<TData>) {
+  // Mặc định bật infinite scroll mobile khi có server pagination
+  const effectiveMobileInfiniteScroll = mobileInfiniteScroll ?? Boolean(serverPagination);
   // Get default page size from global settings
   const defaultPageSize = useDefaultPageSize();
   
@@ -405,6 +413,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
         pinnedColumns={pinnedColumns}
         setPinnedColumns={setPinnedColumns}
         autoGenerateMobileCards
+        mobileInfiniteScroll={effectiveMobileInfiniteScroll}
       />
     </div>
   );

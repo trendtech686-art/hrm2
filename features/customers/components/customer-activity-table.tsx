@@ -294,6 +294,7 @@ export function CustomerActivityTable({ customerSystemId }: CustomerActivityTabl
             setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>}
             isLoading={isLoading}
             emptyTitle="Chưa có lịch sử hoạt động"
+            mobileInfiniteScroll
           />
         </CardContent>
       </Card>
