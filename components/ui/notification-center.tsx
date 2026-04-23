@@ -99,7 +99,7 @@ const notificationIcons: Record<string, React.ReactNode> = {
   purchase_order: <span className="text-sky-600">🛒</span>,
   purchase_return: <span className="text-fuchsia-600">↩️</span>,
   // Hệ thống
-  system: <span className="text-gray-600">⚙️</span>,
+  system: <span className="text-muted-foreground">⚙️</span>,
   task: <span className="text-teal-600">✅</span>,
   comment: <span className="text-indigo-600">💬</span>,
   mention: <span className="text-pink-600">@</span>,

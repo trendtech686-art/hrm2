@@ -353,7 +353,7 @@ function BankTransferSection({ form, bankAccounts, amount, reference }: BankTran
                 alt="VietQR Payment" 
                 width={192} 
                 height={192} 
-                className="w-48 h-48 border rounded-lg bg-white p-2"
+                className="w-48 h-48 border rounded-lg bg-card p-2"
                 unoptimized
               />
               <div className="text-center text-sm">

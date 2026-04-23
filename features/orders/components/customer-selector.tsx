@@ -503,7 +503,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                 </div>
                               )}
                             />
-                            <div className="text-center text-muted-foreground py-6"><Users2 className="mx-auto h-8 w-8 text-gray-300" /><p className="mt-2 text-sm">Chưa có thông tin khách hàng</p></div>
+                            <div className="text-center text-muted-foreground py-6"><Users2 className="mx-auto h-8 w-8 text-muted-foreground/50" /><p className="mt-2 text-sm">Chưa có thông tin khách hàng</p></div>
                         </>
                     )}
                 </CardContent>

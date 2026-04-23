@@ -404,7 +404,7 @@ export function EntityActivityTable({
       document_uploaded: { icon: Upload, color: 'text-teal-600', bgColor: 'bg-teal-100' },
       document_deleted: { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-100' },
     }
-    return styles[action] || { icon: FileText, color: 'text-gray-600', bgColor: 'bg-gray-100' }
+    return styles[action] || { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' }
   }
   
   const getActionLabel = (action: string) => {
@@ -430,7 +430,7 @@ export function EntityActivityTable({
       document_uploaded: 'bg-teal-100 text-teal-700 border-teal-200',
       document_deleted: 'bg-red-100 text-red-700 border-red-200',
     }
-    return colors[action] || 'bg-gray-100 text-gray-700 border-gray-200'
+    return colors[action] || 'bg-muted text-muted-foreground border-border'
   }
   
   // Handle row click

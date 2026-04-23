@@ -1627,7 +1627,7 @@ export function OrderFormPage() {
                                 {fields.length === 0 ? (
                                     <>
                                         <div className="text-center text-muted-foreground p-12 border border-dashed rounded-md">
-                                            <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
+                                            <PackageOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
                                             <p className="mt-4 text-sm">Chưa có sản phẩm nào trong đơn hàng</p>
                                             <Button type="button" variant="link" className="mt-2" onClick={openProductSelection} disabled={isMetadataOnlyMode}>Thêm sản phẩm</Button>
                                         </div>

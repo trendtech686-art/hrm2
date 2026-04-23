@@ -235,7 +235,7 @@ export function ActivityHistory({
       product_updated: { icon: Package, color: 'text-blue-600', bgColor: 'bg-blue-100' },
       product_removed: { icon: Package, color: 'text-red-600', bgColor: 'bg-red-100' },
       payment_made: { icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-100' },
-      comment_added: { icon: FileText, color: 'text-gray-600', bgColor: 'bg-gray-100' },
+      comment_added: { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
       attachment_added: { icon: FileText, color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
       
       // Complaint-specific actions
@@ -248,9 +248,9 @@ export function ActivityHistory({
       cancelled: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
       ended: { icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-100' },
       reopened: { icon: History, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-      commented: { icon: FileText, color: 'text-gray-600', bgColor: 'bg-gray-100' },
+      commented: { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
       
-      custom: { icon: AlertCircle, color: 'text-gray-600', bgColor: 'bg-gray-100' },
+      custom: { icon: AlertCircle, color: 'text-muted-foreground', bgColor: 'bg-muted' },
     };
 
     return styles[action] || styles.custom;

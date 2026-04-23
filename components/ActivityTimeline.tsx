@@ -49,7 +49,7 @@ const actionIcons: Record<TaskActivity['action'], React.ElementType> = {
 
 const actionColors: Record<TaskActivity['action'], string> = {
   created: 'text-blue-600 bg-blue-50 dark:bg-blue-950',
-  updated: 'text-gray-600 bg-gray-50 dark:bg-gray-900',
+  updated: 'text-muted-foreground bg-muted',
   status_changed: 'text-purple-600 bg-purple-50 dark:bg-purple-950',
   assigned: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950',
   assignee_added: 'text-green-600 bg-green-50 dark:bg-green-950',
@@ -59,7 +59,7 @@ const actionColors: Record<TaskActivity['action'], string> = {
   timer_started: 'text-green-600 bg-green-50 dark:bg-green-950',
   timer_stopped: 'text-red-600 bg-red-50 dark:bg-red-950',
   subtask_completed: 'text-green-600 bg-green-50 dark:bg-green-950',
-  subtask_uncompleted: 'text-gray-600 bg-gray-50 dark:bg-gray-900',
+  subtask_uncompleted: 'text-muted-foreground bg-muted',
   completed: 'text-green-600 bg-green-50 dark:bg-green-950',
   commented: 'text-blue-600 bg-blue-50 dark:bg-blue-950',
   evidence_submitted: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950',

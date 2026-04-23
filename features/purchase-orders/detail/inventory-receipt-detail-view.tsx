@@ -22,7 +22,7 @@ export function InventoryReceiptDetailView({ receipt }: InventoryReceiptDetailVi
   }, 0);
 
   return (
-    <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
+    <div className="p-6 bg-muted/50">
       <div className="space-y-1 text-sm mb-6">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:text-foreground md:normal-case md:tracking-normal">Thông tin phiếu nhập kho</h3>
         <p className="text-muted-foreground">Người nhập: {receipt.receiverName}</p>

@@ -89,17 +89,17 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
             'flex items-center gap-2 p-3 border rounded-lg bg-background transition-all relative',
             isDragging && 'opacity-40 scale-[0.98] cursor-grabbing',
             isOver && dropPosition === 'inside' && 'ring-2 ring-primary bg-primary/10 border-primary shadow-lg',
-            !isDragging && !isOver && 'hover:border-gray-300 hover:shadow-sm'
+            !isDragging && !isOver && 'hover:border-border hover:shadow-sm'
           )}
         >
           {/* Drag Handle */}
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing flex-shrink-0 p-1 hover:bg-gray-100 rounded"
+            className="cursor-grab active:cursor-grabbing flex-shrink-0 p-1 hover:bg-muted rounded"
             title="Kéo để di chuyển: Phía trên/Vào trong/Phía dưới"
           >
-            <GripVertical className="h-5 w-5 text-gray-400" />
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
 
           {/* Expand/Collapse */}
@@ -200,7 +200,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
 
       {/* Children */}
       {hasChildren && isExpanded && (
-        <div className="ml-8 mt-2 space-y-2 pl-4 border-l-2 border-gray-200">
+        <div className="ml-8 mt-2 space-y-2 pl-4 border-l-2 border-border">
           {children.map(child => (
             <TreeNode
               key={child.systemId}
@@ -398,7 +398,7 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
       <DragOverlay>
         {activeCategory && (
           <div className="flex items-center gap-2 p-3 border-2 border-primary rounded-lg bg-background shadow-2xl opacity-90">
-            <GripVertical className="h-5 w-5 text-gray-400" />
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
             {activeCategory.color && (
               <div
                 className="w-3 h-3 rounded-full"

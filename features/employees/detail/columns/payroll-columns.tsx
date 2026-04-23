@@ -110,7 +110,7 @@ export function getPayrollColumns(options: PayrollColumnsOptions): ColumnDef<Pay
       header: () => <span className="text-right w-full block">Khác</span>,
       size: 90,
       cell: ({ row }) => (
-        <span className="text-right block tabular-nums text-gray-600">
+        <span className="text-right block tabular-nums text-muted-foreground">
           {row.otherDeductions > 0 ? `-${formatCurrency(row.otherDeductions)}` : '—'}
         </span>
       ),

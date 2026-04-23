@@ -63,7 +63,7 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
       deduct: 'bg-orange-100 text-orange-800',
       out_of_stock: 'bg-red-100 text-red-800',
     };
-    return variants[resolution] || 'bg-gray-100 text-gray-800';
+    return variants[resolution] || 'bg-muted text-foreground';
   }, []);
 
   // ✅ Helper: Lấy hình ảnh sản phẩm gốc từ catalog

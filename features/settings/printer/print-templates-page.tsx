@@ -1557,7 +1557,7 @@ export function PrintTemplatesPage() {
           </div>
           
           {/* Preview Content */}
-          <ScrollArea className="flex-1 bg-white">
+          <ScrollArea className="flex-1 bg-background">
             <div className="p-6">
               {(() => {
                 const lbl = parseLabelSize(selectedSize);
@@ -1569,7 +1569,7 @@ export function PrintTemplatesPage() {
                   return (
                     <div className="flex justify-center">
                       <div
-                        className="border border-dashed border-gray-400 bg-white overflow-hidden relative"
+                        className="border border-dashed border-muted-foreground/40 bg-card overflow-hidden relative"
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,

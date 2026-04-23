@@ -80,7 +80,7 @@ export function ProductMappingTab() {
               <p className="text-sm text-muted-foreground">Đã liên kết</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-400">{unlinkedProducts.length}</p>
+              <p className="text-2xl font-bold text-muted-foreground">{unlinkedProducts.length}</p>
               <p className="text-sm text-muted-foreground">Chưa liên kết</p>
             </div>
             <div>

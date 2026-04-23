@@ -75,9 +75,9 @@ const activityConfig: Record<
   },
   updated: {
     icon: <Edit className="h-3.5 w-3.5" />,
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-50',
-    borderColor: 'border-gray-200',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted',
+    borderColor: 'border-border',
   },
   status_changed: {
     icon: <CheckCircle className="h-3.5 w-3.5" />,
@@ -135,9 +135,9 @@ const activityConfig: Record<
   },
   description_changed: {
     icon: <FileText className="h-3.5 w-3.5" />,
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-50',
-    borderColor: 'border-gray-200',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted',
+    borderColor: 'border-border',
   },
 };
 

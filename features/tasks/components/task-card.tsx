@@ -30,13 +30,13 @@ const PRIORITY_DOT: Record<string, string> = {
 };
 
 const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
-  'Chưa bắt đầu': { bg: 'bg-slate-100', text: 'text-slate-700' },
+  'Chưa bắt đầu': { bg: 'bg-muted', text: 'text-foreground' },
   'Đang thực hiện': { bg: 'bg-blue-100', text: 'text-blue-700' },
   'Đang chờ': { bg: 'bg-yellow-100', text: 'text-yellow-700' },
   'Chờ duyệt': { bg: 'bg-amber-100', text: 'text-amber-700' },
   'Chờ xử lý': { bg: 'bg-orange-100', text: 'text-orange-700' },
   'Hoàn thành': { bg: 'bg-green-100', text: 'text-green-700' },
-  'Đã hủy': { bg: 'bg-gray-100', text: 'text-gray-500' },
+  'Đã hủy': { bg: 'bg-muted', text: 'text-muted-foreground' },
 };
 
 export function TaskCard({ task, onDelete }: TaskCardProps) {
@@ -55,7 +55,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
       emphasis={isOverdue ? 'destructive' : 'none'}
       className={cn(
         'border-l-[3px]',
-        PRIORITY_BORDER[task.priority] || 'border-l-slate-300',
+        PRIORITY_BORDER[task.priority] || 'border-l-border',
         isOverdue && 'bg-red-50/50',
       )}
       onClick={() => router.push(`/tasks/${task.systemId}`)}
@@ -65,7 +65,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
             <span className="font-mono">{task.id}</span>
             <div
-              className={cn('h-2 w-2 rounded-full shrink-0', PRIORITY_DOT[task.priority] || 'bg-slate-400')}
+              className={cn('h-2 w-2 rounded-full shrink-0', PRIORITY_DOT[task.priority] || 'bg-muted-foreground')}
               title={task.priority}
             />
           </div>

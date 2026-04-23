@@ -2,6 +2,7 @@
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/components/theme-provider'
+import { ThemeColorMeta } from '@/components/theme-color-meta'
 import { BreakpointProvider } from '@/contexts/breakpoint-context'
 import { AuthProvider as LegacyAuthProvider } from '@/contexts/auth-context'
 import { AuthProvider as NextAuthProvider } from '@/components/providers/auth-provider'
@@ -35,6 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <NextAuthProvider>
         <ThemeProvider>
+          <ThemeColorMeta />
           <BreakpointProvider>
             <LegacyAuthProvider>
                 <PageHeaderProvider>

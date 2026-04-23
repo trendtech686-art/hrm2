@@ -467,7 +467,7 @@ export function PurchaseReturnForOrderPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {/* Table header */}
-                  <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 border-y text-sm font-medium text-muted-foreground">
+                  <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-muted/50 border-y border-border text-sm font-medium text-muted-foreground">
                     <div className="col-span-2">Mã SKU</div>
                     <div className="col-span-4">Tên sản phẩm</div>
                     <div className="col-span-2 text-right">Số lượng</div>
@@ -481,7 +481,7 @@ export function PurchaseReturnForOrderPage() {
                     const lineTotal = (item?.returnQuantity || 0) * (item?.unitPrice || 0);
                     
                     return (
-                      <div key={field.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-b items-center">
+                      <div key={field.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border items-center">
                         <div className="col-span-2">
                           <Link 
                             href={`/products/${field.productSystemId}`}
@@ -547,7 +547,7 @@ export function PurchaseReturnForOrderPage() {
                       <span className="text-muted-foreground">Chiết khấu</span>
                       <span>0</span>
                     </div>
-                    <div className="flex justify-between text-sm pt-2 border-t">
+                    <div className="flex justify-between text-sm pt-2 border-t border-border">
                       <span className="text-primary font-medium">Tổng giá trị hàng trả</span>
                       <span className="font-medium">{formatCurrency(totalReturnValue)}</span>
                     </div>

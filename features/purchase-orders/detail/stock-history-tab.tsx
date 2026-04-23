@@ -138,7 +138,7 @@ export function StockHistoryTab({
                     </TableCell>
                   </TableRow>
                   {expandedRowId === data.systemId && (
-                    <TableRow className="bg-slate-50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/20">
+                    <TableRow className="bg-muted/40 hover:bg-muted/60">
                       <TableCell colSpan={8} className="p-0">
                         {isReceipt 
                           ? <InventoryReceiptDetailView 

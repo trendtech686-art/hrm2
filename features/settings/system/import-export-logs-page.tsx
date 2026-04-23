@@ -239,7 +239,7 @@ export function ImportExportLogsContent() {
     switch (log.status) {
       case 'pending':
         return (
-          <Badge variant="outline" className="border-gray-400 text-gray-600">
+          <Badge variant="outline" className="border-border text-muted-foreground">
             <RefreshCw className="h-3 w-3 mr-1" />
             Chờ xử lý
           </Badge>
@@ -308,7 +308,7 @@ export function ImportExportLogsContent() {
       case 'payments':
         return <CreditCard className="h-4 w-4 text-red-500" />;
       case 'inventory-receipts':
-        return <Warehouse className="h-4 w-4 text-slate-500" />;
+        return <Warehouse className="h-4 w-4 text-muted-foreground" />;
       case 'sales-returns':
         return <RotateCcw className="h-4 w-4 text-pink-500" />;
       case 'purchase-returns':
@@ -322,7 +322,7 @@ export function ImportExportLogsContent() {
       case 'cod-reconciliation':
         return <CreditCard className="h-4 w-4 text-emerald-600" />;
       default:
-        return <FileText className="h-4 w-4 text-gray-500" />;
+        return <FileText className="h-4 w-4 text-muted-foreground" />;
     }
   };
   
@@ -344,7 +344,7 @@ export function ImportExportLogsContent() {
       return (
         <div className="space-y-1 text-xs min-w-30">
           <div className="font-medium">Tổng: {log.totalRecords}</div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-muted rounded-full h-2">
             <div 
               className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
               style={{ width: `${log.progress || 0}%` }}

@@ -362,7 +362,7 @@ function StatusBar({ label, value, total, color }: StatusBarProps) {
   const percentage = total > 0 ? (value / total) * 100 : 0;
 
   const colorClasses: Record<string, string> = {
-    gray: 'bg-gray-500',
+    gray: 'bg-muted-foreground',
     blue: 'bg-blue-500',
     yellow: 'bg-yellow-500',
     green: 'bg-green-500',

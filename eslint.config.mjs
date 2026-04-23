@@ -4,6 +4,7 @@ import reactPlugin from "eslint-plugin-react";
 import hooksPlugin from "eslint-plugin-react-hooks";
 import nextPlugin from "@next/eslint-plugin-next";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import hrmTheme from "./eslint-rules/hrm-theme-plugin.mjs";
 
 export default [
   js.configs.recommended,
@@ -59,6 +60,11 @@ export default [
         version: "detect",
       },
     },
+  },
+  {
+    files: ["features/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    plugins: { "hrm-theme": hrmTheme },
+    rules: { "hrm-theme/no-raw-palette-class": "warn" },
   },
   {
     ignores: [

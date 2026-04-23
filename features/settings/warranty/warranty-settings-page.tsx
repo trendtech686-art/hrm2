@@ -134,7 +134,7 @@ const defaultCardColors: CardColorSettings = {
     new: 'bg-blue-50 border-blue-200',
     pending: 'bg-yellow-50 border-yellow-200',
     processed: 'bg-green-50 border-green-200',
-    returned: 'bg-gray-50 border-gray-200',
+    returned: 'bg-muted border-border',
   },
   overdueColor: 'bg-red-50 border-red-400',
   enableStatusColors: true,
@@ -1013,7 +1013,7 @@ export function WarrantySettingsPage() {
                       value={cardColors.statusColors.returned}
                       onChange={(value) => handleCardColorChange('statusColors', 'returned', value)}
                       label="Đã trả (Returned)"
-                      placeholder="Ví dụ: bg-gray-50 border-gray-200"
+                      placeholder="Ví dụ: bg-muted border-border"
                     />
                   </div>
                 </SettingsFormSection>

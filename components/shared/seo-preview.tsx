@@ -47,7 +47,7 @@ export function SeoPreview({
       </div>
       
       {/* Google Search Result Preview Box */}
-      <div className="p-4 rounded-lg border bg-white dark:bg-background">
+      <div className="p-4 rounded-lg border bg-card">
         {/* Site URL with favicon */}
         <div className="flex items-center gap-2 text-sm">
           <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -65,7 +65,7 @@ export function SeoPreview({
         </h3>
 
         {/* Description */}
-        <p className="mt-1 text-sm text-[#4d5156] dark:text-muted-foreground leading-snug">
+        <p className="mt-1 text-sm text-muted-foreground leading-snug">
           {truncatedDesc || <span className="italic">Chưa có mô tả SEO</span>}
         </p>
       </div>

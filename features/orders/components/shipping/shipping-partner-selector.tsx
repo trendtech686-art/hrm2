@@ -312,11 +312,11 @@ export function ShippingPartnerSelector({
           <div className="space-y-2 mb-3">
             {notConfiguredPartners.map((partner, index) => (
               <div key={`${partner.partnerId}-notconfig-${index}`} className="flex items-center gap-2 text-sm text-orange-800">
-                <div className={`w-12 h-8 flex items-center justify-center rounded text-white text-xs font-bold
-                  ${partner.partnerCode === 'GHN' ? 'bg-orange-500' : 
-                    partner.partnerCode === 'VTP' ? 'bg-orange-500' :
-                    partner.partnerCode === 'J&T' ? 'bg-red-600' :
-                    partner.partnerCode === 'SPX' ? 'bg-red-500' : 'bg-gray-500'}`}>
+                <div className={`w-12 h-8 flex items-center justify-center rounded text-xs font-bold
+                  ${partner.partnerCode === 'GHN' ? 'bg-orange-500 text-white' : 
+                    partner.partnerCode === 'VTP' ? 'bg-orange-500 text-white' :
+                    partner.partnerCode === 'J&T' ? 'bg-red-600 text-white' :
+                    partner.partnerCode === 'SPX' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'}`}>
                   {partner.partnerCode}
                 </div>
                 <span>{partner.partnerName}</span>

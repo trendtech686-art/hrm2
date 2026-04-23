@@ -991,11 +991,11 @@ export function WarrantyPaymentVoucherDialog({
                 Đơn {selectedOrder.id} không đủ số dư — hệ thống tự phân bổ
               </div>
               <div className="grid gap-2 md:grid-cols-2 text-sm">
-                <div className="rounded-md border bg-white px-3 py-2">
+                <div className="rounded-md border border-border bg-card px-3 py-2">
                   <div className="text-xs text-muted-foreground">Trừ vào đơn {selectedOrder.id}</div>
                   <div className="font-semibold">{autoOrderAmount.toLocaleString('vi-VN')} đ</div>
                 </div>
-                <div className="rounded-md border bg-white px-3 py-2">
+                <div className="rounded-md border border-border bg-card px-3 py-2">
                   <div className="text-xs text-muted-foreground">Chi trực tiếp cho khách</div>
                   <div className="font-semibold text-red-600">{autoCashAmount.toLocaleString('vi-VN')} đ</div>
                 </div>

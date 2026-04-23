@@ -295,7 +295,7 @@ export function ExistingDocumentsViewer({
             
             if (isPdf) {
               return (
-                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden bg-gray-50 mt-2">
+                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden bg-muted mt-2">
                   <iframe src={nonImagePreviewFile.url} className="w-full h-full" title={nonImagePreviewFile.name} />
                 </div>
               );

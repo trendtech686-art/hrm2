@@ -46,7 +46,7 @@ export function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPr
   }, [purchaseReturn, allTransactions]);
 
   return (
-    <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
+    <div className="p-6 bg-muted/50">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="md:col-span-2 space-y-4 text-sm">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:text-foreground md:normal-case md:tracking-normal">Thông tin đơn trả hàng nhà cung cấp</h3>

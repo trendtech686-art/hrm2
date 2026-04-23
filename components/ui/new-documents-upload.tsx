@@ -713,7 +713,7 @@ export function NewDocumentsUpload({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 bg-white/90 hover:bg-white"
+                          className="h-7 w-7 bg-background/90 hover:bg-background"
                           onClick={() => handlePreview(file)}
                         >
                           <Eye className="h-3 w-3" />
@@ -722,7 +722,7 @@ export function NewDocumentsUpload({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 bg-white/90 hover:bg-destructive hover:text-white"
+                          className="h-7 w-7 bg-background/90 hover:bg-destructive hover:text-destructive-foreground"
                           onClick={() => removeFile(file.id)}
                           disabled={disabled}
                         >
@@ -740,7 +740,7 @@ export function NewDocumentsUpload({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 bg-white/90 hover:bg-white"
+                          className="h-7 w-7 bg-background/90 hover:bg-background"
                           onClick={() => handlePreview(file)}
                         >
                           <Eye className="h-3 w-3" />
@@ -749,7 +749,7 @@ export function NewDocumentsUpload({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 bg-white/90 hover:bg-destructive hover:text-white"
+                          className="h-7 w-7 bg-background/90 hover:bg-destructive hover:text-destructive-foreground"
                           onClick={() => removeFile(file.id)}
                           disabled={disabled}
                         >
@@ -851,7 +851,7 @@ export function NewDocumentsUpload({
             
             if (isPdf) {
               return (
-                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden bg-gray-50 mt-2">
+                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden bg-muted mt-2">
                   <iframe src={fileUrl} className="w-full h-full" title={nonImagePreviewFile.name} />
                 </div>
               );

@@ -92,7 +92,7 @@ export const ComplaintVerifiedIncorrectSection: React.FC<Props> = ({ complaint, 
           <div className="space-y-4 pt-4">
             {/* Evidence note */}
             {evidenceNote && (
-              <div className="text-sm bg-gray-50 dark:bg-gray-900/20 p-4 rounded-md border">
+              <div className="text-sm bg-muted/50 p-4 rounded-md border border-border">
                 <div className="font-medium mb-1 text-muted-foreground">Ghi chú bằng chứng:</div>
                 <div className="whitespace-pre-wrap">{evidenceNote}</div>
               </div>

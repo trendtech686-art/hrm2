@@ -27,7 +27,7 @@ const getFileIcon = (fileName: string) => {
     case 'docx':
       return <FileText className="h-5 w-5 text-blue-500" />;
     default:
-      return <File className="h-5 w-5 text-gray-500" />;
+      return <File className="h-5 w-5 text-muted-foreground" />;
   }
 };
 
@@ -57,7 +57,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
     switch (fileType) {
       case 'pdf':
         return (
-          <div className="w-full h-150 border border-border rounded-lg overflow-hidden bg-gray-50">
+          <div className="w-full h-150 border border-border rounded-lg overflow-hidden bg-muted">
             <iframe
               src={file.url}
               className="w-full h-full"
@@ -68,7 +68,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
 
       case 'image':
         return (
-          <div className="relative w-full h-150 bg-gray-50 rounded-lg p-4 flex items-center justify-center">
+          <div className="relative w-full h-150 bg-muted rounded-lg p-4 flex items-center justify-center">
             <Image
               src={file.url}
               alt={file.name}
@@ -116,7 +116,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
 
       default:
         return (
-          <div className="w-full h-100flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
+          <div className="w-full h-100 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
             {getFileIcon(file.name)}
             <div className="text-center">
               <p className="text-sm font-medium">{file.name}</p>

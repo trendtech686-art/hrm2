@@ -44,7 +44,7 @@ const NOTIFICATION_TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: st
   price_adjustment: { icon: Tag,             bg: 'bg-pink-100',    fg: 'text-pink-600' },
   purchase_order:   { icon: ShoppingCart,    bg: 'bg-sky-100',     fg: 'text-sky-600' },
   purchase_return:  { icon: RotateCcw,       bg: 'bg-fuchsia-100', fg: 'text-fuchsia-600' },
-  system:           { icon: Settings,        bg: 'bg-gray-100',    fg: 'text-gray-600' },
+  system:           { icon: Settings,        bg: 'bg-muted',        fg: 'text-muted-foreground' },
   task:             { icon: CheckCircle2,    bg: 'bg-teal-100',    fg: 'text-teal-600' },
   comment:          { icon: MessageCircle,   bg: 'bg-indigo-100',  fg: 'text-indigo-600' },
   mention:          { icon: AtSign,          bg: 'bg-pink-100',    fg: 'text-pink-600' },

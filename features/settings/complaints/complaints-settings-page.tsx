@@ -971,7 +971,7 @@ export function ComplaintsSettingsPage() {
                       value={cardColors.statusColors.rejected}
                       onChange={(value) => handleStatusColorChange('rejected', value)}
                       label="Từ chối"
-                      placeholder="Ví dụ: bg-gray-50 border-gray-200"
+                      placeholder="Ví dụ: bg-muted border-border"
                     />
                   </div>
                 </SettingsFormSection>

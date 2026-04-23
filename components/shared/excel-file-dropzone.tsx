@@ -237,10 +237,10 @@ export function ExcelFileDropzone({
             <div className="relative">
               <FileSpreadsheet className="h-12 w-12 text-green-600" />
               {value.status === 'uploaded' && (
-                <CheckCircle2 className="absolute -bottom-1 -right-1 h-5 w-5 text-green-600 bg-white rounded-full" />
+                <CheckCircle2 className="absolute -bottom-1 -right-1 h-5 w-5 text-green-600 bg-background rounded-full" />
               )}
               {value.status === 'error' && (
-                <AlertCircle className="absolute -bottom-1 -right-1 h-5 w-5 text-red-500 bg-white rounded-full" />
+                <AlertCircle className="absolute -bottom-1 -right-1 h-5 w-5 text-red-500 bg-background rounded-full" />
               )}
             </div>
             <div className="space-y-1">

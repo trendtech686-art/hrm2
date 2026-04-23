@@ -28,7 +28,7 @@ function getResultBadge(result: string | null) {
   if (lower.includes('trả') || lower.includes('hoàn')) return 'bg-orange-100 text-orange-800'
   if (lower.includes('đổi') || lower.includes('thay')) return 'bg-blue-100 text-blue-800'
   if (lower.includes('từ chối') || lower.includes('hủy')) return 'bg-red-100 text-red-800'
-  return 'bg-gray-100 text-gray-800'
+  return 'bg-muted text-foreground'
 }
 
 interface ProductItemsCardProps {

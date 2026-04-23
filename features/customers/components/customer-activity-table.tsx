@@ -133,7 +133,7 @@ export function CustomerActivityTable({ customerSystemId }: CustomerActivityTabl
       status_changed: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100' },
       restored: { icon: RotateCcw, color: 'text-teal-600', bgColor: 'bg-teal-100' },
     }
-    return styles[action] || { icon: FileText, color: 'text-gray-600', bgColor: 'bg-gray-100' }
+    return styles[action] || { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' }
   }
   
   // Get action label

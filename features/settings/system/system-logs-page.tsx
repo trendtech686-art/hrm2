@@ -184,9 +184,9 @@ export function SystemLogsPage() {
       case 'status':
         return <RefreshCw className="h-4 w-4 text-purple-400" />;
       case 'settings':
-        return <Settings className="h-4 w-4 text-gray-500" />;
+        return <Settings className="h-4 w-4 text-muted-foreground" />;
       default:
-        return <FileText className="h-4 w-4 text-gray-500" />;
+        return <FileText className="h-4 w-4 text-muted-foreground" />;
     }
   };
   
@@ -200,7 +200,7 @@ export function SystemLogsPage() {
     if (action.includes('deleted') || action.includes('delete')) {
       return <Trash2 className="h-3.5 w-3.5 text-red-500" />;
     }
-    return <RefreshCw className="h-3.5 w-3.5 text-gray-500" />;
+    return <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />;
   };
   
   const getActionBadgeColor = (actionType: string | null) => {
@@ -214,7 +214,7 @@ export function SystemLogsPage() {
       case 'status':
         return 'bg-purple-100 text-purple-700 border-purple-200';
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-muted text-foreground border-border';
     }
   };
   

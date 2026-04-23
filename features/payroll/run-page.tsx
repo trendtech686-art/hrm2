@@ -66,7 +66,7 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
                     ? 'bg-primary border-primary text-primary-foreground'
                     : isCurrent
                       ? 'border-primary text-primary'
-                      : 'border-gray-300 bg-gray-100 text-gray-400'
+                      : 'border-border bg-muted text-muted-foreground'
                 )}
               >
                 {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
@@ -85,7 +85,7 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
               <div
                 className={cn(
                   'flex-1 mt-4 h-0.5',
-                  index < currentStep ? 'bg-primary' : 'bg-gray-300'
+                  index < currentStep ? 'bg-primary' : 'bg-muted'
                 )}
               />
             )}

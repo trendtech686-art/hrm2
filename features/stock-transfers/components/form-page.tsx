@@ -522,15 +522,15 @@ export function StockTransferFormPage() {
             </div>
 
             {!fromBranchId && (
-              <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
+              <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-md">
                 <Package className="mx-auto h-12 w-12 mb-2 opacity-50" />
                 <p>Vui lòng chọn chi nhánh chuyển trước</p>
               </div>
             )}
             
             {fromBranchId && fields.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
-                <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
+              <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-md">
+                <PackageOpen className="mx-auto h-12 w-12 text-muted-foreground/40" />
                 <p className="mt-4 text-sm">Chưa có sản phẩm nào</p>
                 <Button
                   type="button"

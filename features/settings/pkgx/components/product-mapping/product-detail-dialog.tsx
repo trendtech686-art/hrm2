@@ -423,7 +423,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <a 
                 href={buildPkgxImageUrl(product.original_img)}
                 target="_blank" rel="noopener noreferrer"
-                className="block border rounded p-2 hover:border-primary transition-colors bg-white"
+                className="block border rounded p-2 hover:border-primary transition-colors bg-card"
               >
                 <div className="w-full h-28 flex items-center justify-center overflow-hidden">
                   <OptimizedImage 
@@ -445,7 +445,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <a 
                 href={buildPkgxImageUrl(product.goods_img)}
                 target="_blank" rel="noopener noreferrer"
-                className="block border rounded p-2 hover:border-primary transition-colors bg-white"
+                className="block border rounded p-2 hover:border-primary transition-colors bg-card"
               >
                 <div className="w-full h-28 flex items-center justify-center overflow-hidden">
                   <OptimizedImage 
@@ -467,7 +467,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <a 
                 href={buildPkgxImageUrl(product.goods_thumb)}
                 target="_blank" rel="noopener noreferrer"
-                className="block border rounded p-2 hover:border-primary transition-colors bg-white"
+                className="block border rounded p-2 hover:border-primary transition-colors bg-card"
               >
                 <div className="w-full h-28 flex items-center justify-center overflow-hidden">
                   <OptimizedImage 
@@ -548,7 +548,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
                 key={img.img_id || index}
                 href={buildPkgxImageUrl(img.img_url || img.img_original)}
                 target="_blank" rel="noopener noreferrer"
-                className="block border rounded p-1 hover:border-primary transition-colors bg-white"
+                className="block border rounded p-1 hover:border-primary transition-colors bg-card"
               >
                 <div className="w-full h-20 flex items-center justify-center overflow-hidden">
                   <OptimizedImage

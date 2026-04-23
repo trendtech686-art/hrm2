@@ -610,7 +610,7 @@ export function DeliveryMethodCard({
               Đây là params thực tế sẽ được gửi đến GHTK API khi nhấn "Chọn lại đơn vị vận chuyển"
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="h-[70vh] w-full rounded-md border p-4 bg-slate-50">
+          <ScrollArea className="h-[70vh] w-full rounded-md border border-border p-4 bg-muted/30">
             {previewData ? (
               <>
                 <div className="space-y-2 mb-4 p-3 bg-blue-50 rounded border border-blue-200">
@@ -626,23 +626,23 @@ export function DeliveryMethodCard({
                     </div>
                     <div>
                       <span className="font-medium">Khách hàng:</span>{' '}
-                      <span className="text-gray-800">{String(previewData?.customerName ?? 'N/A')}</span>
+                      <span className="text-foreground">{String(previewData?.customerName ?? 'N/A')}</span>
                     </div>
                     <div>
                       <span className="font-medium">Tổng cân nặng:</span>{' '}
-                      <span className="text-gray-800">{String(previewData?.totalWeight ?? 0)}g</span>
+                      <span className="text-foreground">{String(previewData?.totalWeight ?? 0)}g</span>
                     </div>
                     <div>
                       <span className="font-medium">COD:</span>{' '}
-                      <span className="text-gray-800">{new Intl.NumberFormat('vi-VN').format(Number(previewData?.pickMoney) || 0)}đ</span>
+                      <span className="text-foreground">{new Intl.NumberFormat('vi-VN').format(Number(previewData?.pickMoney) || 0)}đ</span>
                     </div>
                     <div>
                       <span className="font-medium">Vận chuyển:</span>{' '}
-                      <span className="text-gray-800">{previewData?.transport === 'fly' ? '✈️ Đường bay' : '🚚 Đường bộ'}</span>
+                      <span className="text-foreground">{previewData?.transport === 'fly' ? '✈️ Đường bay' : '🚚 Đường bộ'}</span>
                     </div>
                   </div>
                 </div>
-                <pre className="text-xs font-mono leading-relaxed bg-white p-3 rounded border">
+                <pre className="text-xs font-mono leading-relaxed bg-muted/50 p-3 rounded border border-border">
                   {JSON.stringify(previewData, null, 2)}
                 </pre>
               </>

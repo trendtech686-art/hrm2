@@ -83,7 +83,7 @@ export function StatusStepper({ order }: StatusStepperProps) {
                                 isStepCancelled ? "bg-red-100 border-red-500 text-red-500" :
                                 isStepCompleted ? "bg-primary border-primary text-primary-foreground" :
                                 isStepCurrent ? "border-primary text-primary" :
-                                "border-gray-300 bg-gray-100 text-gray-400"
+                                "border-border bg-muted text-muted-foreground"
                             )}>
                                 {isStepCompleted ? <Icon className="h-4 w-4" /> : index + 1}
                             </div>
@@ -93,7 +93,7 @@ export function StatusStepper({ order }: StatusStepperProps) {
                         {index < steps.length - 1 && (
                             <div className={cn(
                                 "flex-1 mt-4 h-0.5",
-                                index < currentStepIndex ? "bg-primary" : "bg-gray-300",
+                                index < currentStepIndex ? "bg-primary" : "bg-border",
                             )} />
                         )}
                     </React.Fragment>

@@ -287,7 +287,7 @@ export function CreateReconciliationSheetPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t text-sm text-muted-foreground">
+            <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
               Tổng vận đơn: <span className="font-semibold text-foreground">{items.length}</span>
             </div>
           </CardContent>
@@ -333,8 +333,8 @@ export function CreateReconciliationSheetPage() {
           </div>
 
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border border-dashed rounded-md">
-              <Package className="mx-auto h-12 w-12 text-gray-300" />
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border border-dashed border-border rounded-md">
+              <Package className="mx-auto h-12 w-12 text-muted-foreground/40" />
               <p className="mt-4 text-sm">{carrier ? 'Chưa có vận đơn nào. Tìm kiếm bên trên để thêm.' : 'Vui lòng chọn đối tác vận chuyển trước.'}</p>
             </div>
           ) : (

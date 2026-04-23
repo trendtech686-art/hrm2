@@ -16,8 +16,8 @@ interface TrackingStateProps {
  */
 export function TrackingDisabledState() {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <Card className="max-w-md w-full bg-white">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="max-w-md w-full bg-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-orange-600">
             <AlertCircle className="h-5 w-5" />
@@ -39,8 +39,8 @@ export function TrackingDisabledState() {
  */
 export function TrackingLoadingState() {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <Card className="max-w-md w-full bg-white">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="max-w-md w-full bg-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary animate-spin" />
@@ -62,8 +62,8 @@ export function TrackingLoadingState() {
  */
 export function TrackingErrorState() {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <Card className="max-w-md w-full bg-white">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="max-w-md w-full bg-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" />
@@ -87,8 +87,8 @@ export function TrackingNotFoundState({ trackingCode }: TrackingStateProps) {
   const isMissingCode = !trackingCode;
   
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <Card className="max-w-md w-full bg-white">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="max-w-md w-full bg-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <XCircle className="h-5 w-5" />

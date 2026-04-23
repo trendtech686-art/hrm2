@@ -200,7 +200,7 @@ function PublicProductsTable({ products, onImageClick }: {
       deduct: 'bg-orange-100 text-orange-800',
       out_of_stock: 'bg-red-100 text-red-800',
     };
-    return variants[resolution] || 'bg-gray-100 text-gray-800';
+    return variants[resolution] || 'bg-muted text-foreground';
   };
 
   return (
@@ -262,13 +262,13 @@ function PublicProductsTable({ products, onImageClick }: {
                             <button
                               key={imgIdx}
                               onClick={() => onImageClick(warrantyImages, imgIdx)}
-                              className="relative w-14 h-14 shrink-0 rounded border overflow-hidden hover:ring-2 ring-primary transition-all"
+                              className="relative w-14 h-14 shrink-0 rounded border border-border overflow-hidden hover:ring-2 ring-primary transition-all"
                             >
                               <OptimizedImage src={url} alt={`SP ${index + 1}`} width={56} height={56} className="w-full h-full object-cover" />
                             </button>
                           ))}
                           {warrantyImages.length > 3 && (
-                            <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                            <div className="w-14 h-14 rounded border border-border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                               +{warrantyImages.length - 3}
                             </div>
                           )}
@@ -323,7 +323,7 @@ function PublicProductsTable({ products, onImageClick }: {
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b">
+            <tr className="border-b border-border">
               <th className="text-center py-3 px-2 w-12 font-medium text-muted-foreground">STT</th>
               <th className="text-left py-3 px-2 min-w-64 font-medium text-muted-foreground">Tên sản phẩm</th>
               <th className="text-center py-3 px-2 w-12 font-medium text-muted-foreground">SL</th>
@@ -339,7 +339,7 @@ function PublicProductsTable({ products, onImageClick }: {
             {products.map((product, index) => {
               const warrantyImages = (product.productImages || []).filter(Boolean);
               return (
-                <tr key={product.systemId} className="border-b last:border-0">
+                <tr key={product.systemId} className="border-b border-border last:border-0">
                   <td className="text-center py-3 px-2 font-medium">{index + 1}</td>
                   <td className="py-3 px-2">
                     <div className="flex items-start gap-2">
@@ -371,13 +371,13 @@ function PublicProductsTable({ products, onImageClick }: {
                           <button
                             key={imgIdx}
                             onClick={() => onImageClick(warrantyImages, imgIdx)}
-                            className="relative w-9 h-9 shrink-0 rounded border overflow-hidden hover:ring-2 ring-primary transition-all"
+                            className="relative w-9 h-9 shrink-0 rounded border border-border overflow-hidden hover:ring-2 ring-primary transition-all"
                           >
                             <OptimizedImage src={url} alt={`SP ${index + 1}`} width={36} height={36} className="w-full h-full object-cover" />
                           </button>
                         ))}
                         {warrantyImages.length > 2 && (
-                          <div className="w-9 h-9 rounded border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                          <div className="w-9 h-9 rounded border border-border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                             +{warrantyImages.length - 2}
                           </div>
                         )}
@@ -449,7 +449,7 @@ function ImageGalleryCard({ title, images, onImageClick }: {
             <button
               key={idx}
               onClick={() => onImageClick(images, idx)}
-              className="group relative aspect-square rounded-lg overflow-hidden border transition-colors hover:border-primary"
+              className="group relative aspect-square rounded-lg overflow-hidden border border-border transition-colors hover:border-primary"
             >
               <OptimizedImage
                 src={url}
@@ -918,7 +918,7 @@ export function WarrantyTrackingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b bg-white">
+      <div className="border-b border-border bg-card">
         <div className="container max-w-7xl mx-auto px-4 py-4 md:py-6">
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
@@ -940,7 +940,7 @@ export function WarrantyTrackingPage() {
 
       {/* Horizontal Timeline - at top before all cards */}
       {settings.showTimeline && (
-        <div className="border-b bg-white">
+        <div className="border-b border-border bg-card">
           <div className="container max-w-7xl mx-auto px-4 py-4 md:py-6">
             <StatusTimeline ticket={ticket} />
           </div>
@@ -1178,7 +1178,7 @@ export function WarrantyTrackingPage() {
           )}
 
           {/* Footer */}
-          <div className="text-center text-muted-foreground py-6 sm:py-8 border-t">
+          <div className="text-center text-muted-foreground py-6 sm:py-8 border-t border-border">
             <p className="text-sm md:text-base px-4">
               Có thắc mắc? Liên hệ hotline:{' '}
               <span className="font-semibold text-primary text-base md:text-lg">{hotline}</span>

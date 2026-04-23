@@ -114,7 +114,7 @@ export function QuickFiltersCompact({
               <span
                 className={cn(
                   'px-1.5 py-0.5 rounded-full text-xs font-bold',
-                  isActive ? 'bg-white/20' : 'bg-primary/10 text-primary'
+                  isActive ? 'bg-primary-foreground/20' : 'bg-primary/10 text-primary'
                 )}
               >
                 {count}

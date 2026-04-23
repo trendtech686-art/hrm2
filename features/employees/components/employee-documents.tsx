@@ -238,7 +238,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     switch (previewType) {
       case 'pdf':
         return (
-          <div className="w-full h-[80vh] border border-border rounded-lg overflow-hidden bg-gray-50">
+          <div className="w-full h-[80vh] border border-border rounded-lg overflow-hidden bg-muted/30">
             <iframe
               src={fileUrl}
               className="w-full h-full"

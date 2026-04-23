@@ -132,7 +132,7 @@ export const getColumns = (
       };
       
       return (
-        <Badge className={colorMap[row.status] || 'bg-gray-500'}>
+        <Badge className={colorMap[row.status] || 'bg-muted text-foreground'}>
           {row.status}
         </Badge>
       );

@@ -24,12 +24,12 @@ export function ShippingPartnerSelected({
   return (
     <div className="flex items-center justify-between p-4 border-2 border-green-500 bg-green-50/30 rounded-lg">
       <div className="flex items-center gap-3">
-        <div className={`flex items-center justify-center h-9 w-16 rounded text-white text-xs font-bold
-          ${service.partnerCode === 'GHTK' ? 'bg-green-600' : 
-            service.partnerCode === 'GHN' ? 'bg-orange-500' : 
-            service.partnerCode === 'VTP' ? 'bg-orange-500' :
-            service.partnerCode === 'J&T' ? 'bg-red-600' :
-            service.partnerCode === 'SPX' ? 'bg-red-500' : 'bg-gray-500'}`}>
+        <div className={`flex items-center justify-center h-9 w-16 rounded text-xs font-bold
+          ${service.partnerCode === 'GHTK' ? 'bg-green-600 text-white' : 
+            service.partnerCode === 'GHN' ? 'bg-orange-500 text-white' : 
+            service.partnerCode === 'VTP' ? 'bg-orange-500 text-white' :
+            service.partnerCode === 'J&T' ? 'bg-red-600 text-white' :
+            service.partnerCode === 'SPX' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'}`}>
           {service.partnerCode}
         </div>
         <div>

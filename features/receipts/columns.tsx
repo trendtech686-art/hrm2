@@ -244,7 +244,7 @@ export const getColumns = (
         id: "affectsDebt",
         accessorKey: "affectsDebt",
         header: "Ảnh hưởng CN",
-        cell: ({ row }) => row.affectsDebt ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-gray-400" />,
+        cell: ({ row }) => row.affectsDebt ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-muted-foreground" />,
         meta: {
             displayName: "Ảnh hưởng công nợ",
             group: "Tài chính"

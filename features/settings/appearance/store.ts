@@ -41,6 +41,12 @@ export type CustomThemeConfig = {
     '--accent-foreground': string;
     '--destructive': string;
     '--destructive-foreground': string;
+    '--success': string;
+    '--success-foreground': string;
+    '--warning': string;
+    '--warning-foreground': string;
+    '--info': string;
+    '--info-foreground': string;
     '--border': string;
     '--input': string;
     '--ring': string;
@@ -75,7 +81,8 @@ export type CustomThemeConfig = {
     '--font-size-h6': string;
 };
 
-const defaultCustomTheme: CustomThemeConfig = {
+/** Default theme variables; merged với DB để user cũ luôn có token mới (--success, …). */
+export const defaultCustomTheme: CustomThemeConfig = {
     '--background': 'oklch(1 0 0)',
     '--foreground': 'oklch(0.129 0.042 264.695)',
     '--card': 'oklch(1 0 0)',
@@ -92,6 +99,12 @@ const defaultCustomTheme: CustomThemeConfig = {
     '--accent-foreground': 'oklch(0.208 0.042 265.755)',
     '--destructive': 'oklch(0.577 0.245 27.325)',
     '--destructive-foreground': 'oklch(0.985 0 0)',
+    '--success': 'oklch(0.55 0.15 145)',
+    '--success-foreground': 'oklch(0.99 0.01 145)',
+    '--warning': 'oklch(0.88 0.12 85)',
+    '--warning-foreground': 'oklch(0.28 0.06 65)',
+    '--info': 'oklch(0.58 0.16 255)',
+    '--info-foreground': 'oklch(0.99 0.01 255)',
     '--border': 'oklch(0.929 0.013 255.508)',
     '--input': 'oklch(0.929 0.013 255.508)',
     '--ring': 'oklch(0.704 0.04 256.788)',
@@ -217,13 +230,19 @@ export async function loadAppearanceFromDatabase() {
     
     const { data } = await response.json();
     if (data) {
+      const prev = useAppearanceStore.getState()
+      const fromApi =
+        data.customThemeConfig && typeof data.customThemeConfig === 'object'
+          ? (data.customThemeConfig as Record<string, string>)
+          : {}
+      const mergedConfig = { ...defaultCustomTheme, ...fromApi } as CustomThemeConfig
       useAppearanceStore.setState({
-        theme: data.theme ?? useAppearanceStore.getState().theme,
-        colorMode: data.colorMode ?? useAppearanceStore.getState().colorMode,
-        font: data.font ?? useAppearanceStore.getState().font,
-        fontSize: data.fontSize ?? useAppearanceStore.getState().fontSize,
-        customThemeConfig: data.customThemeConfig ?? useAppearanceStore.getState().customThemeConfig,
-      });
+        theme: data.theme ?? prev.theme,
+        colorMode: data.colorMode ?? prev.colorMode,
+        font: data.font ?? prev.font,
+        fontSize: data.fontSize ?? prev.fontSize,
+        customThemeConfig: mergedConfig,
+      })
     }
     // Mark initialized even when no data so later changes can sync
     isInitialized = true;

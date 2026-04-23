@@ -250,7 +250,7 @@ export function ImagePreviewDialog({
         {/* Image viewer */}
         <div 
           ref={imageViewerRef}
-          className="flex-1 relative overflow-hidden bg-gray-100 rounded-lg touch-none"
+          className="flex-1 relative overflow-hidden bg-muted rounded-lg touch-none"
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -358,7 +358,7 @@ export function ImagePreviewDialog({
                   setIsImageLoading(true);
                 }}
                 className={`relative shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded border-2 border-border overflow-hidden transition-all ${
-                  idx === currentIndex ? 'border-primary ring-2 ring-primary/20' : 'hover:border-gray-400'
+                  idx === currentIndex ? 'border-primary ring-2 ring-primary/20' : 'hover:border-muted-foreground/40'
                 }`}
               >
                 <img

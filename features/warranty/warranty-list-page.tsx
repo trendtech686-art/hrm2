@@ -216,7 +216,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       'bg-yellow-50': '#fefce8',
       'bg-blue-50': '#eff6ff',
       'bg-green-50': '#f0fdf4',
-      'bg-gray-50': '#f9fafb',
+      'bg-gray-50': 'var(--muted)',
       'bg-amber-50': '#fffbeb',
       'bg-orange-50': '#fff7ed',
       'bg-red-50': '#fef2f2',

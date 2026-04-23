@@ -1059,7 +1059,7 @@ export function SalesReturnFormPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="border rounded-md overflow-x-auto">
+                    <div className="border border-border rounded-md overflow-x-auto">
                         <Table>
                             <TableHeader><TableRow><TableHead className="w-12 text-center">STT</TableHead><TableHead>Sản phẩm</TableHead><TableHead className="w-40">Số lượng trả</TableHead><TableHead className="w-45 text-right">Đơn giá gốc</TableHead><TableHead className="w-45 text-right">Đơn giá trả</TableHead><TableHead className="w-45 text-right">Thành tiền</TableHead></TableRow></TableHeader>
                             <TableBody>
@@ -1185,8 +1185,8 @@ export function SalesReturnFormPage() {
                     </div>
                     
                     {exchangeFields.length === 0 ? (
-                        <div className="text-center text-muted-foreground p-12 border border-dashed rounded-md">
-                            <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
+                        <div className="text-center text-muted-foreground p-12 border border-dashed border-border rounded-md">
+                            <PackageOpen className="mx-auto h-12 w-12 text-muted-foreground/40" />
                             <p className="mt-4 text-sm">Chưa có sản phẩm nào trong đơn hàng</p>
                             <Button 
                                 type="button" 

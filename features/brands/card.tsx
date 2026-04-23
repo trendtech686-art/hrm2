@@ -51,7 +51,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
                     Hoạt động
                   </Badge>
                 ) : (
-                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs h-5">
+                  <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs h-5">
                     Tạm tắt
                   </Badge>
                 )}

@@ -743,7 +743,7 @@ export function CompensationPaymentReceiptWizard({
                     {costBearer === 'customer' && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Chi phí phát sinh (Khách chịu):</span>
-                        <span className="font-semibold text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-muted-foreground">
                           ĐVVC thu {incurredCost.toLocaleString('vi-VN')} đ
                         </span>
                       </div>

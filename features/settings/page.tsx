@@ -191,14 +191,14 @@ const operationalSettings: SettingsItem[] = [
     title: 'Mẫu in', 
     description: 'Thiết lập và tùy chỉnh mẫu in theo chi nhánh', 
     href: '/settings/print-templates',
-    iconColor: 'text-slate-600'
+    iconColor: 'text-muted-foreground'
   },
   { 
     icon: History, 
     title: 'Lịch sử nhập xuất', 
     description: 'Xem lịch sử import/export dữ liệu', 
     href: '/settings/import-export-logs',
-    iconColor: 'text-gray-600'
+    iconColor: 'text-muted-foreground'
   },
 ];
 
@@ -208,7 +208,7 @@ const systemSettings: SettingsItem[] = [
     title: 'Nhật ký hệ thống', 
     description: 'Theo dõi lịch sử hoạt động và thay đổi', 
     href: '/settings/system-logs',
-    iconColor: 'text-stone-600'
+    iconColor: 'text-muted-foreground'
   },
   { 
     icon: Paintbrush, 
@@ -229,7 +229,7 @@ const systemSettings: SettingsItem[] = [
     title: 'Cài đặt khác', 
     description: 'Các thiết lập nâng cao và cấu hình hệ thống', 
     href: '/settings/other',
-    iconColor: 'text-gray-500'
+    iconColor: 'text-muted-foreground'
   },
 ];
 
@@ -282,7 +282,7 @@ const settingsSections: SettingsSection[] = [
     id: 'system',
     label: 'Cài đặt hệ thống',
     description: 'Nhật ký, giao diện và cấu hình ID',
-    accentClass: 'bg-gray-600',
+    accentClass: 'bg-muted-foreground',
     items: systemSettings,
   },
 ];

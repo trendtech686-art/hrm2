@@ -22,7 +22,7 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
     pending: { icon: Clock, color: 'text-yellow-600' },
     investigating: { icon: AlertCircle, color: 'text-blue-600' },
     resolved: { icon: CheckCircle2, color: 'text-green-600' },
-    rejected: { icon: XCircle, color: 'text-gray-600' },
+    rejected: { icon: XCircle, color: 'text-muted-foreground' },
     cancelled: { icon: XCircle, color: 'text-red-600' },
     ended: { icon: CheckCircle2, color: 'text-purple-600' },
   };
@@ -30,11 +30,11 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
   const _StatusIcon = (statusConfig[complaint.status] ?? statusConfig.pending).icon;
   
   const priorityConfig: Record<string, { label: string; color: string }> = {
-    low: { label: 'Thấp', color: 'bg-slate-100 text-slate-800' },
+    low: { label: 'Thấp', color: 'bg-muted text-foreground' },
     medium: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800' },
     high: { label: 'Cao', color: 'bg-orange-100 text-orange-800' },
     urgent: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-800' },
-    LOW: { label: 'Thấp', color: 'bg-slate-100 text-slate-800' },
+    LOW: { label: 'Thấp', color: 'bg-muted text-foreground' },
     MEDIUM: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800' },
     HIGH: { label: 'Cao', color: 'bg-orange-100 text-orange-800' },
     CRITICAL: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-800' },
@@ -54,7 +54,7 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
         !isOverdue && complaint.priority === 'CRITICAL' && "border-l-red-400 bg-red-50",
         !isOverdue && complaint.priority === 'HIGH' && "border-l-orange-400 bg-orange-50",
         !isOverdue && complaint.priority === 'MEDIUM' && "border-l-amber-400 bg-amber-50",
-        !isOverdue && complaint.priority === 'LOW' && "border-l-slate-400 bg-slate-50"
+        !isOverdue && complaint.priority === 'LOW' && "border-l-border bg-muted/50"
       )}
     >
       <MobileCardHeader className="items-start justify-between">

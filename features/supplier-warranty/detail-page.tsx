@@ -108,7 +108,7 @@ function WarrantyStatusStepper({ warranty }: { warranty: SupplierWarranty }) {
                 isCancelledStep ? 'bg-red-100 border-red-500 text-red-500' :
                 isCompleted ? 'bg-primary border-primary text-primary-foreground' :
                 isCurrent ? 'border-primary text-primary' :
-                'border-gray-300 bg-gray-100 text-gray-400'
+                'border-border bg-muted text-muted-foreground'
               )}>
                 {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
               </div>
@@ -120,7 +120,7 @@ function WarrantyStatusStepper({ warranty }: { warranty: SupplierWarranty }) {
             {index < steps.length - 1 && (
               <div className={cn(
                 'flex-1 mt-4 h-0.5 min-w-[16px]',
-                index < currentStepIndex ? 'bg-primary' : 'bg-gray-300',
+                index < currentStepIndex ? 'bg-primary' : 'bg-border',
               )} />
             )}
           </React.Fragment>
@@ -788,7 +788,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                   </div>
                   {warranty.totalWarrantyCost > 0 && (
                     <>
-                      <div className="border-t my-1" />
+                      <div className="border-t border-border my-1" />
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Đã tạo phiếu thu:</span>
                         <span className={cn("font-medium", hasReceipt ? "text-green-600" : "text-muted-foreground")}>
@@ -801,7 +801,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
               )}
               {warranty.confirmNotes && (
                 <>
-                  <div className="border-t my-1" />
+                  <div className="border-t border-border my-1" />
                   <div>
                     <span className="text-muted-foreground">Ghi chú xác nhận: </span>
                     <span>{warranty.confirmNotes}</span>
@@ -821,7 +821,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                 {activeReceipts.map(receipt => {
                   const isExpanded = expandedReceiptId === receipt.systemId
                   return (
-                    <div key={receipt.systemId} className="border rounded-md bg-background text-sm">
+                    <div key={receipt.systemId} className="border border-border rounded-md bg-background text-sm">
                       <div
                         role="button"
                         tabIndex={0}

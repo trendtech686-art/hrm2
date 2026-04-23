@@ -4,6 +4,7 @@
  */
 
 import * as React from 'react';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroupItem } from '@/components/ui/radio-group';
 import { Package, Zap, DollarSign } from 'lucide-react';
@@ -35,7 +36,8 @@ export function ShippingPartnerCard({
   onServiceSelect: _onServiceSelect,
   disabled = false,
 }: ShippingPartnerCardProps) {
-  const style = partnerStyles[partnerCode] || { bg: 'bg-gray-500', logo: partnerCode };
+  const branded = partnerStyles[partnerCode];
+  const style = branded || { bg: 'bg-secondary', logo: partnerCode };
   
   // Find cheapest service
   const cheapestService = services.reduce((prev, curr) => 
@@ -51,7 +53,13 @@ export function ShippingPartnerCard({
     <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
       {/* Partner header */}
       <div className="flex items-center gap-3 mb-3">
-        <div className={`${style.bg} text-white font-bold text-sm px-3 py-2 rounded`}>
+        <div
+          className={cn(
+            style.bg,
+            branded ? 'text-white' : 'text-secondary-foreground',
+            'font-bold text-sm px-3 py-2 rounded',
+          )}
+        >
           {style.logo}
         </div>
         <div className="flex-1">
