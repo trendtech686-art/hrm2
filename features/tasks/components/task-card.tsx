@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 
 interface TaskCardProps {
   task: Task;
@@ -47,91 +48,97 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
     ? `Trễ ${formatDistanceToNow(dueDate, { locale: vi })}`
     : formatDistanceToNow(dueDate, { locale: vi, addSuffix: true });
   const statusStyle = STATUS_STYLE[task.status] || STATUS_STYLE['Chưa bắt đầu'];
+  const isCompleted = task.status === 'Hoàn thành' || task.status === 'Đã hủy';
 
   return (
-    <div
+    <MobileCard
+      emphasis={isOverdue ? 'destructive' : 'none'}
       className={cn(
-        "border-l-[3px] rounded-xl bg-card border border-border/50 p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer",
+        'border-l-[3px]',
         PRIORITY_BORDER[task.priority] || 'border-l-slate-300',
-        isOverdue && "bg-red-50/50",
+        isOverdue && 'bg-red-50/50',
       )}
       onClick={() => router.push(`/tasks/${task.systemId}`)}
     >
-        {/* Row 1: ID + Title + Menu */}
-        <div className="flex items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-xs font-medium text-muted-foreground font-mono">{task.id}</span>
-              <div className={cn("h-2 w-2 rounded-full shrink-0", PRIORITY_DOT[task.priority] || 'bg-slate-400')} title={task.priority} />
-            </div>
-            <h3 className={cn(
-              "text-sm font-medium leading-snug line-clamp-2",
-              task.status === 'Hoàn thành' && "line-through text-muted-foreground",
-              task.status === 'Đã hủy' && "line-through text-muted-foreground",
-            )}>
-              {task.title}
-            </h3>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <span className="font-mono">{task.id}</span>
+            <div
+              className={cn('h-2 w-2 rounded-full shrink-0', PRIORITY_DOT[task.priority] || 'bg-slate-400')}
+              title={task.priority}
+            />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/tasks/${task.systemId}`); }}>
-                Xem chi tiết
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/tasks/${task.systemId}/edit`); }}>
-                Chỉnh sửa
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(task.systemId); }}>
-                Xóa
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <h3
+            className={cn(
+              'mt-0.5 text-sm font-semibold text-foreground leading-snug line-clamp-2',
+              isCompleted && 'line-through text-muted-foreground',
+            )}
+          >
+            {task.title}
+          </h3>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/tasks/${task.systemId}`); }}>
+              Xem chi tiết
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/tasks/${task.systemId}/edit`); }}>
+              Chỉnh sửa
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(task.systemId); }}>
+              Xóa
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </MobileCardHeader>
 
-        {/* Row 2: Status + Meta chips */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-2">
-          <span className={cn("inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium", statusStyle.bg, statusStyle.text)}>
+      <MobileCardBody>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={cn('inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium', statusStyle.bg, statusStyle.text)}>
             {task.status}
           </span>
-
-          {/* Due date */}
-          <span className={cn(
-            "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full",
-            isOverdue ? "bg-red-100 text-red-700 font-medium" : "bg-muted text-muted-foreground"
-          )}>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full',
+              isOverdue ? 'bg-red-100 text-red-700 font-medium' : 'bg-muted text-muted-foreground',
+            )}
+          >
             <Calendar className="h-3 w-3" />
             {dueDateStr}
           </span>
-
-          <span className={cn("text-xs", isOverdue ? "text-red-600 font-medium" : "text-muted-foreground")}>
+          <span className={cn('text-xs', isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground')}>
             {dueTimeRelative}
           </span>
         </div>
 
-        {/* Row 3: Assignee + Progress */}
-        <div className="flex items-center gap-3 mt-2">
-          {task.assigneeName && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <User className="h-3 w-3" />
-              {task.assigneeName}
-            </span>
-          )}
-          {task.progress > 0 && (
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all", task.progress >= 100 ? "bg-green-500" : "bg-blue-500")}
-                  style={{ width: `${Math.min(task.progress, 100)}%` }}
-                />
+        {(task.assigneeName || task.progress > 0) && (
+          <div className="flex items-center gap-3 mt-2.5">
+            {task.assigneeName && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground truncate">
+                <User className="h-3 w-3 shrink-0" />
+                <span className="truncate">{task.assigneeName}</span>
+              </span>
+            )}
+            {task.progress > 0 && (
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all', task.progress >= 100 ? 'bg-green-500' : 'bg-blue-500')}
+                    style={{ width: `${Math.min(task.progress, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{task.progress}%</span>
               </div>
-              <span className="text-xs text-muted-foreground shrink-0">{task.progress}%</span>
-            </div>
-          )}
-        </div>
-    </div>
+            )}
+          </div>
+        )}
+      </MobileCardBody>
+    </MobileCard>
   );
 }

@@ -7,6 +7,10 @@ import { logError } from '@/lib/logger'
 import { syncOrders, syncCustomers, syncProducts } from '@/lib/meilisearch-sync'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import {
+  getDefaultCashAccountForVoucher,
+  resolvePaymentMethodForVoucherImport,
+} from '@/lib/finance/default-voucher-import'
+import {
   parseOrderStatus,
   parsePaymentStatus,
   parseDeliveryMethod,
@@ -524,6 +528,18 @@ export async function POST(request: Request) {
             }
           })
 
+          const pmForPayments: Array<{ name: string; systemId: string }> = []
+          let importDefaultCash = null as Awaited<
+            ReturnType<typeof getDefaultCashAccountForVoucher>
+          > | null
+          if (orderInput.payments && orderInput.payments.length > 0) {
+            importDefaultCash = await getDefaultCashAccountForVoucher(tx, branchId)
+            for (const p of orderInput.payments) {
+              const pm = await resolvePaymentMethodForVoucherImport(tx, p.method)
+              pmForPayments.push({ name: pm.name, systemId: pm.systemId })
+            }
+          }
+
           // Normalize shippingAddress
           let shippingAddressValue: Prisma.InputJsonValue | undefined = undefined
           if (orderInput.shippingAddress) {
@@ -579,7 +595,7 @@ export async function POST(request: Request) {
                 payments: {
                   create: orderInput.payments.map((p, idx) => ({
                     id: `PT${String(orderNum).padStart(6, '0')}-${String(idx + 1).padStart(2, '0')}`,
-                    method: p.method || 'Tiền mặt',
+                    method: pmForPayments[idx]?.name ?? p.method ?? 'Tiền mặt',
                     amount: p.amount || 0,
                     date: p.date ? new Date(p.date) : new Date(),
                     description: p.description || undefined,
@@ -600,6 +616,7 @@ export async function POST(request: Request) {
               const { systemId: receiptSysId, businessId: receiptBizId } = await generateNextIdsWithTx(
                 tx, 'receipts' as EntityType
               )
+              const pmR = pmForPayments[pIdx]!
               await tx.receipt.create({
                 data: {
                   systemId: receiptSysId,
@@ -617,7 +634,11 @@ export async function POST(request: Request) {
                   payerSystemId: customer.systemId,
                   customerSystemId: customer.systemId,
                   customerName: orderInput.customerName || customer.name,
-                  paymentMethod: p.method || 'Tiền mặt',
+                  method: pmR.name,
+                  paymentMethod: pmR.name,
+                  paymentMethodName: pmR.name,
+                  paymentMethodSystemId: pmR.systemId,
+                  accountSystemId: importDefaultCash?.systemId,
                   paymentReceiptTypeSystemId: 'SALE',
                   paymentReceiptTypeName: 'Thu tiền bán hàng',
                   branchSystemId: branchId,

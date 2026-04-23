@@ -25,6 +25,7 @@ import { Trash2, RotateCcw, AlertTriangle } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context"
 import type { ColumnDef } from '../data-table/types';
 import { logError } from '@/lib/logger'
+import { ListPageShell } from '../layout/page-section'
 
 interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: string | null | undefined }> {
   // Data & Store
@@ -301,7 +302,7 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
   );
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {/* Warning Banner */}
       <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 mb-4">
         <CardContent className="pt-6">
@@ -435,6 +436,6 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ListPageShell>
   )
 }

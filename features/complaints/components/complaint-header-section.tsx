@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePageHeader } from "../../../contexts/page-header-context";
+import { usePageHeaderDispatch } from "../../../contexts/page-header-context";
 import type { Complaint } from '../types';
 import { ROUTES, generatePath } from "../../../lib/router";
 
@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, timeTracking, headerActions, leftActions }) => {
-  const { setPageHeader } = usePageHeader();
+  const { setPageHeader } = usePageHeaderDispatch();
   
   // Track if we've already set header for this complaint to prevent infinite loops
   const hasSetHeaderRef = React.useRef<string | null>(null);
@@ -50,13 +50,11 @@ export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, 
   }, [complaint, timeTracking?.resolutionStatus, timeTracking?.responseStatus]);
 
   // Store current values in refs to use in effect without causing re-runs
-  const timeTrackingRef = React.useRef(timeTracking);
   const headerActionsRef = React.useRef(headerActions);
   const leftActionsRef = React.useRef(leftActions);
   const detailBreadcrumbRef = React.useRef(detailBreadcrumb);
   
   // Update refs on each render
-  timeTrackingRef.current = timeTracking;
   headerActionsRef.current = headerActions;
   leftActionsRef.current = leftActions;
   detailBreadcrumbRef.current = detailBreadcrumb;
@@ -68,7 +66,6 @@ export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, 
     if (hasSetHeaderRef.current === headerFingerprint) return;
     hasSetHeaderRef.current = headerFingerprint;
     
-    const currentTimeTracking = timeTrackingRef.current;
     const currentBreadcrumb = detailBreadcrumbRef.current;
     const currentActions = headerActionsRef.current;
     const currentLeftActions = leftActionsRef.current;

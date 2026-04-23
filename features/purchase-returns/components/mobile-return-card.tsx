@@ -1,9 +1,14 @@
 'use client'
 
 import * as React from 'react';
-import { PackageX, Building2, User, FileText } from 'lucide-react';
+import { PackageX } from 'lucide-react';
 import { formatDateCustom, parseDate } from '../../../lib/date-utils';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+import {
+  MobileCard,
+  MobileCardBody,
+  MobileCardHeader,
+} from '../../../components/mobile/mobile-card';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value?: number) => {
@@ -18,60 +23,62 @@ interface MobileReturnCardProps {
 
 export function MobileReturnCard({ purchaseReturn, onClick }: MobileReturnCardProps) {
   const totalQty = purchaseReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0);
-  
+
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={() => onClick(purchaseReturn)}
-    >
-      <div className="flex items-start gap-3">
-        <Avatar className="h-10 w-10 shrink-0">
-          <AvatarFallback className="bg-orange-100 text-orange-600">
-            <PackageX className="h-5 w-5" />
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold">{purchaseReturn.id}</h3>
-          <p className="text-xs text-muted-foreground">
-            {formatDateCustom(parseDate(purchaseReturn.returnDate)!, 'dd/MM/yyyy')}
-          </p>
-
-          <div className="space-y-1 mt-2">
-            <div className="flex items-center text-xs text-muted-foreground">
-              <User className="h-3 w-3 mr-1.5 shrink-0" />
-              <span className="truncate">{purchaseReturn.supplierName}</span>
+    <MobileCard onClick={() => onClick(purchaseReturn)}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <Avatar className="h-10 w-10 shrink-0">
+            <AvatarFallback className="bg-orange-100 text-orange-600">
+              <PackageX className="h-5 w-5" />
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Phiếu trả NCC</div>
+            <div className="mt-0.5 text-sm font-semibold text-foreground truncate font-mono">
+              {purchaseReturn.id}
             </div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
-              <span className="truncate">{purchaseReturn.branchName}</span>
+            <div className="text-xs text-muted-foreground">
+              {formatDateCustom(parseDate(purchaseReturn.returnDate)!, 'dd/MM/yyyy')}
             </div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <FileText className="h-3 w-3 mr-1.5 shrink-0" />
-              <span className="truncate">ĐH: {purchaseReturn.purchaseOrderId}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
-            <div className="text-xs">
-              <span className="text-muted-foreground">SL: </span>
-              <span className="font-semibold">{totalQty}</span>
-            </div>
-            <div className="text-xs">
-              <span className="text-orange-600 font-semibold">
-                {formatCurrency(purchaseReturn.totalReturnValue)}
-              </span>
-            </div>
-            {purchaseReturn.refundAmount > 0 && (
-              <div className="text-xs">
-                <span className="text-green-600 font-semibold">
-                  Hoàn: {formatCurrency(purchaseReturn.refundAmount)}
-                </span>
-              </div>
-            )}
           </div>
         </div>
-      </div>
-    </div>
+        <div className="text-right shrink-0">
+          <div className="text-lg font-bold leading-none text-orange-600">
+            {formatCurrency(purchaseReturn.totalReturnValue)}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">Giá trị trả</div>
+        </div>
+      </MobileCardHeader>
+
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Nhà cung cấp</dt>
+            <dd className="font-medium truncate">{purchaseReturn.supplierName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Chi nhánh</dt>
+            <dd className="font-medium truncate">{purchaseReturn.branchName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Số lượng SP</dt>
+            <dd className="font-medium">{totalQty}</dd>
+          </div>
+          {purchaseReturn.purchaseOrderId && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Đơn mua hàng</dt>
+              <dd className="font-medium truncate font-mono">{purchaseReturn.purchaseOrderId}</dd>
+            </div>
+          )}
+          {purchaseReturn.refundAmount > 0 && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Đã hoàn</dt>
+              <dd className="font-medium text-green-600">{formatCurrency(purchaseReturn.refundAmount)}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

@@ -9,6 +9,7 @@ import { useInfiniteMeiliCustomerSearch } from '@/hooks/use-meilisearch';
 // ⚡ PERFORMANCE: Single stats API call instead of loading ALL orders/warranties/complaints
 import { useCustomerStats } from '../../customers/hooks/use-customer-stats';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
@@ -336,9 +337,9 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     return (
         // FIX: Wrapped component in a React.Fragment to resolve a TypeScript error related to JSX element types when using dialogs and other components together.
         <React.Fragment>
-            <Card className="flex flex-col">
+            <Card className={`flex flex-col ${mobileBleedCardClass}`}>
                 <CardHeader className="shrink-0 pb-3"><CardTitle>Thông tin khách hàng</CardTitle></CardHeader>
-                <CardContent className="flex-1 overflow-y-auto space-y-3">
+                <CardContent className="flex-1 md:overflow-y-auto space-y-3">
                     {selectedCustomer ? (
                         <div className="space-y-3">
                             {/* Header: Tên + Liên hệ + Nút xóa */}
@@ -402,48 +403,59 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                             {/* Địa chỉ giao hàng & hóa đơn */}
                             <CustomerAddressSelector customer={selectedCustomer} disabled={disabled} />
 
-                            {/* Thông tin bổ sung: 2 cột */}
+                            {/* Thông tin bổ sung: dl grid 2 cột chuẩn mobile-first */}
                             {(customerBaseInfo.length > 0 || customerMetrics.length > 0) && (
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs border-t pt-3">
+                                <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm border-t pt-3">
                                     {customerBaseInfo.map(row => (
-                                        <div key={row.label} className="flex flex-col sm:flex-row sm:justify-between gap-0.5">
-                                            <span className="text-muted-foreground">{row.label}:</span>
-                                            <div className="text-right">
-                                                <span className={`font-medium ${row.tone ? getToneClass(row.tone) : 'text-foreground'}`}>{row.value}</span>
-                                                {row.subValue && <p className="text-xs text-muted-foreground">{row.subValue}</p>}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {customerMetrics.map(metric => (
-                                        <div key={metric.key} className="flex flex-col sm:flex-row sm:justify-between gap-0.5">
-                                            <span className="text-muted-foreground">{metric.label}:</span>
-                                            <div className="text-right">
-                                                {metric.link ? (
-                                                    <Link href={metric.link} className="inline-flex items-center gap-1">
-                                                        <span className={`font-medium ${getToneClass(metric.tone)}`}>{metric.value}</span>
-                                                        {metric.badge && (
-                                                            <Badge variant="secondary" className={`text-xs px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>
-                                                                {metric.badge.label}
-                                                            </Badge>
-                                                        )}
-                                                    </Link>
-                                                ) : (
-                                                    <div>
-                                                        <div className="flex items-center gap-1 justify-end">
-                                                            <span className={`font-medium ${getToneClass(metric.tone)}`}>{metric.value}</span>
-                                                            {metric.badge && (
-                                                                <Badge variant="secondary" className={`text-xs px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>
-                                                                    {metric.badge.label}
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        {metric.subValue && <p className="text-xs text-muted-foreground">{metric.subValue}</p>}
-                                                    </div>
+                                        <div key={row.label} className="min-w-0">
+                                            <dt className="text-xs text-muted-foreground">{row.label}</dt>
+                                            <dd className={`mt-0.5 font-medium wrap-break-word ${row.tone ? getToneClass(row.tone) : 'text-foreground'}`}>
+                                                {row.value}
+                                                {row.subValue && (
+                                                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground wrap-break-word">
+                                                        {row.subValue}
+                                                    </span>
                                                 )}
-                                            </div>
+                                            </dd>
                                         </div>
                                     ))}
-                                </div>
+                                    {customerMetrics.map(metric => {
+                                        const valueNode = (
+                                            <span className="inline-flex flex-wrap items-center gap-1">
+                                                <span className={`font-medium wrap-break-word ${metric.tone ? getToneClass(metric.tone) : 'text-foreground'}`}>
+                                                    {metric.value}
+                                                </span>
+                                                {metric.badge && (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={`text-[11px] px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}
+                                                    >
+                                                        {metric.badge.label}
+                                                    </Badge>
+                                                )}
+                                            </span>
+                                        );
+                                        return (
+                                            <div key={metric.key} className="min-w-0">
+                                                <dt className="text-xs text-muted-foreground">{metric.label}</dt>
+                                                <dd className="mt-0.5 wrap-break-word">
+                                                    {metric.link ? (
+                                                        <Link href={metric.link} className="inline-flex flex-wrap items-center gap-1 hover:underline">
+                                                            {valueNode}
+                                                        </Link>
+                                                    ) : (
+                                                        valueNode
+                                                    )}
+                                                    {metric.subValue && (
+                                                        <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground wrap-break-word">
+                                                            {metric.subValue}
+                                                        </span>
+                                                    )}
+                                                </dd>
+                                            </div>
+                                        );
+                                    })}
+                                </dl>
                             )}
                         </div>
                     ) : (
@@ -496,7 +508,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                     )}
                 </CardContent>
             </Card>
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}><DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Thêm khách hàng mới</DialogTitle></DialogHeader><CustomerForm initialData={null} onSubmit={handleFormSubmit} onCancel={() => setIsFormOpen(false)} /></DialogContent></Dialog>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}><DialogContent mobileFullScreen className="sm:max-w-3xl"><DialogHeader><DialogTitle>Thêm khách hàng mới</DialogTitle></DialogHeader><CustomerForm initialData={null} onSubmit={handleFormSubmit} onCancel={() => setIsFormOpen(false)} /></DialogContent></Dialog>
         </React.Fragment>
     );
 }

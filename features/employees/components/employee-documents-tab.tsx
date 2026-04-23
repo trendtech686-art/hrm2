@@ -12,6 +12,7 @@
 import * as React from 'react';
 import { Search } from 'lucide-react';
 import type { StagingFile } from '@/lib/file-upload-api';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -200,7 +201,7 @@ export function EmployeeDocumentsTab({
       <div className="space-y-6">
         {/* Row 1: Legal Documents */}
         {(!isSearching || filteredLegalDocuments.length > 0) && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader className="pb-4">
               <CardTitle className="text-primary">1. Tài liệu pháp lý</CardTitle>
             </CardHeader>
@@ -231,7 +232,7 @@ export function EmployeeDocumentsTab({
 
         {/* Row 2: Work Process Documents */}
         {(!isSearching || filteredWorkProcessDocuments.length > 0 || filteredMultiFileDocuments.length > 0) && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader className="pb-4">
               <CardTitle className="text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
             </CardHeader>
@@ -281,7 +282,7 @@ export function EmployeeDocumentsTab({
 
         {/* Row 3: Termination Documents */}
         {(!isSearching || filteredTerminationDocuments.length > 0) && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader className="pb-4">
               <CardTitle className="text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
             </CardHeader>

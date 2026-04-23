@@ -13,7 +13,8 @@ import { Label } from '../../../components/ui/label';
 import { Separator } from '../../../components/ui/separator';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { ScrollArea } from '../../../components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../components/layout/page-section';
 import { Card, CardContent } from '../../../components/ui/card';
 import { AlertTriangle, Calculator, Save, X, TrendingUp, TrendingDown, Wallet, Loader2 } from 'lucide-react';
 import type { Payslip, PayrollComponentEntry, PayrollTotals } from '../../../lib/payroll-types';
@@ -228,7 +229,7 @@ export function PayslipEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Chỉnh sửa phiếu lương</DialogTitle>
           <DialogDescription>
@@ -292,32 +293,32 @@ export function PayslipEditDialog({
 
         {/* Tabs for component categories */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="earning" className="gap-1">
+          <MobileTabsList>
+            <MobileTabsTrigger value="earning">
               Thu nhập
               {changeCountPerCategory.earning > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs bg-amber-100 text-amber-700 rounded-full">
                   {changeCountPerCategory.earning}
                 </span>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="deduction" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="deduction">
               Khấu trừ
               {changeCountPerCategory.deduction > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs bg-amber-100 text-amber-700 rounded-full">
                   {changeCountPerCategory.deduction}
                 </span>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="contribution" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="contribution">
               Đóng góp
               {changeCountPerCategory.contribution > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs bg-amber-100 text-amber-700 rounded-full">
                   {changeCountPerCategory.contribution}
                 </span>
               )}
-            </TabsTrigger>
-          </TabsList>
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           <ScrollArea className="flex-1 mt-4">
             <TabsContent value="earning" className="mt-0 space-y-3">

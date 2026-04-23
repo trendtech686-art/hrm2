@@ -32,7 +32,8 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { Combobox, type ComboboxOption } from "../../components/ui/combobox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Tabs, TabsContent } from "../../components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 import { Textarea } from "../../components/ui/textarea";
 import { CustomerAddresses } from './customer-addresses';
 import { CustomerContacts, type CustomerContact } from './customer-contacts';
@@ -830,31 +831,29 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
     <Form {...form}>
       <form id="customer-form" onSubmit={form.handleSubmit(handleSubmit, onFormError)} className="space-y-6 min-w-0 overflow-x-hidden">
         <Tabs defaultValue="info" className="w-full">
-          <div className="w-full overflow-x-auto overflow-y-hidden mb-4 pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
-            <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start">
-              <TabsTrigger value="info" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Thông tin khách hàng
-              </TabsTrigger>
-              <TabsTrigger value="images" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Hình ảnh
-              </TabsTrigger>
-              <TabsTrigger value="business" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Thông tin doanh nghiệp
-              </TabsTrigger>
-              <TabsTrigger value="contacts" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Liên hệ
-              </TabsTrigger>
-              <TabsTrigger value="addresses" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Địa chỉ
-              </TabsTrigger>
-              <TabsTrigger value="payment" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Thanh toán & Giá
-              </TabsTrigger>
-              <TabsTrigger value="classification" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">
-                Phân loại & Quản lý
-              </TabsTrigger>
-            </TabsList>
-          </div>
+          <MobileTabsList className="mb-4">
+            <MobileTabsTrigger value="info">
+              Thông tin khách hàng
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="images">
+              Hình ảnh
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="business">
+              Thông tin doanh nghiệp
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="contacts">
+              Liên hệ
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="addresses">
+              Địa chỉ
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="payment">
+              Thanh toán & Giá
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="classification">
+              Phân loại & Quản lý
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           <TabsContent value="info" className="mt-6">
             <div className="flex items-center justify-between mb-4">

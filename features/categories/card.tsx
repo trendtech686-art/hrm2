@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { TouchButton } from "@/components/mobile/touch-button";
+import { MobileCard } from "@/components/mobile/mobile-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Pencil, Trash2, Image as ImageIcon, MapPin } from "lucide-react";
 import type { WebsiteSeoData } from '@/lib/types/prisma-extended';
@@ -64,10 +65,7 @@ export const MobileCategoryCard = ({
   const trendtechScore = calculateSeoScore(category, 'trendtech');
 
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={() => handleRowClick(category)}
-    >
+    <MobileCard onClick={() => handleRowClick(category)}>
         {/* Header: Image + Name + Switch + Menu */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -162,6 +160,6 @@ export const MobileCategoryCard = ({
         <div className="text-xs text-muted-foreground mt-2">
           Tạo: {formatDate(category.createdAt)}
         </div>
-    </div>
+    </MobileCard>
   );
 };

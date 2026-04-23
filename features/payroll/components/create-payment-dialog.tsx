@@ -187,7 +187,7 @@ export function CreatePaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-112.5">
+      <DialogContent mobileFullScreen className="sm:max-w-112.5">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5" />

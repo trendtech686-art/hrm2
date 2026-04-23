@@ -8,6 +8,7 @@ import {
   Card,
   CardContent,
 } from '../../components/ui/card';
+import { FormPageShell, mobileBleedCardClass } from '../../components/layout/page-section';
 import { Button } from '../../components/ui/button';
 import { Loader2 } from 'lucide-react';
 import type { Supplier } from '@/lib/types/prisma-extended';
@@ -116,7 +117,7 @@ export function SupplierFormPage() {
   if (supplierSystemId && isLoadingSupplier) {
     return (
       <div className="space-y-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6 space-y-4">
             <Skeleton className="h-8 w-48" />
             <div className="grid grid-cols-2 gap-4">
@@ -134,12 +135,12 @@ export function SupplierFormPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <FormPageShell gap="md">
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6">
           <SupplierForm initialData={supplier ?? null} onSubmit={handleSubmit} onCancel={handleCancel} />
         </CardContent>
       </Card>
-    </div>
+    </FormPageShell>
   );
 }

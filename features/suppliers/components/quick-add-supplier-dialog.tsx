@@ -154,7 +154,7 @@ export function QuickAddSupplierDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Thêm mới nhà cung cấp</DialogTitle>
           <DialogDescription>

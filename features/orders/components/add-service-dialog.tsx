@@ -90,7 +90,7 @@ export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent mobileFullScreen className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Thêm dịch vụ khác</DialogTitle>
         </DialogHeader>

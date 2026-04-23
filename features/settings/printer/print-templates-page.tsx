@@ -1300,7 +1300,7 @@ export function PrintTemplatesPage() {
                   Thêm từ khóa
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[80vh]">
+              <DialogContent mobileFullScreen className="max-w-3xl max-h-[80vh]">
                 <DialogHeader>
                   <DialogTitle>Danh sách từ khóa</DialogTitle>
                   <p className="text-sm text-muted-foreground">

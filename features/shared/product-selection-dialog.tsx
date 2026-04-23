@@ -206,7 +206,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Chọn nhanh sản phẩm</DialogTitle>
                     <DialogDescription>
@@ -275,11 +275,12 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
                                     <div
                                         key={product.systemId}
                                         className={cn(
-                                            "flex items-center gap-2.5 px-3 py-2 border-b border-border hover:bg-muted/50 cursor-pointer transition-colors",
+                                            "flex flex-col md:flex-row md:items-center gap-2 md:gap-2.5 px-3 py-2.5 border-b border-border hover:bg-muted/50 cursor-pointer transition-colors",
                                             isSelected && "bg-primary/5"
                                         )}
                                         onClick={() => handleToggleProduct(product.systemId)}
                                     >
+                                        <div className="flex items-center gap-2.5 md:contents">
                                         {/* Checkbox - always show */}
                                         <Checkbox
                                             checked={isSelected}
@@ -301,19 +302,21 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
                                         </div>
 
                                         {/* Product Details */}
-                                        <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                                        <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium truncate">{product.name}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {product.id} | ĐVT: {product.unit || "Cái"}
+                                                <p className="text-xs text-muted-foreground truncate">
+                                                    {product.id} · {product.unit || "Cái"}
                                                 </p>
                                             </div>
-                                            <div className="text-xs text-right shrink-0">
-                                                <p className="text-muted-foreground">
-                                                    {showPurchasePrice ? 'Giá nhập' : showCostPrice ? 'Giá vốn' : 'Giá bán'}: <span className="font-medium text-foreground">{formatCurrency(showPurchasePrice ? purchasePrice : showCostPrice ? costPrice : displayPrice)}</span>
+                                            <div className="text-xs text-left md:text-right shrink-0 flex items-center md:items-end gap-2 md:gap-0 md:flex-col">
+                                                <p className="text-muted-foreground whitespace-nowrap">
+                                                    <span className="md:hidden">Giá:</span>
+                                                    <span className="hidden md:inline">{showPurchasePrice ? 'Giá nhập' : showCostPrice ? 'Giá vốn' : 'Giá bán'}:</span>
+                                                    <span className="font-medium text-foreground ml-1">{formatCurrency(showPurchasePrice ? purchasePrice : showCostPrice ? costPrice : displayPrice)}</span>
                                                 </p>
-                                                <p className="text-muted-foreground flex items-center justify-end gap-1">
-                                                    Tồn kho: {inventory.branchStock}
+                                                <p className="text-muted-foreground flex items-center justify-end gap-1 whitespace-nowrap">
+                                                    Tồn: {inventory.branchStock}
                                                     <TooltipProvider delayDuration={0}>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
@@ -344,11 +347,12 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
                                                 </p>
                                             </div>
                                         </div>
+                                        </div>
 
                                         {/* Quantity Input */}
                                         {showQuantityInput && (
-                                            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex items-center gap-1">
+                                            <div className="shrink-0 md:ml-auto" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center gap-1 md:gap-1 justify-end">
                                                     <Button
                                                         type="button"
                                                         variant="outline"

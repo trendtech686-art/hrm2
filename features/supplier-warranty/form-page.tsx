@@ -7,6 +7,7 @@ import { useForm, useFieldArray, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { mobileBleedCardClass } from '@/components/layout/page-section'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +18,7 @@ import { useSupplierWarrantyMutations, useSupplierWarranty } from './hooks/use-s
 import { createSupplierWarrantySchema, type CreateSupplierWarrantyInput } from './validation'
 import { SupplierSelectionCard } from '@/features/purchase-orders/components/supplier-selection-card'
 import { UnifiedProductSearch } from '@/components/shared/unified-product-search'
+import { BarcodeScannerButton } from '@/components/shared/barcode-scanner-button'
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog'
 import { useSupplierFinder } from '@/features/suppliers/hooks/use-all-suppliers'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -245,7 +247,7 @@ export function SupplierWarrantyFormPage({ systemId }: SupplierWarrantyFormPageP
             )}
           </div>
 
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Thông tin</CardTitle>
             </CardHeader>
@@ -289,7 +291,7 @@ export function SupplierWarrantyFormPage({ systemId }: SupplierWarrantyFormPageP
         </div>
 
         {/* Products — giống warranty-products-section pattern */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-base">Danh sách sản phẩm bảo hành</CardTitle>
           </CardHeader>
@@ -306,6 +308,24 @@ export function SupplierWarrantyFormPage({ systemId }: SupplierWarrantyFormPageP
                   allowCreateNew={false}
                 />
               </div>
+              <BarcodeScannerButton
+                onDetect={async (code) => {
+                  try {
+                    const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`)
+                    if (!res.ok) throw new Error('search failed')
+                    const json = await res.json() as { data: Product[] }
+                    const match = json.data?.[0]
+                    if (!match) {
+                      toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`)
+                      return
+                    }
+                    handleSelectProduct(match)
+                    toast.success(`Đã thêm: ${match.name}`)
+                  } catch {
+                    toast.error('Không thể tra cứu mã vạch. Thử lại.')
+                  }
+                }}
+              />
               <Button
                 type="button"
                 variant="outline"
@@ -458,7 +478,7 @@ export function SupplierWarrantyFormPage({ systemId }: SupplierWarrantyFormPageP
         </div>
 
         {/* Mobile sticky submit */}
-        <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex gap-3 md:hidden z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex gap-3 md:hidden z-50">
           <Button type="button" variant="outline" className="flex-1" onClick={() => router.push('/supplier-warranties')}>
             Hủy
           </Button>

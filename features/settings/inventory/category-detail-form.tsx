@@ -12,12 +12,14 @@ import {
   Globe
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { mobileBleedCardClass } from '../../../components/layout/page-section';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Switch } from '../../../components/ui/switch';
 import { ScrollArea } from '../../../components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../components/layout/page-section';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { OptimizedImage } from '../../../components/ui/optimized-image';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
@@ -307,25 +309,25 @@ export function CategoryDetailForm({
         <Form {...form}>
           <form className="p-4 space-y-6">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="general">Thông tin</TabsTrigger>
-                <TabsTrigger value="seo-default" className="gap-1">
+              <MobileTabsList>
+                <MobileTabsTrigger value="general">Thông tin</MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-default">
                   <Globe className="h-3 w-3" />
                   SEO Chung
-                </TabsTrigger>
-                <TabsTrigger value="seo-pkgx" className="gap-1">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-pkgx">
                   <Globe className="h-3 w-3" style={{ color: '#ef4444' }} />
                   SEO PKGX
-                </TabsTrigger>
-                <TabsTrigger value="seo-trendtech" className="gap-1">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-trendtech">
                   <Globe className="h-3 w-3" style={{ color: '#3b82f6' }} />
                   SEO Trendtech
-                </TabsTrigger>
-              </TabsList>
+                </MobileTabsTrigger>
+              </MobileTabsList>
 
               <TabsContent value="general" className="space-y-4 mt-4">
                 {/* Basic Info Card */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <CardTitle>Thông tin cơ bản</CardTitle>
                   </CardHeader>
@@ -503,7 +505,7 @@ export function CategoryDetailForm({
                 </Card>
 
                 {/* Thumbnail Card */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <CardTitle>Ảnh đại diện</CardTitle>
                     <CardDescription>Ảnh hiển thị cho danh mục (tối đa 1 ảnh, 2MB)</CardDescription>
@@ -544,7 +546,7 @@ export function CategoryDetailForm({
 
               {/* SEO Default Tab */}
               <TabsContent value="seo-default" className="space-y-4 mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" />
@@ -642,7 +644,7 @@ export function CategoryDetailForm({
 
               {/* SEO PKGX Tab */}
               <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" style={{ color: '#ef4444' }} />
@@ -751,7 +753,7 @@ export function CategoryDetailForm({
                 </Card>
 
                 {/* SEO Analysis Panel - PKGX */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <CardTitle>📊 Phân tích SEO</CardTitle>
                     <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
@@ -770,7 +772,7 @@ export function CategoryDetailForm({
 
               {/* SEO Trendtech Tab */}
               <TabsContent value="seo-trendtech" className="space-y-4 mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-3 w-3" style={{ color: '#3b82f6' }} />
@@ -879,7 +881,7 @@ export function CategoryDetailForm({
                 </Card>
 
                 {/* SEO Analysis Panel - Trendtech */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader className="pb-3">
                     <CardTitle>📊 Phân tích SEO</CardTitle>
                     <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>

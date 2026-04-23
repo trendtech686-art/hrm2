@@ -27,7 +27,8 @@ import { asBusinessId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { DetailField } from '../../components/ui/detail-field';
 import { Badge } from '../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { useAuth } from '../../contexts/auth-context';
@@ -462,7 +463,7 @@ export function SupplierDetailPage() {
     <>
       {/* Receipt Create Dialog */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tạo phiếu thu - {supplier.name}</DialogTitle>
           </DialogHeader>
@@ -486,7 +487,7 @@ export function SupplierDetailPage() {
 
       {/* Payment Create Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tạo phiếu chi - {supplier.name}</DialogTitle>
           </DialogHeader>
@@ -509,7 +510,7 @@ export function SupplierDetailPage() {
       </Dialog>
 
     <div className="space-y-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6">
             <dl>
                 <DetailField label="Mã số thuế" value={supplier.taxCode} />
@@ -562,29 +563,29 @@ export function SupplierDetailPage() {
         </Card>
 
         <Tabs defaultValue="purchase-history" onValueChange={handleTabChange}>
-            <TabsList>
-                <TabsTrigger value="purchase-history">
+            <MobileTabsList>
+                <MobileTabsTrigger value="purchase-history">
                   Lịch sử nhập hàng{purchaseOrdersResult.pagination.total > 0 ? ` (${purchaseOrdersResult.pagination.total})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="purchase-returns">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="purchase-returns">
                   Đơn trả hàng{purchaseReturnsResult.pagination.total > 0 ? ` (${purchaseReturnsResult.pagination.total})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="products-ordered">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="products-ordered">
                   SP đã đặt{productsOrderedResult.pagination.total > 0 ? ` (${productsOrderedResult.pagination.total})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="products-returned">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="products-returned">
                   SP trả lại{productsReturnedResult.pagination.total > 0 ? ` (${productsReturnedResult.pagination.total})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="debt">Công nợ</TabsTrigger>
-                <TabsTrigger value="warranties">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="debt">Công nợ</MobileTabsTrigger>
+                <MobileTabsTrigger value="warranties">
                   Bảo hành{warrantiesResult.pagination.total > 0 ? ` (${warrantiesResult.pagination.total})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="warranty-products">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="warranty-products">
                   SP đã bảo hành{warrantyProductsResult.pagination.total > 0 ? ` (${warrantyProductsResult.pagination.total})` : ''}
-                </TabsTrigger>
-            </TabsList>
+                </MobileTabsTrigger>
+            </MobileTabsList>
             <TabsContent value="purchase-history" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierPurchaseOrders}
@@ -607,7 +608,7 @@ export function SupplierDetailPage() {
                 </Card>
             </TabsContent>
              <TabsContent value="debt" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierDebtTransactions}
@@ -633,7 +634,7 @@ export function SupplierDetailPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="purchase-returns" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierPurchaseReturns}
@@ -656,7 +657,7 @@ export function SupplierDetailPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="products-ordered" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierProductsOrdered}
@@ -678,7 +679,7 @@ export function SupplierDetailPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="products-returned" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierProductsReturned}
@@ -700,7 +701,7 @@ export function SupplierDetailPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="warranties" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierWarranties}
@@ -725,7 +726,7 @@ export function SupplierDetailPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="warranty-products" className="mt-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <RelatedDataTable 
                             data={supplierWarrantyProducts}

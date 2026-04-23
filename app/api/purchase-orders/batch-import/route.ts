@@ -7,6 +7,10 @@ import { generateIdWithPrefix } from '@/lib/id-generator'
 import type { EntityType } from '@/lib/id-config-constants'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import {
+  getDefaultCashAccountForVoucher,
+  resolvePaymentMethodForVoucherImport,
+} from '@/lib/finance/default-voucher-import'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -488,6 +492,21 @@ export const POST = apiHandler(async (request, { session }) => {
             },
           })
 
+          const pmForPoPayments: Array<{ name: string; systemId: string }> = []
+          let importPoDefaultCash = null as Awaited<
+            ReturnType<typeof getDefaultCashAccountForVoucher>
+          > | null
+          if (poInput.payments && poInput.payments.length > 0) {
+            importPoDefaultCash = await getDefaultCashAccountForVoucher(
+              tx,
+              branch?.systemId ?? '',
+            )
+            for (const p of poInput.payments) {
+              const pm = await resolvePaymentMethodForVoucherImport(tx, p.method)
+              pmForPoPayments.push({ name: pm.name, systemId: pm.systemId })
+            }
+          }
+
           // Create Payment records if payments exist
           if (poInput.payments && poInput.payments.length > 0) {
             for (let pIdx = 0; pIdx < poInput.payments.length; pIdx++) {
@@ -495,6 +514,7 @@ export const POST = apiHandler(async (request, { session }) => {
               const paymentAmount = p.amount || 0
               if (paymentAmount <= 0) continue
 
+              const m = pmForPoPayments[pIdx]!
               const { systemId: paySysId, businessId: payBizId } = await generateNextIdsWithTx(
                 tx, 'payments' as EntityType
               )
@@ -514,8 +534,11 @@ export const POST = apiHandler(async (request, { session }) => {
                   purchaseOrderId: poSystemId as string,
                   purchaseOrderSystemId: poSystemId as string,
                   purchaseOrderBusinessId: finalBusinessId,
-                  method: p.method || 'Tiền mặt',
-                  paymentMethod: p.method || 'Tiền mặt',
+                  method: m.name,
+                  paymentMethod: m.name,
+                  paymentMethodName: m.name,
+                  paymentMethodSystemId: m.systemId,
+                  accountSystemId: importPoDefaultCash?.systemId,
                   paymentDate: p.date ? new Date(p.date) : new Date(),
                   recipientTypeName: 'Nhà cung cấp',
                   recipientName: supplier?.name || poInput.supplierName || '',

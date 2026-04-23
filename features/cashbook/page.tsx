@@ -35,6 +35,7 @@ import type { CashbookStatsData } from '@/lib/data/cashbook';
 import { useAuth } from "@/contexts/auth-context";
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
@@ -97,21 +98,31 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
   }, [cashbookData?.transactions]);
 
   // Extract summary from server (with initialStats fallback for instant display)
-  const { openingBalance, totalReceipts, totalPayments, closingBalance } = React.useMemo(() => {
+  const { openingBalance, totalReceipts, totalPayments, closingBalance, accountBalances } = React.useMemo(() => {
     if (cashbookData?.summary) {
-      return cashbookData.summary;
+      return {
+        ...cashbookData.summary,
+        accountBalances:
+          cashbookData.summary.accountBalances ?? initialStats?.accountBalances ?? [],
+      };
     }
     if (initialStats) {
-      return initialStats;
+      return { ...initialStats, accountBalances: initialStats.accountBalances ?? [] };
     }
-    return { openingBalance: 0, totalReceipts: 0, totalPayments: 0, closingBalance: 0 };
+    return {
+      openingBalance: 0,
+      totalReceipts: 0,
+      totalPayments: 0,
+      closingBalance: 0,
+      accountBalances: [] as CashbookStatsData['accountBalances'],
+    };
   }, [cashbookData?.summary, initialStats]);
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'date', desc: true });
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('cashbook', {});
   const [columnOrder, setColumnOrder] = useColumnOrder('cashbook');
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('cashbook', ['select', 'type', 'id']);
@@ -211,34 +222,34 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
   return (
     <div className="space-y-4 flex flex-col h-full">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Số dư đầu kỳ</p>
             <p className="text-xl font-semibold">{formatCurrency(openingBalance)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng thu</p>
             <p className="text-xl font-semibold text-green-600">{formatCurrency(totalReceipts)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng chi</p>
             <p className="text-xl font-semibold text-red-600">{formatCurrency(totalPayments)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tồn cuối kỳ</p>
             <p className="text-xl font-semibold">{formatCurrency(closingBalance)}</p>
           </CardContent>
         </Card>
       </div>
-      {initialStats?.accountBalances && initialStats.accountBalances.length > 0 && (
+      {accountBalances && accountBalances.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-          {initialStats.accountBalances.map(acc => (
+          {accountBalances.map(acc => (
             <Card key={acc.systemId} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setAccountFilter(acc.systemId)}>
               <CardContent className="p-3">
                 <p className="text-xs text-muted-foreground truncate">{acc.name}</p>
@@ -261,7 +272,7 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
           onUpdatePreset={updatePreset}
         /></PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
-      {isMobile ? (<div className={cn('space-y-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}><div className="space-y-2">{sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">{isLoading ? 'Đang tải...' : 'Không tìm thấy giao dịch nào.'}</CardContent></Card> : sortedData.slice(0, mobileLoadedCount).map(t => <MobileTransactionCard key={t.systemId} transaction={t} branches={branches} receiptTypes={receiptTypes} paymentTypes={paymentTypes} onEdit={handleEdit} onCancel={handleCancel} canEdit={canEdit} canCancel={canEdit} />)}</div>{sortedData.length > 0 && <div className="py-6 text-center">{mobileLoadedCount < sortedData.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải thêm...</span></div> : sortedData.length > 20 && <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {sortedData.length} giao dịch</p>}</div>}</div>) : <div className={cn(isFetching && !isLoading && 'opacity-70 transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={cashbookData?.pagination?.total ?? 0} isLoading={isLoading} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={sortedData.filter(v => rowSelection[v.systemId])} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={r => router.push(generatePath(r.type === 'receipt' ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW, { systemId: r.systemId }))} renderMobileCard={r => <MobileTransactionCard transaction={r} branches={branches} receiptTypes={receiptTypes} paymentTypes={paymentTypes} onEdit={handleEdit} onCancel={handleCancel} canEdit={canEdit} canCancel={canEdit} />} /></div>}
+      {isMobile ? (<div className={cn('space-y-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}><div className="space-y-2">{sortedData.length === 0 ? <Card className={mobileBleedCardClass}><CardContent className="p-8 text-center text-muted-foreground">{isLoading ? 'Đang tải...' : 'Không tìm thấy giao dịch nào.'}</CardContent></Card> : sortedData.slice(0, mobileLoadedCount).map(t => <MobileTransactionCard key={t.systemId} transaction={t} branches={branches} receiptTypes={receiptTypes} paymentTypes={paymentTypes} onEdit={handleEdit} onCancel={handleCancel} canEdit={canEdit} canCancel={canEdit} />)}</div>{sortedData.length > 0 && <div className="py-6 text-center">{mobileLoadedCount < sortedData.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải thêm...</span></div> : sortedData.length > 20 && <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {sortedData.length} giao dịch</p>}</div>}</div>) : <div className={cn(isFetching && !isLoading && 'opacity-70 transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={cashbookData?.pagination?.total ?? 0} isLoading={isLoading} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={sortedData.filter(v => rowSelection[v.systemId])} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={r => router.push(generatePath(r.type === 'receipt' ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW, { systemId: r.systemId }))} renderMobileCard={r => <MobileTransactionCard transaction={r} branches={branches} receiptTypes={receiptTypes} paymentTypes={paymentTypes} onEdit={handleEdit} onCancel={handleCancel} canEdit={canEdit} canCancel={canEdit} />} /></div>}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy giao dịch này?</AlertDialogTitle><AlertDialogDescription>Giao dịch sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isCancelling} onClick={confirmCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy giao dịch'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy {Object.keys(rowSelection).length} giao dịch?</AlertDialogTitle><AlertDialogDescription>Các giao dịch sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isCancelling} onClick={confirmBulkCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy tất cả'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>

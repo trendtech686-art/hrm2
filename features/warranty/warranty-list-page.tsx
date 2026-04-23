@@ -66,6 +66,7 @@ import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../compon
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
 import { useFilterPresets } from '../../hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 /**
  * Trang danh sách phiếu bảo hành - Nâng cấp với VirtualizedDataTable
@@ -685,7 +686,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   // Render
   // ==========================================
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {/* Stats Bar - instant display from Server Component */}
       <StatsBar
         className="mb-4"
@@ -886,6 +887,6 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         selectedCount={pendingPrintTickets.length}
         title="In phiếu bảo hành"
       />
-    </div>
+    </ListPageShell>
   );
 }

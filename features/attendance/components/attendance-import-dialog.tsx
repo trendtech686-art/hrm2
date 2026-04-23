@@ -15,6 +15,7 @@ import { ScrollArea, ScrollBar } from '../../../components/ui/scroll-area';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { AttendanceEditDialog } from './attendance-edit-dialog';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '../../../components/mobile/mobile-card';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import type { SystemId } from '../../../lib/id-types';
@@ -612,7 +613,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col p-0 max-md:p-0">
+                <DialogContent mobileFullScreen className="sm:max-w-3xl max-h-[80vh] flex flex-col p-0 max-md:p-0">
                     <DialogHeader className="px-4 pt-4 pb-2">
                         <DialogTitle className="text-base">Nhập file chấm công</DialogTitle>
                         {step === 'upload' && (
@@ -669,9 +670,9 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                     {step === 'preview' && (
                         <div className="grow flex flex-col min-h-0 px-4">
                             {/* Header with title and summary */}
-                            <div className="shrink-0 flex justify-between items-center mb-2">
+                            <div className="shrink-0 flex flex-wrap justify-between items-center gap-2 mb-2">
                                 <h3 className="text-sm font-semibold">Xem trước dữ liệu cho tháng {formatDateCustom(selectedMonth, 'MM/yyyy')}</h3>
-                                <div className="flex items-center gap-3 text-xs">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
                                     {numSelected > 0 && (
                                         <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={handleBulkDelete}>
                                             <Trash2 className="mr-1.5 h-3 w-3" />Xóa {numSelected} mục
@@ -702,8 +703,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                 </span>
                             </div>
 
-                            {/* Table with horizontal and vertical scroll */}
-                            <ScrollArea className="grow border rounded-md h-88">
+                            {/* Desktop: Table with horizontal and vertical scroll */}
+                            <ScrollArea className="hidden md:block grow border rounded-md h-88">
                                 <div className="min-w-200">
                                     <Table>
                                         <TableHeader className="sticky top-0 bg-muted z-10">
@@ -792,6 +793,105 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                 </div>
                                 <ScrollBar orientation="horizontal" />
                                 <ScrollBar orientation="vertical" />
+                            </ScrollArea>
+
+                            {/* Mobile: Card stack per dòng */}
+                            <ScrollArea className="md:hidden grow border rounded-md h-88 pr-3">
+                                <div className="space-y-3 p-2">
+                                    {paginatedData.map((row) => {
+                                        const originalIndex = previewData.findIndex(r => r === row);
+                                        return (
+                                            <MobileCard
+                                                key={`${row.excelRow}-${row.sheetName}-${originalIndex}`}
+                                                inert
+                                                emphasis={row.status === 'error' ? 'destructive' : row.status === 'warning' ? 'warning' : 'none'}
+                                            >
+                                                <MobileCardHeader className="items-start justify-between">
+                                                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                                                        <Checkbox
+                                                            checked={!!rowSelection[originalIndex]}
+                                                            onCheckedChange={() => toggleRow(originalIndex)}
+                                                            className="mt-0.5 h-4 w-4"
+                                                        />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                                Nhân viên
+                                                            </div>
+                                                            <div className="mt-0.5 text-sm font-semibold truncate">
+                                                                {row.employeeName || '-'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <div className="text-right">
+                                                            <div className="text-lg font-bold leading-none">
+                                                                {row.day || '-'}
+                                                            </div>
+                                                            <div className="mt-1 text-xs text-muted-foreground">Ngày</div>
+                                                        </div>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onSelect={() => handleEdit(originalIndex)} className="text-xs">
+                                                                    <Edit className="mr-2 h-3.5 w-3.5" />Sửa
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onSelect={() => handleDelete(originalIndex)} className="text-destructive text-xs">
+                                                                    <Trash2 className="mr-2 h-3.5 w-3.5" />Xóa
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </MobileCardHeader>
+                                                <MobileCardBody>
+                                                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                                                        <div>
+                                                            <dt className="text-xs text-muted-foreground">Sáng vào</dt>
+                                                            <dd className="font-medium">{row.checkIn || '-'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-xs text-muted-foreground">Sáng ra</dt>
+                                                            <dd className="font-medium">{row.morningCheckOut || '-'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-xs text-muted-foreground">Chiều vào</dt>
+                                                            <dd className="font-medium">{row.afternoonCheckIn || '-'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-xs text-muted-foreground">Chiều ra</dt>
+                                                            <dd className="font-medium">{row.checkOut || '-'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-xs text-muted-foreground">TC vào</dt>
+                                                            <dd className="font-medium">{row.overtimeCheckIn || '-'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-xs text-muted-foreground">TC ra</dt>
+                                                            <dd className="font-medium">{row.overtimeCheckOut || '-'}</dd>
+                                                        </div>
+                                                        <div className="col-span-2 flex items-start gap-1.5">
+                                                            <span className="mt-0.5 shrink-0">{statusIcons[row.status]}</span>
+                                                            <span className={cn(
+                                                                'text-xs',
+                                                                row.status !== 'ok' ? 'text-destructive' : 'text-muted-foreground',
+                                                            )}>
+                                                                {row.message}
+                                                            </span>
+                                                        </div>
+                                                    </dl>
+                                                </MobileCardBody>
+                                            </MobileCard>
+                                        );
+                                    })}
+                                    {paginatedData.length === 0 && (
+                                        <div className="text-center py-8 text-xs text-muted-foreground">
+                                            {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Không có dữ liệu'}
+                                        </div>
+                                    )}
+                                </div>
                             </ScrollArea>
 
                             {/* Pagination */}

@@ -7,21 +7,36 @@
  * Use usePenaltiesByIds() for batch lookup.
  */
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePenaltyTypes, penaltyKeys } from './use-penalties';
 import * as api from '../api/penalties-api';
 import type { PenaltyFilters } from '../api/penalties-api';
+import type { PenaltyType } from '@/lib/types/prisma-extended';
 
 const DEFAULT_PAGE_SIZE = 20;
+
+function normalizePenaltyTypesList(raw: unknown): PenaltyType[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const d = (raw as { data: unknown }).data;
+    if (Array.isArray(d)) return d as PenaltyType[];
+  }
+  return []
+}
 
 /**
  * Returns all penalty types as a flat array (reference data — small set)
  */
 export function useAllPenaltyTypes() {
   const query = usePenaltyTypes();
-  
+  const data = useMemo(
+    () => normalizePenaltyTypesList(query.data as unknown),
+    [query.data],
+  );
+
   return {
-    data: query.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

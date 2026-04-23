@@ -51,6 +51,7 @@ function buildRowsFromDaily(
     {
       orderCount: number
       productAmount: number
+      grandTotalSum: number
       taxAmount: number
       shippingFee: number
     }
@@ -78,11 +79,14 @@ function buildRowsFromDaily(
     })
   }
 
+  const periodOrderGrandTotal = new Map<string, number>()
+
   for (const day of eachDayOfInterval({ start, end })) {
     const dayKey = format(day, 'yyyy-MM-dd')
     const o = dailyOrders.get(dayKey) ?? {
       orderCount: 0,
       productAmount: 0,
+      grandTotalSum: 0,
       taxAmount: 0,
       shippingFee: 0,
     }
@@ -98,11 +102,16 @@ function buildRowsFromDaily(
     row.shippingFee += o.shippingFee
     row.returnAmount += ret
     row.costOfGoods = (row.costOfGoods ?? 0) + cogs
+    periodOrderGrandTotal.set(
+      key,
+      (periodOrderGrandTotal.get(key) ?? 0) + o.grandTotalSum,
+    )
   }
 
   const data: SalesTimeReportRow[] = periods.map((p) => {
     const row = rowMap.get(p.key)!
-    row.revenue = row.productAmount - row.returnAmount
+    const orderTotal = periodOrderGrandTotal.get(p.key) ?? 0
+    row.revenue = orderTotal - row.returnAmount
     row.grossProfit = row.revenue - (row.costOfGoods ?? 0)
     return { ...row }
   })
@@ -178,20 +187,22 @@ export const GET = apiHandler(async (request) => {
           d: Date
           order_count: bigint
           product_amount: unknown
+          grand_total_sum: unknown
           tax_amount: unknown
           shipping_fee: unknown
         }>
       >`
         SELECT
-          CAST(o."orderDate" AS DATE) AS d,
+          CAST(COALESCE(o."completedDate", o."orderDate") AS DATE) AS d,
           COUNT(*)::bigint AS order_count,
           COALESCE(SUM(o.subtotal), 0) AS product_amount,
+          COALESCE(SUM(o."grandTotal"), 0) AS grand_total_sum,
           COALESCE(SUM(o.tax), 0) AS tax_amount,
           COALESCE(SUM(o."shippingFee"), 0) AS shipping_fee
         FROM orders o
         WHERE o.status = 'COMPLETED'
-          AND o."orderDate" >= ${start}
-          AND o."orderDate" <= ${end}
+          AND COALESCE(o."completedDate", o."orderDate") >= ${start}
+          AND COALESCE(o."completedDate", o."orderDate") <= ${end}
           ${branchFilter}
           ${employeeFilter}
           ${sourceFilter}
@@ -201,14 +212,14 @@ export const GET = apiHandler(async (request) => {
 
       prisma.$queryRaw<Array<{ d: Date; cogs: unknown }>>`
         SELECT
-          CAST(o."orderDate" AS DATE) AS d,
+          CAST(COALESCE(o."completedDate", o."orderDate") AS DATE) AS d,
           COALESCE(SUM(oli.quantity * COALESCE(p."costPrice", 0)), 0) AS cogs
         FROM order_line_items oli
         INNER JOIN orders o ON o."systemId" = oli."orderId"
         LEFT JOIN products p ON p."systemId" = oli."productId"
         WHERE o.status = 'COMPLETED'
-          AND o."orderDate" >= ${start}
-          AND o."orderDate" <= ${end}
+          AND COALESCE(o."completedDate", o."orderDate") >= ${start}
+          AND COALESCE(o."completedDate", o."orderDate") <= ${end}
           ${branchFilter}
           ${employeeFilter}
           ${sourceFilter}
@@ -241,6 +252,7 @@ export const GET = apiHandler(async (request) => {
       {
         orderCount: number
         productAmount: number
+        grandTotalSum: number
         taxAmount: number
         shippingFee: number
       }
@@ -251,6 +263,7 @@ export const GET = apiHandler(async (request) => {
       dailyOrders.set(key, {
         orderCount: num(r.order_count),
         productAmount: num(r.product_amount),
+        grandTotalSum: num(r.grand_total_sum),
         taxAmount: num(r.tax_amount),
         shippingFee: num(r.shipping_fee),
       })

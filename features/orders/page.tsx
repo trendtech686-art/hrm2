@@ -53,6 +53,7 @@ import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, DELIVERY_STATUS_LABELS, DEL
 import { packagingStatusLabels } from '@/lib/constants/order-status-labels'
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 import { FAB } from '@/components/mobile/fab';
+import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 
 const OrderImportDialog = dynamic(() => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.OrderImportDialog })), { ssr: false });
 const OrderExportDialog = dynamic(() => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.OrderExportDialog })), { ssr: false });
@@ -449,8 +450,15 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   const headerActions = React.useMemo(() => [canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: 'Danh sách đơn hàng', breadcrumb: [{ label: 'Trang chủ', href: '/' }, { label: 'Đơn hàng', href: '/orders', isCurrent: true }], showBackButton: false, actions: headerActions });
 
+  const handlePullRefresh = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+      queryClient.invalidateQueries({ queryKey: ['orderStats'] }),
+    ]);
+  }, [queryClient]);
+
   return (
-    <>
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
       {/* Workflow Status Cards - ToggleGroup */}
       <div className="mb-4 overflow-x-auto">
         <ToggleGroup
@@ -542,6 +550,6 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
       <SapoOrderImportDialog open={isSapoImportOpen} onOpenChange={setIsSapoImportOpen} existingData={orders} onImport={handleImport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : undefined} storeContext={storeContext} />
       <QrScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onScan={(value) => setSearchQuery(value)} />
       {isMobile && canCreate && <FAB onClick={() => router.push('/orders/new')} />}
-    </>
+    </PullToRefresh>
   )
 }

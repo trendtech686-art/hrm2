@@ -18,7 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
@@ -184,21 +185,21 @@ export function BrandNewPage() {
       <Form {...form}>
         <form className="space-y-6">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="grid w-full grid-cols-3 max-w-lg">
-              <TabsTrigger value="general">Thông tin</TabsTrigger>
-              <TabsTrigger value="seo-pkgx" className="gap-1">
+            <MobileTabsList>
+              <MobileTabsTrigger value="general">Thông tin</MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-pkgx" className="gap-1">
                 <Globe className="h-3 w-3 text-red-500" />
                 SEO PKGX
-              </TabsTrigger>
-              <TabsTrigger value="seo-trendtech" className="gap-1">
+              </MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-trendtech" className="gap-1">
                 <Globe className="h-3 w-3 text-blue-500" />
                 SEO Trendtech
-              </TabsTrigger>
-            </TabsList>
+              </MobileTabsTrigger>
+            </MobileTabsList>
 
             {/* General Tab */}
             <TabsContent value="general" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle>Thông tin cơ bản</CardTitle>
                 </CardHeader>
@@ -307,7 +308,7 @@ export function BrandNewPage() {
               </Card>
 
               {/* Logo Upload Card */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4" />
@@ -332,7 +333,7 @@ export function BrandNewPage() {
 
             {/* SEO PKGX Tab */}
             <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-red-500" />
@@ -440,7 +441,7 @@ export function BrandNewPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
                 </CardHeader>
@@ -458,7 +459,7 @@ export function BrandNewPage() {
 
             {/* SEO Trendtech Tab */}
             <TabsContent value="seo-trendtech" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-blue-500" />
@@ -566,7 +567,7 @@ export function BrandNewPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
                 </CardHeader>

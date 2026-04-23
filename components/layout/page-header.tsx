@@ -1,12 +1,6 @@
 import * as React from 'react';
-import { ArrowLeft, ExternalLink, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 import { usePageHeaderState } from '../../contexts/page-header-context';
 
 /**
@@ -84,7 +78,7 @@ export function PageHeader() {
             )}
             
             <div className="flex-1 min-w-0">
-              <h1 className="text-sm font-semibold tracking-tight line-clamp-2">
+              <h1 className="text-base font-semibold tracking-tight text-foreground line-clamp-2">
                 {title}
               </h1>
               {badge && (
@@ -130,7 +124,7 @@ export function PageHeader() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3">
                   {title && (
-                    <h1 className="text-lg font-semibold tracking-tight truncate">
+                    <h1 className="text-lg font-semibold tracking-tight text-foreground truncate">
                       {title}
                     </h1>
                   )}

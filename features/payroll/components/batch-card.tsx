@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Users, Wallet, MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
 
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '../../../components/mobile/mobile-card';
 import type { PayrollBatch } from '../../../lib/payroll-types';
 import { ROUTES } from '../../../lib/router';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -86,24 +87,24 @@ export function BatchCard({ batch, actions }: BatchCardProps) {
   };
 
   return (
-    <div
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={handleClick}
-    >
-        {/* Header: Title + Code + Menu */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-sm truncate">{batch.title}</h3>
-            </div>
-            <span className="text-xs text-muted-foreground font-mono">{batch.id}</span>
+    <MobileCard onClick={handleClick}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Bảng lương</div>
+          <div className="mt-0.5 text-sm font-semibold text-foreground truncate">{batch.title}</div>
+          <div className="text-xs text-muted-foreground font-mono truncate">{batch.id}</div>
+        </div>
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div className="text-lg font-bold leading-none text-primary">{formatCurrency(batch.totalNet)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Tổng thực lĩnh</div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 flex-shrink-0"
+                className="h-8 w-8 p-0 -mr-2 -mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -160,41 +161,32 @@ export function BatchCard({ batch, actions }: BatchCardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </MobileCardHeader>
 
-        {/* Reference Month */}
-        <div className="text-xs text-muted-foreground mb-3 flex items-center">
-          <Calendar className="h-3 w-3 mr-1.5 flex-shrink-0" />
-          <span>{formatMonthKey(batch.referenceAttendanceMonthKeys[0])}</span>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-border/50 mb-3" />
-
-        {/* Info rows */}
-        <div className="space-y-2">
-          {/* Ngày trả & Số NV */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center text-muted-foreground">
-              <Calendar className="h-3 w-3 mr-1.5" />
-              <span>Ngày trả: {formatDate(batch.payrollDate)}</span>
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              <Users className="h-3 w-3 mr-1.5" />
-              <span>{batch.payslipSystemIds?.length ?? 0} NV</span>
-            </div>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div>
+            <dt className="text-xs text-muted-foreground">Tháng áp dụng</dt>
+            <dd className="font-medium">{formatMonthKey(batch.referenceAttendanceMonthKeys[0])}</dd>
           </div>
-
-          {/* Tổng thực lĩnh & Status */}
-          <div className="flex items-center justify-between text-xs pt-1">
-            <div className="flex items-center font-semibold text-primary">
-              <Wallet className="h-3 w-3 mr-1.5" />
-              <span>{formatCurrency(batch.totalNet)}</span>
-            </div>
-            <Badge variant={getStatusVariant(batch.status)} className="text-xs">
-              {getStatusLabel(batch.status)}
-            </Badge>
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày trả</dt>
+            <dd className="font-medium">{formatDate(batch.payrollDate)}</dd>
           </div>
-        </div>
-    </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Số nhân viên</dt>
+            <dd className="font-medium">{batch.payslipSystemIds?.length ?? 0}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Trạng thái</dt>
+            <dd>
+              <Badge variant={getStatusVariant(batch.status)} className="text-xs">
+                {getStatusLabel(batch.status)}
+              </Badge>
+            </dd>
+          </div>
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

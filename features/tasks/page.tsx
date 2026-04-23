@@ -14,7 +14,8 @@ import { PageFilters } from "../../components/layout/page-filters"
 import { PageToolbar } from "../../components/layout/page-toolbar"
 import { StatsBar } from "../../components/shared/stats-bar"
 import { Button } from "../../components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Tabs } from "../../components/ui/tabs"
+import { MobileTabsList, MobileTabsTrigger } from "../../components/layout/page-section"
 import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Settings, Loader2 } from "lucide-react"
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
@@ -190,7 +191,7 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   ];
 
   const actions = React.useMemo(() => {
-    const btns = [<Tabs key={`vt-${viewMode}`} value={viewMode} onValueChange={v => setViewMode(v as 'list' | 'kanban')} className="h-9"><TabsList className="h-9"><TabsTrigger value="list" className="h-8 px-3"><Table className="mr-2 h-4 w-4" />Danh sách</TabsTrigger><TabsTrigger value="kanban" className="h-8 px-3"><LayoutGrid className="mr-2 h-4 w-4" />Kanban</TabsTrigger></TabsList></Tabs>];
+    const btns = [<Tabs key={`vt-${viewMode}`} value={viewMode} onValueChange={v => setViewMode(v as 'list' | 'kanban')} className="h-9"><MobileTabsList><MobileTabsTrigger value="list"><Table className="mr-2 h-4 w-4" />Danh sách</MobileTabsTrigger><MobileTabsTrigger value="kanban"><LayoutGrid className="mr-2 h-4 w-4" />Kanban</MobileTabsTrigger></MobileTabsList></Tabs>];
     if (can('approve_tasks')) { btns.push(<Button key="t" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>, <Button key="d" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/dashboard')}><BarChart3 className="mr-2 h-4 w-4" />Dashboard</Button>); }
     if (can('create_tasks')) { btns.push(<Button key="n" onClick={() => router.push('/tasks/new')} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo công việc mới</Button>); }
     return btns;

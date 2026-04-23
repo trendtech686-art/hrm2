@@ -39,6 +39,8 @@ import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { PurchaseReturnWorkflowCard } from './components/purchase-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import { useComments } from '../../hooks/use-comments';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -214,7 +216,7 @@ export function PurchaseReturnDetailPage() {
     {/* Row 1: 3 columns - Thông tin phiếu + Thông tin bổ sung + Quy trình */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Column 1: Thông tin phiếu */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Thông tin phiếu trả</CardTitle>
         </CardHeader>
@@ -245,7 +247,7 @@ export function PurchaseReturnDetailPage() {
       </Card>
 
       {/* Column 2: Thông tin thanh toán */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Thông tin thanh toán</CardTitle>
         </CardHeader>
@@ -279,12 +281,12 @@ export function PurchaseReturnDetailPage() {
     </div>
 
     {/* Danh sách sản phẩm */}
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Danh sách sản phẩm hoàn trả ({purchaseReturn.items.length})</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-md overflow-x-auto">
+        <div className="hidden md:block border rounded-md overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -367,11 +369,89 @@ export function PurchaseReturnDetailPage() {
               </TableFooter>
           </Table>
         </div>
+
+        {/* Mobile: card stack */}
+        <div className="md:hidden space-y-3">
+          {purchaseReturn.items.map((item, index) => {
+            const product = findProductById(item.productSystemId);
+            const lineTotal = item.returnQuantity * item.unitPrice;
+            return (
+              <MobileCard key={`${item.productSystemId}-${index}-mobile`} inert>
+                <MobileCardHeader className="items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <ProductThumbnailCell
+                      productSystemId={item.productSystemId}
+                      product={product}
+                      productName={item.productName}
+                      itemThumbnailImage={item.imageUrl || (item as any).thumbnailImage}
+                      onPreview={(url, title) => setPreviewImage({ url, title })}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs text-muted-foreground">#{index + 1}</div>
+                      <div className="mt-0.5 text-sm font-semibold line-clamp-2">{item.productName}</div>
+                      {item.productId && (
+                        <Link
+                          href={`/products/${item.productSystemId}`}
+                          className="mt-0.5 block text-xs text-muted-foreground hover:text-primary hover:underline"
+                        >
+                          {item.productId}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Thành tiền</div>
+                    <div className="mt-0.5 text-sm font-semibold">{formatCurrency(lineTotal)}</div>
+                  </div>
+                </MobileCardHeader>
+                <MobileCardBody>
+                  <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">SL đặt</dt>
+                      <dd className="font-medium">{item.orderedQuantity}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">SL trả</dt>
+                      <dd className="font-semibold text-orange-600">{item.returnQuantity}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Đơn giá</dt>
+                      <dd className="font-medium">{formatCurrency(item.unitPrice)}</dd>
+                    </div>
+                  </dl>
+                  {item.note && (
+                    <p className="mt-3 text-xs italic text-muted-foreground">• {item.note}</p>
+                  )}
+                </MobileCardBody>
+              </MobileCard>
+            );
+          })}
+
+          {/* Mobile totals */}
+          <div className="rounded-xl border border-border/50 bg-card p-4 space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Tổng SL trả ({totalQuantity} sản phẩm)</span>
+              <span className="font-bold text-orange-600">{totalQuantity}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-border/50 pt-2">
+              <span className="font-bold">Tổng giá trị</span>
+              <span className="font-bold text-h3">{formatCurrency(purchaseReturn.totalReturnValue)}</span>
+            </div>
+            {purchaseReturn.refundAmount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  Nhận lại từ NCC ({purchaseReturn.refundMethod})
+                </span>
+                <span className="font-semibold text-green-600">{formatCurrency(purchaseReturn.refundAmount)}</span>
+              </div>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
 
     <Dialog open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent mobileFullScreen className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>In phiếu trả {purchaseReturn?.id}</DialogTitle>
           <DialogDescription>

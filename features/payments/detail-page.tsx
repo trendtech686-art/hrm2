@@ -19,6 +19,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { formatDateCustom } from '../../lib/date-utils';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { useAuth } from '../../contexts/auth-context';
@@ -264,7 +265,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   // Loading state
   if (isLoading) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center text-muted-foreground space-y-3">
           <Loader2 className="h-8 w-8 animate-spin mx-auto" />
           <p>Đang tải thông tin phiếu chi...</p>
@@ -275,7 +276,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   
   if (!payment) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center text-muted-foreground space-y-3">
           <p>Không tìm thấy phiếu chi</p>
           <Button className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
@@ -288,9 +289,9 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Thông tin phiếu chi */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Thông tin phiếu chi</CardTitle>
         </CardHeader>
@@ -368,7 +369,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
       </Card>
       
       {/* System Info */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           <p>
             Người tạo:{' '}
@@ -393,7 +394,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
       
       {/* Activity History */}
       <EntityActivityTable entityType="payment" entityId={systemId} />
-    </div>
+    </DetailPageShell>
   );
 }
 

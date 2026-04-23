@@ -27,7 +27,10 @@ import { useComplaintMutations, useComplaint } from "../hooks/use-complaints";
 
 // UI Components
 import { Button } from "@/components/ui/button";
+import { ShareButton } from "@/components/shared/share-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DetailPageShell, mobileBleedCardClass } from "@/components/layout/page-section";
+import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
 import { ConfirmCorrectDialog } from "./confirm-correct-dialog";
 import { CompensationPaymentReceiptWizard } from "./compensation-payment-receipt-wizard";
@@ -620,6 +623,16 @@ export function ComplaintDetailPage() {
     
     const actions: React.ReactNode[] = [];
 
+    actions.push(
+      <ShareButton
+        key="share"
+        size="sm"
+        className="h-9"
+        title={`Khiếu nại ${complaint.id ?? complaint.systemId}`}
+        text={`Khiếu nại ${complaint.id ?? complaint.systemId}`}
+      />
+    );
+
     // Add Cancel button (for active complaints only - requires creator/admin permission)
     if (canCancel) {
       actions.push(
@@ -723,12 +736,11 @@ export function ComplaintDetailPage() {
   // relatedOrder already memoized above (line 170)
 
   return (
-    <div className="w-full h-full">
-      <div className="space-y-6">
+    <DetailPageShell gap="lg" className="h-full">
         <ComplaintHeaderSection complaint={complaint} timeTracking={timeTracking} headerActions={headerActions} leftActions={leftHeaderActions} />
         {/* Verification Card - Full Width at Top */}
         {!isVerified && complaint.status !== "cancelled" && (
-        <Card className="border-2 border-primary/20">
+        <Card className={cn("border-2 border-primary/20", mobileBleedCardClass)}>
           <CardHeader>
             <CardTitle>
               Xác minh khiếu nại
@@ -886,7 +898,6 @@ export function ComplaintDetailPage() {
         onOpenChange={setShowImagePreview}
         title="Hình ảnh khiếu nại"
       />
-      </div>
-    </div>
+    </DetailPageShell>
   );
 }

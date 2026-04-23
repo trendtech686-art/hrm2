@@ -2,8 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Printer, FileSpreadsheet } from 'lucide-react';
-import { Eye, MoreHorizontal } from 'lucide-react';
+import { Printer, FileSpreadsheet, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLeavesByEmployee } from '@/features/leaves/hooks/use-all-leaves';
 import { usePrint } from '@/lib/use-print';
@@ -28,6 +27,7 @@ import type { LeaveRequest } from '@/features/leaves/types';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { leaveStatusVariants, formatDateDisplay } from './types';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Helper function for lazy loading XLSX
 async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
@@ -150,7 +150,7 @@ export function LeavesTab({ employee }: LeavesTabProps) {
   }, [employee, printMultiple]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="p-4">
         <RelatedDataTable 
           data={sortedLeaves} 

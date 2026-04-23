@@ -21,7 +21,9 @@ import { recalculateSummary } from './utils';
 import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types';
 import type { SystemId } from '@/lib/id-types';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
+import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { Card, CardContent } from '@/components/ui/card';
+import { MobileCard } from '@/components/mobile/mobile-card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -487,7 +489,7 @@ export function AttendancePage() {
   const renderMobileEmployeeCard = React.useCallback((row: AttendanceDataRow) => {
     const daysInMonth = new Date(year, month, 0).getDate();
     return (
-      <div key={row.employeeSystemId} className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation">
+      <MobileCard key={row.employeeSystemId} inert>
         <div className="flex items-center justify-between mb-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">{row.fullName}</p>
@@ -538,11 +540,16 @@ export function AttendancePage() {
             <span>OT: {row.otHours}h</span>
           </div>
         )}
-      </div>
+      </MobileCard>
     );
   }, [year, month, handleEditRecord]);
 
+  const handlePullRefresh = React.useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+  }, [queryClient]);
+
   return (
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
     <div className="flex flex-col h-full space-y-4">
       <StatisticsDashboard data={filteredData} currentDate={currentDate} />
 
@@ -648,5 +655,6 @@ export function AttendancePage() {
       <BulkEditDialog isOpen={isBulkEditDialogOpen} onOpenChange={setIsBulkEditDialogOpen} selectedCells={selectedCellsArray} onSave={handleBulkSave} />
       <PenaltyConfirmDialog isOpen={isPenaltyConfirmOpen} onOpenChange={setIsPenaltyConfirmOpen} penalties={pendingPenalties} onConfirm={handleConfirmPenalties} onSkip={handleSkipPenalties} />
     </div>
+    </PullToRefresh>
   );
 }

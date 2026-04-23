@@ -9,6 +9,7 @@ import { Truck, RefreshCw } from 'lucide-react';
 import { useOrderDetailActions } from '../hooks/use-order-detail-actions';
 import { orderKeys } from '../hooks/use-orders';
 import { logError } from '@/lib/logger'
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 // Auto-sync if lastSyncedAt is older than this (in minutes)
 const AUTO_SYNC_STALE_MINUTES = 5;
@@ -66,7 +67,7 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
 
     if (!shippingPackaging) {
         return (
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardContent className="p-8 text-center text-muted-foreground">
                     <Truck className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Đơn hàng chưa được gửi qua đơn vị vận chuyển</p>

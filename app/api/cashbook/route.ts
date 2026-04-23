@@ -1,23 +1,99 @@
 /**
- * Cashbook API - Aggregated view of receipts + payments for cash accounts
- * 
- * GET /api/cashbook - Get transactions with opening/closing balance
- * Params: startDate, endDate, branchId, accountId, search, page, limit
+ * Cashbook API - Aggregated view of receipts + payments (thứ tự theo thời gian xen kẽ thu/chi)
+ *
+ * GET /api/cashbook — merged pagination bằng SQL UNION, không còn lỗi "toàn bản ghi từ một loại" trên từng trang.
  */
 
+import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@/generated/prisma/client'
+import type { Prisma as PrismaTypes } from '@/generated/prisma/client'
 import { apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { logError } from '@/lib/logger'
 
-type Decimal = Prisma.Decimal
+type Decimal = PrismaTypes.Decimal
 
-// Helper to convert Decimal to number
 const toNumber = (val: Decimal | number | null | undefined): number => {
   if (val == null) return 0
   if (typeof val === 'number') return val
   return Number(val)
+}
+
+function buildReceiptWhereSql(params: {
+  startDate: string | null
+  endDate: string | null
+  branchId: string | null
+  accountId: string | null
+  search: string | null
+}): Prisma.Sql {
+  const parts: Prisma.Sql[] = [Prisma.sql`r.status <> 'cancelled'`]
+  if (params.startDate) {
+    parts.push(Prisma.sql`r."receiptDate" >= ${new Date(params.startDate)}::timestamp`)
+  }
+  if (params.endDate) {
+    parts.push(Prisma.sql`r."receiptDate" <= ${new Date(params.endDate)}::timestamp`)
+  }
+  if (params.branchId) {
+    parts.push(Prisma.sql`r."branchSystemId" = ${params.branchId}`)
+  }
+  if (params.accountId) {
+    parts.push(Prisma.sql`r."accountSystemId" = ${params.accountId}`)
+  }
+  if (params.search?.trim()) {
+    const s = `%${params.search.trim().replace(/([%_])/g, '\\$1')}%`
+    parts.push(
+      Prisma.sql`(r.id ILIKE ${s} OR COALESCE(r.description, '') ILIKE ${s} OR COALESCE(r."payerName", '') ILIKE ${s})`,
+    )
+  }
+  return Prisma.join(parts, ' AND ')
+}
+
+function buildPaymentWhereSql(params: {
+  startDate: string | null
+  endDate: string | null
+  branchId: string | null
+  accountId: string | null
+  search: string | null
+}): Prisma.Sql {
+  const parts: Prisma.Sql[] = [Prisma.sql`p.status <> 'cancelled'`]
+  if (params.startDate) {
+    parts.push(Prisma.sql`p."paymentDate" >= ${new Date(params.startDate)}::timestamp`)
+  }
+  if (params.endDate) {
+    parts.push(Prisma.sql`p."paymentDate" <= ${new Date(params.endDate)}::timestamp`)
+  }
+  if (params.branchId) {
+    parts.push(Prisma.sql`p."branchSystemId" = ${params.branchId}`)
+  }
+  if (params.accountId) {
+    parts.push(Prisma.sql`p."accountSystemId" = ${params.accountId}`)
+  }
+  if (params.search?.trim()) {
+    const s = `%${params.search.trim().replace(/([%_])/g, '\\$1')}%`
+    parts.push(
+      Prisma.sql`(p.id ILIKE ${s} OR COALESCE(p.description, '') ILIKE ${s} OR COALESCE(p."recipientName", '') ILIKE ${s})`,
+    )
+  }
+  return Prisma.join(parts, ' AND ')
+}
+
+type MergedRow = {
+  systemId: string
+  id: string
+  d: Date
+  amount: unknown
+  description: string | null
+  targetName: string | null
+  accountSystemId: string | null
+  branchSystemId: string | null
+  branchName: string | null
+  status: string
+  paymentMethodName: string | null
+  paymentReceiptTypeName: string | null
+  originalDocumentId: string | null
+  createdBy: string | null
+  createdAt: Date
+  t: 'receipt' | 'payment'
 }
 
 export const GET = apiHandler(async (request) => {
@@ -29,56 +105,38 @@ export const GET = apiHandler(async (request) => {
     const branchId = searchParams.get('branchId')
     const accountId = searchParams.get('accountId')
     const search = searchParams.get('search')
-    const type = searchParams.get('type') // 'receipt' | 'payment' | null (both)
-    
+    const type = searchParams.get('type')
+
     const fetchReceipts = type !== 'payment'
     const fetchPayments = type !== 'receipt'
+    const filterParams = { startDate, endDate, branchId, accountId, search }
 
-    // Build where clauses for receipts and payments
-    // Không bắt buộc accountSystemId: nhiều phiếu thu/chi cũ hoặc chưa gán TK quỹ vẫn phải hiện trên sổ quỹ
-    // (trước đây filter not: null khiến toàn bộ dữ liệu không có TK = bảng trống).
-    const baseReceiptWhere: Prisma.ReceiptWhereInput = {
-      status: { not: 'cancelled' },
-    }
-    const basePaymentWhere: Prisma.PaymentWhereInput = {
-      status: { not: 'cancelled' },
-    }
+    const baseReceiptWhere: PrismaTypes.ReceiptWhereInput = { status: { not: 'cancelled' } }
+    const basePaymentWhere: PrismaTypes.PaymentWhereInput = { status: { not: 'cancelled' } }
 
-    // Date filters for period transactions
-    const periodReceiptWhere: Prisma.ReceiptWhereInput = { ...baseReceiptWhere }
-    const periodPaymentWhere: Prisma.PaymentWhereInput = { ...basePaymentWhere }
-    
-    if (startDate) {
-      periodReceiptWhere.receiptDate = { 
-        ...(periodReceiptWhere.receiptDate as Prisma.DateTimeFilter || {}), 
-        gte: new Date(startDate) 
-      }
-      periodPaymentWhere.paymentDate = { 
-        ...(periodPaymentWhere.paymentDate as Prisma.DateTimeFilter || {}), 
-        gte: new Date(startDate) 
-      }
+    const periodReceiptWhere: PrismaTypes.ReceiptWhereInput = { ...baseReceiptWhere }
+    const periodPaymentWhere: PrismaTypes.PaymentWhereInput = { ...basePaymentWhere }
+
+    if (startDate || endDate) {
+      periodReceiptWhere.receiptDate = {
+        ...((typeof periodReceiptWhere.receiptDate === 'object' && periodReceiptWhere.receiptDate) || {}),
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && { lte: new Date(endDate) }),
+      } as PrismaTypes.DateTimeFilter
+      periodPaymentWhere.paymentDate = {
+        ...((typeof periodPaymentWhere.paymentDate === 'object' && periodPaymentWhere.paymentDate) || {}),
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && { lte: new Date(endDate) }),
+      } as PrismaTypes.DateTimeFilter
     }
-    if (endDate) {
-      periodReceiptWhere.receiptDate = { 
-        ...(periodReceiptWhere.receiptDate as Prisma.DateTimeFilter || {}), 
-        lte: new Date(endDate) 
-      }
-      periodPaymentWhere.paymentDate = { 
-        ...(periodPaymentWhere.paymentDate as Prisma.DateTimeFilter || {}), 
-        lte: new Date(endDate) 
-      }
-    }
-    
     if (branchId) {
       periodReceiptWhere.branchSystemId = branchId
       periodPaymentWhere.branchSystemId = branchId
     }
-    
     if (accountId) {
       periodReceiptWhere.accountSystemId = accountId
       periodPaymentWhere.accountSystemId = accountId
     }
-
     if (search) {
       periodReceiptWhere.OR = [
         { id: { contains: search, mode: 'insensitive' } },
@@ -92,22 +150,113 @@ export const GET = apiHandler(async (request) => {
       ]
     }
 
-    // Get cash accounts for opening balance
-    const accountWhere: Prisma.CashAccountWhereInput = {}
+    const accountWhere: PrismaTypes.CashAccountWhereInput = {}
     if (accountId) accountWhere.systemId = accountId
-    if (branchId) accountWhere.branchSystemId = branchId
+    if (branchId) accountWhere.OR = [{ branchSystemId: branchId }, { branchSystemId: null }]
 
-    const [accounts, periodReceipts, periodPayments, totalReceipts, totalPayments] = await Promise.all([
-      prisma.cashAccount.findMany({
-        where: accountWhere,
-        select: { systemId: true, initialBalance: true },
-      }),
-      // Fetch enough receipts to cover the requested page when merged with payments
-      // We need (skip + limit) items from each side to guarantee correct merged pagination
-      fetchReceipts ? prisma.receipt.findMany({
+    const [accounts, totalReceipts, totalPayments, periodReceiptSum, periodPaymentSum, preRga, prePga, perRga, perPga] =
+      await Promise.all([
+        prisma.cashAccount.findMany({
+          where: { isActive: true, ...accountWhere },
+          select: { systemId: true, name: true, type: true, initialBalance: true, branchSystemId: true },
+          orderBy: { name: 'asc' },
+        }),
+        fetchReceipts ? prisma.receipt.count({ where: periodReceiptWhere }) : Promise.resolve(0),
+        fetchPayments ? prisma.payment.count({ where: periodPaymentWhere }) : Promise.resolve(0),
+        prisma.receipt.aggregate({
+          where: periodReceiptWhere,
+          _sum: { amount: true },
+        }),
+        prisma.payment.aggregate({
+          where: periodPaymentWhere,
+          _sum: { amount: true },
+        }),
+        startDate
+          ? prisma.receipt.groupBy({
+              by: ['accountSystemId'],
+              where: {
+                ...baseReceiptWhere,
+                receiptDate: { lt: new Date(startDate) },
+                ...(branchId && { branchSystemId: branchId }),
+                ...(accountId && { accountSystemId: accountId }),
+              },
+              _sum: { amount: true },
+            })
+          : Promise.resolve([] as { accountSystemId: string | null; _sum: { amount: unknown } }[]),
+        startDate
+          ? prisma.payment.groupBy({
+              by: ['accountSystemId'],
+              where: {
+                ...basePaymentWhere,
+                paymentDate: { lt: new Date(startDate) },
+                ...(branchId && { branchSystemId: branchId }),
+                ...(accountId && { accountSystemId: accountId }),
+              },
+              _sum: { amount: true },
+            })
+          : Promise.resolve([] as { accountSystemId: string | null; _sum: { amount: unknown } }[]),
+        prisma.receipt.groupBy({
+          by: ['accountSystemId'],
+          where: periodReceiptWhere,
+          _sum: { amount: true },
+        }),
+        prisma.payment.groupBy({
+          by: ['accountSystemId'],
+          where: periodPaymentWhere,
+          _sum: { amount: true },
+        }),
+      ])
+
+    const totalReceiptsAmount = toNumber(periodReceiptSum._sum.amount)
+    const totalPaymentsAmount = toNumber(periodPaymentSum._sum.amount)
+
+    // Opening: tổng số dư ban đầu tài khoản + tích lũy trước kỳ
+    let openingBalance = accounts.reduce((s, a) => s + toNumber(a.initialBalance), 0)
+    if (startDate) {
+      const preR = preRga.reduce((s, r) => s + toNumber(r._sum.amount as Decimal | null), 0)
+      const preP = prePga.reduce((s, p) => s + toNumber(p._sum.amount as Decimal | null), 0)
+      openingBalance += preR - preP
+    }
+
+    const closingBalance = openingBalance + totalReceiptsAmount - totalPaymentsAmount
+
+    const preRMap = new Map<string | null, number>()
+    for (const r of preRga) {
+      preRMap.set(r.accountSystemId, toNumber(r._sum.amount as Decimal | null))
+    }
+    const prePMap = new Map<string | null, number>()
+    for (const p of prePga) {
+      prePMap.set(p.accountSystemId, toNumber(p._sum.amount as Decimal | null))
+    }
+    const perRMap = new Map<string | null, number>()
+    for (const r of perRga) {
+      perRMap.set(r.accountSystemId, toNumber(r._sum.amount as Decimal | null))
+    }
+    const perPMap = new Map<string | null, number>()
+    for (const p of perPga) {
+      perPMap.set(p.accountSystemId, toNumber(p._sum.amount as Decimal | null))
+    }
+
+    const accountBalances = accounts.map((a) => {
+      const init = toNumber(a.initialBalance)
+      const preR = startDate ? (preRMap.get(a.systemId) ?? 0) : 0
+      const preP = startDate ? (prePMap.get(a.systemId) ?? 0) : 0
+      const pR = perRMap.get(a.systemId) ?? 0
+      const pP = perPMap.get(a.systemId) ?? 0
+      const openA = startDate ? init + preR - preP : init
+      const closeA = openA + pR - pP
+      return { systemId: a.systemId, name: a.name, type: a.type, balance: closeA }
+    })
+
+    // --- Merged list (chronological) ---
+    let mergedRows: MergedRow[] = []
+
+    if (fetchReceipts && !fetchPayments) {
+      const rows = await prisma.receipt.findMany({
         where: periodReceiptWhere,
         orderBy: { receiptDate: 'desc' },
-        take: skip + limit,
+        skip,
+        take: limit,
         select: {
           systemId: true,
           id: true,
@@ -125,11 +274,31 @@ export const GET = apiHandler(async (request) => {
           createdBy: true,
           createdAt: true,
         },
-      }) : Promise.resolve([]),
-      fetchPayments ? prisma.payment.findMany({
+      })
+      mergedRows = rows.map((r) => ({
+        systemId: r.systemId,
+        id: r.id,
+        d: r.receiptDate,
+        amount: r.amount,
+        description: r.description,
+        targetName: r.payerName,
+        accountSystemId: r.accountSystemId,
+        branchSystemId: r.branchSystemId,
+        branchName: r.branchName,
+        status: r.status,
+        paymentMethodName: r.paymentMethodName,
+        paymentReceiptTypeName: r.paymentReceiptTypeName,
+        originalDocumentId: r.originalDocumentId,
+        createdBy: r.createdBy,
+        createdAt: r.createdAt,
+        t: 'receipt' as const,
+      }))
+    } else if (!fetchReceipts && fetchPayments) {
+      const rows = await prisma.payment.findMany({
         where: periodPaymentWhere,
         orderBy: { paymentDate: 'desc' },
-        take: skip + limit,
+        skip,
+        take: limit,
         select: {
           systemId: true,
           id: true,
@@ -147,84 +316,14 @@ export const GET = apiHandler(async (request) => {
           createdBy: true,
           createdAt: true,
         },
-      }) : Promise.resolve([]),
-      fetchReceipts ? prisma.receipt.count({ where: periodReceiptWhere }) : Promise.resolve(0),
-      fetchPayments ? prisma.payment.count({ where: periodPaymentWhere }) : Promise.resolve(0),
-    ])
-
-    // Calculate opening balance (transactions before startDate)
-    let openingBalance = accounts.reduce((sum, a) => sum + toNumber(a.initialBalance), 0)
-
-    if (startDate) {
-      const preStartReceiptWhere: Prisma.ReceiptWhereInput = {
-        ...baseReceiptWhere,
-        receiptDate: { lt: new Date(startDate) },
-        ...(branchId && { branchSystemId: branchId }),
-        ...(accountId && { accountSystemId: accountId }),
-      }
-      const preStartPaymentWhere: Prisma.PaymentWhereInput = {
-        ...basePaymentWhere,
-        paymentDate: { lt: new Date(startDate) },
-        ...(branchId && { branchSystemId: branchId }),
-        ...(accountId && { accountSystemId: accountId }),
-      }
-
-      const [preReceipts, prePayments] = await Promise.all([
-        prisma.receipt.aggregate({
-          where: preStartReceiptWhere,
-          _sum: { amount: true },
-        }),
-        prisma.payment.aggregate({
-          where: preStartPaymentWhere,
-          _sum: { amount: true },
-        }),
-      ])
-
-      openingBalance += toNumber(preReceipts._sum.amount) - toNumber(prePayments._sum.amount)
-    }
-
-    // Calculate period totals (always calculate both for summary accuracy)
-    const [periodReceiptSum, periodPaymentSum] = await Promise.all([
-      prisma.receipt.aggregate({
-        where: periodReceiptWhere,
-        _sum: { amount: true },
-      }),
-      prisma.payment.aggregate({
-        where: periodPaymentWhere,
-        _sum: { amount: true },
-      }),
-    ])
-
-    const totalReceiptsAmount = toNumber(periodReceiptSum._sum.amount)
-    const totalPaymentsAmount = toNumber(periodPaymentSum._sum.amount)
-    const closingBalance = openingBalance + totalReceiptsAmount - totalPaymentsAmount
-
-    // Combine and format transactions, then apply merged pagination
-    const allTransactions = [
-      ...periodReceipts.map(r => ({
-        systemId: r.systemId,
-        id: r.id,
-        date: r.receiptDate,
-        amount: toNumber(r.amount),
-        description: r.description,
-        accountSystemId: r.accountSystemId,
-        branchSystemId: r.branchSystemId,
-        branchName: r.branchName,
-        status: r.status,
-        paymentMethodName: r.paymentMethodName,
-        paymentReceiptTypeName: r.paymentReceiptTypeName,
-        originalDocumentId: r.originalDocumentId,
-        createdBy: r.createdBy,
-        createdAt: r.createdAt,
-        type: 'receipt' as const,
-        targetName: r.payerName,
-      })),
-      ...periodPayments.map(p => ({
+      })
+      mergedRows = rows.map((p) => ({
         systemId: p.systemId,
         id: p.id,
-        date: p.paymentDate,
-        amount: toNumber(p.amount),
+        d: p.paymentDate,
+        amount: p.amount,
         description: p.description,
+        targetName: p.recipientName,
         accountSystemId: p.accountSystemId,
         branchSystemId: p.branchSystemId,
         branchName: p.branchName,
@@ -234,25 +333,88 @@ export const GET = apiHandler(async (request) => {
         originalDocumentId: p.originalDocumentId,
         createdBy: p.createdBy,
         createdAt: p.createdAt,
-        type: 'payment' as const,
-        targetName: p.recipientName,
-      })),
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        t: 'payment' as const,
+      }))
+    } else if (fetchReceipts && fetchPayments) {
+      const rWhere = buildReceiptWhereSql(filterParams)
+      const pWhere = buildPaymentWhereSql(filterParams)
+      mergedRows = await prisma.$queryRaw<MergedRow[]>`
+        SELECT * FROM (
+          SELECT
+            r."systemId",
+            r.id,
+            r."receiptDate" AS d,
+            r.amount,
+            r.description,
+            r."payerName" AS "targetName",
+            r."accountSystemId",
+            r."branchSystemId",
+            r."branchName",
+            r.status,
+            r."paymentMethodName",
+            r."paymentReceiptTypeName",
+            r."originalDocumentId",
+            r."createdBy",
+            r."createdAt",
+            'receipt'::text AS t
+          FROM receipts r
+          WHERE ${rWhere}
+          UNION ALL
+          SELECT
+            p."systemId",
+            p.id,
+            p."paymentDate" AS d,
+            p.amount,
+            p.description,
+            p."recipientName" AS "targetName",
+            p."accountSystemId",
+            p."branchSystemId",
+            p."branchName",
+            p.status,
+            p."paymentMethodName",
+            p."paymentReceiptTypeName",
+            p."originalDocumentId",
+            p."createdBy",
+            p."createdAt",
+            'payment'::text AS t
+          FROM payments p
+          WHERE ${pWhere}
+        ) u
+        ORDER BY u.d DESC, u.id DESC
+        LIMIT ${limit}::int
+        OFFSET ${skip}::int
+      `
+    }
 
-    // Apply correct pagination on the merged & sorted result
-    const transactions = allTransactions.slice(skip, skip + limit)
-    const total = totalReceipts + totalPayments
+    const transactions = mergedRows.map((row) => ({
+      systemId: row.systemId,
+      id: row.id,
+      date: row.d,
+      amount: toNumber(row.amount as unknown as Decimal),
+      description: row.description,
+      targetName: row.targetName,
+      accountSystemId: row.accountSystemId,
+      branchSystemId: row.branchSystemId,
+      branchName: row.branchName,
+      status: row.status,
+      paymentMethodName: row.paymentMethodName,
+      paymentReceiptTypeName: row.paymentReceiptTypeName,
+      originalDocumentId: row.originalDocumentId,
+      createdBy: row.createdBy,
+      createdAt: row.createdAt,
+      type: row.t,
+    }))
 
-    // Resolve createdBy IDs to employee names
-    const creatorIds = [...new Set(transactions.map(t => t.createdBy).filter(Boolean))] as string[]
-    const creators = creatorIds.length > 0
-      ? await prisma.employee.findMany({
-          where: { systemId: { in: creatorIds } },
-          select: { systemId: true, fullName: true },
-        })
-      : []
-    const creatorMap = new Map(creators.map(e => [e.systemId, e.fullName]))
-    const transactionsWithNames = transactions.map(t => ({
+    const creatorIds = [...new Set(transactions.map((t) => t.createdBy).filter(Boolean))] as string[]
+    const creators =
+      creatorIds.length > 0
+        ? await prisma.employee.findMany({
+            where: { systemId: { in: creatorIds } },
+            select: { systemId: true, fullName: true },
+          })
+        : []
+    const creatorMap = new Map(creators.map((e) => [e.systemId, e.fullName]))
+    const transactionsWithNames = transactions.map((t) => ({
       ...t,
       createdByName: t.createdBy ? (creatorMap.get(t.createdBy) || t.createdBy) : null,
     }))
@@ -264,6 +426,7 @@ export const GET = apiHandler(async (request) => {
         totalReceipts: totalReceiptsAmount,
         totalPayments: totalPaymentsAmount,
         closingBalance,
+        accountBalances,
       },
       pagination: {
         page,

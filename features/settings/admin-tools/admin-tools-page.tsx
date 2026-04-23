@@ -47,6 +47,7 @@ import {
   ListTodo,
   MessageSquareWarning,
   BookText,
+  Eraser,
   HardDrive,
   Rocket,
   DatabaseZap,
@@ -83,11 +84,11 @@ type ActionType =
   | 'delete-cost-adjustments' | 'delete-price-adjustments'
   | 'delete-cashbook' | 'delete-tasks' | 'delete-warranty'
   | 'delete-complaints' | 'delete-wiki'
-  | 'purge-all-business-data' | 'clear-activity-logs' | 'resync-meilisearch'
+  | 'purge-all-business-data' | 'delete-all-settings' | 'clear-activity-logs' | 'resync-meilisearch'
   | 'seed-all-settings' | 'seed-roles' | 'seed-admin-units' | 'seed-sample-employees'
   | 'reset-user-password' | 'system-health-check' | 'database-statistics'
   | 'force-logout-all' | 'export-db-backup' | 'permission-audit' | 'docker-prune'
-  | 'check-disk' | 'deploy-rebuild' | 'prisma-migrate' | 'prisma-db-push' | 'docker-builder-prune'
+  | 'check-disk' | 'clear-next-cache' | 'deploy-rebuild' | 'prisma-migrate' | 'prisma-db-push' | 'docker-builder-prune'
 
 type Counts = {
   products: number; customers: number; orders: number; purchaseOrders: number
@@ -139,6 +140,7 @@ const CONFIRM_MAP: Record<ActionType, string> = {
   'delete-complaints': 'XÓA KHIẾU NẠI',
   'delete-wiki': 'XÓA WIKI',
   'purge-all-business-data': 'XÓA TOÀN BỘ DỮ LIỆU',
+  'delete-all-settings': 'XÓA CÀI ĐẶT',
   'clear-activity-logs': 'XÓA NHẬT KÝ',
   'resync-meilisearch': 'ĐỒNG BỘ LẠI',
   'seed-all-settings': 'TẠO CÀI ĐẶT',
@@ -153,6 +155,7 @@ const CONFIRM_MAP: Record<ActionType, string> = {
   'permission-audit': 'KIỂM TRA',
   'docker-prune': 'DỌN DOCKER',
   'check-disk': 'KIỂM TRA',
+  'clear-next-cache': 'XÓA CACHE APP',
   'deploy-rebuild': 'DEPLOY',
   'prisma-migrate': 'MIGRATE',
   'prisma-db-push': 'DB PUSH',
@@ -219,6 +222,12 @@ const ACTION_CONFIG: Record<ActionType, ActionConfig> = {
     icon: Bomb,
     description: 'Xóa TẤT CẢ dữ liệu. Chỉ giữ cài đặt, nhân viên, tài khoản',
     warning: 'Xóa TOÀN BỘ dữ liệu kinh doanh (5 phase FK-safe). Không thể khôi phục.',
+  },
+  'delete-all-settings': {
+    label: 'Xóa toàn bộ cài đặt hệ thống',
+    icon: Eraser,
+    description: 'Xóa settings (JSON), loại thu-chi, PTTK, tài khoản quỹ, thuế, bảng giá, phòng ban/chức vụ cấu hình, mẫu in, cấu hình PKGX — không xóa user, role, nhân viên, chi nhánh, địa lý, dữ liệu KD',
+    warning: 'Chỉ dùng khi cần test lại: sau đó chạy Khởi tạo (seed) để tạo lại. Giao dịch quỹ (nếu còn) cần xóa trước hoặc dùng cùng bước này (xóa cash_transaction).',
   },
   'clear-activity-logs': {
     label: 'Nhật ký hoạt động',
@@ -456,8 +465,8 @@ const ACTION_CONFIG: Record<ActionType, ActionConfig> = {
   'docker-prune': {
     label: 'Dọn dẹp Docker',
     icon: Trash2,
-    description: 'Xóa images, containers, volumes không sử dụng (docker system prune -a -f --volumes)',
-    warning: 'Xóa TẤT CẢ Docker resources không đang chạy. Cần build lại image sau.',
+    description: 'Yêu cầu lệnh docker trên server. Xóa images, containers, volumes không dùng (docker system prune -a -f --volumes).',
+    warning: 'VPS chỉ Node/PM2 (không Docker) sẽ báo lỗi — dùng "Xóa cache build Next.js". Xóa mạnh: cần build lại image sau.',
     variant: 'outline',
     buttonLabel: 'Dọn dẹp',
   },
@@ -469,6 +478,14 @@ const ACTION_CONFIG: Record<ActionType, ActionConfig> = {
     variant: 'outline',
     buttonLabel: 'Kiểm tra',
     noConfirm: true,
+  },
+  'clear-next-cache': {
+    label: 'Xóa cache build Next.js',
+    icon: FolderTree,
+    description: 'Xóa thư mục .next và node_modules/.cache trong thư mục ứng dụng (phù hợp VPS PM2/aaPanel, không cần Docker).',
+    warning: 'Lần chạy tiếp theo sẽ build lại — nên restart PM2/systemd sau khi xóa.',
+    variant: 'outline',
+    buttonLabel: 'Xóa cache',
   },
   'deploy-rebuild': {
     label: 'Deploy & Rebuild',
@@ -497,8 +514,8 @@ const ACTION_CONFIG: Record<ActionType, ActionConfig> = {
   'docker-builder-prune': {
     label: 'Dọn Build Cache',
     icon: Hammer,
-    description: 'Docker prune >24h + builder prune (an toàn, không ảnh hưởng data)',
-    warning: 'Xóa Docker images/containers >24h và builder cache.',
+    description: 'Yêu cầu Docker. Prune >24h + docker builder prune (không ảnh hưởng DB).',
+    warning: 'Không có Docker trên server thì dùng "Xóa cache build Next.js".',
     variant: 'outline',
     buttonLabel: 'Dọn dẹp',
   },
@@ -512,10 +529,15 @@ const PURCHASE_DELETE: ActionType[] = ['delete-purchase-orders', 'delete-supplie
 const INVENTORY_DELETE: ActionType[] = ['delete-stock-transfers', 'delete-inventory-checks', 'delete-cost-adjustments', 'delete-price-adjustments']
 const FINANCE_DELETE: ActionType[] = ['delete-finance', 'delete-cashbook']
 const OPERATIONS_DELETE: ActionType[] = ['delete-tasks', 'delete-warranty', 'delete-complaints', 'delete-wiki']
-const BULK_ACTIONS: ActionType[] = ['purge-all-business-data', 'clear-activity-logs', 'resync-meilisearch']
+const BULK_ACTIONS: ActionType[] = [
+  'purge-all-business-data',
+  'delete-all-settings',
+  'clear-activity-logs',
+  'resync-meilisearch',
+]
 
 const SYSTEM_ACTIONS: ActionType[] = [
-  'system-health-check', 'database-statistics', 'check-disk', 'export-db-backup', 'permission-audit',
+  'system-health-check', 'database-statistics', 'check-disk', 'clear-next-cache', 'export-db-backup', 'permission-audit',
   'reset-user-password', 'force-logout-all',
   'deploy-rebuild', 'prisma-migrate', 'prisma-db-push',
   'docker-prune', 'docker-builder-prune',
@@ -597,7 +619,7 @@ export function AdminToolsPage() {
       toast.success(data.message)
       if (data.details) {
         // Show details as popup for system actions with log output
-        const systemLogActions: ActionType[] = ['deploy-rebuild', 'prisma-migrate', 'prisma-db-push', 'docker-prune', 'docker-builder-prune']
+        const systemLogActions: ActionType[] = ['deploy-rebuild', 'prisma-migrate', 'prisma-db-push', 'docker-prune', 'docker-builder-prune', 'clear-next-cache']
         if (systemLogActions.includes(variables.action)) {
           setResultDialog({
             kind: 'log',

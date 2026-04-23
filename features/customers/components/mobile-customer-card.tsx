@@ -15,6 +15,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TouchButton } from "@/components/mobile/touch-button";
+import {
+  MobileCard,
+  MobileCardFooter,
+  MobileCardHeader,
+} from "@/components/mobile/mobile-card";
 
 interface MobileCustomerCardProps {
   customer: Customer;
@@ -50,12 +55,8 @@ export function MobileCustomerCard({ customer, onRowClick, onDelete }: MobileCus
   const router = useRouter();
 
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={() => onRowClick(customer)}
-    >
-      {/* Header: Avatar + Info + Menu */}
-      <div className="flex items-start gap-3">
+    <MobileCard onClick={() => onRowClick(customer)}>
+      <MobileCardHeader>
         <Avatar className="h-11 w-11 shrink-0">
           <AvatarImage src="" alt={customer.name} />
           <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
@@ -99,10 +100,9 @@ export function MobileCustomerCard({ customer, onRowClick, onDelete }: MobileCus
             </div>
           )}
         </div>
-      </div>
+      </MobileCardHeader>
 
-      {/* Footer: Phone + Status + Account Manager */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+      <MobileCardFooter>
         <Badge variant={getStatusVariant(customer.status)} className="text-xs">
           {getStatusLabel(customer.status)}
         </Badge>
@@ -124,7 +124,7 @@ export function MobileCustomerCard({ customer, onRowClick, onDelete }: MobileCus
             </TouchButton>
           )}
         </div>
-      </div>
-    </div>
+      </MobileCardFooter>
+    </MobileCard>
   );
 }

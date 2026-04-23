@@ -84,7 +84,7 @@ export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>Thông tin trên PKGX</span>

@@ -4,7 +4,8 @@ import { OptimizedImage } from '../../../../components/ui/optimized-image';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../../components/layout/page-section';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label as _Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
@@ -1058,16 +1059,16 @@ export function BrandMappingTab() {
             </div>
             
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="pkgx-brands">
+              <MobileTabsList>
+                <MobileTabsTrigger value="pkgx-brands">
                   <Award className="h-4 w-4 mr-2" />
                   Thương hiệu PKGX ({settings.brands.length})
-                </TabsTrigger>
-                <TabsTrigger value="mappings">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="mappings">
                   <Link className="h-4 w-4 mr-2" />
                   Mapping ({settings.brandMappings.length})
-                </TabsTrigger>
-              </TabsList>
+                </MobileTabsTrigger>
+              </MobileTabsList>
               
               <TabsContent value="pkgx-brands" className="mt-4">
                 {settings.brands.length === 0 ? (

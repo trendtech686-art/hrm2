@@ -32,9 +32,8 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from '../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../components/layout/page-section';
 import {
   Select,
   SelectContent,
@@ -307,11 +306,11 @@ export function IDCounterSettingsPage() {
       </div>
 
       <Tabs defaultValue="counters" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="counters">Counters</TabsTrigger>
-          <TabsTrigger value="tester">ID Tester</TabsTrigger>
-          <TabsTrigger value="config">Configuration</TabsTrigger>
-        </TabsList>
+        <MobileTabsList>
+          <MobileTabsTrigger value="counters">Counters</MobileTabsTrigger>
+          <MobileTabsTrigger value="tester">ID Tester</MobileTabsTrigger>
+          <MobileTabsTrigger value="config">Configuration</MobileTabsTrigger>
+        </MobileTabsList>
 
         {/* Counters Tab */}
         <TabsContent value="counters" className="space-y-4">

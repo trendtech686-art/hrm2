@@ -4,6 +4,7 @@ import { Skeleton } from '../../../../components/ui/skeleton';
 import { useCustomerStats } from '../../../customers/hooks/use-customer-stats';
 import { useCustomerSearch } from '../../../customers/hooks/use-customers';
 import type { WarrantyTicket } from '../../types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 const fmt = new Intl.NumberFormat('vi-VN');
 
@@ -33,7 +34,7 @@ export function CustomerInfoCard({ ticket }: CustomerInfoCardProps) {
   const maxDebt = customer?.maxDebt ? Number(customer.maxDebt) : null;
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Thông tin khách hàng</CardTitle>
       </CardHeader>

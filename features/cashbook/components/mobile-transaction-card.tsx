@@ -14,7 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
-import { DollarSign, CreditCard, Calendar, User, Building2, FileText, MoreHorizontal, Trash, Edit, Eye } from 'lucide-react';
+import {
+  MobileCard,
+  MobileCardBody,
+  MobileCardHeader,
+} from '../../../components/mobile/mobile-card';
+import { DollarSign, CreditCard, MoreHorizontal, Trash, Edit, Eye } from 'lucide-react';
 import type { CashbookTransaction } from '../columns';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
@@ -45,37 +50,47 @@ export function MobileTransactionCard({
   const router = useRouter();
   const branch = branches.find(b => b.systemId === transaction.branchSystemId);
   const isReceipt = transaction.type === 'receipt';
-  // CashbookTransaction has paymentReceiptTypeName directly, no need for lookup
   const voucherTypeName = transaction.paymentReceiptTypeName;
-
   const viewRoute = isReceipt ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW;
 
   return (
-    <div
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
+    <MobileCard
       onClick={() => router.push(generatePath(viewRoute, { systemId: transaction.systemId }))}
     >
-      {/* Header: Icon + ID + Type + Menu */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Avatar className={`h-9 w-9 shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <Avatar className={`h-10 w-10 shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
             <AvatarFallback className={isReceipt ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}>
               {isReceipt ? <DollarSign className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
             </AvatarFallback>
           </Avatar>
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <h3 className="font-semibold text-sm">{transaction?.id || 'N/A'}</h3>
-            <Badge variant={isReceipt ? "default" : "destructive"} className="text-xs">
-              {isReceipt ? 'Thu' : 'Chi'}
-            </Badge>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {isReceipt ? 'Phiếu thu' : 'Phiếu chi'}
+            </div>
+            <div className="mt-0.5 flex items-center gap-2">
+              <div className="text-sm font-semibold text-foreground truncate font-mono">
+                {transaction?.id || 'N/A'}
+              </div>
+              <Badge variant={isReceipt ? 'default' : 'destructive'} className="text-xs shrink-0">
+                {isReceipt ? 'Thu' : 'Chi'}
+              </Badge>
+            </div>
           </div>
         </div>
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div className={`text-xl font-bold leading-none ${isReceipt ? 'text-emerald-600' : 'text-destructive'}`}>
+              {isReceipt ? '+' : '-'}{formatCurrency(transaction.amount)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">Số tiền</div>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <TouchButton
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 shrink-0"
+                className="h-8 w-8 p-0 -mr-2 -mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -87,61 +102,57 @@ export function MobileTransactionCard({
                 Xem chi tiết
               </DropdownMenuItem>
               {canEdit && (
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(transaction); }}>
-                <Edit className="mr-2 h-4 w-4" />
-                Chỉnh sửa
-              </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(transaction); }}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Chỉnh sửa
+                </DropdownMenuItem>
               )}
               {canCancel && (
-              <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancel(transaction.systemId); }} className="text-red-600">
-                <Trash className="mr-2 h-4 w-4" />
-                Hủy giao dịch
-              </DropdownMenuItem>
-              </>
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancel(transaction.systemId); }} className="text-red-600">
+                    <Trash className="mr-2 h-4 w-4" />
+                    Hủy giao dịch
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </MobileCardHeader>
 
-      {/* Amount + Date */}
-      <div className="mb-3">
-        <div className={`text-lg font-bold ${isReceipt ? 'text-emerald-600' : 'text-destructive'}`}>
-          {isReceipt ? '+' : '-'}{formatCurrency(transaction.amount)}
-        </div>
-        <div className="text-xs text-muted-foreground flex items-center mt-1">
-          <Calendar className="h-3 w-3 mr-1.5" />
-          {formatDateCustom(new Date(transaction.date), 'dd/MM/yyyy')}
-        </div>
-      </div>
-
-      {/* Details */}
-      <div className="space-y-1.5 mt-3 pt-3 border-t border-border/50">
-        {transaction.targetName && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            <User className="h-3 w-3 mr-1.5 shrink-0" />
-            <span className="truncate">{transaction.targetName}</span>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày</dt>
+            <dd className="font-medium">{formatDateCustom(new Date(transaction.date), 'dd/MM/yyyy')}</dd>
           </div>
-        )}
-        {voucherTypeName && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            <FileText className="h-3 w-3 mr-1.5 shrink-0" />
-            <span className="truncate">{voucherTypeName}</span>
-          </div>
-        )}
-        {branch && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
-            <span className="truncate">{branch.name}</span>
-          </div>
-        )}
-        {transaction.originalDocumentId && (
-          <div className="text-xs text-muted-foreground">
-            CT: <span className="font-mono font-medium">{transaction.originalDocumentId}</span>
-          </div>
-        )}
-      </div>
-    </div>
+          {branch && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Chi nhánh</dt>
+              <dd className="font-medium truncate">{branch.name}</dd>
+            </div>
+          )}
+          {transaction.targetName && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Đối tượng</dt>
+              <dd className="font-medium truncate">{transaction.targetName}</dd>
+            </div>
+          )}
+          {voucherTypeName && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Loại phiếu</dt>
+              <dd className="font-medium truncate">{voucherTypeName}</dd>
+            </div>
+          )}
+          {transaction.originalDocumentId && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Chứng từ</dt>
+              <dd className="font-medium font-mono truncate">{transaction.originalDocumentId}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

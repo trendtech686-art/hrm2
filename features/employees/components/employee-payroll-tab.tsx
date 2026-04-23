@@ -12,6 +12,7 @@ import * as React from 'react';
 import type { Control } from 'react-hook-form';
 import type { SystemId } from '@/lib/id-types';
 import { asSystemId } from '@/lib/id-types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import {
   FormControl,
@@ -78,7 +79,7 @@ export function EmployeePayrollTab({
   return (
     <div className="space-y-6">
       {!isEditMode && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Thiết lập ca làm việc</CardTitle>
           </CardHeader>
@@ -130,7 +131,7 @@ export function EmployeePayrollTab({
       )}
 
       {!isEditMode && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Thành phần lương</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -209,7 +210,7 @@ export function EmployeePayrollTab({
         </Card>
       )}
 
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Trả lương & tài khoản</CardTitle>
         </CardHeader>

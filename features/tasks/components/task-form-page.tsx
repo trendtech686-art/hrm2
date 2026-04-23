@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -7,6 +7,8 @@ import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import type { TaskPriority, TaskStatus } from '../types';
+import { FormPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -228,14 +230,14 @@ export function TaskFormPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <FormPageShell gap="lg">
       {/* Template Selector */}
       {!isEdit && templates.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
+        <Card className={cn(mobileBleedCardClass, 'border border-border')}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
+                <FileText className="h-5 w-5 text-muted-foreground" />
                 Sử dụng mẫu có sẵn
               </CardTitle>
               <Button
@@ -277,7 +279,7 @@ export function TaskFormPage() {
       )}
 
       {/* Section 1: Thông tin cơ bản */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Thông tin cơ bản</CardTitle>
         </CardHeader>
@@ -330,12 +332,12 @@ export function TaskFormPage() {
       </Card>
 
       {/* Section 2: Phân công & Thời gian */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Phân công & Thời gian</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* Assignee - VirtualizedCombobox */}
             <div>
               <Label htmlFor="assigneeId">Người thực hiện *</Label>
@@ -437,11 +439,11 @@ export function TaskFormPage() {
 
           {/* Estimated Hours Display */}
           {formData.startDate && formData.dueDate && (
-            <div className="mt-4 p-3 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+            <div className="mt-4 p-3 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-600" />
+                <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Giờ ước tính:</span>
-                <span className="text-sm font-bold text-blue-600">
+                <span className="text-sm font-semibold tabular-nums text-foreground">
                   {(() => {
                     const start = new Date(formData.startDate);
                     const end = new Date(formData.dueDate);
@@ -457,7 +459,7 @@ export function TaskFormPage() {
       </Card>
 
       {/* Section 3: Cài đặt nâng cao */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Cài đặt nâng cao</CardTitle>
         </CardHeader>
@@ -488,6 +490,6 @@ export function TaskFormPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </FormPageShell>
   );
 }

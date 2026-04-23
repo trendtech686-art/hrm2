@@ -12,6 +12,11 @@ import {
 } from "../../../components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
 import { ProductImage } from "./product-image";
+import {
+  MobileCard,
+  MobileCardFooter,
+  MobileCardHeader,
+} from "@/components/mobile/mobile-card";
 import type { Product } from "@/lib/types/prisma-extended"
 import type { ProductCategory } from "@/features/settings/inventory/types"
 import { cn } from "@/lib/utils";
@@ -81,12 +86,8 @@ export function MobileProductCard({
   const isOutOfStock = totalStock <= 0;
 
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={() => onRowClick(product)}
-    >
-      {/* Header: Image + Info + Menu */}
-      <div className="flex items-center gap-3">
+    <MobileCard onClick={() => onRowClick(product)}>
+      <MobileCardHeader className="items-center">
         <ProductImage
           productSystemId={product.systemId}
           productData={product}
@@ -127,10 +128,9 @@ export function MobileProductCard({
           </div>
           <p className="text-xs text-muted-foreground font-mono mt-0.5">{product.id}</p>
         </div>
-      </div>
+      </MobileCardHeader>
 
-      {/* Footer: Stock + Status */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+      <MobileCardFooter>
         <div className="flex items-center gap-1.5">
           <span className={cn(
             "text-xs font-semibold",
@@ -147,7 +147,7 @@ export function MobileProductCard({
             {getStatusLabel(product.status)}
           </Badge>
         )}
-      </div>
-    </div>
+      </MobileCardFooter>
+    </MobileCard>
   );
 }

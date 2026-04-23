@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import Link from 'next/link';
 import { Truck, Package, Home, PackageCheck, PackageSearch, Printer, Check, PackagePlus, LifeBuoy, ArrowLeft, History, XCircle, MoreHorizontal } from 'lucide-react';
@@ -524,9 +525,9 @@ export function ShipmentDetailPage() {
     };
 
     return (
-        <div className="space-y-4 md:space-y-6">
+        <DetailPageShell gap="lg">
             {/* Status Badge + Timeline */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3 mb-4 text-sm text-muted-foreground">
                         <span className="text-sm text-muted-foreground">
@@ -541,7 +542,7 @@ export function ShipmentDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 {/* Right Column - Customer & Shipping Info */}
                 <div className="space-y-4 lg:order-2">
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Thông tin người nhận</CardTitle>
                         </CardHeader>
@@ -592,7 +593,7 @@ export function ShipmentDetailPage() {
                         </CardContent>
                     </Card>
                     
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Thông tin đối tác vận chuyển</CardTitle>
                         </CardHeader>
@@ -610,7 +611,7 @@ export function ShipmentDetailPage() {
                 </div>
 
                 {/* Left Column - Status History Timeline */}
-                <Card className="lg:col-span-2 lg:order-1">
+                <Card className={cn(mobileBleedCardClass, 'lg:col-span-2 lg:order-1')}>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Lịch sử trạng thái đơn giao hàng</CardTitle>
                         {packaging.trackingCode && packaging.carrier === 'GHTK' && (
@@ -678,6 +679,6 @@ export function ShipmentDetailPage() {
                     onCancelAndRestock={handleCancelDeliveryAndRestock}
                 />
             )}
-        </div>
+        </DetailPageShell>
     );
 }

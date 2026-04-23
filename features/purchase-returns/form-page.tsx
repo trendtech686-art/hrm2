@@ -46,6 +46,8 @@ import {
 } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -341,7 +343,7 @@ export function PurchaseReturnFormPage() {
           </Button>
         </div>
 
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Chọn đơn nhập hàng để tạo phiếu trả</CardTitle>
           </CardHeader>
@@ -535,7 +537,7 @@ export function PurchaseReturnFormPage() {
 
         {/* Alert: Công nợ tổng quan */}
         {po && supplier && (
-          <Card className="mb-6 border-blue-200 bg-blue-50/50">
+          <Card className={cn(mobileBleedCardClass, 'mb-6 border-blue-200 bg-blue-50/50')}>
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                 <div className="space-y-1">
@@ -563,7 +565,7 @@ export function PurchaseReturnFormPage() {
             {/* Cột bên trái: Sản phẩm + Hoàn tiền */}
             <div className="lg:col-span-2 space-y-6">
                 {/* Card: Danh sách sản phẩm hoàn trả */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Danh sách sản phẩm hoàn trả</CardTitle>
                         <FormField control={control} name="returnAll" render={({ field }) => (
@@ -655,7 +657,7 @@ export function PurchaseReturnFormPage() {
                 </Card>
 
                 {/* Card: Nhận tiền hoàn lại từ NCC */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0">
                       <CardTitle>Nhận tiền hoàn lại từ nhà cung cấp</CardTitle>
                       <TooltipProvider>
@@ -714,7 +716,7 @@ export function PurchaseReturnFormPage() {
 
             {/* Cột bên phải: Thông tin NCC, Chi nhánh, Lịch sử, Lý do */}
             <div className="space-y-6">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader><CardTitle>Mã hoàn trả</CardTitle></CardHeader>
                     <CardContent>
                       <FormField control={control} name="returnId" render={({ field }) => (
@@ -735,7 +737,7 @@ export function PurchaseReturnFormPage() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader><CardTitle>Nhà cung cấp</CardTitle></CardHeader>
                     <CardContent className="text-sm space-y-1">
                         <p className="font-semibold text-primary text-base">{supplier.name}</p>
@@ -744,7 +746,7 @@ export function PurchaseReturnFormPage() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader><CardTitle>Chi nhánh hoàn trả</CardTitle></CardHeader>
                     <CardContent className="text-sm">
                         <p className="font-medium">{branch.name}</p>
@@ -753,7 +755,7 @@ export function PurchaseReturnFormPage() {
 
                 {/* Lịch sử hoàn trả trước đó */}
                 {previousReturns.length > 0 && (
-                  <Card>
+                  <Card className={mobileBleedCardClass}>
                     <CardHeader>
                       <CardTitle>Lịch sử hoàn trả ({previousReturns.length})</CardTitle>
                     </CardHeader>
@@ -785,7 +787,7 @@ export function PurchaseReturnFormPage() {
                   </Card>
                 )}
 
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader><CardTitle>Lý do hoàn trả chung</CardTitle></CardHeader>
                     <CardContent>
                         <FormField control={control} name="reason" render={({ field }) => (

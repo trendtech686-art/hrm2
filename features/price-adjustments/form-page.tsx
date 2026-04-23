@@ -14,6 +14,7 @@ import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
+import { FormPageShell, mobileBleedCardClass } from '../../components/layout/page-section';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -24,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { UnifiedProductSearch } from '../../components/shared/unified-product-search';
+import { BarcodeScannerButton } from '../../components/shared/barcode-scanner-button';
 import { Plus, X, Save, Trash2, Package, Settings2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId } from '../../lib/id-types';
@@ -413,10 +415,10 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
   }
   
   return (
-    <div className="space-y-6">
+    <FormPageShell gap="lg">
       <form id="adjustment-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Basic Info */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Thông tin phiếu điều chỉnh</CardTitle>
           </CardHeader>
@@ -503,7 +505,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
         </Card>
 
         {/* Product List */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>
               Danh sách sản phẩm
@@ -532,6 +534,24 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
                       pricingPolicyId={watchPricingPolicyId}
                     />
                   </div>
+                  <BarcodeScannerButton
+                    onDetect={async (code) => {
+                      try {
+                        const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`);
+                        if (!res.ok) throw new Error('search failed');
+                        const json = await res.json() as { data: Product[] };
+                        const match = json.data?.[0];
+                        if (!match) {
+                          toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                          return;
+                        }
+                        handleAddProducts([match]);
+                        toast.success(`Đã thêm: ${match.name}`);
+                      } catch {
+                        toast.error('Không thể tra cứu mã vạch. Thử lại.');
+                      }
+                    }}
+                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -713,6 +733,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
         pricingPolicyId={watchPricingPolicyId}
         showQuantityInput={false}
       />
-    </div>
+    </FormPageShell>
   );
 }

@@ -139,7 +139,7 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-125">
+            <DialogContent mobileFullScreen className="sm:max-w-125">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5" />

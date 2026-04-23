@@ -1,5 +1,6 @@
 ﻿import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { mobileBleedCardClass } from "@/components/layout/page-section";
 import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
 import {
@@ -57,7 +58,7 @@ export function OrderInfoCard({
   };
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className={cn(mobileBleedCardClass, "h-full flex flex-col")}>
       <CardHeader className="flex-shrink-0">
         <CardTitle>Thông tin đơn</CardTitle>
       </CardHeader>

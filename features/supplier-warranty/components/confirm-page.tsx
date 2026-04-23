@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -241,7 +242,7 @@ export function SupplierWarrantyConfirmPage({ systemId }: SupplierWarrantyConfir
       </div>
 
       {/* Product items table for confirmation */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
@@ -371,19 +372,19 @@ export function SupplierWarrantyConfirmPage({ systemId }: SupplierWarrantyConfir
 
       {/* Summary + Notes + Receipt option */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-5 text-center">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SP được BH</p>
             <p className="text-2xl font-bold text-green-600 mt-1">{totalApprovedItems}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-5 text-center">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SP trả lại (không BH)</p>
             <p className="text-2xl font-bold text-orange-600 mt-1">{totalReturnedItems}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-5 text-center">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tổng tiền NCC trừ</p>
             <p className="text-2xl font-bold text-primary mt-1">{formatCurrency(totalWarrantyCost)}</p>
@@ -392,7 +393,7 @@ export function SupplierWarrantyConfirmPage({ systemId }: SupplierWarrantyConfir
       </div>
 
       {/* Notes */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-5">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Ghi chú xác nhận</p>
           <Textarea

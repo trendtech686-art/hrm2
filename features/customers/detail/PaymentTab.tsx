@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import type { Customer } from '@/lib/types/prisma-extended';
 import { formatCurrency } from './types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 // Simple detail item component
 const DetailItem = ({ label, value }: { label: string; value?: React.ReactNode }) => (
@@ -29,7 +30,7 @@ export function PaymentTab({
   getCreditRatingName,
 }: PaymentTabProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle>Thanh toán & Tín dụng</CardTitle>
       </CardHeader>

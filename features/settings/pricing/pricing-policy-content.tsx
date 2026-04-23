@@ -7,7 +7,8 @@ import { PricingTable } from "./pricing-table";
 import { Button } from "../../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Tabs, TabsContent } from "../../../components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from "../../../components/layout/page-section";
 import { toast } from 'sonner';
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { PlusCircle } from "lucide-react";
@@ -155,11 +156,11 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
     return (
         <>
             <Tabs value={innerTab} onValueChange={setInnerTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="selling">Bán hàng</TabsTrigger>
-                    <TabsTrigger value="purchasing">Nhập hàng</TabsTrigger>
-                    <TabsTrigger value="all">Tất cả</TabsTrigger>
-                </TabsList>
+                <MobileTabsList>
+                    <MobileTabsTrigger value="selling">Bán hàng</MobileTabsTrigger>
+                    <MobileTabsTrigger value="purchasing">Nhập hàng</MobileTabsTrigger>
+                    <MobileTabsTrigger value="all">Tất cả</MobileTabsTrigger>
+                </MobileTabsList>
                 <TabsContent value="selling" className="space-y-4">
                     <p className="text-sm text-muted-foreground">
                         Các chính sách giá áp dụng cho việc bán hàng

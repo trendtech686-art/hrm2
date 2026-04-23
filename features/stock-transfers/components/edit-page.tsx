@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -382,7 +383,7 @@ export function StockTransferEditPage() {
         </Alert>
 
         <form id="limited-edit-form" onSubmit={limitedEditForm.handleSubmit(onLimitedEditSubmit)} className="space-y-6">
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Thông tin có thể chỉnh sửa</CardTitle>
             </CardHeader>
@@ -439,7 +440,7 @@ export function StockTransferEditPage() {
           </Card>
 
           {/* Product List (read-only) */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Danh sách sản phẩm (không thể chỉnh sửa)</CardTitle>
             </CardHeader>
@@ -562,10 +563,10 @@ export function StockTransferEditPage() {
 
   // Render full edit form (pending status)
   return (
-    <div className="space-y-6">
+    <FormPageShell gap="lg">
       <form id="full-edit-form" onSubmit={fullEditForm.handleSubmit(onFullEditSubmit)} className="space-y-6">
         {/* Branch Selection */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Thông tin chuyển kho</CardTitle>
           </CardHeader>
@@ -660,7 +661,7 @@ export function StockTransferEditPage() {
         </Card>
 
         {/* Product List */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Danh sách sản phẩm</CardTitle>
             <Button
@@ -823,6 +824,6 @@ export function StockTransferEditPage() {
         onSelect={handleAddProducts}
         branchSystemId={fromBranchId}
       />
-    </div>
+    </FormPageShell>
   );
 }

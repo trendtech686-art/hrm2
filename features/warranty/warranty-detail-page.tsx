@@ -17,11 +17,12 @@ import { invalidateRelated } from '../../lib/query-invalidation-map';
 
 // UI Components
 import { Button } from '../../components/ui/button';
-import { ScrollArea } from '../../components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/ui/skeleton';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { ShareButton } from '@/components/shared/share-button';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import {
   Dialog,
   DialogContent,
@@ -457,8 +458,15 @@ export function WarrantyDetailPage() {
   ) : null;
   
   const allActions = React.useMemo(() => [
+    <ShareButton
+      key="share"
+      size="sm"
+      className="h-9"
+      title={ticket ? `Phiếu bảo hành ${ticket.id}` : 'Phiếu bảo hành'}
+      text={ticket ? `Phiếu bảo hành ${ticket.id}` : ''}
+    />,
     ...actions.filter(a => a.key !== 'get-link'),
-  ], [actions]);
+  ], [actions, ticket]);
   
   const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
 
@@ -478,7 +486,7 @@ export function WarrantyDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <Skeleton className="h-8 w-1/3" />
           </CardHeader>
@@ -487,7 +495,7 @@ export function WarrantyDetailPage() {
             <Skeleton className="h-20" />
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6 space-y-4">
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -506,9 +514,9 @@ export function WarrantyDetailPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-        <ScrollArea className="grow">
-          <div className="pr-4 space-y-4">
+    <DetailPageShell className="h-full">
+        <div className="grow overflow-y-auto [scrollbar-width:thin] md:pr-4">
+          <div className="space-y-4">
             {/* Warning Banner - Show only when RECEIVED status AND no products */}
             {ticket?.status === 'RECEIVED' && (!ticket.products || (ticket.products as unknown[]).length === 0) && (
               <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-4">
@@ -596,7 +604,7 @@ export function WarrantyDetailPage() {
             </div>
 
             {/* ===== ROW 3: Products Table (with integrated summary) ===== */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Danh sách sản phẩm bảo hành</CardTitle>
               </CardHeader>
@@ -606,7 +614,7 @@ export function WarrantyDetailPage() {
             </Card>
 
             {/* ===== ROW 4: Notes ===== */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Ghi chú</CardTitle>
               </CardHeader>
@@ -628,7 +636,7 @@ export function WarrantyDetailPage() {
 
             <WarrantyHistorySection ticketId={ticket.systemId} />
           </div>
-        </ScrollArea>
+        </div>
 
         <WarrantyReturnMethodDialog
           open={isReturnDialogOpen}
@@ -674,7 +682,7 @@ export function WarrantyDetailPage() {
 
       {/* Template Dialog */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent mobileFullScreen className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Mẫu phản hồi bảo hành</DialogTitle>
             <DialogDescription>
@@ -742,6 +750,6 @@ export function WarrantyDetailPage() {
           onUploaded={handleProcessedImagesUploaded}
         />
       )}
-    </div>
+    </DetailPageShell>
   );
 }

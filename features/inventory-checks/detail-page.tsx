@@ -11,7 +11,9 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs } from '../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Check, Pencil, XCircle, Printer, Copy, Package, Eye, MoreHorizontal } from 'lucide-react';
 import { usePrint } from '../../lib/use-print';
@@ -27,6 +29,7 @@ import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from 'sonner';
 import { type SystemId, asSystemId } from '../../lib/id-types';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell } from '@/components/layout/page-section';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
@@ -435,22 +438,22 @@ export function InventoryCheckDetailPage() {
   const negativeCount = check.items.filter(item => item.difference < 0).length;
 
   return (
-    <div className="space-y-4">
+    <DetailPageShell gap="md">
       {/* Dashboard Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold">{check.items.length}</div>
             <p className="text-xs text-muted-foreground">Tổng sản phẩm</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold text-green-600">{stats.matched}</div>
             <p className="text-xs text-muted-foreground">Khớp</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold text-red-600">{stats.different}</div>
             <p className="text-xs text-muted-foreground">Lệch</p>
@@ -461,7 +464,7 @@ export function InventoryCheckDetailPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6">
             <div className={`text-h2 font-bold ${
               totalDifference > 0 ? 'text-orange-600' : 
@@ -478,7 +481,7 @@ export function InventoryCheckDetailPage() {
       {/* Thông tin chính và Quy trình xử lý */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
         {/* Thông tin phiếu - 70% */}
-        <Card className="lg:col-span-7">
+        <Card className={cn("lg:col-span-7", mobileBleedCardClass)}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Thông tin phiếu kiểm hàng</CardTitle>
@@ -535,18 +538,18 @@ export function InventoryCheckDetailPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Chi tiết hàng hóa</CardTitle>
         </CardHeader>
         <CardContent>
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">Tất cả ({check.items.length})</TabsTrigger>
-              <TabsTrigger value="matched">Khớp ({stats.matched})</TabsTrigger>
-              <TabsTrigger value="different">Lệch ({stats.different})</TabsTrigger>
-            </TabsList>
+            <MobileTabsList>
+              <MobileTabsTrigger value="all">Tất cả ({check.items.length})</MobileTabsTrigger>
+              <MobileTabsTrigger value="matched">Khớp ({stats.matched})</MobileTabsTrigger>
+              <MobileTabsTrigger value="different">Lệch ({stats.different})</MobileTabsTrigger>
+            </MobileTabsList>
           </Tabs>
 
           {/* Desktop Table */}
@@ -853,6 +856,6 @@ export function InventoryCheckDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </DetailPageShell>
   );
 }

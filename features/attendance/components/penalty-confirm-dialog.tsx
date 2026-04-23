@@ -6,6 +6,7 @@ import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Badge } from '../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '../../../components/mobile/mobile-card';
 import { AlertTriangle, AlertCircle, CheckCircle2, Clock, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { formatCurrency } from '../../employees/shared-columns';
@@ -125,7 +126,7 @@ export function PenaltyConfirmDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -137,7 +138,7 @@ export function PenaltyConfirmDialog({
         </DialogHeader>
 
         {/* Summary */}
-        <div className="flex gap-4 py-3 px-4 bg-muted/50 rounded-lg">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 py-3 px-4 bg-muted/50 rounded-lg">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <span className="text-sm">
@@ -152,14 +153,14 @@ export function PenaltyConfirmDialog({
               </span>
             </div>
           )}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 w-full md:w-auto md:ml-auto">
             <span className="text-sm text-muted-foreground">Tổng tiền phạt:</span>
             <span className="font-semibold text-destructive">{formatCurrency(totalAmount)}</span>
           </div>
         </div>
 
-        {/* Table with fixed height ScrollArea */}
-        <ScrollArea className="h-100 border rounded-lg">
+        {/* Desktop: Table with fixed height ScrollArea */}
+        <ScrollArea className="hidden md:block h-100 border rounded-lg">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
@@ -242,6 +243,97 @@ export function PenaltyConfirmDialog({
               })}
             </TableBody>
           </Table>
+        </ScrollArea>
+
+        {/* Mobile: Card stack per phiếu phạt */}
+        <ScrollArea className="md:hidden h-96 pr-3">
+          <div className="space-y-3">
+            {paginatedPenalties.map((penalty) => {
+              const isSelected = selectedIds.has(penalty.previewId);
+              const violation = penalty.violation;
+              const detailText = violation.type === 'late'
+                ? `Vào ${violation.checkIn} (trễ ${violation.minutesLate} phút)`
+                : `Ra ${violation.checkOut} (sớm ${violation.minutesEarly} phút)`;
+
+              return (
+                <MobileCard
+                  key={penalty.previewId}
+                  inert
+                  emphasis={penalty.isDuplicate ? 'warning' : 'none'}
+                  className={cn(penalty.isDuplicate && 'opacity-60')}
+                >
+                  <MobileCardHeader className="items-start justify-between">
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggle(penalty.previewId)}
+                        disabled={penalty.isDuplicate}
+                        aria-label={`Chọn phiếu phạt ${penalty.employeeName}`}
+                        className="mt-0.5"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Nhân viên
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
+                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{penalty.employeeName}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-base font-bold leading-none text-destructive">
+                        {formatCurrency(penalty.amount)}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">Số tiền</div>
+                    </div>
+                  </MobileCardHeader>
+                  <MobileCardBody>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Vi phạm</dt>
+                        <dd className="mt-0.5">
+                          <Badge variant={violation.type === 'late' ? 'destructive' : 'warning'} className="font-normal">
+                            {violation.type === 'late' ? 'Đi trễ' : 'Về sớm'}
+                          </Badge>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Ngày</dt>
+                        <dd className="font-medium">{violation.date}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs text-muted-foreground">Chi tiết</dt>
+                        <dd className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span>{detailText}</span>
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs text-muted-foreground">Trạng thái</dt>
+                        <dd className="mt-0.5">
+                          {penalty.isDuplicate ? (
+                            <Badge variant="outline" className="text-amber-600 border-amber-300 font-normal">
+                              Đã tồn tại
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-green-600 border-green-300 font-normal">
+                              Mới
+                            </Badge>
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                  </MobileCardBody>
+                </MobileCard>
+              );
+            })}
+            {paginatedPenalties.length === 0 && (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                Không có dữ liệu
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
         {/* Pagination */}

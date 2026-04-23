@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import type { CostAdjustment } from '@/lib/types/prisma-extended';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { TrendingUp, TrendingDown, Package, Calendar, User, MoreHorizontal, Eye, CheckCircle, XCircle, Printer } from 'lucide-react';
+import { TrendingUp, TrendingDown, MoreHorizontal, Eye, CheckCircle, XCircle, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '../../components/mobile/mobile-card';
+import { cn } from '@/lib/utils';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
   switch (status) {
@@ -46,26 +48,34 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
   const isPositive = totalDifference > 0;
   const isNegative = totalDifference < 0;
 
+  const diffSign = isPositive ? '+' : '';
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => router.push(`/cost-adjustments/${adjustment.systemId}`)}>
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-sm text-primary">{adjustment.id}</span>
-              <Badge variant={getStatusVariant(adjustment.status)}>
-                {getStatusLabel(adjustment.status)}
-              </Badge>
-            </div>
-            {adjustment.referenceCode && (
-              <p className="text-xs text-muted-foreground">
-                Mã tham chiếu: {adjustment.referenceCode}
-              </p>
-            )}
+    <MobileCard onClick={() => router.push(`/cost-adjustments/${adjustment.systemId}`)}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Điều chỉnh giá vốn</div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <div className="text-sm font-semibold text-foreground truncate font-mono">{adjustment.id}</div>
+            <Badge variant={getStatusVariant(adjustment.status)} className="text-xs shrink-0">
+              {getStatusLabel(adjustment.status)}
+            </Badge>
           </div>
-          
+        </div>
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div className={cn(
+              'text-lg font-bold leading-none flex items-center gap-1 justify-end',
+              isPositive && 'text-emerald-600',
+              isNegative && 'text-destructive',
+            )}>
+              {isPositive ? <TrendingUp className="h-4 w-4" /> : isNegative ? <TrendingDown className="h-4 w-4" /> : null}
+              {diffSign}{formatCurrency(totalDifference)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">Chênh lệch</div>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -81,7 +91,7 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
                     Xác nhận
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => onCancel?.(adjustment.systemId)}
                   >
@@ -97,61 +107,46 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </MobileCardHeader>
 
-        {/* Price Change Summary */}
-        <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded-md">
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">Giá vốn cũ</p>
-            <p className="font-medium text-sm">{formatCurrency(totalOldValue)}</p>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div>
+            <dt className="text-xs text-muted-foreground">Giá vốn cũ</dt>
+            <dd className="font-medium">{formatCurrency(totalOldValue)}</dd>
           </div>
-          <div className="flex items-center">
-            {isPositive ? (
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
-            ) : isNegative ? (
-              <TrendingDown className="h-4 w-4 text-destructive" />
-            ) : null}
+          <div>
+            <dt className="text-xs text-muted-foreground">Giá vốn mới</dt>
+            <dd className="font-medium">{formatCurrency(totalNewValue)}</dd>
           </div>
-          <div className="flex-1 text-right">
-            <p className="text-xs text-muted-foreground">Giá vốn mới</p>
-            <p className="font-medium text-sm">{formatCurrency(totalNewValue)}</p>
+          <div>
+            <dt className="text-xs text-muted-foreground">Số sản phẩm</dt>
+            <dd className="font-medium">{adjustment.items?.length || 0}</dd>
           </div>
-        </div>
-
-        {/* Difference */}
-        <div className={`text-center p-2 rounded-md mb-3 ${
-          isPositive ? 'bg-emerald-500/10 text-emerald-600' : 
-          isNegative ? 'bg-destructive/10 text-destructive' : 
-          'bg-gray-50 text-gray-700'
-        }`}>
-          <span className="text-sm font-medium">
-            Chênh lệch: {isPositive ? '+' : ''}{formatCurrency(totalDifference)}
-          </span>
-        </div>
-
-        {/* Info Row */}
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Package className="h-3.5 w-3.5" />
-            <span>{adjustment.items?.length || 0} sản phẩm</span>
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày tạo</dt>
+            <dd className="font-medium">{formatDate(adjustment.createdDate)}</dd>
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{formatDate(adjustment.createdDate)}</span>
-          </div>
-        </div>
-
-        {/* Creator */}
-        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-          <User className="h-3 w-3" />
-          <span>{adjustment.createdByName}</span>
-        </div>
-
-        {/* Reason */}
-        {adjustment.reason && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            Lý do: {adjustment.reason}
-          </p>
-        )}
-    </div>
+          {adjustment.createdByName && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Người tạo</dt>
+              <dd className="font-medium truncate">{adjustment.createdByName}</dd>
+            </div>
+          )}
+          {adjustment.referenceCode && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Mã tham chiếu</dt>
+              <dd className="font-medium truncate font-mono">{adjustment.referenceCode}</dd>
+            </div>
+          )}
+          {adjustment.reason && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Lý do</dt>
+              <dd className="font-medium line-clamp-2">{adjustment.reason}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

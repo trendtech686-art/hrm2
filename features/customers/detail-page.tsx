@@ -51,7 +51,8 @@ import type { Payment } from '../payments/types';
 import { asBusinessId } from '@/lib/id-types';
 import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import { ProgressiveImage } from '../../components/ui/progressive-image';
 import { CopyableText } from '../../components/shared/copy-button';
@@ -629,7 +630,7 @@ export function CustomerDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <Skeleton className="h-8 w-1/3" />
           </CardHeader>
@@ -640,7 +641,7 @@ export function CustomerDetailPage() {
             <Skeleton className="h-20" />
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6 space-y-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
@@ -690,7 +691,7 @@ export function CustomerDetailPage() {
 
       {/* Receipt Create Dialog */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tạo phiếu thu - {customer.name}</DialogTitle>
           </DialogHeader>
@@ -717,7 +718,7 @@ export function CustomerDetailPage() {
 
       {/* Payment Create Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tạo phiếu chi - {customer.name}</DialogTitle>
           </DialogHeader>
@@ -847,25 +848,25 @@ export function CustomerDetailPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start overflow-x-auto">
-            <TabsTrigger value="info" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Thông tin</TabsTrigger>
-            <TabsTrigger value="business" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Doanh nghiệp</TabsTrigger>
-            <TabsTrigger value="payment" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Thanh toán</TabsTrigger>
-            <TabsTrigger value="purchase-history" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Đơn hàng</TabsTrigger>
-            <TabsTrigger value="sales-returns" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Đơn hàng trả</TabsTrigger>
-            <TabsTrigger value="debt" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Công nợ</TabsTrigger>
-            <TabsTrigger value="contacts" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Liên hệ</TabsTrigger>
-            <TabsTrigger value="addresses" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Địa chỉ</TabsTrigger>
-            <TabsTrigger value="products" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Sản phẩm</TabsTrigger>
-            <TabsTrigger value="warranty" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Bảo hành</TabsTrigger>
-            <TabsTrigger value="complaints" className="shrink-0 px-3 h-10 text-sm font-normal whitespace-nowrap">Khiếu nại</TabsTrigger>
-          </TabsList>
+          <MobileTabsList>
+            <MobileTabsTrigger value="info">Thông tin</MobileTabsTrigger>
+            <MobileTabsTrigger value="business">Doanh nghiệp</MobileTabsTrigger>
+            <MobileTabsTrigger value="payment">Thanh toán</MobileTabsTrigger>
+            <MobileTabsTrigger value="purchase-history">Đơn hàng</MobileTabsTrigger>
+            <MobileTabsTrigger value="sales-returns">Đơn hàng trả</MobileTabsTrigger>
+            <MobileTabsTrigger value="debt">Công nợ</MobileTabsTrigger>
+            <MobileTabsTrigger value="contacts">Liên hệ</MobileTabsTrigger>
+            <MobileTabsTrigger value="addresses">Địa chỉ</MobileTabsTrigger>
+            <MobileTabsTrigger value="products">Sản phẩm</MobileTabsTrigger>
+            <MobileTabsTrigger value="warranty">Bảo hành</MobileTabsTrigger>
+            <MobileTabsTrigger value="complaints">Khiếu nại</MobileTabsTrigger>
+          </MobileTabsList>
 
           {/* Tab: Thông tin chung */}
           <TabsContent value="info" id="customer-tab-info" className="space-y-6 mt-6">
             {/* Images Section */}
             {customer.images && customer.images.length > 0 && (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle size="sm" className="font-medium">Hình ảnh</CardTitle>
                 </CardHeader>
@@ -895,7 +896,7 @@ export function CustomerDetailPage() {
             )}
 
             {/* Thông tin cơ bản - Grid layout clean với icon copy */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle size="sm" className="font-medium">Thông tin cơ bản</CardTitle>
               </CardHeader>
@@ -989,7 +990,7 @@ export function CustomerDetailPage() {
             </Card>
 
             {/* Phân loại */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle size="sm" className="font-medium">Phân loại</CardTitle>
               </CardHeader>
@@ -1017,7 +1018,7 @@ export function CustomerDetailPage() {
             </Card>
 
             {/* Thống kê mua hàng */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle size="sm" className="font-medium">Thống kê mua hàng</CardTitle>
               </CardHeader>
@@ -1034,7 +1035,7 @@ export function CustomerDetailPage() {
             </Card>
 
             {/* Quản lý */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle size="sm" className="font-medium">Quản lý</CardTitle>
               </CardHeader>
@@ -1058,7 +1059,7 @@ export function CustomerDetailPage() {
 
             {/* Ghi chú */}
             {customer.notes && (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle size="sm" className="font-medium">Ghi chú</CardTitle>
                 </CardHeader>
@@ -1092,7 +1093,7 @@ export function CustomerDetailPage() {
                   toast.success('Đã sao chép thông tin doanh nghiệp');
                 };
                 return (
-                  <Card key={profile.id || idx}>
+                  <Card key={profile.id || idx} className={mobileBleedCardClass}>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between">
                       <CardTitle size="sm" className="font-medium">
                         {profile.company || `Doanh nghiệp #${idx + 1}`}
@@ -1121,7 +1122,7 @@ export function CustomerDetailPage() {
                 );
               })
             ) : (customer.company || customer.taxCode || customer.representative || customer.position) ? (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
                   <CardTitle size="sm" className="font-medium">Thông tin doanh nghiệp</CardTitle>
                   <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground" onClick={() => {
@@ -1148,7 +1149,7 @@ export function CustomerDetailPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardContent className="py-12">
                   <div className="text-center text-muted-foreground">
                     <p>Chưa có thông tin doanh nghiệp</p>
@@ -1160,7 +1161,7 @@ export function CustomerDetailPage() {
 
           {/* Tab: Thanh toán */}
           <TabsContent value="payment" id="customer-tab-payment" className="space-y-6 mt-6">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle size="sm" className="font-medium">Thanh toán & Tín dụng</CardTitle>
               </CardHeader>
@@ -1305,7 +1306,7 @@ export function CustomerDetailPage() {
 
           {/* Tab: Liên hệ */}
           <TabsContent value="contacts" id="customer-tab-contacts" className="mt-6">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle size="sm" className="font-medium">Danh sách liên hệ</CardTitle>
               </CardHeader>

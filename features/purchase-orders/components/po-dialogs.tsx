@@ -138,7 +138,7 @@ export function POReceiveDialog({
 }: ReceiveDialogProps) {
   return (
     <Dialog open={state.isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent mobileFullScreen className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Nhập hàng cho {state.purchaseOrder?.id || 'đơn hàng'}</DialogTitle>
           <DialogDescription>

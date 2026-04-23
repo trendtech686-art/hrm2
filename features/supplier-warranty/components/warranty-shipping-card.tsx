@@ -9,6 +9,7 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { mobileBleedCardClass } from '@/components/layout/page-section'
 import { DeliveryMethodCard } from '@/features/orders/components/shipping/delivery-method-card'
 import { AddressFormDialog } from '@/features/customers/components/address-form-dialog'
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches'
@@ -383,7 +384,7 @@ export const WarrantyShippingCard = React.forwardRef<WarrantyShippingCardRef, Wa
   }), [deliveryMethod, selectedService, customerAddress, pickupAddress, supplierName, warrantyId, packageInfo.insuranceValue, totalWeight, serviceOptions])
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Truck className="h-4 w-4" />

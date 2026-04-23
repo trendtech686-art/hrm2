@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Printer, FileSpreadsheet } from 'lucide-react';
-import { Eye, MoreHorizontal, ExternalLink } from 'lucide-react';
+import { Printer, FileSpreadsheet, Eye, MoreHorizontal, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/date-utils';
 import { useAttendanceByEmployee } from '@/features/attendance/hooks/use-attendance-by-employee';
@@ -52,6 +51,7 @@ import {
 import { formatCurrency, formatMonthLabel } from './types';
 import { logError } from '@/lib/logger'
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Helper function for lazy loading XLSX
 async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
@@ -414,7 +414,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
   return (
     <>
       {/* Bảng lương gần đây */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Bảng lương gần đây</CardTitle>
           <CardDescription>
@@ -445,7 +445,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
       </Card>
 
       {/* Lịch sử chấm công */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Lịch sử chấm công</CardTitle>
           <CardDescription>

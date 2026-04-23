@@ -20,8 +20,15 @@ interface StatsBarProps {
 
 export function StatsBar({ items, activeKey, onSelect, className }: StatsBarProps) {
   return (
-    <div className={cn("overflow-x-auto", className)}>
-      <div className="flex gap-1.5 min-w-max pb-1">
+    // Ở trong padding `px-4 md:px-6` của MainLayout — scroll ngang, ẩn scrollbar.
+    // `pr-2` inner để chip cuối vẫn có đệm nhỏ khi scroll tới cuối.
+    <div
+      className={cn(
+        "overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+    >
+      <div className="flex gap-1.5 min-w-max pb-1 pr-2">
         {items.map(item => {
           const isActive = activeKey === item.key
           const isClickable = !!onSelect
@@ -47,7 +54,7 @@ export function StatsBar({ items, activeKey, onSelect, className }: StatsBarProp
                   <span className="text-sm">{item.label}</span>
                   {item.badge != null && item.badge > 0 && (
                     <Badge
-                      variant={isActive ? 'default' : 'destructive'}
+                      variant={isActive ? 'default' : 'secondary'}
                       className="h-5 min-w-5 justify-center rounded-full px-1.5 text-xs leading-none"
                     >
                       {item.badge}

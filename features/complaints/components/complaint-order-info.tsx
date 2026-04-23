@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import type { Complaint } from '../types';
 import { formatOrderAddress } from '../../orders/address-utils';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -27,7 +28,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
   const firstPackaging = relatedOrder?.packagings?.[0];
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle size="lg">Thông tin đơn hàng</CardTitle>
       </CardHeader>

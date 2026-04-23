@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getMeiliClient, INDEXES } from '@/lib/meilisearch'
 import { z } from 'zod'
 import { execSync } from 'child_process'
+import { existsSync, rmSync } from 'node:fs'
 import path from 'path'
 import bcrypt from 'bcryptjs'
 
@@ -82,13 +83,14 @@ const actionSchema = z.object({
     'delete-cashbook', 'delete-tasks', 'delete-warranty',
     'delete-complaints', 'delete-wiki',
     // Bulk
-    'purge-all-business-data', 'clear-activity-logs', 'resync-meilisearch',
+    'purge-all-business-data', 'delete-all-settings', 'clear-activity-logs', 'resync-meilisearch',
     // Seed
     'seed-all-settings', 'seed-roles', 'seed-admin-units', 'seed-sample-employees',
     // System
     'reset-user-password', 'system-health-check', 'database-statistics',
     'force-logout-all', 'export-db-backup', 'permission-audit', 'docker-prune',
     'check-disk', 'deploy-rebuild', 'prisma-migrate', 'prisma-db-push', 'docker-builder-prune',
+    'clear-next-cache',
   ]),
   confirmText: z.string(),
   // Extra data for specific actions
@@ -121,6 +123,7 @@ const CONFIRM_MAP: Record<string, string> = {
   'delete-complaints': 'XÓA KHIẾU NẠI',
   'delete-wiki': 'XÓA WIKI',
   'purge-all-business-data': 'XÓA TOÀN BỘ DỮ LIỆU',
+  'delete-all-settings': 'XÓA CÀI ĐẶT',
   'clear-activity-logs': 'XÓA NHẬT KÝ',
   'resync-meilisearch': 'ĐỒNG BỘ LẠI',
   'seed-all-settings': 'TẠO CÀI ĐẶT',
@@ -139,6 +142,7 @@ const CONFIRM_MAP: Record<string, string> = {
   'prisma-migrate': 'MIGRATE',
   'prisma-db-push': 'DB PUSH',
   'docker-builder-prune': 'DỌN BUILD CACHE',
+  'clear-next-cache': 'XÓA CACHE APP',
 }
 
 export const POST = apiHandler(async (req, { session }) => {
@@ -185,6 +189,7 @@ export const POST = apiHandler(async (req, { session }) => {
     case 'delete-complaints': return await deleteAllComplaints(userName)
     case 'delete-wiki': return await deleteAllWiki(userName)
     case 'purge-all-business-data': return await purgeAllBusinessData(userName)
+    case 'delete-all-settings': return await deleteAllSettingsData(userName)
     case 'clear-activity-logs': return await clearActivityLogs(userName)
     case 'resync-meilisearch': return await resyncMeilisearch()
     case 'seed-all-settings': return await runSeedScript('prisma/seeds/seed-all-settings.ts', 'Seed toàn bộ cài đặt')
@@ -203,6 +208,7 @@ export const POST = apiHandler(async (req, { session }) => {
     case 'prisma-migrate': return await prismaMigrate()
     case 'prisma-db-push': return await prismaDbPush()
     case 'docker-builder-prune': return await dockerBuilderPrune()
+    case 'clear-next-cache': return await clearNextBuildCache()
     default: return apiError('Action không hợp lệ', 400)
   }
 }, { rateLimit: { max: 40, windowMs: 60_000 } })
@@ -515,6 +521,77 @@ async function purgeAllBusinessData(userName: string) {
 }
 
 // ============================================
+// DELETE ALL APPLICATION SETTINGS
+// (settings + settings_data + PTTK, TK quỹ, thuế, phòng ban/chức vụ cấu hình, v.v. — KHÔNG xóa user/role/branch/đơn vị hành chính)
+// ============================================
+async function deleteAllSettingsData(userName: string) {
+  const details: string[] = []
+
+  const counts = await prisma.$transaction(
+    async (tx) => {
+      const cashTx = await tx.cashTransaction.deleteMany({})
+      const pkgxPriceMap = await tx.pkgxPriceMapping.deleteMany({})
+      const productPrices = await tx.productPrice.deleteMany({})
+      const userPrefs = await tx.userPreference.deleteMany({})
+
+      await tx.employee.updateMany({ data: { departmentId: null, jobTitleId: null } })
+      await tx.department.updateMany({ where: { parentId: { not: null } }, data: { parentId: null } })
+      const departments = await tx.department.deleteMany({})
+      const jobTitles = await tx.jobTitle.deleteMany({})
+      const employeeTypeSettings = await tx.employeeTypeSetting.deleteMany({})
+      const penaltyTypeSettings = await tx.penaltyTypeSetting.deleteMany({})
+      const complaintTypeSettings = await tx.complaintTypeSetting.deleteMany({})
+      const units = await tx.unit.deleteMany({})
+      const shippingPartners = await tx.shippingPartner.deleteMany({})
+      const salesChannels = await tx.salesChannel.deleteMany({})
+      const pricingPolicies = await tx.pricingPolicy.deleteMany({})
+      const taxes = await tx.tax.deleteMany({})
+      const cashAccounts = await tx.cashAccount.deleteMany({})
+      const paymentMethods = await tx.paymentMethod.deleteMany({})
+      const settingsData = await tx.settingsData.deleteMany({})
+      const settings = await tx.setting.deleteMany({})
+      const pkgxConfig = await tx.pkgxConfig.deleteMany({})
+
+      return {
+        cashTransaction: cashTx.count,
+        pkgxPriceMapping: pkgxPriceMap.count,
+        productPrice: productPrices.count,
+        userPreference: userPrefs.count,
+        department: departments.count,
+        jobTitle: jobTitles.count,
+        employeeTypeSetting: employeeTypeSettings.count,
+        penaltyTypeSetting: penaltyTypeSettings.count,
+        complaintTypeSetting: complaintTypeSettings.count,
+        unit: units.count,
+        shippingPartner: shippingPartners.count,
+        salesChannel: salesChannels.count,
+        pricingPolicy: pricingPolicies.count,
+        tax: taxes.count,
+        cashAccount: cashAccounts.count,
+        paymentMethod: paymentMethods.count,
+        settingsData: settingsData.count,
+        setting: settings.count,
+        pkgxConfig: pkgxConfig.count,
+      }
+    },
+    { timeout: 120_000 },
+  )
+
+  for (const [k, v] of Object.entries(counts)) {
+    if (v > 0) details.push(`${k}: ${v}`)
+  }
+  if (details.length === 0) {
+    details.push('Không có bản ghi cài đặt nào (đã trống).')
+  }
+
+  await logAdminAction('delete-all-settings', counts.setting + counts.settingsData, userName)
+  return apiSuccess({
+    message: 'Đã xóa cấu hình hệ thống (bảng settings, loại thu-chi, PTTK, quỹ, thuế, PKGX cấu hình, …). Dùng Khởi tạo để tạo lại mặc định.',
+    details,
+  })
+}
+
+// ============================================
 // CLEAR ACTIVITY LOGS
 // ============================================
 async function clearActivityLogs(userName: string) {
@@ -542,9 +619,10 @@ async function resyncMeilisearch() {
 async function runSeedScript(scriptPath: string, label: string) {
   try {
     const fullPath = path.resolve(process.cwd(), scriptPath)
+    const isLargeSeed = scriptPath.includes('seed-admin-units')
     const output = execSync(`npx tsx "${fullPath}"`, {
       cwd: process.cwd(),
-      timeout: 120_000,
+      timeout: isLargeSeed ? 900_000 : 300_000,
       encoding: 'utf-8',
       env: { ...process.env },
     })
@@ -552,10 +630,9 @@ async function runSeedScript(scriptPath: string, label: string) {
     const lines = output.split('\n').filter(l => l.trim()).slice(-5)
     return apiSuccess({ message: `${label} — hoàn tất`, details: lines })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    // Extract stderr or last part of message
-    const shortMsg = message.split('\n').filter(l => l.trim()).slice(-3).join(' | ')
-    return apiError(`Seed thất bại: ${shortMsg}`, 500)
+    const { message, details } = extractExecError(err)
+    const tail = details.length > 0 ? ` — ${details.join(' | ')}` : ''
+    return apiError(`Seed thất bại: ${message}${tail}`, 500)
   }
 }
 
@@ -1047,6 +1124,33 @@ async function permissionAudit() {
 }
 
 // ============================================
+// CLEAR NEXT.JS BUILD CACHE (VPS PM2 / không Docker)
+// ============================================
+function clearNextBuildCache() {
+  const root = process.cwd()
+  const candidates = ['.next', 'node_modules/.cache'] as const
+  const removed: string[] = []
+  try {
+    for (const rel of candidates) {
+      const target = path.join(root, rel)
+      if (existsSync(target)) {
+        rmSync(target, { recursive: true, force: true })
+        removed.push(rel)
+      }
+    }
+    return apiSuccess({
+      message: removed.length > 0
+        ? `Đã xóa cache build: ${removed.join(', ')}. Khởi động lại ứng dụng (PM2 / systemd) để build lại.`
+        : 'Không tìm thấy .next hoặc node_modules/.cache (thư mục gốc ứng dụng đã sạch hoặc chưa build).',
+      details: removed,
+    })
+  } catch (err) {
+    const { message } = extractExecError(err)
+    return apiError(`Xóa cache lỗi: ${message}`, 500)
+  }
+}
+
+// ============================================
 // DOCKER PRUNE
 // ============================================
 async function dockerPrune() {
@@ -1225,9 +1329,17 @@ async function dockerBuilderPrune() {
 // HELPER: Extract exec error with full stdout/stderr context
 // ============================================
 function extractExecError(err: unknown): { message: string; details: string[] } {
-  const e = err as { message?: string; stdout?: Buffer | string; stderr?: Buffer | string; status?: number }
-  const stdout = e?.stdout ? e.stdout.toString().trim() : ''
-  const stderr = e?.stderr ? e.stderr.toString().trim() : ''
+  const e = err as {
+    message?: string
+    stdout?: Buffer | string
+    stderr?: Buffer | string
+    output?: (Buffer | null)[]
+    status?: number
+  }
+  const out0 = e?.output?.[0] != null ? Buffer.isBuffer(e.output[0]) ? e.output[0].toString().trim() : String(e.output[0]).trim() : ''
+  const out1 = e?.output?.[1] != null ? Buffer.isBuffer(e.output[1]) ? e.output[1].toString().trim() : String(e.output[1]).trim() : ''
+  const stdout = (e?.stdout ? e.stdout.toString().trim() : '') || out0
+  const stderr = (e?.stderr ? e.stderr.toString().trim() : '') || out1
   const combined = [stderr, stdout].filter(Boolean).join('\n').trim()
 
   // Prefer actual command output over generic "Command failed" prefix

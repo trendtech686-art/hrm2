@@ -41,6 +41,7 @@ import { asSystemId, type SystemId } from '../../lib/id-types';
 import type { PayrollTemplate } from '../../lib/payroll-types';
 import { useAuth } from '@/contexts/auth-context';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 export function PayrollTemplatePage() {
   const templates = useAllPayrollTemplates();
   const { findById } = usePayrollTemplateFinder();
@@ -464,7 +465,7 @@ export function PayrollTemplatePage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent mobileFullScreen className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingTemplateId ? 'Chỉnh sửa mẫu' : 'Tạo mẫu bảng lương'}</DialogTitle>
             <DialogDescription>
@@ -615,7 +616,7 @@ export function PayrollTemplatePage() {
       </AlertDialog>
 
       {/* Implementation Notes */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Ghi chú triển khai</CardTitle>
         </CardHeader>

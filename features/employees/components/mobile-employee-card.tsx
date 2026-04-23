@@ -14,6 +14,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu"
+import {
+  MobileCard,
+  MobileCardFooter,
+  MobileCardHeader,
+} from "../../../components/mobile/mobile-card"
 import type { Employee } from '@/lib/types/prisma-extended'
 
 interface MobileEmployeeCardProps {
@@ -56,12 +61,8 @@ export function MobileEmployeeCard({ employee, onDelete, canEdit = true, canDele
   };
 
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={handleRowClick}
-    >
-      {/* Header: Avatar + Info + Menu */}
-      <div className="flex items-start gap-3">
+    <MobileCard onClick={handleRowClick}>
+      <MobileCardHeader>
         <Avatar className="h-11 w-11 shrink-0">
           <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />
           <AvatarFallback className="text-xs">{getInitials(employee.fullName)}</AvatarFallback>
@@ -104,10 +105,9 @@ export function MobileEmployeeCard({ employee, onDelete, canEdit = true, canDele
             </span>
           </div>
         </div>
-      </div>
+      </MobileCardHeader>
 
-      {/* Footer: Hire date + Status + Quick call */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+      <MobileCardFooter>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Calendar className="h-3 w-3" />
           <span>{employee.hireDate ? formatDate(employee.hireDate) : 'Chưa có'}</span>
@@ -130,7 +130,7 @@ export function MobileEmployeeCard({ employee, onDelete, canEdit = true, canDele
             </TouchButton>
           )}
         </div>
-      </div>
-    </div>
+      </MobileCardFooter>
+    </MobileCard>
   );
 }

@@ -105,7 +105,7 @@ export function ShipmentSelectionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Chọn nhanh vận đơn</DialogTitle>
           <DialogDescription>

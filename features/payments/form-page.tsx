@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/auth-context';
 import { asSystemId } from '../../lib/id-types';
 
 import { Card, CardContent } from '../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '../../components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { logError } from '@/lib/logger'
@@ -127,7 +128,7 @@ export function PaymentFormPage({ systemId, initialOptions }: PaymentFormPagePro
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="pt-6">
         <PaymentForm 
           ref={formRef}

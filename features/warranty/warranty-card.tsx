@@ -10,6 +10,7 @@ import { Package, Phone, Truck, User, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { checkWarrantyOverdue, DEFAULT_WARRANTY_SLA_TARGETS, type WarrantySLATargets } from './warranty-sla-utils';
 import { SlaTimer } from '../../components/SlaTimer';
+import { MobileCard } from '../../components/mobile/mobile-card';
 import { useWarrantySettings } from '../settings/warranty/hooks/use-warranty-settings';
 
 interface WarrantyCardProps {
@@ -122,9 +123,8 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
   }
 
   return (
-    <div
+    <MobileCard
       className={cn(
-        "rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer",
         borderClass,
         cardColorClass,
         ticket.status === 'CANCELLED' && "opacity-60"
@@ -229,6 +229,6 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
             )}
           </div>
         </div>
-    </div>
+    </MobileCard>
   );
 });

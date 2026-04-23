@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Printer, Lock, Unlock, CheckCircle2, Banknote, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { DetailPageShell, mobileBleedCardClass } from '../../components/layout/page-section';
 import { Textarea } from '../../components/ui/textarea';
 import {
   AlertDialog,
@@ -1019,9 +1020,9 @@ export function PayrollDetailPage() {
   const _statusHint = STATUS_HINTS[batch.status];
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Info Card - 2 cột */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-3">
           <CardTitle>Thông tin chung</CardTitle>
         </CardHeader>
@@ -1078,7 +1079,7 @@ export function PayrollDetailPage() {
 
       {/* Totals & Notes */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-3">
             <CardTitle>Tổng quan chi trả</CardTitle>
           </CardHeader>
@@ -1102,7 +1103,7 @@ export function PayrollDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-3">
             <CardTitle>Ghi chú</CardTitle>
           </CardHeader>
@@ -1205,6 +1206,6 @@ export function PayrollDetailPage() {
         selectedCount={pendingPrintRows.length}
         title={printMode === 'payslips' ? 'In phiếu lương' : 'In phiếu phạt'}
       />
-    </div>
+    </DetailPageShell>
   );
 }

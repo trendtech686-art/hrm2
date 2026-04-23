@@ -23,7 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from "@/components/layout/page-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Globe } from "lucide-react";
 import type { Brand } from "./types";
@@ -161,7 +162,7 @@ export function BrandFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-162.5 max-h-[85vh]">
+      <DialogContent mobileFullScreen className="sm:max-w-162.5 max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Chỉnh sửa thương hiệu" : "Thêm thương hiệu mới"}
@@ -174,17 +175,17 @@ export function BrandFormDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="general">Thông tin chung</TabsTrigger>
-                <TabsTrigger value="seo-pkgx" className="gap-1">
+              <MobileTabsList>
+                <MobileTabsTrigger value="general">Thông tin chung</MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-pkgx">
                   <Globe className="h-3 w-3" style={{ color: '#ef4444' }} />
                   SEO PKGX
-                </TabsTrigger>
-                <TabsTrigger value="seo-trendtech" className="gap-1">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-trendtech">
                   <Globe className="h-3 w-3" style={{ color: '#3b82f6' }} />
                   SEO Trendtech
-                </TabsTrigger>
-              </TabsList>
+                </MobileTabsTrigger>
+              </MobileTabsList>
 
               <ScrollArea className="h-100 pr-4">
                 <TabsContent value="general" className="space-y-4 mt-4">

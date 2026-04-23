@@ -1,7 +1,7 @@
 import * as React from "react";
 import { ChevronDown, ChevronsRight, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
-import { Card, CardContent } from "../ui/card";
+import { MobileCard, MobileCardBody, MobileCardHeader } from "../mobile/mobile-card";
 import { MobileCardSkeleton } from "../mobile/skeleton";
 import { EmptyState } from "../mobile/empty-state";
 import { cn } from "../../lib/utils";
@@ -294,22 +294,58 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
     return '—';
   }, []);
 
-  const autoRenderMobileCard = React.useCallback((row: TData) => (
-    <MobileCardWrapper>
-      <div className="space-y-3 text-sm">
-        {autoCardColumns.map(column => (
-          <div key={column.id}>
-            <div className="text-xs uppercase text-muted-foreground font-semibold">
-              {getColumnLabel(column)}
+  // Auto-render mobile card — chuẩn hóa theo pattern Tồn kho:
+  //  - Cột đầu = header title (label uppercase xs + value font-semibold sm)
+  //  - Các cột còn lại = body grid-cols-2 dt/dd, cột cuối col-span-2 nếu lẻ
+  //  - Dùng `MobileCard` primitive (rounded-xl border-border/50 p-4)
+  const autoRenderMobileCard = React.useCallback((row: TData) => {
+    const [firstCol, ...restCols] = autoCardColumns;
+    if (!firstCol) return null;
+    const clickable = typeof onRowClick === 'function';
+    const handleTap = () => { if (clickable) onRowClick?.(row); };
+    const rowProps = clickable
+      ? {
+          role: 'button' as const,
+          tabIndex: 0,
+          onClick: handleTap,
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleTap();
+            }
+          },
+        }
+      : {};
+    return (
+      <MobileCard inert={!clickable} {...rowProps}>
+        <MobileCardHeader className="items-start justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {getColumnLabel(firstCol)}
             </div>
-            <div className="text-base font-medium text-foreground">
-              {renderColumnValue(column, row)}
+            <div className="mt-0.5 text-sm font-semibold text-foreground wrap-break-word">
+              {renderColumnValue(firstCol, row)}
             </div>
           </div>
-        ))}
-      </div>
-    </MobileCardWrapper>
-  ), [autoCardColumns, getColumnLabel, renderColumnValue]);
+        </MobileCardHeader>
+        {restCols.length > 0 && (
+          <MobileCardBody>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+              {restCols.map((column, idx) => {
+                const span2 = idx === restCols.length - 1 && restCols.length % 2 === 1;
+                return (
+                  <div key={column.id} className={cn('min-w-0', span2 && 'col-span-2')}>
+                    <dt className="text-xs text-muted-foreground">{getColumnLabel(column)}</dt>
+                    <dd className="font-medium wrap-break-word">{renderColumnValue(column, row)}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </MobileCardBody>
+        )}
+      </MobileCard>
+    );
+  }, [autoCardColumns, getColumnLabel, renderColumnValue, onRowClick]);
 
   const hasAutoCardSupport = autoGenerateMobileCards !== false && autoCardColumns.length > 0;
   const cardRenderer = renderMobileCard ?? (hasAutoCardSupport ? autoRenderMobileCard : undefined);
@@ -446,21 +482,26 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
     }
 
     return (
-      <div className={cn("space-y-3 px-1 pb-4", className)}>
+      // Mobile: cards nằm trong safe padding `px-4` của MainLayout (có breathing room
+      // hai bên), gap dọc 12px (space-y-3) chuẩn iOS/Android list. Desktop giữ nguyên.
+      <div
+        className={cn(
+          "space-y-3 px-0 md:px-1 pb-4",
+          className,
+        )}
+      >
         {mobileData.map((row, index) => (
           <div key={row.systemId} className={mobileCardClassName}>
             {cardRenderer(row, index)}
           </div>
         ))}
 
-        {/* Infinite scroll: loading indicator */}
         {mobileInfiniteScroll && isLoadingMore && (
           <div className="py-4 text-center">
             <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         )}
 
-        {/* Mobile: show count */}
         {rowCount > 0 && (
           <div className="py-3 text-center">
             <span className="text-xs text-muted-foreground">
@@ -1161,7 +1202,12 @@ function DesktopDataTable<TData extends { systemId: string }>({
 }
 
 /**
- * MobileCardWrapper - Helper component for consistent mobile card styling
+ * MobileCardWrapper - Helper component for consistent mobile card styling.
+ *
+ * Giữ lại để backward-compat cho các `renderMobileCard` custom đang bọc bằng
+ * wrapper này. Nội bộ dùng primitive `MobileCard` (rounded-xl border-border/50 p-4)
+ * để mọi card mobile trong app (auto-generated + custom) nhất quán cùng một
+ * visual style như tab "Tồn kho" ở trang chi tiết sản phẩm.
  */
 export function MobileCardWrapper({
   children,
@@ -1172,18 +1218,23 @@ export function MobileCardWrapper({
   onClick?: () => void;
   className?: string;
 }) {
+  const clickable = typeof onClick === 'function';
+  const tapProps = clickable
+    ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick?.();
+          }
+        },
+      }
+    : {};
   return (
-    <Card
-      className={cn(
-        "hover:shadow-md transition-shadow",
-        onClick && "cursor-pointer",
-        className
-      )}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        {children}
-      </CardContent>
-    </Card>
+    <MobileCard inert={!clickable} className={className} {...tapProps}>
+      {children}
+    </MobileCard>
   );
 }

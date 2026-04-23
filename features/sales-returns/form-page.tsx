@@ -51,6 +51,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { OrderProductSearch } from '../../components/shared/unified-product-search';
+import { BarcodeScannerButton } from '../../components/shared/barcode-scanner-button';
 import { LineItemsTable } from '../orders/components/line-items-table';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { Alert, AlertDescription } from '../../components/ui/alert';
@@ -58,6 +59,7 @@ import { useAllPaymentMethods } from '../settings/payments/hooks/use-all-payment
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 import { Label } from '../../components/ui/label';
+import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
 import { ShippingCard } from '../orders/components/shipping-card';
 import { ProductTableToolbar } from '../orders/components/product-table-toolbar';
 import { useAuth } from '../../contexts/auth-context';
@@ -387,12 +389,20 @@ export function SalesReturnFormPage() {
         order ? generatePath(ROUTES.SALES.ORDER_VIEW, { systemId: order.systemId }) : ROUTES.SALES.ORDERS
     ), [order]);
 
+    const handleSubmitClick = React.useCallback(() => {
+        const formEl = document.getElementById('sales-return-form') as HTMLFormElement;
+        if (formEl) {
+            formEl.requestSubmit();
+        }
+    }, []);
+
     const headerActions = React.useMemo(() => [
         <Button
             key="cancel"
             variant="outline"
             type="button"
-            className="h-9 px-4"
+            size="sm"
+            className="hidden md:inline-flex h-9 px-4"
             onClick={() => router.push(backDestination)}
         >
             Thoát
@@ -401,19 +411,14 @@ export function SalesReturnFormPage() {
             key="submit"
             type="submit"
             form="sales-return-form"
-            className="h-9 px-4"
+            size="sm"
+            className="hidden md:inline-flex h-9 px-4"
             disabled={isSubmitting}
-            onClick={() => {
-                // Fallback: manually trigger form submit if form attribute doesn't work
-                const formEl = document.getElementById('sales-return-form') as HTMLFormElement;
-                if (formEl) {
-                    formEl.requestSubmit();
-                }
-            }}
+            onClick={handleSubmitClick}
         >
             {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xử lý...</> : 'Hoàn trả'}
         </Button>
-    ], [router, backDestination, isSubmitting]);
+    ], [router, backDestination, isSubmitting, handleSubmitClick]);
 
     const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
         const items: BreadcrumbItem[] = [
@@ -946,7 +951,7 @@ export function SalesReturnFormPage() {
         <div className="space-y-4">
             {/* Row 1: Thông tin phiếu + Thông tin bổ sung + Quy trình xử lý */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader><CardTitle>Thông tin phiếu</CardTitle></CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -984,7 +989,7 @@ export function SalesReturnFormPage() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className={mobileBleedCardClass}>
                      <CardHeader><CardTitle>Thông tin bổ sung</CardTitle></CardHeader>
                      <CardContent className="space-y-4">
                         <FormField control={control} name="returnReason" render={({ field }) => (
@@ -1025,7 +1030,7 @@ export function SalesReturnFormPage() {
             </div>
 
             {/* Row 2: Products to Return */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
                  <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle>Sản phẩm trả</CardTitle>
@@ -1081,7 +1086,7 @@ export function SalesReturnFormPage() {
             </Card>
 
             {/* Row 3: Nhận hàng trả lại */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardHeader><CardTitle>Nhận hàng trả lại</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">Hàng trả lại được nhập vào kho chi nhánh {branches.find(b => b.systemId === getValues('branchSystemId'))?.name || 'mặc định'}</p>
@@ -1113,7 +1118,7 @@ export function SalesReturnFormPage() {
             </Card>
 
             {/* Row 4: Đổi hàng */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <CardTitle>Đổi hàng</CardTitle>
                     <ProductTableToolbar
@@ -1131,6 +1136,25 @@ export function SalesReturnFormPage() {
                                 allowCreateNew={true}
                                 placeholder="Thêm sản phẩm (F3)"
                                 searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                            />
+                            <BarcodeScannerButton
+                                disabled={isFullyReadOnly}
+                                onDetect={async (code) => {
+                                    try {
+                                        const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`);
+                                        if (!res.ok) throw new Error('search failed');
+                                        const json = await res.json() as { data: Product[] };
+                                        const match = json.data?.[0];
+                                        if (!match) {
+                                            toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                                            return;
+                                        }
+                                        handleSelectProducts([match]);
+                                        toast.success(`Đã thêm: ${match.name}`);
+                                    } catch {
+                                        toast.error('Không thể tra cứu mã vạch. Thử lại.');
+                                    }
+                                }}
                             />
                             <Button 
                                 type="button" 
@@ -1192,6 +1216,28 @@ export function SalesReturnFormPage() {
             {/* Row 7: Giao hàng (chỉ hiển thị khi có sản phẩm đổi) */}
             <ShippingCard hidden={exchangeFields.length === 0} customer={customer} />
         </div>
+        {/* Mobile-only sticky action bar */}
+        <FormPageFooter className="md:hidden">
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(backDestination)}
+                className="h-10 flex-1"
+            >
+                Thoát
+            </Button>
+            <Button
+                type="submit"
+                form="sales-return-form"
+                size="sm"
+                disabled={isSubmitting}
+                onClick={handleSubmitClick}
+                className="h-10 flex-1"
+            >
+                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xử lý...</> : 'Hoàn trả'}
+            </Button>
+        </FormPageFooter>
         <ProductSelectionDialog 
             isOpen={isProductSelectionOpen} 
             onOpenChange={setIsProductSelectionOpen} 

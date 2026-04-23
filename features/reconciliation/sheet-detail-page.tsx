@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { usePageHeader } from '@/contexts/page-header-context'
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section'
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card'
 import { useReconciliationSheet, useConfirmSheet, useDeleteSheet } from './hooks/use-reconciliation-sheets'
 import type { ReconciliationSheetItem } from './api/reconciliation-sheets-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -122,11 +124,11 @@ export function SheetDetailPage() {
   const status = statusConfig[sheet.status] || statusConfig.DRAFT
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Header info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Thông tin chung */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle size="sm">Thông tin chung</CardTitle>
@@ -149,7 +151,7 @@ export function SheetDetailPage() {
         </Card>
 
         {/* Tổng hợp */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle size="sm">Tổng hợp</CardTitle>
           </CardHeader>
@@ -179,7 +181,7 @@ export function SheetDetailPage() {
       </div>
 
       {/* Items table */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle size="sm">Danh sách vận đơn ({sheet.items?.length ?? 0})</CardTitle>
         </CardHeader>
@@ -189,29 +191,39 @@ export function SheetDetailPage() {
               Phiếu đối soát chưa có vận đơn nào.
             </div>
           ) : (
-            <div className="overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">#</TableHead>
-                    <TableHead>Mã vận đơn</TableHead>
-                    <TableHead>Mã đơn</TableHead>
-                    <TableHead>Khách hàng</TableHead>
-                    <TableHead className="text-right">COD HT</TableHead>
-                    <TableHead className="text-right">COD ĐT</TableHead>
-                    <TableHead className="text-right">Lệch COD</TableHead>
-                    <TableHead className="text-right">Phí HT</TableHead>
-                    <TableHead className="text-right">Phí ĐT</TableHead>
-                    <TableHead className="text-right">Lệch phí</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sheet.items.map((item, idx) => (
-                    <ItemRow key={item.systemId} item={item} index={idx} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              {/* Desktop: Table */}
+              <div className="hidden md:block overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead>Mã vận đơn</TableHead>
+                      <TableHead>Mã đơn</TableHead>
+                      <TableHead>Khách hàng</TableHead>
+                      <TableHead className="text-right">COD HT</TableHead>
+                      <TableHead className="text-right">COD ĐT</TableHead>
+                      <TableHead className="text-right">Lệch COD</TableHead>
+                      <TableHead className="text-right">Phí HT</TableHead>
+                      <TableHead className="text-right">Phí ĐT</TableHead>
+                      <TableHead className="text-right">Lệch phí</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sheet.items.map((item, idx) => (
+                      <ItemRow key={item.systemId} item={item} index={idx} />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: card stack */}
+              <div className="md:hidden space-y-3">
+                {sheet.items.map((item, idx) => (
+                  <ItemMobileCard key={item.systemId} item={item} index={idx} />
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -256,7 +268,7 @@ export function SheetDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </DetailPageShell>
   )
 }
 
@@ -309,5 +321,64 @@ const ItemRow = React.memo(function ItemRow({ item, index }: { item: Reconciliat
         {formatCurrency(feeDiff)}
       </TableCell>
     </TableRow>
+  )
+})
+
+const ItemMobileCard = React.memo(function ItemMobileCard({ item, index }: { item: ReconciliationSheetItem; index: number }) {
+  const codDiff = (item.codPartner || 0) - (item.codSystem || 0)
+  const feeDiff = (item.feePartner || 0) - (item.feeSystem || 0)
+  const hasDiff = codDiff !== 0 || feeDiff !== 0
+
+  return (
+    <MobileCard inert emphasis={hasDiff ? 'destructive' : 'none'}>
+      <MobileCardHeader className="items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-muted-foreground">#{index + 1}</div>
+          <div className="mt-0.5 font-mono text-sm font-semibold truncate">{item.trackingCode || '-'}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground truncate">
+            {item.orderSystemId ? (
+              <Link href={`/orders/${item.orderSystemId}`} className="text-primary hover:underline">
+                {item.orderId || '-'}
+              </Link>
+            ) : (
+              item.orderId || '-'
+            )}
+            {item.customerName && <span className="ml-1">• {item.customerName}</span>}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Lệch COD</div>
+          <div className={`mt-0.5 text-sm font-semibold ${codDiff !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+            {formatCurrency(codDiff)}
+          </div>
+        </div>
+      </MobileCardHeader>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+          <div>
+            <dt className="text-xs text-muted-foreground">COD HT</dt>
+            <dd className="font-medium">{formatCurrency(item.codSystem)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">COD ĐT</dt>
+            <dd className="font-medium">{formatCurrency(item.codPartner)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Phí HT</dt>
+            <dd className="font-medium">{formatCurrency(item.feeSystem)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Phí ĐT</dt>
+            <dd className="font-medium">{formatCurrency(item.feePartner)}</dd>
+          </div>
+          <div className="col-span-2 border-t border-border/50 pt-2">
+            <dt className="text-xs text-muted-foreground">Lệch phí GH</dt>
+            <dd className={`font-semibold ${feeDiff !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+              {formatCurrency(feeDiff)}
+            </dd>
+          </div>
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   )
 })

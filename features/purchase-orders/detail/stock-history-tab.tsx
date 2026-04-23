@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { ChevronDown, ChevronRight, Printer } from 'lucide-react';
 import { InventoryReceiptDetailView } from './inventory-receipt-detail-view';
 import { PurchaseReturnDetailView } from './purchase-return-detail-view';
@@ -13,6 +14,7 @@ import type { InventoryReceipt } from '../../inventory-receipts/types';
 import type { PurchaseReturn } from '../../purchase-returns/types';
 import type { Payment } from '../../payments/types';
 import type { Receipt } from '../../receipts/types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface StockHistoryTabProps {
   poReceipts: InventoryReceipt[];
@@ -50,8 +52,9 @@ export function StockHistoryTab({
   };
 
   return (
-    <Card>
-      <CardContent className="p-0 overflow-x-auto">
+    <Card className={mobileBleedCardClass}>
+      <CardContent className="p-0">
+        <div className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -160,6 +163,116 @@ export function StockHistoryTab({
             )}
           </TableBody>
         </Table>
+        </div>
+
+        {/* Mobile: card stack */}
+        <div className="md:hidden space-y-3 p-3">
+          {stockMovements.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-sm">
+              Chưa có lịch sử xuất nhập kho.
+            </div>
+          ) : (
+            stockMovements.map(movement => {
+              const isReceipt = movement.type === 'receipt';
+              const data = movement.data;
+              const totalQty = isReceipt
+                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity || 0), 0)
+                : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0), 0);
+              const totalValue = isReceipt
+                ? (data as InventoryReceipt).items.reduce((sum, i) => {
+                    const cost = Number((i as unknown as { unitCost?: number }).unitCost || i.unitPrice || 0);
+                    return sum + Number(i.receivedQuantity || 0) * cost;
+                  }, 0)
+                : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0) * Number(i.unitPrice || 0), 0);
+              const isExpanded = expandedRowId === data.systemId;
+              const createdAt = (data as { createdAt?: string }).createdAt || (isReceipt ? (data as InventoryReceipt).receivedDate : (data as PurchaseReturn).returnDate);
+
+              return (
+                <MobileCard
+                  key={data.systemId}
+                  inert
+                  emphasis={isReceipt ? 'success' : 'destructive'}
+                >
+                  <MobileCardHeader className="items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Mã phiếu</div>
+                      <Link
+                        href={isReceipt ? `/inventory-receipts/${data.systemId}` : `/purchase-returns/${data.systemId}`}
+                        className="mt-0.5 block text-sm font-semibold text-primary hover:underline truncate"
+                      >
+                        {data.id}
+                      </Link>
+                      <div className="mt-1">
+                        {isReceipt
+                          ? <Badge variant="success" className="bg-green-100 text-green-700">Nhập hàng</Badge>
+                          : <Badge variant="destructive" className="bg-red-100 text-red-700">Xuất trả NCC</Badge>
+                        }
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-lg font-bold leading-none">{formatCurrency(totalValue)}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Tổng giá trị</div>
+                    </div>
+                  </MobileCardHeader>
+                  <MobileCardBody>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Ngày tạo</dt>
+                        <dd className="font-medium">
+                          {formatDateCustom(parseDate(createdAt) || getCurrentDate(), 'dd/MM/yyyy HH:mm')}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Tổng SL</dt>
+                        <dd className="font-medium">{totalQty}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs text-muted-foreground">Nhân viên tạo</dt>
+                        <dd className="font-medium truncate">
+                          {isReceipt ? (data as InventoryReceipt).receiverName : (data as PurchaseReturn).creatorName}
+                        </dd>
+                      </div>
+                    </dl>
+                  </MobileCardBody>
+                  <MobileCardFooter>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleRow(data.systemId)}
+                    >
+                      {isExpanded ? (<><ChevronDown className="h-4 w-4 mr-1" />Thu gọn</>) : (<><ChevronRight className="h-4 w-4 mr-1" />Chi tiết</>)}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (isReceipt) onPrintReceipt?.(data as InventoryReceipt);
+                        else onPrintReturn?.(data as PurchaseReturn);
+                      }}
+                    >
+                      <Printer className="h-4 w-4 mr-1" />
+                      In
+                    </Button>
+                  </MobileCardFooter>
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-border/50 -mx-1">
+                      {isReceipt
+                        ? <InventoryReceiptDetailView receipt={data as InventoryReceipt} />
+                        : <PurchaseReturnDetailView
+                            purchaseReturn={data as PurchaseReturn}
+                            allTransactions={allTransactions}
+                            onPrintReturn={() => onPrintReturn?.(data as PurchaseReturn)}
+                          />
+                      }
+                    </div>
+                  )}
+                </MobileCard>
+              );
+            })
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -2,8 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Printer, FileSpreadsheet } from 'lucide-react';
-import { Eye, MoreHorizontal } from 'lucide-react';
+import { Printer, FileSpreadsheet, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePenaltiesByEmployee } from '@/features/settings/penalties/hooks/use-all-penalties';
 import { usePrint } from '@/lib/use-print';
@@ -28,6 +27,7 @@ import type { Penalty } from '@/features/settings/penalties/types';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { penaltyStatusVariants, formatCurrency, formatDateDisplay } from './types';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Helper function for lazy loading XLSX
 async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
@@ -145,7 +145,7 @@ export function PenaltiesTab({ employee }: PenaltiesTabProps) {
   }, [employee, printMultiple]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="p-4">
         <RelatedDataTable 
           data={employeePenalties} 

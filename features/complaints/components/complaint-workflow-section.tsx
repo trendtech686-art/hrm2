@@ -2,6 +2,7 @@
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { SubtaskList } from '../../../components/shared/subtask-list';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
 import { complaintStatusLabels as _complaintStatusLabels } from '../types';
 import type { Complaint, ComplaintAction } from '../types';
@@ -45,7 +46,7 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
   }, [complaint.subtasks]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle size="lg">Quy trình xử lý</CardTitle>
       </CardHeader>

@@ -37,6 +37,7 @@ import { asSystemId, type SystemId } from '../../lib/id-types';
 import { attendanceSnapshotService as _attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
 import { cn } from '../../lib/utils';
 import { buildPayPeriodFromMonthKey as _buildPayPeriodFromMonthKey, getCurrentDateInTimezone } from '../../lib/date-utils';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 const STEPS = [
   { id: 'period', name: 'Kỳ lương', description: 'Chọn tháng, ngày chi trả và template mặc định.' },
@@ -910,7 +911,7 @@ export function PayrollRunPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Tiến trình</CardTitle>
         </CardHeader>
@@ -920,7 +921,7 @@ export function PayrollRunPage() {
       </Card>
 
       {currentStep === 0 && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Cấu hình kỳ lương</CardTitle>
           </CardHeader>
@@ -1023,7 +1024,7 @@ export function PayrollRunPage() {
       )}
 
       {currentStep === 1 && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Chọn nhân viên ({formState.selectedEmployeeSystemIds.length})</CardTitle>
           </CardHeader>
@@ -1057,7 +1058,7 @@ export function PayrollRunPage() {
       )}
 
       {currentStep === 2 && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Xem trước kết quả</CardTitle>
           </CardHeader>

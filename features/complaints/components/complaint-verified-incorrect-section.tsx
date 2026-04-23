@@ -66,7 +66,7 @@ export const ComplaintVerifiedIncorrectSection: React.FC<Props> = ({ complaint, 
   
   return (
     <Accordion type="single" collapsible className="w-full">
-      <AccordionItem value="incorrect-evidence" className="border rounded-lg px-4">
+      <AccordionItem value="incorrect-evidence" className="-mx-4 border-y border-x-0 rounded-none px-0 md:mx-0 md:border md:rounded-lg md:px-4">
         <AccordionTrigger className="hover:no-underline">
           <div className="flex items-center gap-3 flex-1">
             <XCircle className="h-4 w-4 text-red-600" />

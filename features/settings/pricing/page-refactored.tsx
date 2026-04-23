@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 import { Button } from "../../../components/ui/button";
-import { Tabs, TabsContent as InnerTabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Tabs, TabsContent as InnerTabsContent } from "../../../components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from "../../../components/layout/page-section";
 import { toast } from 'sonner';
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import type { PricingPolicy } from '@/lib/types/prisma-extended';
@@ -281,11 +282,11 @@ export function PricingSettingsPage() {
                         </CardHeader>
                         <CardContent>
                             <Tabs value={innerTab} onValueChange={setInnerTab} className="w-full">
-                                <TabsList className="grid w-full grid-cols-3">
-                                    <TabsTrigger value="selling">Bán hàng</TabsTrigger>
-                                    <TabsTrigger value="purchasing">Nhập hàng</TabsTrigger>
-                                    <TabsTrigger value="all">Tất cả</TabsTrigger>
-                                </TabsList>
+                                <MobileTabsList>
+                                    <MobileTabsTrigger value="selling">Bán hàng</MobileTabsTrigger>
+                                    <MobileTabsTrigger value="purchasing">Nhập hàng</MobileTabsTrigger>
+                                    <MobileTabsTrigger value="all">Tất cả</MobileTabsTrigger>
+                                </MobileTabsList>
                                 <InnerTabsContent value="selling" className="space-y-4">
                                     <p className="text-sm text-muted-foreground">
                                         Các chính sách giá áp dụng cho việc bán hàng

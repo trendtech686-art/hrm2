@@ -15,6 +15,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import { TrendingUp, TrendingDown, DollarSign, CreditCard, FileText } from 'lucide-react';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { Button } from '../../components/ui/button';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
@@ -219,7 +220,7 @@ export function CashbookReportsPage() {
   return (
     <div className="space-y-4 flex flex-col h-full">
       {/* Filters */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <Select value={branchFilter} onValueChange={setBranchFilter}>
@@ -247,7 +248,7 @@ export function CashbookReportsPage() {
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -262,7 +263,7 @@ export function CashbookReportsPage() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -277,7 +278,7 @@ export function CashbookReportsPage() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -300,7 +301,7 @@ export function CashbookReportsPage() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -317,7 +318,7 @@ export function CashbookReportsPage() {
       </div>
       
       {/* Charts Row 1: Revenue Trend */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Xu hướng Thu Chi theo Ngày</CardTitle>
           <CardDescription>Biểu đồ doanh thu trong kỳ</CardDescription>
@@ -356,7 +357,7 @@ export function CashbookReportsPage() {
       
       {/* Charts Row 2: Pie Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Phân bổ Phiếu Thu theo Loại</CardTitle>
             <CardDescription>Top loại phiếu thu</CardDescription>
@@ -390,7 +391,7 @@ export function CashbookReportsPage() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Phân bổ Phiếu Chi theo Loại</CardTitle>
             <CardDescription>Top loại phiếu chi</CardDescription>
@@ -427,7 +428,7 @@ export function CashbookReportsPage() {
       
       {/* Charts Row 3: Top Customers */}
       {topCustomers.length > 0 && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Top 10 Khách Hàng</CardTitle>
             <CardDescription>Theo tổng tiền thu</CardDescription>

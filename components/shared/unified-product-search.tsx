@@ -523,26 +523,25 @@ export function UnifiedProductSearch({
         const shownPrice = showPurchasePrice ? (lastPurchasePrice || 0) : showCostPrice ? (costPrice || 0) : (displayPrice || 0);
         
         return (
-            <div className="flex items-center gap-3 w-full py-1">
-                {/* Pass thumbnailImage directly to component */}
+            <div className="flex items-center gap-2.5 w-full py-1">
                 <ProductOptionThumbnail 
                     productSystemId={option.value} 
                     productData={{ thumbnailImage } as Product}
                 />
                 <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{option.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                        {option.subtitle} | ĐVT: {unit || 'Cái'}
+                    <p className="font-medium truncate text-sm">{option.label}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                        {option.subtitle} · {unit || 'Cái'}
                     </p>
                 </div>
-                <div className="text-right shrink-0 min-w-25 flex flex-col items-end gap-0.5">
-                    <p className="font-semibold text-primary">{formatCurrency(shownPrice)}đ</p>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                    <p className="font-semibold text-primary text-sm whitespace-nowrap">{formatCurrency(shownPrice)}đ</p>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
                         <span>Tồn: {formatCurrency(totalStock || 0)}</span>
                         <TooltipProvider delayDuration={100}>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span className="cursor-help">
+                                    <span className="hidden md:inline-flex cursor-help">
                                         <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                                     </span>
                                 </TooltipTrigger>

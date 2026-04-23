@@ -12,6 +12,7 @@ import { useEmployeeMutations, type UpdateEmployeeInput } from '../hooks/use-emp
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
 import { hashPassword, validatePasswordStrength } from '@/lib/security-utils';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface EmployeeAccountTabProps {
   employee: Employee;
@@ -147,7 +148,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>
             Thông tin đăng nhập
@@ -231,7 +232,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>
             Đổi mật khẩu

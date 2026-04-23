@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { MoreHorizontal } from 'lucide-react';
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import type { PartnerAccount } from '@/lib/types/shipping-config';
 import { 
@@ -138,7 +139,7 @@ export function AccountList({
 
   return (
     <>
-      <div className="border rounded-lg overflow-x-auto">
+      <div className="hidden md:block border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -202,6 +203,76 @@ export function AccountList({
             </TableBody>
           </Table>
         </div>
+
+      {/* Mobile: card stack */}
+      <div className="md:hidden space-y-3">
+        {accounts.map((account) => (
+          <MobileCard
+            key={account.id}
+            inert
+            emphasis={account.isDefault ? 'success' : 'none'}
+          >
+            <MobileCardHeader className="items-start justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Tên tài khoản
+                </div>
+                <div className="mt-0.5 text-sm font-semibold truncate">{account.name}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-lg font-bold leading-none">
+                  {account.pickupAddresses?.length || 0}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">Địa chỉ</div>
+              </div>
+            </MobileCardHeader>
+            <MobileCardBody>
+              <dl className="grid grid-cols-1 gap-y-2 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Cập nhật</dt>
+                  <dd className="font-medium">{formatDateForDisplay(account.updatedAt)}</dd>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-muted-foreground">Mặc định</span>
+                  <Switch
+                    checked={account.isDefault}
+                    onCheckedChange={(value) => handleSetDefault(account.id, value)}
+                    aria-label="Đặt làm mặc định"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Trạng thái</span>
+                  <Switch
+                    checked={account.active}
+                    onCheckedChange={(value) => handleToggleActive(account, value)}
+                    aria-label="Trạng thái hoạt động"
+                  />
+                </div>
+              </dl>
+            </MobileCardBody>
+            <MobileCardFooter>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => onEditAccount(account.id)}
+              >
+                Sửa
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDeleteClick(account.id)}
+                disabled={account.isDefault}
+                className="text-destructive hover:text-destructive disabled:opacity-50"
+              >
+                Xóa
+              </Button>
+            </MobileCardFooter>
+          </MobileCard>
+        ))}
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

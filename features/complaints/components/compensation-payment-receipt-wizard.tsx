@@ -534,7 +534,7 @@ export function CompensationPaymentReceiptWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Xử lý bù trừ - Xác nhận thông tin</DialogTitle>
           <DialogDescription>

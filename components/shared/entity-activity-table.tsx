@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table'
+import { mobileBleedCardClass } from '@/components/layout/page-section'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ColumnDef } from '@/components/data-table/types'
@@ -572,7 +573,7 @@ export function EntityActivityTable({
   
   return (
     <>
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-3">
           <CardTitle size="sm" className="font-medium flex items-center gap-2">
             <History className="h-4 w-4" />

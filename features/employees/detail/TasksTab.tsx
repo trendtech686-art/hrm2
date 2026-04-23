@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { FileSpreadsheet } from 'lucide-react';
-import { Eye, MoreHorizontal } from 'lucide-react';
+import { FileSpreadsheet, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTasksByEmployee } from '@/features/tasks/hooks/use-all-tasks';
 import { RelatedDataTable } from '@/components/data-table/related-data-table';
@@ -21,6 +20,7 @@ import type { ColumnDef } from '@/components/data-table/types';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { formatDateDisplay, type TaskRow } from './types';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 interface TasksTabProps {
   employee: Employee;
 }
@@ -114,7 +114,7 @@ export function TasksTab({ employee }: TasksTabProps) {
   }, [employee]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="p-4">
         <RelatedDataTable 
           data={employeeTasks} 

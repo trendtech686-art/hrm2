@@ -21,7 +21,7 @@ interface Props {
 export const TemplateDialog: React.FC<Props> = ({ open, onOpenChange, templates }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Mẫu phản hồi khiếu nại</DialogTitle>
           <DialogDescription>

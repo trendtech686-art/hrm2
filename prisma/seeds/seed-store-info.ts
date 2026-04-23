@@ -11,6 +11,7 @@
 import 'dotenv/config';
 import { PrismaClient } from '../../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { inferStoreInfoDefaultsForSeed } from './lib/read-db-settings';
 
 const connectionString = process.env.DATABASE_URL!;
 const adapter = new PrismaPg({ connectionString });
@@ -19,30 +20,15 @@ const prisma = new PrismaClient({ adapter });
 export async function seedStoreInfo() {
   console.log('🏪 Seeding Store Info & System Settings...');
 
+  const storeInfoValue = await inferStoreInfoDefaultsForSeed(prisma);
+
   const settings: { key: string; value: Record<string, unknown>; type: string; category: string; group: string }[] = [
     {
       key: 'store-info',
       type: 'json',
       category: 'store',
       group: 'store',
-      value: {
-        brandName: 'HRM System',
-        companyName: 'Công ty của bạn',
-        hotline: '0900000000',
-        email: 'info@company.com',
-        website: '',
-        taxCode: '',
-        headquartersAddress: '',
-        province: '',
-        district: '',
-        ward: '',
-        representativeName: '',
-        representativeTitle: 'Giám đốc',
-        bankName: '',
-        bankAccountNumber: '',
-        bankAccountName: '',
-        registrationNumber: '',
-      },
+      value: storeInfoValue,
     },
     {
       key: 'sales-management-settings',
@@ -118,10 +104,15 @@ export async function seedStoreInfo() {
   ];
 
   for (const setting of settings) {
-    await prisma.setting.upsert({
+    const existing = await prisma.setting.findUnique({
       where: { key_group: { key: setting.key, group: setting.group } },
-      update: { value: setting.value },
-      create: {
+    });
+    if (existing) {
+      console.log(`   ⏭ Giữ nguyên cấu hình đang có: ${setting.key}`);
+      continue;
+    }
+    await prisma.setting.create({
+      data: {
         key: setting.key,
         value: setting.value,
         type: setting.type,
@@ -129,10 +120,10 @@ export async function seedStoreInfo() {
         group: setting.group,
       },
     });
-    console.log(`   ✅ Setting: ${setting.key}`);
+    console.log(`   ✅ Tạo mặc định: ${setting.key}`);
   }
 
-  console.log('✅ Store Info & System Settings seeded!');
+  console.log('✅ Store Info & System Settings — chỉ thêm key còn thiếu, không ghi đè cũ.');
 }
 
 // Run if executed directly

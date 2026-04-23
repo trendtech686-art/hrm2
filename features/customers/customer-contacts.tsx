@@ -29,8 +29,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
+import { Badge } from '../../components/ui/badge';
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { toast } from 'sonner';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 export interface CustomerContact {
   id: string;
   name: string;
@@ -217,14 +220,14 @@ export function CustomerContacts({ contacts = [], onUpdate }: CustomerContactsPr
       </div>
 
       {contacts.length === 0 ? (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="py-12 text-center text-muted-foreground">
             Chưa có liên hệ nào. Nhấn "Thêm liên hệ" để tạo mới.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          <div className="rounded-md border border-border overflow-x-auto">
+          <div className="hidden md:block rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -302,7 +305,89 @@ export function CustomerContacts({ contacts = [], onUpdate }: CustomerContactsPr
               </TableBody>
             </Table>
           </div>
-          
+
+          {/* Mobile: card stack */}
+          <div className="md:hidden space-y-3">
+            {paginatedContacts.map((contact) => {
+              const isSelected = selectedIds.has(contact.id);
+              return (
+                <MobileCard
+                  key={contact.id}
+                  inert
+                  emphasis={contact.isPrimary ? 'success' : 'none'}
+                >
+                  <MobileCardHeader className="items-start justify-between">
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectOne(contact.id, !!checked)}
+                        aria-label={`Chọn liên hệ ${contact.name}`}
+                        className="mt-1"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Họ và tên
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold truncate">
+                          {contact.name}
+                        </div>
+                        {contact.role && (
+                          <div className="mt-0.5 text-xs text-muted-foreground truncate">
+                            {contact.role}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {contact.isPrimary && (
+                      <Badge variant="secondary" className="shrink-0">
+                        Liên hệ chính
+                      </Badge>
+                    )}
+                  </MobileCardHeader>
+                  <MobileCardBody>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Số điện thoại</dt>
+                        <dd className="font-medium break-all">{contact.phone || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Email</dt>
+                        <dd className="font-medium break-all">{contact.email || '—'}</dd>
+                      </div>
+                      <div className="col-span-2 flex items-center justify-between pt-1">
+                        <span className="text-xs text-muted-foreground">Liên hệ chính</span>
+                        <Switch
+                          checked={contact.isPrimary}
+                          onCheckedChange={() => handleSetPrimary(contact.id)}
+                          aria-label="Đặt làm liên hệ chính"
+                        />
+                      </div>
+                    </dl>
+                  </MobileCardBody>
+                  <MobileCardFooter>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEdit(contact)}
+                    >
+                      Sửa
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(contact)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      Xóa
+                    </Button>
+                  </MobileCardFooter>
+                </MobileCard>
+              );
+            })}
+          </div>
+
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-2 py-2">

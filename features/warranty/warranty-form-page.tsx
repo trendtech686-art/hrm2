@@ -19,8 +19,9 @@ import { useCustomer } from '@/hooks/api/use-customers';
 
 // UI Components
 import { Button } from '../../components/ui/button';
-import { ScrollArea } from '../../components/ui/scroll-area';
 import { Card, CardContent } from '../../components/ui/card';
+import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/ui/skeleton';
 
 // REUSE from orders module
@@ -421,7 +422,7 @@ export function WarrantyFormPage() {
     }
   }, []);
 
-  // Page header - Memoize actions
+  // Page header - desktop-only actions (mobile uses sticky FormPageFooter below)
   const actions = React.useMemo(() => [
     <Button
       key="cancel"
@@ -429,7 +430,7 @@ export function WarrantyFormPage() {
       variant="outline"
       onClick={() => router.push('/warranty')}
       size="sm"
-      className="h-9"
+      className="hidden md:inline-flex h-9"
     >
       <ArrowLeft className="h-4 w-4 mr-2" />
       Quay lại
@@ -440,7 +441,7 @@ export function WarrantyFormPage() {
       onClick={handleSubmitClick}
       disabled={isReadOnly || formState.isSubmitting}
       size="sm"
-      className="h-9"
+      className="hidden md:inline-flex h-9"
     >
       {formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
     </Button>,
@@ -459,7 +460,7 @@ export function WarrantyFormPage() {
   // Loading state
   if (isEditing && isLoading) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6 space-y-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
@@ -473,11 +474,11 @@ export function WarrantyFormPage() {
   return (
     <FormProvider {...form}>
       <form id="warranty-form" onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
-        <ScrollArea className="grow">
-          <div className="pr-4 space-y-4">
+        <div className="grow overflow-y-auto [scrollbar-width:thin] md:pr-4">
+          <div className="space-y-4">
             {/* Read-only warning */}
             {isReadOnly && (
-              <Card className="border-amber-200 bg-amber-50">
+              <Card className={cn(mobileBleedCardClass, 'border-amber-200 bg-amber-50')}>
                 <CardContent className="pt-6">
                   <p className="text-sm text-amber-800">
                     <strong>Lưu ý:</strong> Phiếu đã xử lý/trả hàng. Không thể chỉnh sửa.
@@ -488,7 +489,7 @@ export function WarrantyFormPage() {
             
             {/* Update mode warning */}
             {isUpdateMode && (
-              <Card className="border-blue-200 bg-blue-50">
+              <Card className={cn(mobileBleedCardClass, 'border-blue-200 bg-blue-50')}>
                 <CardContent className="pt-6">
                   <p className="text-sm text-blue-800">
                     <strong>Chế độ cập nhật thông tin:</strong> Chỉ có thể thêm/sửa sản phẩm bảo hành và ghi chú. Các thông tin khác đã bị khóa.
@@ -559,27 +560,29 @@ export function WarrantyFormPage() {
               </div>
             </div>
 
-            {/* Sticky Submit Button - Đảm bảo luôn có nút submit trong form */}
-            <div className="sticky bottom-0 bg-background pt-4 pb-2 border-t mt-4 -mx-4 px-4 flex justify-end gap-2 md:hidden">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/warranty')}
-                size="sm"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Hủy
-              </Button>
-              <Button
-                type="submit"
-                disabled={isReadOnly || formState.isSubmitting}
-                size="sm"
-              >
-                {formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
-              </Button>
-            </div>
           </div>
-        </ScrollArea>
+        </div>
+        {/* Mobile-only sticky action bar */}
+        <FormPageFooter className="md:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push('/warranty')}
+            size="sm"
+            className="h-10 flex-1"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            disabled={isReadOnly || formState.isSubmitting}
+            size="sm"
+            className="h-10 flex-1"
+          >
+            {formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
+          </Button>
+        </FormPageFooter>
       </form>
     </FormProvider>
   );

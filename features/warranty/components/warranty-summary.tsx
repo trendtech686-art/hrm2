@@ -1,6 +1,7 @@
 ﻿import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Separator } from '../../../components/ui/separator';
 
 interface WarrantyProduct {
@@ -71,7 +72,7 @@ export function WarrantySummary({ disabled: _disabled = false }: WarrantySummary
   }, [products, shippingFee]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Thanh toán</CardTitle>
       </CardHeader>

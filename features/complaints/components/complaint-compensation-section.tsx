@@ -148,7 +148,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   return (
     <div className="space-y-4 pt-4 border-t">
       <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="compensation" className="border rounded-lg px-4">
+        <AccordionItem value="compensation" className="-mx-4 border-y border-x-0 rounded-none px-0 md:mx-0 md:border md:rounded-lg md:px-4">
           <AccordionTrigger className="hover:no-underline">
             <div className="flex items-center gap-3 flex-1">
               <CheckCircle className="h-4 w-4 text-green-600" />

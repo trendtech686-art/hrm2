@@ -88,10 +88,30 @@ export async function getSessionFromCookie(): Promise<ApiSession | null> {
   try {
     const cookieStore = await cookies()
 
+    // NextAuth v5 chia nhỏ cookie khi JWT > ~4KB (thường xảy ra với admin có nhiều permissions).
+    // Khi đó browser giữ các cookie `authjs.session-token.0`, `authjs.session-token.1`,...
+    // thay vì cookie `authjs.session-token` đơn lẻ. Cần ghép lại đúng thứ tự rồi mới decode.
+    const readToken = (baseName: string): { name: string; value: string } | null => {
+      const single = cookieStore.get(baseName)
+      if (single?.value) return { name: baseName, value: single.value }
+
+      const chunks: { index: number; value: string }[] = []
+      for (const c of cookieStore.getAll()) {
+        if (!c.name.startsWith(`${baseName}.`)) continue
+        const suffix = c.name.slice(baseName.length + 1)
+        const index = Number(suffix)
+        if (!Number.isInteger(index) || index < 0) continue
+        chunks.push({ index, value: c.value })
+      }
+      if (chunks.length === 0) return null
+      chunks.sort((a, b) => a.index - b.index)
+      return { name: baseName, value: chunks.map(c => c.value).join('') }
+    }
+
     // Try non-secure cookie first (HTTP / localhost), then secure (HTTPS)
     const tokenCookie =
-      cookieStore.get('authjs.session-token') ??
-      cookieStore.get('__Secure-authjs.session-token')
+      readToken('authjs.session-token') ??
+      readToken('__Secure-authjs.session-token')
 
     if (!tokenCookie?.value) {
       return null

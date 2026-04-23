@@ -73,7 +73,7 @@ export function CreateShipmentDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="md:max-w-5xl! md:w-[85vw]! md:max-h-[90vh]! flex flex-col border-0 shadow-xl">
+            <DialogContent mobileFullScreen className="md:max-w-5xl! md:w-[85vw]! md:max-h-[90vh]! flex flex-col border-0 shadow-xl">
                 <DialogHeader className="shrink-0">
                     <DialogTitle>Đẩy qua hãng vận chuyển</DialogTitle>
                     <DialogDescription>Cấu hình và tạo đơn vận chuyển qua đối tác.</DialogDescription>

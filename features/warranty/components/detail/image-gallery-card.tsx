@@ -1,6 +1,7 @@
 ﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { LazyImage } from '../../../../components/ui/lazy-image';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface WarrantyImageGalleryCardProps {
   title: string;
@@ -14,7 +15,7 @@ export function WarrantyImageGalleryCard({ title, images, emptyMessage, footnote
   const validImages = React.useMemo(() => (images || []).filter((url): url is string => Boolean(url && url.trim())), [images]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>

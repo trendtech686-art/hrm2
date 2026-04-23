@@ -14,7 +14,7 @@ import { ROUTES } from '@/lib/router';
 import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
 import { ReportFilters } from '../components/report-filters';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
-import { formatCurrency } from '@/lib/format-utils';
+import { formatCurrency, formatNumber } from '@/lib/format-utils';
 import { useSalesTimeReport } from '../hooks/use-sales-report';
 import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -145,7 +145,7 @@ export function SalesTimeReportPage() {
   
   // Table state
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'label', desc: true });
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'key', desc: true });
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);

@@ -1,6 +1,8 @@
 ﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
 import { toast } from 'sonner';
@@ -60,7 +62,7 @@ export function InventoryCheckWorkflowCard({
   // Show message if no workflow template is configured
   if (workflowSubtasks.length === 0) {
     return (
-      <Card className="h-full border-dashed">
+      <Card className={cn(mobileBleedCardClass, 'h-full border-dashed')}>
         <CardHeader>
           <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
@@ -77,7 +79,7 @@ export function InventoryCheckWorkflowCard({
   }
 
   return (
-    <Card className="h-full">
+    <Card className={cn(mobileBleedCardClass, 'h-full')}>
       <CardHeader>
         <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>

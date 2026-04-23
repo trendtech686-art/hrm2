@@ -182,7 +182,7 @@ export function FieldManagementPage() {
                 Tạo trường mới
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Tạo trường tùy chỉnh</DialogTitle>
                 <DialogDescription>
@@ -327,7 +327,7 @@ export function FieldManagementPage() {
       {/* Edit Dialog */}
       {editingField && (
         <Dialog open={!!editingField} onOpenChange={() => setEditingField(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Chỉnh sửa trường</DialogTitle>
             </DialogHeader>

@@ -44,7 +44,8 @@ import {
 } from "@/components/ui/select";
 import { VirtualizedCombobox, type ComboboxOption } from "@/components/ui/virtualized-combobox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEmployeeSettings } from "@/features/settings/employees/hooks/use-employee-settings";
@@ -928,25 +929,23 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         });
       })} className="space-y-6 min-w-0 overflow-x-hidden">
         <Tabs defaultValue="personal" className="w-full">
-          <div className="w-full overflow-x-auto overflow-y-hidden mb-4 pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
-            <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start">
-              <TabsTrigger value="personal" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Thông tin cá nhân
-              </TabsTrigger>
-              <TabsTrigger value="addresses" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Địa chỉ
-              </TabsTrigger>
-              <TabsTrigger value="employment" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Thông tin công việc
-              </TabsTrigger>
-              <TabsTrigger value="account" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Đăng nhập
-              </TabsTrigger>
-              <TabsTrigger value="documents" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Tài liệu
-              </TabsTrigger>
-            </TabsList>
-          </div>
+          <MobileTabsList className="mb-4">
+            <MobileTabsTrigger value="personal">
+              Thông tin cá nhân
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="addresses">
+              Địa chỉ
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="employment">
+              Thông tin công việc
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="account">
+              Đăng nhập
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="documents">
+              Tài liệu
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           <TabsContent value="personal" className="mt-6">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal mb-4">Thông tin cá nhân</h3>

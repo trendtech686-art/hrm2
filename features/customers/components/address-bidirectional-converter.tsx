@@ -137,7 +137,7 @@ export function AddressBidirectionalConverter({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg">Chuyển đổi sang địa chỉ 2 cấp</DialogTitle>
           <DialogDescription className="text-sm">

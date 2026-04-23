@@ -8,6 +8,7 @@ import { useWikiById, useWikiMutations, useWikiCategories } from './hooks/use-wi
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent } from '../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form';
@@ -107,7 +108,7 @@ export function WikiFormPage() {
   // Loading state
   if (systemId && isLoading) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6 space-y-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-40 w-full" />
@@ -120,7 +121,7 @@ export function WikiFormPage() {
   return (
     <Form {...form}>
       <form id="wiki-form" onSubmit={handleSubmit(onSubmit)}>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6 space-y-6">
             <FormField control={control} name="title" render={({ field }) => (
               <FormItem><FormLabel>Tiêu đề</FormLabel><FormControl><Input placeholder="VD: Quy định nghỉ phép năm" {...field} /></FormControl><FormMessage /></FormItem>

@@ -133,7 +133,7 @@ export function ImporterFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-150 max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="sm:max-w-150 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Chỉnh sửa công ty xuất nhập khẩu" : "Thêm công ty xuất nhập khẩu mới"}

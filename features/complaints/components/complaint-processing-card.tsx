@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Label } from "../../../components/ui/label";
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import type { Complaint } from '../types';
 
 interface Props {
@@ -42,7 +43,7 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
   }
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>
           Xử lý khiếu nại

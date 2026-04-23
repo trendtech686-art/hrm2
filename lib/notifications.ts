@@ -33,6 +33,7 @@
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { logError } from '@/lib/logger'
+import { sendPushMany, isWebPushConfigured, type PushPayload } from '@/lib/web-push'
 import type { GeneralNotificationSettings, SystemNotificationSettings, TaskNotificationSettings, ComplaintNotificationSettings, WarrantyNotificationSettings, SalesNotificationSettings, WarehouseNotificationSettings, HrNotificationSettings } from '@/features/settings/notifications/types'
 import { defaultGeneralNotifications, defaultSystemNotifications, defaultTaskNotifications, defaultComplaintNotifications, defaultWarrantyNotifications, defaultSalesNotifications, defaultWarehouseNotifications, defaultHrNotifications } from '@/features/settings/notifications/types'
 
@@ -279,7 +280,7 @@ export async function createNotification(input: CreateNotificationInput) {
     // Check settings before creating
     if (!(await shouldNotify(input.settingsKey))) return null
 
-    return await prisma.notification.create({
+    const created = await prisma.notification.create({
       data: {
         type: input.type,
         title: input.title,
@@ -291,9 +292,48 @@ export async function createNotification(input: CreateNotificationInput) {
         metadata: input.metadata ?? undefined,
       },
     })
+    // Fire-and-forget web push — never block caller.
+    void fanoutPush([input.recipientId], {
+      title: input.title,
+      body: input.message,
+      url: input.link,
+      tag: input.type,
+      data: { notificationId: created.id, ...(input.metadata as Record<string, unknown> | undefined) },
+    })
+    return created
   } catch (error) {
     logError('[Notification] Failed to create notification', error)
     return null
+  }
+}
+
+/**
+ * Delivers a push payload to every active subscription for the listed
+ * employees. Errors are swallowed and dead endpoints (404/410) are pruned
+ * in-place so subscription storage self-heals.
+ */
+async function fanoutPush(recipientIds: string[], payload: PushPayload): Promise<void> {
+  if (!isWebPushConfigured() || recipientIds.length === 0) return
+  try {
+    const subs = await prisma.pushSubscription.findMany({
+      where: { employeeId: { in: recipientIds }, disabledAt: null },
+    })
+    if (subs.length === 0) return
+    const targets = subs.map((s) => ({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }))
+    const outcomes = await sendPushMany(targets, payload)
+    const goneEndpoints = outcomes.filter((o) => o.gone).map((o) => o.endpoint)
+    const failedEndpoints = outcomes.filter((o) => !o.ok && !o.gone).map((o) => o.endpoint)
+    if (goneEndpoints.length > 0) {
+      await prisma.pushSubscription.deleteMany({ where: { endpoint: { in: goneEndpoints } } })
+    }
+    if (failedEndpoints.length > 0) {
+      await prisma.pushSubscription.updateMany({
+        where: { endpoint: { in: failedEndpoints } },
+        data: { failedCount: { increment: 1 } },
+      })
+    }
+  } catch (err) {
+    logError('[Notification] fanoutPush failed', err)
   }
 }
 
@@ -314,7 +354,7 @@ export async function createBulkNotifications(input: CreateBulkNotificationInput
 
     if (recipients.length === 0) return { count: 0 }
 
-    return await prisma.notification.createMany({
+    const result = await prisma.notification.createMany({
       data: recipients.map(recipientId => ({
         type: input.type,
         title: input.title,
@@ -326,6 +366,14 @@ export async function createBulkNotifications(input: CreateBulkNotificationInput
         metadata: input.metadata ?? undefined,
       })),
     })
+    void fanoutPush(recipients, {
+      title: input.title,
+      body: input.message,
+      url: input.link,
+      tag: input.type,
+      data: input.metadata as Record<string, unknown> | undefined,
+    })
+    return result
   } catch (error) {
     logError('[Notification] Failed to create bulk notifications', error)
     return { count: 0 }

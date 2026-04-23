@@ -23,6 +23,8 @@ import { asSystemId, type SystemId } from '@/lib/id-types';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { useAuth } from '../../contexts/auth-context';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -175,7 +177,7 @@ export function InventoryReceiptDetailPage() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="py-10 text-center space-y-4">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -188,7 +190,7 @@ export function InventoryReceiptDetailPage() {
 
   if (!receipt) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="py-10 text-center space-y-4">
           <p className="text-h3 font-semibold">Không tìm thấy phiếu nhập kho.</p>
           <Button className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
@@ -205,9 +207,9 @@ export function InventoryReceiptDetailPage() {
     : '-';
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="grid gap-6 p-6">
+    <DetailPageShell gap="lg">
+      <Card className={mobileBleedCardClass}>
+        <CardContent className="grid gap-6 p-4 md:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <DetailField label="Mã phiếu">{receipt.id}</DetailField>
             <DetailField label="Ngày nhập">{receivedDateLabel}</DetailField>
@@ -257,15 +259,15 @@ export function InventoryReceiptDetailPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-0">
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:font-semibold md:text-foreground md:normal-case md:tracking-normal">Danh sách sản phẩm</h3>
             <p className="text-sm text-muted-foreground">
               Tổng {receipt.items.length} mặt hàng • {totalQuantity} đơn vị • {formatCurrency(totalValue)}
             </p>
           </div>
-          <div className="border-t overflow-x-auto">
+          <div className="hidden md:block border-t overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -350,6 +352,94 @@ export function InventoryReceiptDetailPage() {
               </TableFooter>
             </Table>
           </div>
+
+          {/* Mobile: card stack */}
+          <div className="md:hidden border-t p-4 space-y-3">
+            {receipt.items.map((item, index) => {
+              const itemWithProduct = item as typeof item & { thumbnailImage?: string; costPrice?: number; productImages?: string[] };
+              const lineTotal = (Number(item.receivedQuantity) || 0) * (Number(item.unitPrice) || 0);
+              return (
+                <MobileCard key={`${item.productSystemId}-${index}-mobile`} inert>
+                  <MobileCardHeader className="items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <ProductThumbnailCell
+                        productSystemId={item.productSystemId}
+                        productName={item.productName}
+                        itemThumbnailImage={itemWithProduct.thumbnailImage || itemWithProduct.productImages?.[0]}
+                        onPreview={(url, title) => setPreviewImage({ url, title })}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs text-muted-foreground">#{index + 1}</div>
+                        <p className="mt-0.5 text-sm font-semibold line-clamp-2">{item.productName || '-'}</p>
+                        <Link
+                          href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
+                          className="mt-0.5 block text-xs text-primary hover:underline"
+                        >
+                          {item.productId || '-'}
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Thành tiền</div>
+                      <div className="mt-0.5 text-sm font-semibold">{formatCurrency(lineTotal)}</div>
+                    </div>
+                  </MobileCardHeader>
+                  <MobileCardBody>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">SL đặt</dt>
+                        <dd className="font-medium">{Number(item.orderedQuantity) || 0}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">SL thực nhập</dt>
+                        <dd className="font-medium">{Number(item.receivedQuantity) || 0}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Đơn giá nhập</dt>
+                        <dd className="font-medium">{formatCurrency(Number(item.unitPrice) || 0)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Giá vốn</dt>
+                        <dd className="font-medium">{formatCurrency(itemWithProduct.costPrice || 0)}</dd>
+                      </div>
+                    </dl>
+                  </MobileCardBody>
+                </MobileCard>
+              );
+            })}
+
+            {/* Mobile totals */}
+            <div className="rounded-xl border border-border/50 bg-card p-4 space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tổng SL</span>
+                <span className="font-medium">{totalQuantity}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tổng tiền hàng</span>
+                <span className="font-medium">{formatCurrency(totalValue)}</span>
+              </div>
+              {purchaseOrder && Number(purchaseOrder.shippingFee) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Phí vận chuyển</span>
+                  <span>{formatCurrency(purchaseOrder.shippingFee)}</span>
+                </div>
+              )}
+              {purchaseOrder && Number(purchaseOrder.tax) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Chi phí khác</span>
+                  <span>{formatCurrency(purchaseOrder.tax)}</span>
+                </div>
+              )}
+              {purchaseOrder && (Number(purchaseOrder.shippingFee) > 0 || Number(purchaseOrder.tax) > 0) && (
+                <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                  <span className="font-bold">Tổng giá trị nhập kho</span>
+                  <span className="font-bold">
+                    {formatCurrency(totalValue + Number(purchaseOrder.shippingFee || 0) + Number(purchaseOrder.tax || 0))}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -376,6 +466,6 @@ export function InventoryReceiptDetailPage() {
 
       {/* Activity History */}
       <EntityActivityTable entityType="inventory_receipt" entityId={systemId} />
-    </div>
+    </DetailPageShell>
   );
 }

@@ -6,6 +6,7 @@ import { DepartmentForm, DepartmentFormValues } from './department-form';
 import { useDepartment, useDepartmentMutations } from './hooks/use-departments';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { FormPageShell, mobileBleedCardClass } from '../../../components/layout/page-section';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { ROUTES, generatePath } from '../../../lib/router';
 import { toast } from 'sonner';
@@ -82,8 +83,8 @@ export function DepartmentFormPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-2xl">
-      <Card>
+    <FormPageShell className="max-w-2xl mx-auto py-6">
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>
             {isEditMode ? 'Chỉnh sửa phòng ban' : 'Thêm phòng ban mới'}
@@ -96,6 +97,6 @@ export function DepartmentFormPage() {
           />
         </CardContent>
       </Card>
-    </div>
+    </FormPageShell>
   );
 }

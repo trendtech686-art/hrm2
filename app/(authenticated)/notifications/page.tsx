@@ -12,7 +12,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs } from '@/components/ui/tabs'
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import {
@@ -114,14 +115,14 @@ export default function NotificationsPage() {
     <div className="pb-20 md:pb-4 space-y-4">
       {/* ─── Group Tabs ─── */}
       <Tabs value={activeGroup} onValueChange={setActiveGroup}>
-        <TabsList className="w-full justify-start h-auto p-1 bg-muted/50 overflow-x-auto">
+        <MobileTabsList>
           {GROUP_TABS.map(({ value, label, Icon }) => {
             const count = value === 'all' ? totalUnread : (groupCounts?.[value as NotificationGroup] ?? 0)
             return (
-              <TabsTrigger
+              <MobileTabsTrigger
                 key={value}
                 value={value}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                className="gap-1.5"
               >
                 <Icon className="h-3.5 w-3.5" />
                 <span>{label}</span>
@@ -130,10 +131,10 @@ export default function NotificationsPage() {
                     {count > 99 ? '99+' : count}
                   </Badge>
                 )}
-              </TabsTrigger>
+              </MobileTabsTrigger>
             )
           })}
-        </TabsList>
+        </MobileTabsList>
       </Tabs>
 
       {/* ─── Actions Bar ─── */}

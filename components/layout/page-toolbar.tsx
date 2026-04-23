@@ -3,10 +3,14 @@ import { cn } from '../../lib/utils';
 
 /**
  * Page Toolbar Component
- * Mobile-first toolbar for common actions (Import, Export, Column Toggle)
- * Hàng 2 trong layout 3 tầng
- * 
- * Layout: Import/Export bên trái, Settings (Column toggle) bên phải
+ * Mobile-first toolbar for common actions (Import, Export, Column Toggle).
+ *
+ * Layout: left actions bên trái, right actions bên phải. Khi có nhiều actions
+ * trên mobile, hàng sẽ scroll ngang (ẩn scrollbar) thay vì wrap / bị cắt.
+ *
+ * Các trang list hiện đang gate bằng `!isMobile && <PageToolbar …/>` để giấu
+ * toolbar trên mobile (FAB + dropdown thay thế). Khi nào muốn bật trên mobile
+ * thì toolbar tự responsive.
  */
 export interface PageToolbarProps {
   /** Left side actions (Import, Export) */
@@ -19,14 +23,20 @@ export interface PageToolbarProps {
   className?: string;
 }
 
+// Scroll ngang mobile (ẩn scrollbar), wrap / inline trên desktop
+const scrollRowClass =
+  'flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:overflow-visible';
+
 export function PageToolbar({ leftActions, rightActions, children, className }: PageToolbarProps) {
   // Backward compatibility: if children is provided, render old way
   if (children && !leftActions && !rightActions) {
     return (
-      <div 
+      <div
         className={cn(
-          "flex flex-wrap items-center gap-2 py-3 bg-background",
-          className
+          'bg-background py-2 md:py-3',
+          scrollRowClass,
+          'md:flex-wrap',
+          className,
         )}
       >
         {children}
@@ -37,21 +47,28 @@ export function PageToolbar({ leftActions, rightActions, children, className }: 
   if (!leftActions && !rightActions) return null;
 
   return (
-    <div 
+    <div
       className={cn(
-        "flex items-center justify-between py-3 bg-background",
-        className
+        'flex flex-col gap-2 bg-background py-2 md:flex-row md:items-center md:justify-between md:py-3',
+        className,
       )}
     >
-      {/* Left: Import, Export - SÁT MÉP TRÁI */}
-      <div className="flex items-center gap-2">
-        {leftActions}
-      </div>
-      
-      {/* Right: Trash & Column Toggle - SÁT MÉP PHẢI */}
-      <div className="flex items-center gap-2">
-        {rightActions}
-      </div>
+      {/* Left: Import, Export — mobile scroll-x, desktop inline sát mép trái */}
+      {leftActions ? (
+        <div className={cn(scrollRowClass, 'min-w-0')}>{leftActions}</div>
+      ) : null}
+
+      {/* Right: Customize, Column toggle — mobile scroll-x, desktop inline sát mép phải */}
+      {rightActions ? (
+        <div
+          className={cn(
+            scrollRowClass,
+            'min-w-0 md:justify-end',
+          )}
+        >
+          {rightActions}
+        </div>
+      ) : null}
     </div>
   );
 }

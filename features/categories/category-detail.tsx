@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -533,25 +534,25 @@ export function CategoryDetailPage() {
     return (
       <div className="space-y-6 pb-8">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <TabsList>
-            <TabsTrigger value="general">Thông tin</TabsTrigger>
-            <TabsTrigger value="seo-default" className="gap-1">
+          <MobileTabsList>
+            <MobileTabsTrigger value="general">Thông tin</MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-default" className="gap-1">
               <Globe className="h-3 w-3" />
               SEO Chung
-            </TabsTrigger>
-            <TabsTrigger value="seo-pkgx" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-pkgx" className="gap-1">
               <Globe className="h-3 w-3 text-red-500" />
               SEO PKGX
-            </TabsTrigger>
-            <TabsTrigger value="seo-trendtech" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-trendtech" className="gap-1">
               <Globe className="h-3 w-3 text-blue-500" />
               SEO Trendtech
-            </TabsTrigger>
-          </TabsList>
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           {/* General Tab */}
           <TabsContent value="general" className="space-y-6 mt-6">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Thông tin cơ bản</CardTitle>
               </CardHeader>
@@ -644,7 +645,7 @@ export function CategoryDetailPage() {
 
             {/* Child Categories */}
             {childCategories.length > 0 && (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <CardTitle>Danh mục con ({childCategories.length})</CardTitle>
                 </CardHeader>
@@ -668,7 +669,7 @@ export function CategoryDetailPage() {
 
           {/* SEO Default Tab */}
           <TabsContent value="seo-default" className="space-y-6 mt-6">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4" />
@@ -707,7 +708,7 @@ export function CategoryDetailPage() {
 
           {/* SEO PKGX Tab */}
           <TabsContent value="seo-pkgx" className="space-y-6 mt-6">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -757,7 +758,7 @@ export function CategoryDetailPage() {
 
           {/* SEO Trendtech Tab */}
           <TabsContent value="seo-trendtech" className="space-y-6 mt-6">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-blue-500" />
@@ -829,25 +830,25 @@ export function CategoryDetailPage() {
       <Form {...form}>
         <form className="space-y-6">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList>
-              <TabsTrigger value="general">Thông tin</TabsTrigger>
-              <TabsTrigger value="seo-default" className="gap-1">
+            <MobileTabsList>
+              <MobileTabsTrigger value="general">Thông tin</MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-default" className="gap-1">
                 <Globe className="h-3 w-3" />
                 SEO Chung
-              </TabsTrigger>
-              <TabsTrigger value="seo-pkgx" className="gap-1">
+              </MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-pkgx" className="gap-1">
                 <Globe className="h-3 w-3 text-red-500" />
                 SEO PKGX
-              </TabsTrigger>
-              <TabsTrigger value="seo-trendtech" className="gap-1">
+              </MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-trendtech" className="gap-1">
                 <Globe className="h-3 w-3 text-blue-500" />
                 SEO Trendtech
-              </TabsTrigger>
-            </TabsList>
+              </MobileTabsTrigger>
+            </MobileTabsList>
 
             {/* General Tab */}
             <TabsContent value="general" className="space-y-6 mt-6">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <CardTitle>Thông tin cơ bản</CardTitle>
                 </CardHeader>
@@ -960,7 +961,7 @@ export function CategoryDetailPage() {
               </Card>
 
               {/* Thumbnail Upload */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4" />
@@ -1009,7 +1010,7 @@ export function CategoryDetailPage() {
 
             {/* SEO Default Tab */}
             <TabsContent value="seo-default" className="space-y-6 mt-6">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4" />
@@ -1105,7 +1106,7 @@ export function CategoryDetailPage() {
 
             {/* SEO PKGX Tab */}
             <TabsContent value="seo-pkgx" className="space-y-6 mt-6">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-red-500" />
@@ -1261,7 +1262,7 @@ export function CategoryDetailPage() {
 
             {/* SEO Trendtech Tab */}
             <TabsContent value="seo-trendtech" className="space-y-6 mt-6">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-blue-500" />

@@ -435,11 +435,11 @@ export function CustomerAddressSelector({
             {/* Shipping Address Card */}
             {!hideCards && (
                 <div className="space-y-2">
-                    <div className="border border-border rounded-md p-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ giao hàng</span>
-                                <p className="text-sm truncate mt-0.5">
+                    <div className="rounded-md border border-border bg-muted/30 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-xs text-muted-foreground">Địa chỉ giao hàng</div>
+                                <p className="mt-0.5 text-sm font-medium wrap-break-word">
                                     {displayedShippingAddr ? formatAddress(displayedShippingAddr) : 'Chưa có địa chỉ'}
                                 </p>
                             </div>
@@ -447,7 +447,7 @@ export function CustomerAddressSelector({
                                 <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-7 px-2 text-xs text-primary" 
+                                    className="h-7 shrink-0 px-2 text-xs text-primary" 
                                     type="button" 
                                     onClick={handleOpenShippingDialog}
                                 >
@@ -458,29 +458,29 @@ export function CustomerAddressSelector({
                     </div>
 
                     {/* Billing / Invoice Info Card — shows selected business profile */}
-                    <div className="border border-border rounded-md p-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Thông tin xuất hóa đơn</span>
+                    <div className="rounded-md border border-border bg-muted/30 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-xs text-muted-foreground">Thông tin xuất hóa đơn</div>
                                 {(() => {
                                     const invoiceInfo = watch('invoiceInfo') as OrderInvoiceInfo | undefined;
                                     if (invoiceInfo?.company) {
                                         return (
-                                            <div className="mt-0.5 space-y-0">
-                                                <p className="text-sm font-medium truncate">{invoiceInfo.company}</p>
-                                                {invoiceInfo.taxCode && <p className="text-xs text-muted-foreground">MST: {invoiceInfo.taxCode}</p>}
-                                                {invoiceInfo.address && <p className="text-xs text-muted-foreground truncate">{invoiceInfo.address}</p>}
+                                            <div className="mt-0.5 space-y-0.5">
+                                                <p className="text-sm font-medium wrap-break-word">{invoiceInfo.company}</p>
+                                                {invoiceInfo.taxCode && <p className="text-xs text-muted-foreground wrap-break-word">MST: {invoiceInfo.taxCode}</p>}
+                                                {invoiceInfo.address && <p className="text-xs text-muted-foreground wrap-break-word">{invoiceInfo.address}</p>}
                                             </div>
                                         );
                                     }
-                                    return <p className="text-sm text-muted-foreground mt-0.5">Chưa chọn thông tin doanh nghiệp</p>;
+                                    return <p className="mt-0.5 text-sm text-muted-foreground">Chưa chọn thông tin doanh nghiệp</p>;
                                 })()}
                             </div>
                             {!disabled && businessProfiles.length > 0 && (
                                 <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-7 px-2 text-xs text-primary" 
+                                    className="h-7 shrink-0 px-2 text-xs text-primary" 
                                     type="button" 
                                     onClick={handleOpenBillingDialog}
                                 >
@@ -493,7 +493,7 @@ export function CustomerAddressSelector({
             )}
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent mobileFullScreen className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>
@@ -657,7 +657,7 @@ export function CustomerAddressSelector({
 
             {/* Business Profile Selector Dialog */}
             <Dialog open={isBusinessDialogOpen} onOpenChange={setIsBusinessDialogOpen}>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent mobileFullScreen className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Chọn thông tin xuất hóa đơn</DialogTitle>
                         <DialogDescription>

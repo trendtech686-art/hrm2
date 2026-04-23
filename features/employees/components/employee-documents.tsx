@@ -21,6 +21,7 @@ import {
 import type { EmployeeDocument, ServerFile } from '../hooks/use-employee-documents';
 import { logError } from '@/lib/logger'
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -301,7 +302,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
 
   if (isLoading && documents.length === 0) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="flex items-center justify-center p-8">
           <div className="flex items-center space-x-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
@@ -314,7 +315,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
   
   if (error) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center">
           <div className="text-destructive mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -340,7 +341,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
 
   if (Object.keys(documentsByType).length === 0) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center">
           <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-h5 font-medium mb-2">Chưa có tài liệu</h3>
@@ -461,7 +462,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           <span className="ml-2 text-muted-foreground">Đang tải tài liệu...</span>
         </div>
       ) : employeeDocuments.length === 0 ? (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="py-8">
             <div className="text-center text-muted-foreground">
               <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -534,7 +535,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       
       {/* File Preview Modal - for PDF, office docs only */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-hidden p-6">
+        <DialogContent mobileFullScreen className="max-w-[90vw] max-h-[90vh] overflow-hidden p-6">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg flex items-center gap-2">

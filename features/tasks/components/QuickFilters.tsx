@@ -61,10 +61,7 @@ export function QuickFilters({
             variant={isActive ? 'default' : 'outline'}
             size="sm"
             onClick={() => onToggleFilter(filter.id)}
-            className={cn(
-              'h-8 gap-2',
-              isActive && `bg-${filter.color}-500 hover:bg-${filter.color}-600`
-            )}
+            className="h-8 gap-2 shrink-0"
           >
             {Icon && <Icon className="h-4 w-4" />}
             <span>{filter.name}</span>
@@ -102,12 +99,13 @@ export function QuickFiltersCompact({
         return (
           <button
             key={filter.id}
+            type="button"
             onClick={() => onToggleFilter(filter.id)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors border shrink-0 touch-manipulation',
               isActive
-                ? `bg-${filter.color}-500 text-white`
-                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-foreground hover:bg-muted/80',
             )}
           >
             {Icon && <Icon className="h-3 w-3" />}

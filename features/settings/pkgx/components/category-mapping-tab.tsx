@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../../components/layout/page-section';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
@@ -1307,16 +1308,16 @@ export function CategoryMappingTab() {
             </div>
             
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="pkgx-categories">
+              <MobileTabsList>
+                <MobileTabsTrigger value="pkgx-categories">
                   <FolderTree className="h-4 w-4 mr-2" />
                   Danh mục PKGX ({settings.categories.length})
-                </TabsTrigger>
-                <TabsTrigger value="mappings">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="mappings">
                   <Link className="h-4 w-4 mr-2" />
                   Mapping ({settings.categoryMappings.length})
-                </TabsTrigger>
-              </TabsList>
+                </MobileTabsTrigger>
+              </MobileTabsList>
               
               <TabsContent value="pkgx-categories" className="mt-4">
                 {settings.categories.length === 0 ? (

@@ -1,6 +1,8 @@
 ﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import type { Order } from '../types';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
@@ -93,7 +95,7 @@ export function OrderWorkflowCard({
   // Show message if no workflow template is configured for orders
   if (subtasks.length === 0) {
     return (
-      <Card className="border-dashed">
+      <Card className={cn(mobileBleedCardClass, "border-dashed")}>
         <CardHeader>
           <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
@@ -110,7 +112,7 @@ export function OrderWorkflowCard({
   }
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>

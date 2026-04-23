@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../../components/ui/table';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { Package, Eye } from 'lucide-react';
 import { OptimizedImage } from '../../../components/ui/optimized-image';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
@@ -75,7 +76,7 @@ export function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPr
 
       <div className="space-y-2">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:text-foreground md:normal-case md:tracking-normal">Thông tin sản phẩm trả</h3>
-        <div className="border rounded-md bg-card overflow-x-auto">
+        <div className="hidden md:block border rounded-md bg-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -153,8 +154,83 @@ export function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPr
             </TableFooter>
           </Table>
         </div>
+
+        {/* Mobile: card stack */}
+        <div className="md:hidden space-y-3">
+          {purchaseReturn.items.map((item, index) => {
+            const product = productsMap.get(item.productSystemId)
+              || productsMap.get(item.productId || '');
+            const displayProductSystemId = product?.systemId || item.productSystemId;
+            const displayProductId = product?.id || item.productId || item.productSystemId;
+            const displayProductName = product?.name || item.productName || item.productId || 'Sản phẩm';
+            const displayImageUrl = product?.thumbnailImage || (product as unknown as { imageUrl?: string })?.imageUrl || item.imageUrl;
+            const lineTotal = Number(item.returnQuantity || 0) * Number(item.unitPrice || 0);
+
+            return (
+              <MobileCard key={`m-${item.productSystemId}-${index}`} inert>
+                <MobileCardHeader className="items-start justify-between">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    {displayImageUrl ? (
+                      <button
+                        type="button"
+                        className="group/imagePreview relative w-12 h-12 rounded border overflow-hidden bg-muted cursor-pointer shrink-0"
+                        onClick={() => setPreviewImage({ url: displayImageUrl, title: displayProductName })}
+                      >
+                        <OptimizedImage
+                          src={displayImageUrl}
+                          alt={displayProductName}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover transition-all group-hover/imagePreview:brightness-75"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/imagePreview:opacity-100 transition-opacity">
+                          <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="w-12 h-12 flex items-center justify-center bg-muted rounded border shrink-0">
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        #{index + 1}
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold line-clamp-2">
+                        {displayProductName}
+                      </div>
+                      <Link href={`/products/${displayProductSystemId}`} className="text-xs text-primary hover:underline truncate block">
+                        {displayProductId}
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-base font-bold leading-none">{formatCurrency(lineTotal)}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">Thành tiền</div>
+                  </div>
+                </MobileCardHeader>
+                <MobileCardBody>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">SL trả</dt>
+                      <dd className="font-medium">{item.returnQuantity || 0}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Đơn giá trả</dt>
+                      <dd className="font-medium">{formatCurrency(item.unitPrice || 0)}</dd>
+                    </div>
+                  </dl>
+                </MobileCardBody>
+              </MobileCard>
+            );
+          })}
+          <div className="flex items-center justify-between text-sm pt-2 border-t border-border/50">
+            <span className="font-bold">Tổng giá trị trả</span>
+            <span className="font-bold">{formatCurrency(purchaseReturn.totalReturnValue)}</span>
+          </div>
+        </div>
       </div>
-      
+
       {/* Image Preview Dialog */}
       <ImagePreviewDialog
         open={!!previewImage}

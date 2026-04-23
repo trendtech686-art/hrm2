@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from '../../components/ui/card'
 // Loading skeleton that matches the reports page layout
 function ReportsPageLoading() {
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="space-y-6">
       {/* Header skeleton */}
       <div className="flex gap-4 flex-wrap">
         <Skeleton className="h-10 w-48" />

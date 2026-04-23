@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Phone, Package, Calendar, User, Clock, AlertCircle, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge, COMPLAINT_STATUS_MAP } from '@/components/StatusBadge';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
 import { Complaint, complaintStatusLabels as _complaintStatusLabels, complaintTypeLabels, complaintTypeColors } from '../types';
@@ -43,11 +44,11 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
     ? employees.find(e => e.systemId === complaint.assignedTo)
     : null;
 
+  const priority = priorityConfig[complaint.priority] ?? priorityConfig.LOW;
   return (
-    <div
+    <MobileCard
       onClick={onClick}
       className={cn(
-        "p-4 rounded-xl border border-border/50 bg-card cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
         "border-l-4",
         isOverdue && "border-l-red-500 bg-red-50",
         !isOverdue && complaint.priority === 'CRITICAL' && "border-l-red-400 bg-red-50",
@@ -56,73 +57,65 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
         !isOverdue && complaint.priority === 'LOW' && "border-l-slate-400 bg-slate-50"
       )}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-sm text-primary">{complaint.id}</span>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Khiếu nại</div>
+          <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+            <div className="text-sm font-semibold text-foreground truncate font-mono">{complaint.id}</div>
             <Badge variant="outline" className={cn("text-xs", complaintTypeColors[complaint.type])}>
               {complaintTypeLabels[complaint.type]}
             </Badge>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Package className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{complaint.orderCode}</span>
-          </div>
         </div>
-        
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-1 shrink-0">
           <StatusBadge status={complaint.status} statusMap={COMPLAINT_STATUS_MAP} />
-          
           {isOverdue && (
             <Badge variant="outline" className="text-xs bg-red-100 text-red-800 whitespace-nowrap">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Quá hạn
             </Badge>
           )}
-          
-          <Badge 
-            variant="outline" 
-            className={cn("text-xs", (priorityConfig[complaint.priority] ?? priorityConfig.LOW).color, "whitespace-nowrap")}
+          <Badge
+            variant="outline"
+            className={cn("text-xs whitespace-nowrap", priority.color)}
           >
-            {(priorityConfig[complaint.priority] ?? priorityConfig.LOW).label}
+            {priority.label}
           </Badge>
         </div>
-      </div>
+      </MobileCardHeader>
 
-      {/* Customer Info */}
-      <div className="space-y-1.5 mb-3">
-        <div className="flex items-center gap-2 text-sm">
-          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-medium truncate">{complaint.customerName}</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Phone className="h-3.5 w-3.5 shrink-0" />
-          <span>{complaint.customerPhone}</span>
-        </div>
-      </div>
-
-      {/* Description */}
-      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-        {complaint.description}
-      </p>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
-        <div className="flex items-center gap-1">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{formatDate(complaint.createdAt)}</span>
-        </div>
-        
-        {assignedEmployee ? (
-          <div className="flex items-center gap-1">
-            <User className="h-3.5 w-3.5" />
-            <span className="truncate max-w-30">{assignedEmployee.fullName}</span>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Khách hàng</dt>
+            <dd className="font-medium truncate">{complaint.customerName}</dd>
           </div>
-        ) : (
-          <span className="text-muted-foreground">Chưa phân công</span>
-        )}
-      </div>
-    </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Số điện thoại</dt>
+            <dd className="font-medium">{complaint.customerPhone}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Đơn hàng</dt>
+            <dd className="font-medium truncate font-mono">{complaint.orderCode}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày tạo</dt>
+            <dd className="font-medium">{formatDate(complaint.createdAt)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Phụ trách</dt>
+            <dd className="font-medium truncate">
+              {assignedEmployee ? assignedEmployee.fullName : 'Chưa phân công'}
+            </dd>
+          </div>
+          {complaint.description && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Nội dung</dt>
+              <dd className="font-medium line-clamp-2">{complaint.description}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

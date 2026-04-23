@@ -9,6 +9,8 @@ import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-produc
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { FormPageShell, mobileBleedCardClass } from '../../components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -19,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../components/ui/badge';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { UnifiedProductSearch } from '../../components/shared/unified-product-search';
+import { BarcodeScannerButton } from '../../components/shared/barcode-scanner-button';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
@@ -688,10 +691,10 @@ export function InventoryCheckFormPage() {
   }, [items]);
 
   return (
-    <div className="space-y-4">
+    <FormPageShell gap="md">
       {/* Progress Bar - Only in create mode */}
       {!isEditMode && items.length > 0 && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="pt-6">
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -716,7 +719,7 @@ export function InventoryCheckFormPage() {
       {/* Info Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
         {/* Thông tin phiếu */}
-        <Card className="lg:col-span-4">
+        <Card className={cn(mobileBleedCardClass, 'lg:col-span-4')}>
           <CardHeader>
             <CardTitle>Thông tin phiếu</CardTitle>
           </CardHeader>
@@ -771,7 +774,7 @@ export function InventoryCheckFormPage() {
         </Card>
 
         {/* Thông tin bổ sung */}
-        <Card className="lg:col-span-3">
+        <Card className={cn(mobileBleedCardClass, 'lg:col-span-3')}>
           <CardHeader>
             <CardTitle>Thông tin bổ sung</CardTitle>
           </CardHeader>
@@ -821,7 +824,7 @@ export function InventoryCheckFormPage() {
       </div>
 
       {/* Products Table */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Sản phẩm kiểm hàng</CardTitle>
         </CardHeader>
@@ -829,14 +832,35 @@ export function InventoryCheckFormPage() {
           {/* Search and Add Products - Only in create mode */}
           {!isEditMode && (
             <div className="flex gap-2">
-              <UnifiedProductSearch
-                onSelectProduct={handleAddProduct}
+              <div className="flex-1 min-w-0">
+                <UnifiedProductSearch
+                  onSelectProduct={handleAddProduct}
+                  disabled={!branchSystemId}
+                  placeholder="Thêm sản phẩm (F3)"
+                  searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                  excludeTypes={['combo', 'service']}
+                  branchSystemId={branchSystemId}
+                  showCostPrice={false}
+                />
+              </div>
+              <BarcodeScannerButton
                 disabled={!branchSystemId}
-                placeholder="Thêm sản phẩm (F3)"
-                searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
-                excludeTypes={['combo', 'service']}
-                branchSystemId={branchSystemId}
-                showCostPrice={false}
+                onDetect={async (code) => {
+                  try {
+                    const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`);
+                    if (!res.ok) throw new Error('search failed');
+                    const json = await res.json() as { data: Product[] };
+                    const match = json.data?.[0];
+                    if (!match) {
+                      toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                      return;
+                    }
+                    handleAddProduct(match);
+                    toast.success(`Đã thêm: ${match.name}`);
+                  } catch {
+                    toast.error('Không thể tra cứu mã vạch. Thử lại.');
+                  }
+                }}
               />
               <Button 
                 onClick={() => setShowProductSelector(true)}
@@ -1080,6 +1104,6 @@ export function InventoryCheckFormPage() {
           title={previewImage.title}
         />
       )}
-    </div>
+    </FormPageShell>
   );
 }

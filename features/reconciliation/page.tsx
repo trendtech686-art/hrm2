@@ -7,12 +7,13 @@ import { useReconciliationSheets, useConfirmSheet, useDeleteSheet } from './hook
 import type { ReconciliationSheet, ReconciliationSheetStatus } from './api/reconciliation-sheets-api'
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table'
 import { getSheetColumns } from './columns'
-import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card'
 import { PageToolbar } from '@/components/layout/page-toolbar'
 import { PageFilters } from '@/components/layout/page-filters'
 import { Button } from '@/components/ui/button'
 import { FilePlus, CheckCircle2, Trash2, Loader2 } from 'lucide-react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs } from '@/components/ui/tabs'
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section'
 import { Badge } from '@/components/ui/badge'
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer'
 import {
@@ -180,17 +181,17 @@ export function ReconciliationPage() {
     <div className="h-full flex flex-col space-y-4">
       {/* Status Tabs */}
       <Tabs value={statusTab} onValueChange={(v) => { setStatusTab(v as StatusTab); setRowSelection({}); setPagination(p => ({ ...p, pageIndex: 0 })) }}>
-        <TabsList className="inline-flex w-auto gap-1 p-1 h-auto">
-          <TabsTrigger value="all" className="shrink-0 px-3 h-9 text-sm">
+        <MobileTabsList>
+          <MobileTabsTrigger value="all">
             Tất cả
-          </TabsTrigger>
-          <TabsTrigger value="DRAFT" className="shrink-0 px-3 h-9 text-sm">
+          </MobileTabsTrigger>
+          <MobileTabsTrigger value="DRAFT">
             Nháp
-          </TabsTrigger>
-          <TabsTrigger value="CONFIRMED" className="shrink-0 px-3 h-9 text-sm">
+          </MobileTabsTrigger>
+          <MobileTabsTrigger value="CONFIRMED">
             Đã xác nhận
-          </TabsTrigger>
-        </TabsList>
+          </MobileTabsTrigger>
+        </MobileTabsList>
       </Tabs>
 
       {/* Toolbar */}
@@ -245,39 +246,48 @@ export function ReconciliationPage() {
         isLoading={isLoading}
         onRowClick={handleRowClick}
         renderMobileCard={(sheet) => (
-          <Card className="cursor-pointer" onClick={() => handleRowClick(sheet)}>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <CardTitle size="sm">{sheet.id}</CardTitle>
-                  <div className="text-sm text-muted-foreground">{sheet.carrier}</div>
+          <MobileCard onClick={() => handleRowClick(sheet)}>
+            <MobileCardHeader className="items-start justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Phiếu đối soát</div>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <div className="text-sm font-semibold text-foreground truncate font-mono">{sheet.id}</div>
+                  <Badge
+                    variant={sheet.status === 'CONFIRMED' ? 'default' : sheet.status === 'CANCELLED' ? 'destructive' : 'secondary'}
+                    className="text-xs shrink-0"
+                  >
+                    {sheet.status === 'CONFIRMED' ? 'Đã xác nhận' : sheet.status === 'CANCELLED' ? 'Đã hủy' : 'Nháp'}
+                  </Badge>
                 </div>
-                <Badge variant={sheet.status === 'CONFIRMED' ? 'default' : sheet.status === 'CANCELLED' ? 'destructive' : 'secondary'}>
-                  {sheet.status === 'CONFIRMED' ? 'Đã xác nhận' : sheet.status === 'CANCELLED' ? 'Đã hủy' : 'Nháp'}
-                </Badge>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Số vận đơn</div>
-                  <div className="font-semibold">{sheet._count?.items ?? 0}</div>
+              <div className="text-right shrink-0">
+                <div className="text-2xl font-bold leading-none">{sheet._count?.items ?? 0}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Vận đơn</div>
+              </div>
+            </MobileCardHeader>
+            <MobileCardBody>
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+                <div className="col-span-2">
+                  <dt className="text-xs text-muted-foreground">Đơn vị vận chuyển</dt>
+                  <dd className="font-medium truncate">{sheet.carrier}</dd>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">COD hệ thống</div>
-                  <div className="font-semibold">{formatCurrency(sheet.totalCodSystem)}</div>
+                  <dt className="text-xs text-muted-foreground">COD hệ thống</dt>
+                  <dd className="font-medium">{formatCurrency(sheet.totalCodSystem)}</dd>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">Lệch COD</div>
-                  <div className={sheet.codDifference !== 0 ? 'text-destructive font-semibold' : 'text-green-600'}>
+                  <dt className="text-xs text-muted-foreground">Lệch COD</dt>
+                  <dd className={cn('font-medium', sheet.codDifference !== 0 ? 'text-destructive' : 'text-green-600')}>
                     {formatCurrency(sheet.codDifference)}
-                  </div>
+                  </dd>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">Ngày tạo</div>
-                  <div>{formatDate(sheet.createdAt)}</div>
+                  <dt className="text-xs text-muted-foreground">Ngày tạo</dt>
+                  <dd className="font-medium">{formatDate(sheet.createdAt)}</dd>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </dl>
+            </MobileCardBody>
+          </MobileCard>
         )}
       />
       </div>

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { useCustomerStats } from '../../customers/hooks/use-customer-stats';
 import { useCustomerSearch } from '../../customers/hooks/use-customers';
 import type { Complaint } from '../types';
@@ -35,7 +36,7 @@ export const ComplaintCustomerInfoCard: React.FC<Props> = React.memo(({ complain
   const maxDebt = customer?.maxDebt ? Number(customer.maxDebt) : null;
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Thông tin khách hàng</CardTitle>
       </CardHeader>

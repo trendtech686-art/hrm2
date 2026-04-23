@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MapPin, Phone, User, Edit } from 'lucide-react';
 import type { ShippingAddress } from './types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface DeliveryAddressCardProps {
   address: ShippingAddress;
@@ -21,7 +22,7 @@ export function DeliveryAddressCard({
   editable = false,
 }: DeliveryAddressCardProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle size="sm" className="flex items-center gap-2">

@@ -12,7 +12,8 @@ import { useAllPaymentMethods } from '@/features/settings/payments/hooks/use-all
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import type { CashAccount } from '@/lib/types/prisma-extended';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import type { PaymentFormValues } from './types';
 import { logError } from '@/lib/logger'
@@ -171,7 +172,7 @@ export function PaymentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent open={isOpen}>
+      <DialogContent mobileFullScreen open={isOpen}>
         <DialogHeader>
           <DialogTitle>Thanh toán đơn hàng</DialogTitle>
           <DialogDescription>Nhập thông tin thanh toán cho đơn hàng này.</DialogDescription>
@@ -338,10 +339,10 @@ function BankTransferSection({ form, bankAccounts, amount, reference }: BankTran
 
       {hasQRSupport ? (
         <Tabs defaultValue="qr" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="qr">QR Code</TabsTrigger>
-            <TabsTrigger value="info">Thông tin TK</TabsTrigger>
-          </TabsList>
+          <MobileTabsList>
+            <MobileTabsTrigger value="qr">QR Code</MobileTabsTrigger>
+            <MobileTabsTrigger value="info">Thông tin TK</MobileTabsTrigger>
+          </MobileTabsList>
           <TabsContent value="qr" className="space-y-3 pt-3">
             <div className="flex flex-col items-center gap-3">
               <p className="text-sm text-muted-foreground text-center">

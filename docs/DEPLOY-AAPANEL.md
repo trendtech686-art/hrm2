@@ -142,6 +142,46 @@ Hoặc chạy 1 lệnh từ ngoài:
 docker compose -f docker-compose.prod.yml exec app npx prisma migrate deploy
 ```
 
+### (Optional) Bật Web Push Notification (PWA)
+
+Push notification cho phép app gửi thông báo native khi user không mở tab.
+Nếu bỏ qua section này, app vẫn chạy bình thường — chỉ là không có push.
+
+**B1. Sinh VAPID keypair (chạy 1 lần duy nhất, ở máy local hoặc ngay trên VPS):**
+
+```bash
+# Trên VPS — chạy trong container app
+docker compose -f docker-compose.prod.yml exec app npm run pwa:vapid
+```
+
+Output sẽ in 3 dòng như:
+```
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BJx...
+VAPID_PRIVATE_KEY=9s2...
+VAPID_SUBJECT=mailto:admin@your-domain.com
+```
+
+**B2. Paste 3 dòng trên vào file `.env.production` trên VPS:**
+
+```bash
+# Ở thư mục chứa code (cùng level với docker-compose.prod.yml)
+nano .env.production
+# Paste 3 dòng — nhớ đổi mailto cho đúng domain của anh
+```
+
+**B3. Restart container `app` để load env mới:**
+
+```bash
+docker compose -f docker-compose.prod.yml restart app
+```
+
+**B4. Verify:** Mở site → login → trong ~1s sẽ thấy banner "Bật thông báo" ở
+góc dưới. Cho phép → browser sẽ subscribe lên `/api/push/subscribe`.
+
+> **Quan trọng**: VAPID keypair chỉ sinh **một lần** cho mỗi môi trường.
+> Đừng regenerate sau khi đã có user subscribe — tất cả subscription cũ sẽ
+> vô hiệu và user phải opt-in lại.
+
 ### Kiểm tra
 
 ```bash

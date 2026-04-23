@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/contexts/page-header-context";
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import { useComplaintStatisticsServer } from "../hooks/use-complaint-statistics-server";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,7 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, icon, trend, colorClass = "text-blue-600" }: StatCardProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -216,7 +217,7 @@ export function ComplaintStatisticsPage() {
         {/* ============================================
             TIME-BASED METRICS
         ============================================ */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
@@ -253,7 +254,7 @@ export function ComplaintStatisticsPage() {
           {/* ============================================
               VERIFICATION STATS
           ============================================ */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5" />
@@ -289,7 +290,7 @@ export function ComplaintStatisticsPage() {
           {/* ============================================
               BY TYPE
           ============================================ */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Phân loại khiếu nại</CardTitle>
               <CardDescription>Thống kê theo loại khiếu nại</CardDescription>
@@ -320,7 +321,7 @@ export function ComplaintStatisticsPage() {
           {/* ============================================
               BY RESOLUTION
           ============================================ */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Phương án giải quyết</CardTitle>
               <CardDescription>Phân bổ theo cách xử lý</CardDescription>
@@ -341,7 +342,7 @@ export function ComplaintStatisticsPage() {
           {/* ============================================
               BY PRIORITY
           ============================================ */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Độ ưu tiên</CardTitle>
               <CardDescription>Phân bổ theo mức độ khẩn cấp</CardDescription>
@@ -376,7 +377,7 @@ export function ComplaintStatisticsPage() {
             TOP PERFORMERS (BY ASSIGNEE)
         ============================================ */}
         {stats.byAssignee.length > 0 && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -415,7 +416,7 @@ export function ComplaintStatisticsPage() {
         {/* ============================================
             TREND ANALYSIS
         ============================================ */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />

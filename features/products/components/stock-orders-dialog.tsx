@@ -18,6 +18,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  MobileCard,
+  MobileCardBody,
+  MobileCardHeader,
+} from '@/components/mobile/mobile-card';
 
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -159,7 +164,7 @@ export function StockOrdersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl overflow-hidden">
+      <DialogContent mobileFullScreen className="max-w-4xl overflow-hidden">
         <DialogHeader>
           <DialogTitle className="truncate">{config.title}: {productName}</DialogTitle>
           <DialogDescription>
@@ -194,7 +199,9 @@ export function StockOrdersDialog({
               <p>Không có phiếu nào</p>
             </div>
           ) : (
-            <div className="min-w-[600px]">
+            <>
+            {/* Desktop: Table layout */}
+            <div className="hidden md:block min-w-[600px]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -266,13 +273,93 @@ export function StockOrdersDialog({
               </TableBody>
             </Table>
             </div>
+
+            {/* Mobile: Card stack per phiếu */}
+            <div className="md:hidden space-y-3">
+              {items.map((item) => {
+                const displayDate = type === 'in-delivery'
+                  ? (item.dispatchDate
+                      ? formatDateForDisplay(item.dispatchDate)
+                      : (item.date ? formatDateForDisplay(item.date) : '-'))
+                  : (item.date ? formatDateForDisplay(item.date) : '-');
+
+                return (
+                  <MobileCard
+                    key={item.systemId}
+                    onClick={() => handleRowClick(item)}
+                  >
+                    <MobileCardHeader className="items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary" className="font-normal text-xs">
+                            {TYPE_LABELS[item.type] || item.type}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-sm font-semibold truncate">{item.id}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-bold leading-none text-primary">{item.quantity}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">Số lượng</div>
+                      </div>
+                    </MobileCardHeader>
+                    <MobileCardBody>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{config.dateLabel}</dt>
+                          <dd className="font-medium">{displayDate}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Trạng thái</dt>
+                          <dd>
+                            <Badge
+                              variant={getStatusBadgeVariant(item.statusVariant)}
+                              className={cn(
+                                'font-normal',
+                                item.statusVariant === 'warning' && 'bg-orange-100 text-orange-700 border-orange-200',
+                                item.statusVariant === 'success' && 'bg-green-100 text-green-700 border-green-200',
+                              )}
+                            >
+                              {item.status}
+                            </Badge>
+                          </dd>
+                        </div>
+                        {config.showFromTo ? (
+                          <>
+                            <div>
+                              <dt className="text-xs text-muted-foreground">Từ</dt>
+                              <dd className="font-medium truncate">{item.fromBranch || item.supplierName || '-'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs text-muted-foreground">Đến</dt>
+                              <dd className="font-medium truncate">{item.toBranch || '-'}</dd>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="col-span-2">
+                            <dt className="text-xs text-muted-foreground">Khách hàng</dt>
+                            <dd className="font-medium truncate">{item.customerName || '-'}</dd>
+                          </div>
+                        )}
+                        {config.showShipping && (
+                          <div className="col-span-2">
+                            <dt className="text-xs text-muted-foreground">Đơn vị vận chuyển</dt>
+                            <dd className="font-medium truncate">{item.shippingCarrier || '-'}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </MobileCardBody>
+                  </MobileCard>
+                );
+              })}
+            </div>
+            </>
           )}
         </div>
 
         {/* Pagination - show whenever there are items */}
         {!isLoading && totalItems > 0 && (
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-4 border-t">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               Hiển thị {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} / {totalItems} phiếu
             </div>
             <div className="flex items-center gap-2">
@@ -283,7 +370,7 @@ export function StockOrdersDialog({
                 disabled={currentPage <= 1}
               >
                 <ChevronLeft className="h-4 w-4" />
-                Trước
+                <span className="hidden sm:inline">Trước</span>
               </Button>
               <span className="text-sm px-2">
                 {currentPage} / {totalPages}
@@ -294,7 +381,7 @@ export function StockOrdersDialog({
                 onClick={() => onPageChange?.(currentPage + 1)}
                 disabled={currentPage >= totalPages}
               >
-                Sau
+                <span className="hidden sm:inline">Sau</span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

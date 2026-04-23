@@ -14,6 +14,8 @@ import { WarrantyPackagingInfo } from './components/warranty-packaging-info'
 import { CancelPackagingDialog } from '@/features/orders/components/cancel-packaging-dialog'
 import type { DeliveryMethod } from '@/lib/types/prisma-extended'
 import { usePageHeader } from '@/contexts/page-header-context'
+import { ShareButton } from '@/components/shared/share-button'
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section'
 import { useAuth } from '@/contexts/auth-context'
 import { useSupplierWarranty, useSupplierWarrantyMutations, useWarrantyReceipts } from './hooks/use-supplier-warranty'
 import { useSupplierStats } from '@/features/suppliers/hooks/use-supplier-stats'
@@ -450,6 +452,16 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     if (!warranty) return []
     const actions: React.ReactNode[] = []
 
+    actions.push(
+      <ShareButton
+        key="share"
+        size="sm"
+        className="h-9"
+        title={`Bảo hành NCC ${warranty.id ?? warranty.systemId}`}
+        text={`Phiếu bảo hành NCC ${warranty.id ?? warranty.systemId}`}
+      />,
+    )
+
     // Edit (DRAFT, APPROVED)
     if (['DRAFT', 'APPROVED'].includes(warranty.status) && can('edit_supplier_warranty')) {
       actions.push(
@@ -582,9 +594,9 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
   }
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Row 1: Status stepper */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pb-4">
           <WarrantyStatusStepper warranty={warranty} />
         </CardContent>
@@ -593,7 +605,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
       {/* Row 2: 3-card layout (NCC | Quy trình | Thông tin BH) */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
         {/* Left: Thông tin NCC */}
-        <Card className="lg:col-span-4">
+        <Card className={cn("lg:col-span-4", mobileBleedCardClass)}>
           <CardHeader>
             <CardTitle className="text-base">Thông tin nhà cung cấp</CardTitle>
           </CardHeader>
@@ -647,7 +659,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
         </div>
 
         {/* Right: Thông tin phiếu BH */}
-        <Card className="lg:col-span-3">
+        <Card className={cn("lg:col-span-3", mobileBleedCardClass)}>
           <CardHeader>
             <CardTitle className="text-base">Thông tin phiếu bảo hành</CardTitle>
           </CardHeader>
@@ -717,7 +729,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
       {warranty.status !== 'DRAFT' && (() => {
         const isResultConfirmed = ['CONFIRMED', 'COMPLETED'].includes(warranty.status)
         return (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -897,7 +909,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
 
       {/* Row 4: Đóng gói và Giao hàng — order-style collapsible row */}
       {warranty.status !== 'DRAFT' && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -942,7 +954,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
 
       {/* Pack Dialog — full shipping card với GHTK + 3 phương thức */}
       <Dialog open={showPackDialog} onOpenChange={setShowPackDialog}>
-        <DialogContent className="md:max-w-5xl! md:w-[85vw]! md:max-h-[90vh]! overflow-y-auto">
+        <DialogContent mobileFullScreen className="md:max-w-5xl! md:w-[85vw]! md:max-h-[90vh]! overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Đóng gói & Giao hàng</DialogTitle>
             <DialogDescription>Chọn phương thức giao hàng cho phiếu bảo hành</DialogDescription>
@@ -1016,7 +1028,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
 
       {/* Complete Dialog */}
       <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <DialogContent>
+        <DialogContent mobileFullScreen>
           <DialogHeader>
             <DialogTitle>Xác nhận hoàn thành BH</DialogTitle>
           </DialogHeader>
@@ -1042,6 +1054,6 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </DetailPageShell>
   )
 }

@@ -20,6 +20,7 @@ import { SettingsActionButton } from '../../components/settings/SettingsActionBu
 import { useColumnVisibility } from '../../hooks/use-column-visibility';
 import { useAuth } from "@/contexts/auth-context";
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 export function StockLocationsPage() {
   // Permission checks
@@ -85,7 +86,7 @@ export function StockLocationsPage() {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <CardTitle>Danh sách điểm lưu kho</CardTitle>
           <CardDescription>Theo dõi mapping vị trí giữa chi nhánh và khu vực lưu trữ.</CardDescription>

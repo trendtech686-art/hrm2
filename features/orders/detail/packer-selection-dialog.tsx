@@ -45,7 +45,7 @@ export function PackerSelectionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent mobileFullScreen>
         <DialogHeader>
           <DialogTitle>Chọn nhân viên đóng gói</DialogTitle>
           <DialogDescription>

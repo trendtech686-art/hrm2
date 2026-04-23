@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { CopyableText } from '../../../components/shared/copy-button';
 import type { Customer } from '@/lib/types/prisma-extended';
 import { formatCurrency } from './types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 // Simple detail item component
 const DetailItem = ({ label, value }: { label: string; value?: React.ReactNode }) => (
@@ -27,7 +28,7 @@ export function BusinessTab({ customer }: BusinessTabProps) {
   return (
     <div className="space-y-6">
       {(customer.company || customer.taxCode || customer.representative || customer.position) ? (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-3">
             <CardTitle>Thông tin doanh nghiệp</CardTitle>
           </CardHeader>
@@ -41,7 +42,7 @@ export function BusinessTab({ customer }: BusinessTabProps) {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
               <p>Chưa có thông tin doanh nghiệp</p>
@@ -52,7 +53,7 @@ export function BusinessTab({ customer }: BusinessTabProps) {
 
       {/* Hợp đồng */}
       {customer.contract && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-3">
             <CardTitle>Hợp đồng</CardTitle>
           </CardHeader>

@@ -21,15 +21,17 @@ const ShipmentExportDialog = dynamic(() => import("./components/shipments-import
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { StatsBar } from '../../components/shared/stats-bar';
-import { Card, CardContent, CardTitle } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { Truck, MoreHorizontal, Calendar, User, MapPin, Package, Printer, FileText, Download, Settings } from 'lucide-react';
+import { Truck, MoreHorizontal, Printer, FileText, Download, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { getDeliveryStatusLabel } from '../../lib/constants/order-status-labels';
 import { TouchButton } from '../../components/mobile/touch-button';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '../../components/mobile/mobile-card';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { toast } from 'sonner';
@@ -37,6 +39,7 @@ import { useAuth } from '../../contexts/auth-context';
 import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '../../hooks/use-column-visibility';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
 import { useFilterPresets } from '../../hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 export interface ShipmentsPageProps {
   initialStats?: ShipmentStats;
@@ -286,21 +289,23 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
       const label = getDeliveryStatusLabel(s);
       return ({ 'Đã giao hàng': 'default', 'Đang giao hàng': 'secondary', 'Đang vận chuyển': 'secondary', 'Chờ lấy hàng': 'secondary', 'Chờ giao lại': 'secondary', 'Chưa gửi': 'secondary', 'Hủy vận chuyển': 'destructive', 'Trả hàng': 'destructive', 'Đã hoàn hàng': 'destructive', 'Đã hủy': 'destructive' } as Record<string, 'default' | 'secondary' | 'destructive'>)[label] || 'secondary';
     };
+    const statusLabel = shipment.deliveryStatus ? getDeliveryStatusLabel(shipment.deliveryStatus) : 'Chưa xác định';
     return (
-      <Card className='hover:shadow-md transition-shadow cursor-pointer' onClick={() => handleRowClick(shipment)}>
-        <CardContent className='p-4'>
-          <div className='flex items-center justify-between mb-2'>
-            <div className='flex items-center gap-2 flex-1 min-w-0'>
-              <Avatar className='h-8 w-8 shrink-0 bg-primary/10'><AvatarFallback className='text-xs text-primary'><Truck className='h-4 w-4' /></AvatarFallback></Avatar>
-              <div className='flex items-center gap-1.5 min-w-0 flex-1'>
-                <CardTitle className='font-semibold text-sm truncate'>{shipment.trackingCode || shipment.id}</CardTitle>
-                <span className='text-xs text-muted-foreground'>•</span>
-                <span className='text-xs text-muted-foreground font-mono'>{shipment.orderId}</span>
-              </div>
+      <MobileCard onClick={() => handleRowClick(shipment)}>
+        <MobileCardHeader className='items-start justify-between'>
+          <div className='flex items-start gap-2 min-w-0 flex-1'>
+            <Avatar className='h-10 w-10 shrink-0 bg-primary/10'><AvatarFallback className='text-xs text-primary'><Truck className='h-4 w-4' /></AvatarFallback></Avatar>
+            <div className='min-w-0 flex-1'>
+              <div className='text-xs uppercase tracking-wide text-muted-foreground'>Vận đơn</div>
+              <div className='mt-0.5 text-sm font-semibold text-foreground truncate font-mono'>{shipment.trackingCode || shipment.id}</div>
+              <div className='text-xs text-muted-foreground truncate font-mono'>ĐH: {shipment.orderId}</div>
             </div>
+          </div>
+          <div className='flex items-start gap-1 shrink-0'>
+            <Badge variant={getStatusVariant(shipment.deliveryStatus)} className='text-xs'>{statusLabel}</Badge>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={e => e.stopPropagation()}>
+                <TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 -mr-2 -mt-1' onClick={e => e.stopPropagation()}>
                   <MoreHorizontal className='h-4 w-4' />
                 </TouchButton>
               </DropdownMenuTrigger>
@@ -311,40 +316,43 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className='text-xs text-muted-foreground mb-3 flex items-center'>
-            <User className='h-3 w-3 mr-1.5 shrink-0' />
-            <span className='truncate'>{shipment.customerName}</span>
-          </div>
-          <div className='border-t mb-3' />
-          <div className='space-y-2'>
-            <div className='flex items-center text-xs text-muted-foreground'>
-              <Calendar className='h-3 w-3 mr-1.5 shrink-0' />
-              <span>{formatDate(shipment.createdAt)}</span>
+        </MobileCardHeader>
+        <MobileCardBody>
+          <dl className='grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm'>
+            <div className='col-span-2'>
+              <dt className='text-xs text-muted-foreground'>Khách hàng</dt>
+              <dd className='font-medium truncate'>{shipment.customerName}</dd>
             </div>
-            {shipment.customerAddress && (
-              <div className='flex items-center text-xs text-muted-foreground'>
-                <MapPin className='h-3 w-3 mr-1.5 shrink-0' />
-                <span className='truncate'>{shipment.customerAddress}</span>
-              </div>
-            )}
+            <div>
+              <dt className='text-xs text-muted-foreground'>Ngày tạo</dt>
+              <dd className='font-medium'>{formatDate(shipment.createdAt)}</dd>
+            </div>
             {shipment.carrier && (
-              <div className='flex items-center text-xs text-muted-foreground'>
-                <Package className='h-3 w-3 mr-1.5 shrink-0' />
-                <span>{shipment.carrier}</span>
+              <div>
+                <dt className='text-xs text-muted-foreground'>Đơn vị vận chuyển</dt>
+                <dd className='font-medium truncate'>{shipment.carrier}</dd>
               </div>
             )}
-            <div className='flex items-center justify-between text-xs pt-1'>
-              <span className='text-muted-foreground'>{shipment.branchName}</span>
-              <Badge variant={getStatusVariant(shipment.deliveryStatus)} className='text-xs'>{shipment.deliveryStatus ? getDeliveryStatusLabel(shipment.deliveryStatus) : 'Chưa xác định'}</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            {shipment.branchName && (
+              <div>
+                <dt className='text-xs text-muted-foreground'>Chi nhánh</dt>
+                <dd className='font-medium truncate'>{shipment.branchName}</dd>
+              </div>
+            )}
+            {shipment.customerAddress && (
+              <div className='col-span-2'>
+                <dt className='text-xs text-muted-foreground'>Địa chỉ giao</dt>
+                <dd className='font-medium line-clamp-2'>{shipment.customerAddress}</dd>
+              </div>
+            )}
+          </dl>
+        </MobileCardBody>
+      </MobileCard>
     );
   };
 
   return (
-    <div className='flex flex-col w-full h-full'>
+    <ListPageShell>
       {/* Stats Bar - instant display from Server Component */}
       <StatsBar
         className="mb-4"
@@ -384,7 +392,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
       {isMobile ? (
         <div className={cn('space-y-3 px-1 pb-4', isFetching && !isLoadingShipments && 'opacity-70 transition-opacity')}>
           {shipments.length === 0 ? (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardContent className='py-12 text-center'>
                 <p className='text-muted-foreground'>Không tìm thấy vận đơn</p>
               </CardContent>
@@ -462,6 +470,6 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
           currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }}
         />
       )}
-    </div>
+    </ListPageShell>
   );
 }

@@ -8,7 +8,7 @@ import type { Task, TaskStatus, TaskPriority } from '@/generated/prisma/client';
 import type { ActionResult } from '@/types/action-result';
 import { createTaskSchema, updateTaskSchema } from '@/features/tasks/validation';
 import { logError } from '@/lib/logger'
-import { requireActionPermission, getSessionFromCookie } from '@/lib/api-utils';
+import { requireActionPermission, getSessionFromCookie, type ApiSession, serializeDecimals } from '@/lib/api-utils';
 import { getEffectiveRole } from '@/lib/rbac/get-role';
 import { resolvePermissions } from '@/lib/rbac/resolve-permissions';
 import { notifyTaskAssigned, notifyTaskStatusChanged, notifyTaskCompleted, notifyTaskCreated, notifyTaskApprovalPending } from '@/lib/task-notifications';
@@ -38,6 +38,21 @@ function toStatusEnum(status: string): TaskStatus {
 
 function toPriorityEnum(priority: string): TaskPriority {
   return VIETNAMESE_PRIORITY_TO_ENUM[priority] || priority as TaskPriority;
+}
+
+/** Task.creatorId → Employee.systemId (bắt buộc trong Prisma) */
+function resolveCreatorId(
+  input: { creatorId?: string },
+  session: ApiSession,
+): string | undefined {
+  const fromInput = input.creatorId?.trim()
+  if (fromInput) return fromInput
+  return session.user.employee?.systemId ?? session.user.employeeId
+}
+
+/** Prisma Decimal / Date → số/ISO, để RSC → Client hoặc React Query không lỗi serialize */
+function toClientTask<T extends Task>(task: T): T {
+  return serializeDecimals(task) as T
 }
 
 // ==================== Types ====================
@@ -129,6 +144,18 @@ export async function createTaskAction(input: CreateTaskInput): Promise<ActionRe
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
   }
 
+  const { session } = authResult
+  const creatorId = resolveCreatorId(input, session)
+  if (!creatorId) {
+    return {
+      success: false,
+      error:
+        'Không xác định được người tạo việc: tài khoản chưa gắn nhân viên (employee). Vui lòng liên hệ quản trị hoặc đăng nhập lại.',
+    }
+  }
+
+  const createdByName = input.createdBy?.trim() || getSessionUserName({ user: session.user })
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const systemId = await generateIdWithPrefix('CV', tx);
@@ -149,13 +176,13 @@ export async function createTaskAction(input: CreateTaskInput): Promise<ActionRe
           assignerId: input.assignerId,
           assignerName: input.assignerName,
           assignees: input.assignees as unknown as undefined,
-          creatorId: input.creatorId,
+          creatorId,
           estimatedHours: input.estimatedHours,
           tags: input.tags || [],
           subtasks: input.subtasks as unknown as undefined,
           requiresEvidence: input.requiresEvidence ?? false,
           boardId: input.boardId || null,
-          createdBy: input.createdBy,
+          createdBy: createdByName,
           isDeleted: false,
         },
       });
@@ -201,7 +228,7 @@ export async function createTaskAction(input: CreateTaskInput): Promise<ActionRe
       dueDate: result.dueDate,
     }).catch(() => {});
 
-    return { success: true, data: result };
+    return { success: true, data: toClientTask(result) };
   } catch (error) {
     logError('Error creating task', error);
     return {
@@ -354,7 +381,7 @@ export async function updateTaskAction(input: UpdateTaskInput): Promise<ActionRe
       }
     }).catch(e => logError('[ActivityLog] task update failed', e))
 
-    return { success: true, data: task };
+    return { success: true, data: toClientTask(task) };
   } catch (error) {
     logError('Error updating task', error);
     return {
@@ -401,7 +428,7 @@ export async function deleteTaskAction(systemId: string): Promise<ActionResult<T
       }
     }).catch(e => logError('[ActivityLog] task delete failed', e))
 
-    return { success: true, data: task };
+    return { success: true, data: toClientTask(task) };
   } catch (error) {
     logError('Error deleting task', error);
     return {
@@ -448,7 +475,7 @@ export async function restoreTaskAction(systemId: string): Promise<ActionResult<
       }
     }).catch(e => logError('[ActivityLog] task restore failed', e))
 
-    return { success: true, data: task };
+    return { success: true, data: toClientTask(task) };
   } catch (error) {
     logError('Error restoring task', error);
     return {
@@ -534,7 +561,7 @@ export async function updateTaskStatusAction(
       }
     }).catch(e => logError('[ActivityLog] task status update failed', e))
 
-    return { success: true, data: task };
+    return { success: true, data: toClientTask(task) };
   } catch (error) {
     logError('Error updating task status', error);
     return {
@@ -610,7 +637,7 @@ export async function addTaskCommentAction(
       }
     }).catch(e => logError('[ActivityLog] task comment failed', e))
 
-    return { success: true, data: task };
+    return { success: true, data: toClientTask(task) };
   } catch (error) {
     logError('Error adding comment', error);
     return {
@@ -684,7 +711,7 @@ export async function toggleTaskTimerAction(
       }
     }).catch(e => logError('[ActivityLog] task timer toggle failed', e))
 
-    return { success: true, data: task };
+    return { success: true, data: toClientTask(task) };
   } catch (error) {
     logError('Error toggling timer', error);
     return {

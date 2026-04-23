@@ -6,7 +6,8 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,8 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Truck, ExternalLink, Store, Clock, Package, Edit2, Info } from 'lucide-react';
+import { Truck, ExternalLink, Store, Clock, Package, Edit2, Info, ChevronDown, Check } from 'lucide-react';
 import { ShippingPartnerSelector } from './shipping-partner-selector';
 import { ServiceConfigForm } from './service-config-form';
 import { cn } from '@/lib/utils'; // ✅ Import cn utility
@@ -184,6 +186,23 @@ export function DeliveryMethodCard({
     }
   };
 
+  // Delivery-method picker config for both desktop tabs & mobile bottom-sheet.
+  const methodOptions: Array<{
+    value: DeliveryMethod;
+    Icon: React.ComponentType<{ className?: string }>;
+    short: string;
+    full: string;
+    disabled?: boolean;
+  }> = [
+    { value: 'shipping-partner', Icon: Truck, short: 'Hãng VC', full: 'Đẩy qua hãng vận chuyển' },
+    { value: 'external', Icon: ExternalLink, short: 'VC ngoài', full: 'Đẩy vận chuyển ngoài', disabled: true },
+    { value: 'pickup', Icon: Store, short: 'Tại cửa', full: 'Khách nhận tại cửa hàng' },
+    { value: 'deliver-later', Icon: Clock, short: 'Giao sau', full: 'Giao hàng sau' },
+  ];
+  const [mobilePickerOpen, setMobilePickerOpen] = React.useState(false);
+  const activeMethod = methodOptions.find((m) => m.value === selectedMethod) ?? methodOptions[0];
+  const ActiveIcon = activeMethod.Icon;
+
   return (
     <Tabs
       value={selectedMethod}
@@ -192,24 +211,86 @@ export function DeliveryMethodCard({
     >
       {/* Conditionally hide tabs if hideTabs is true */}
       {!hideTabs && (
-        <TabsList className="grid w-full grid-cols-4 h-auto">
-          <TabsTrigger value="shipping-partner" className="flex items-center gap-2 py-3">
-            <Truck className="h-4 w-4" />
-            <span>Đẩy qua hãng vận chuyển</span>
-          </TabsTrigger>
-          <TabsTrigger value="external" className="flex items-center gap-2 py-3" disabled>
-            <ExternalLink className="h-4 w-4" />
-            <span>Đẩy vận chuyển ngoài</span>
-          </TabsTrigger>
-          <TabsTrigger value="pickup" className="flex items-center gap-2 py-3">
-            <Store className="h-4 w-4" />
-            <span>Khách nhận tại cửa hàng</span>
-          </TabsTrigger>
-          <TabsTrigger value="deliver-later" className="flex items-center gap-2 py-3">
-            <Clock className="h-4 w-4" />
-            <span>Giao hàng sau</span>
-          </TabsTrigger>
-        </TabsList>
+        <>
+          {/* Desktop: 4 tabs inline */}
+          <div className="hidden md:block">
+            <MobileTabsList>
+              {methodOptions.map(({ value, Icon, full, disabled }) => (
+                <MobileTabsTrigger key={value} value={value} disabled={disabled}>
+                  <Icon className="h-4 w-4" />
+                  <span>{full}</span>
+                </MobileTabsTrigger>
+              ))}
+            </MobileTabsList>
+          </div>
+
+          {/* Mobile: single picker button opens a bottom sheet */}
+          <div className="md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobilePickerOpen(true)}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-accent/40"
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
+                  <ActiveIcon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex flex-col">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Phương thức giao hàng</span>
+                  <span className="text-sm font-medium truncate">{activeMethod.full}</span>
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+
+            <Sheet open={mobilePickerOpen} onOpenChange={setMobilePickerOpen}>
+              <SheetContent side="bottom" className="rounded-t-2xl p-0 pb-4">
+                <SheetHeader className="px-4 py-3 border-b">
+                  <SheetTitle className="text-base">Chọn phương thức giao hàng</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Chọn cách giao hàng cho đơn này
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="px-2 py-2">
+                  {methodOptions.map(({ value, Icon, full, disabled }) => {
+                    const isActive = value === selectedMethod;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          onMethodChange(value);
+                          setMobilePickerOpen(false);
+                        }}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors',
+                          'hover:bg-accent/60 active:bg-accent',
+                          'disabled:opacity-50 disabled:cursor-not-allowed',
+                          isActive && 'bg-primary/5'
+                        )}
+                      >
+                        <span className={cn(
+                          'flex h-9 w-9 items-center justify-center rounded-md shrink-0',
+                          isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                        )}>
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium">{full}</span>
+                          {disabled && (
+                            <span className="block text-xs text-muted-foreground">(Sắp ra mắt)</span>
+                          )}
+                        </span>
+                        {isActive && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </>
       )}
 
       {/* Tab 1: Shipping Partner */}
@@ -522,7 +603,7 @@ export function DeliveryMethodCard({
 
       {/* ✅ Preview API Data Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>📤 Dữ liệu sẽ gửi lên Server API</DialogTitle>
             <DialogDescription>

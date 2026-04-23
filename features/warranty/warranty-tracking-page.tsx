@@ -27,6 +27,7 @@ import {
 } from './tracking-utils';
 import { usePublicTracking } from './hooks/use-public-tracking';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Lazy load ImagePreviewDialog
 const ImagePreviewDialog = React.lazy(() =>
   import('../../components/ui/image-preview-dialog').then(module => ({
@@ -436,7 +437,7 @@ function ImageGalleryCard({ title, images, onImageClick }: {
   if (!images || images.length === 0) return null;
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
         <CardTitle className="text-base sm:text-lg">
           {title} ({images.length})
@@ -505,7 +506,7 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
   const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
         <CardTitle className="text-base sm:text-lg">Tổng kết bảo hành & Thanh toán</CardTitle>
       </CardHeader>
@@ -712,7 +713,7 @@ function PublicCommentsSection({
   }
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="px-4 pt-4 pb-3 md:px-6 md:pt-6">
         <CardTitle className="text-base sm:text-lg">Bình luận</CardTitle>
       </CardHeader>
@@ -951,7 +952,7 @@ export function WarrantyTrackingPage() {
         <div className="grid gap-4 md:gap-6">
 
           {/* Card: Thông tin phiếu bảo hành */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
               <CardTitle className="text-base sm:text-lg">
                 Thông tin phiếu bảo hành
@@ -1084,7 +1085,7 @@ export function WarrantyTrackingPage() {
 
           {/* Card: Danh sách sản phẩm bảo hành */}
           {settings.showProductList && (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
                 <CardTitle className="text-base sm:text-lg">
                   Danh sách sản phẩm bảo hành
@@ -1129,7 +1130,7 @@ export function WarrantyTrackingPage() {
 
           {/* Card: Lịch sử thao tác */}
           {settings.showHistory && settings.showTimeline && (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="px-4 pt-4 pb-3 md:px-6 md:pt-6">
                 <CardTitle className="text-base sm:text-lg">Lịch sử thao tác</CardTitle>
               </CardHeader>

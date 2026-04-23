@@ -11,7 +11,8 @@ import { Button } from '../../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../../components/ui/sheet';
 import { ScrollArea } from '../../../components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../components/layout/page-section';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
 import { PageFilters } from '../../../components/layout/page-filters';
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
@@ -533,16 +534,16 @@ export function SystemLogsPage() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="activity" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="activity" className="gap-2">
+        <MobileTabsList className="mb-4">
+          <MobileTabsTrigger value="activity" className="gap-2">
             <History className="h-4 w-4" />
             Hoạt động
-          </TabsTrigger>
-          <TabsTrigger value="import-export" className="gap-2">
+          </MobileTabsTrigger>
+          <MobileTabsTrigger value="import-export" className="gap-2">
             <Upload className="h-4 w-4" />
             Import / Export
-          </TabsTrigger>
-        </TabsList>
+          </MobileTabsTrigger>
+        </MobileTabsList>
         
         <TabsContent value="activity">
       <Card>

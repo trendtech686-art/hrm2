@@ -10,6 +10,10 @@ import { useIdlePreload } from '@/hooks/use-route-prefetch'
 import { useCaptureQueryClient } from '@/features/settings/printer/hooks/use-print-template-config'
 import { Toaster } from '@/components/ui/sonner'
 import { getQueryClient } from '@/lib/query-client'
+import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
+import { PWAInstallPrompt } from '@/components/pwa/pwa-install-prompt'
+import { NotificationPermissionPrompt } from '@/components/pwa/notification-permission-prompt'
+import { OfflineQueueIndicator } from '@/components/pwa/offline-queue-indicator'
 
 
 
@@ -36,7 +40,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 <PageHeaderProvider>
                   <RoutePrefetcher />
                   <PrintTemplateConfigBridge />
+                  <ServiceWorkerRegister />
                   {children}
+                  <PWAInstallPrompt />
+                  <NotificationPermissionPrompt />
+                  <OfflineQueueIndicator />
                   <Toaster />
                 </PageHeaderProvider>
             </LegacyAuthProvider>

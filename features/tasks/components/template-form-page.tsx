@@ -8,6 +8,7 @@ import { usePageHeader } from '@/contexts/page-header-context';
 import type { TemplateCategory } from '../template-types';
 import type { TaskPriority } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -213,9 +214,9 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <FormPageShell gap="lg">
       {/* Section 1: Thông tin cơ bản */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Thông tin cơ bản</CardTitle>
         </CardHeader>
@@ -306,7 +307,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
       </Card>
 
       {/* Section 2: Vai trò người thực hiện */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Vai trò người thực hiện</CardTitle>
@@ -356,7 +357,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
       </Card>
 
       {/* Section 3: Công việc con */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Công việc con</CardTitle>
@@ -412,7 +413,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
       </Card>
 
       {/* Section 4: Checklist */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Checklist</CardTitle>
@@ -447,6 +448,6 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
           )}
         </CardContent>
       </Card>
-    </div>
+    </FormPageShell>
   );
 }

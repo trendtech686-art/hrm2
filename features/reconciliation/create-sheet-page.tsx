@@ -18,6 +18,7 @@ import { ROUTES } from '@/lib/router'
 import { formatCurrency } from '@/lib/format-utils'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { ShipmentSelectionDialog } from './components/shipment-selection-dialog'
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface SheetItem extends CreateSheetItemInput {
   _tempId: string
@@ -216,7 +217,7 @@ export function CreateReconciliationSheetPage() {
     <div className="space-y-6">
       {/* Form header section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle size="sm">Thông tin chung</CardTitle>
           </CardHeader>
@@ -247,7 +248,7 @@ export function CreateReconciliationSheetPage() {
         </Card>
 
         {/* Totals summary */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle size="sm">Tổng hợp</CardTitle>
           </CardHeader>
@@ -294,7 +295,7 @@ export function CreateReconciliationSheetPage() {
       </div>
 
       {/* Items table */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <CardTitle size="sm">Danh sách vận đơn</CardTitle>
         </CardHeader>

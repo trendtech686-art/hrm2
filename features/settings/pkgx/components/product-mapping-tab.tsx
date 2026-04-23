@@ -6,7 +6,8 @@ import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
 import { Checkbox } from '../../../../components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../../components/layout/page-section';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -2195,20 +2196,20 @@ export function ProductMappingTab() {
             
             {/* Tabs - PKGX Products and Linked/Mapping */}
             <Tabs defaultValue="pkgx-products" className="w-full">
-              <TabsList>
-                <TabsTrigger value="pkgx-products">
+              <MobileTabsList>
+                <MobileTabsTrigger value="pkgx-products">
                   <Package className="h-4 w-4 mr-2" />
                   Sản phẩm PKGX ({pkgxTotalCount})
-                </TabsTrigger>
-                <TabsTrigger value="linked">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="linked">
                   <Link className="h-4 w-4 mr-2" />
                   Đã liên kết ({linkedCount})
-                </TabsTrigger>
-                <TabsTrigger value="unlinked">
+                </MobileTabsTrigger>
+                <MobileTabsTrigger value="unlinked">
                   <Unlink className="h-4 w-4 mr-2" />
                   Chưa liên kết ({productStats?.unlinked ?? 0})
-                </TabsTrigger>
-              </TabsList>
+                </MobileTabsTrigger>
+              </MobileTabsList>
               
               <TabsContent value="pkgx-products" className="mt-4">
                 {/* Warning if not enabled */}

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useFormContext, useWatch, Controller } from 'react-hook-form';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -419,7 +420,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
       <div className="flex flex-col md:flex-row gap-4 items-start">
         {/* Left: Ghi chú và Tags */}
         <div className="grow-6 w-full md:w-0 space-y-4">
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Ghi chú đơn hàng</CardTitle>
             </CardHeader>
@@ -443,7 +444,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Tags</CardTitle>
             </CardHeader>
@@ -469,7 +470,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
 
         {/* Right: Thanh toán */}
         <div className="grow-4 w-full md:w-0">
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Thanh toán</CardTitle>
             </CardHeader>
@@ -559,7 +560,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
       </div>
 
       {/* Row 6: Thanh toán - LUÔN HIỂN THỊ */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>
             {finalAmount < 0

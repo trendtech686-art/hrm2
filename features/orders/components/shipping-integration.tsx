@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Product, Branch, Customer } from '@/lib/types/prisma-extended';
 import { logError } from '@/lib/logger'
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Type for line items in shipping integration
 interface ShippingLineItem {
   productSystemId: string;
@@ -1215,7 +1216,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
         />
       ) : (
         // ✅ When hideTabs is false (in order form page), wrap in Card
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Giao hàng</CardTitle>
           </CardHeader>

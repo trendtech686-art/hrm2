@@ -2,6 +2,7 @@
 import { useFormContext, useWatch } from 'react-hook-form';
 import { X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
@@ -38,7 +39,7 @@ export function OrderTags({ disabled = false }: OrderTagsProps) {
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Tags</CardTitle>
       </CardHeader>

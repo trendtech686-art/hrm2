@@ -9,7 +9,8 @@ import { DialogFooter } from "../../../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { CurrencyInput } from "../../../components/ui/currency-input";
 import { Textarea } from "../../../components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Tabs, TabsContent } from "../../../components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from "../../../components/layout/page-section";
 import { Card, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Checkbox } from "../../../components/ui/checkbox";
@@ -109,20 +110,20 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel, isPending
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="basic" className="flex items-center gap-2">
+          <MobileTabsList className="mb-4">
+            <MobileTabsTrigger value="basic">
               <Info className="h-4 w-4" />
               Thông tin cơ bản
-            </TabsTrigger>
-            <TabsTrigger value="calculation" className="flex items-center gap-2">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="calculation">
               <Calculator className="h-4 w-4" />
               Tính toán
-            </TabsTrigger>
-            <TabsTrigger value="scope" className="flex items-center gap-2">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="scope">
               <Building2 className="h-4 w-4" />
               Phạm vi áp dụng
-            </TabsTrigger>
-          </TabsList>
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           {/* Tab 1: Thông tin cơ bản */}
           <TabsContent value="basic" className="space-y-4 mt-0">

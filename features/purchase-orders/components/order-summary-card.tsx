@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
+import { mobileBleedCardClass } from "@/components/layout/page-section";
 import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
 import { CurrencyInput } from "../../../components/ui/currency-input";
@@ -198,7 +199,7 @@ export function OrderSummaryCard({
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Chi phí nhập hàng</CardTitle>
       </CardHeader>

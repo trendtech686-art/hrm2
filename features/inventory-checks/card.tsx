@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { MobileCard } from '../../components/mobile/mobile-card';
 import { formatDateCustom } from '../../lib/date-utils';
 
 type CardProps = {
@@ -27,7 +28,7 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
     : 'destructive';
   
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation">
+    <MobileCard inert>
       <div className="flex items-start justify-between">
         <div>
           <div className="text-sm font-medium">{item.id}</div>
@@ -55,6 +56,6 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
           </Button>
         )}
       </div>
-    </div>
+    </MobileCard>
   );
 }

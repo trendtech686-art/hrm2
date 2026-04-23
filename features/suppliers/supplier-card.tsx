@@ -4,6 +4,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { MoreHorizontal, Phone, Mail, MapPin, User, CreditCard, RotateCcw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { MobileCard } from '../../components/mobile/mobile-card';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import type { SystemId } from '@/lib/id-types';
 
@@ -26,9 +27,10 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
   };
 
   return (
-    <div 
-      className={isDeleted ? "rounded-xl border border-border/50 bg-muted/50 p-4 opacity-60" : "rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"}
+    <MobileCard
+      inert={isDeleted}
       onClick={handleCardClick}
+      className={isDeleted ? "bg-muted/50 opacity-60" : undefined}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -185,6 +187,6 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
           )}
         </div>
       )}
-    </div>
+    </MobileCard>
   );
 }

@@ -2,15 +2,26 @@ import * as React from "react"
 
 import { cn } from "../../lib/utils"
 
+/**
+ * Table — shadcn Table primitive.
+ *
+ * Wrap trong div `overflow-x-auto` để mobile tự scroll ngang khi table rộng
+ * hơn viewport (tránh bị cắt cột). Desktop không ảnh hưởng vì chỉ scroll khi
+ * content tràn.
+ *
+ * Pattern chuẩn shadcn: `<div class="relative w-full overflow-x-auto"><table/></div>`.
+ */
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
+  <div className="relative w-full overflow-x-auto [scrollbar-width:thin]">
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
       {...props}
     />
+  </div>
 ))
 Table.displayName = "Table"
 

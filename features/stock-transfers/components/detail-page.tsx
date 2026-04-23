@@ -26,6 +26,8 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DetailField } from '@/components/ui/detail-field';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import { 
@@ -352,11 +354,11 @@ export function StockTransferDetailPage() {
   }, 0);
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Row 1: 3 columns - Thông tin chuyển kho + Thông tin xử lý + Quy trình */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Column 1: Thông tin chuyển kho */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle size="lg">Thông tin chuyển kho</CardTitle>
           </CardHeader>
@@ -387,7 +389,7 @@ export function StockTransferDetailPage() {
         </Card>
 
         {/* Column 2: Thông tin xử lý */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle size="lg">Thông tin xử lý</CardTitle>
           </CardHeader>
@@ -433,12 +435,12 @@ export function StockTransferDetailPage() {
       </div>
 
       {/* Product List - Full Width */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle size="lg">Danh sách sản phẩm ({transferData.items.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -563,9 +565,121 @@ export function StockTransferDetailPage() {
                   </TableBody>
                 </Table>
               </div>
-              
+
+              {/* Mobile: card stack */}
+              <div className="md:hidden space-y-3">
+                {transferData.items.map((item, index) => {
+                  const product = findProductById(item.productSystemId);
+                  const productTypeName = product?.productTypeSystemId
+                    ? getProductTypeName(product.productTypeSystemId)
+                    : 'Hàng hóa';
+                  const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  const currentFromStock = product?.inventoryByBranch?.[transferData.fromBranchSystemId] || 0;
+                  const currentToStock = product?.inventoryByBranch?.[transferData.toBranchSystemId] || 0;
+                  const unitPrice = product?.costPrice || 0;
+                  const lineTotal = item.quantity * unitPrice;
+                  const receivedQty = item.receivedQuantity ?? item.quantity;
+                  let fromBefore: number, fromAfter: number, toBefore: number, toAfter: number;
+
+                  if (transferData.status === 'completed') {
+                    fromAfter = currentFromStock;
+                    fromBefore = currentFromStock + item.quantity;
+                    toAfter = currentToStock;
+                    toBefore = currentToStock - receivedQty;
+                  } else if (transferData.status === 'transferring') {
+                    fromAfter = currentFromStock;
+                    fromBefore = currentFromStock + item.quantity;
+                    toBefore = currentToStock;
+                    toAfter = currentToStock + item.quantity;
+                  } else {
+                    fromBefore = currentFromStock;
+                    fromAfter = currentFromStock - item.quantity;
+                    toBefore = currentToStock;
+                    toAfter = currentToStock + item.quantity;
+                  }
+
+                  return (
+                    <MobileCard key={index} inert>
+                      <MobileCardHeader className="items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          {imageUrl ? (
+                            <button
+                              type="button"
+                              className="shrink-0 w-12 h-12 rounded border overflow-hidden bg-muted"
+                              onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                            >
+                              <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover" width={48} height={48} />
+                            </button>
+                          ) : (
+                            <div className="shrink-0 w-12 h-12 bg-muted rounded flex items-center justify-center">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs text-muted-foreground">#{index + 1}</div>
+                            <Link
+                              href={`/products/${item.productSystemId}`}
+                              className="mt-0.5 block text-sm font-semibold text-primary hover:underline line-clamp-2"
+                            >
+                              {item.productName}
+                            </Link>
+                            <p className="mt-0.5 text-xs text-muted-foreground truncate">{item.productId}</p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-xs uppercase tracking-wide text-muted-foreground">SL chuyển</div>
+                          <div className="mt-0.5 text-sm font-semibold">{item.quantity}</div>
+                          {transferData.status === 'completed' && (
+                            <div className="mt-1 text-xs text-muted-foreground">Nhận: {receivedQty}</div>
+                          )}
+                        </div>
+                      </MobileCardHeader>
+                      <MobileCardBody>
+                        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                          <div>
+                            <dt className="text-xs text-muted-foreground">Loại SP</dt>
+                            <dd className="font-medium truncate">{productTypeName}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-muted-foreground">Đơn giá</dt>
+                            <dd className="font-medium">{formatCurrency(unitPrice)}</dd>
+                          </div>
+                          <div className="col-span-2">
+                            <dt className="text-xs text-muted-foreground">
+                              {transferData.fromBranchName} (Trước → Sau)
+                            </dt>
+                            <dd className="font-medium">
+                              <span className="text-muted-foreground">{fromBefore}</span>
+                              <span className="mx-1">→</span>
+                              <span className="text-red-600">{fromAfter}</span>
+                            </dd>
+                          </div>
+                          <div className="col-span-2">
+                            <dt className="text-xs text-muted-foreground">
+                              {transferData.toBranchName} (Trước → Sau)
+                            </dt>
+                            <dd className="font-medium">
+                              <span className="text-muted-foreground">{toBefore}</span>
+                              <span className="mx-1">→</span>
+                              <span className="text-green-600">{toAfter}</span>
+                            </dd>
+                          </div>
+                          <div className="col-span-2">
+                            <dt className="text-xs text-muted-foreground">Thành tiền</dt>
+                            <dd className="font-semibold">{formatCurrency(lineTotal)}</dd>
+                          </div>
+                        </dl>
+                        {item.note && (
+                          <p className="mt-3 text-xs italic text-muted-foreground">• {item.note}</p>
+                        )}
+                      </MobileCardBody>
+                    </MobileCard>
+                  );
+                })}
+              </div>
+
               <Separator className="my-4" />
-              
+
               <div className="flex justify-end">
                 <div className="text-right space-y-1">
                   <p className="text-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
@@ -617,7 +731,7 @@ export function StockTransferDetailPage() {
 
       {/* Confirm Receive Dialog */}
       <Dialog open={confirmReceiveOpen} onOpenChange={setConfirmReceiveOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent mobileFullScreen className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Xác nhận nhận hàng vào kho</DialogTitle>
             <DialogDescription>
@@ -716,6 +830,6 @@ export function StockTransferDetailPage() {
         onOpenChange={(open) => !open && setPreviewImage(null)}
         title={previewImage?.title}
       />
-    </div>
+    </DetailPageShell>
   );
 }

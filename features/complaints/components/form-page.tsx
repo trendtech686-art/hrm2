@@ -27,6 +27,7 @@ import { Package, Eye, Loader2 } from 'lucide-react';
 import { useComplaintsSettings } from "@/features/settings/complaints/hooks/use-complaints-settings";
 
 // UI Components
+import { FormPageShell, mobileBleedCardClass } from "@/components/layout/page-section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -893,10 +894,10 @@ export function ComplaintFormPage() {
   });
   
   return (
-    <div className="w-full h-full">
+    <FormPageShell className="w-full h-full">
       <form onSubmit={onSubmit} className="space-y-6" data-complaint-form>
         {/* Main Form Card */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>
               {isEditing ? "Chỉnh sửa khiếu nại" : "Tạo khiếu nại mới"}
@@ -950,7 +951,7 @@ export function ComplaintFormPage() {
         {selectedOrder && orderEntity && (() => {
           const order = orderEntity;
           return (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Thông tin đơn hàng</CardTitle>
               </CardHeader>
@@ -1040,7 +1041,7 @@ export function ComplaintFormPage() {
 
         {/* Card: Thông tin khách hàng — style giống order detail page */}
         {selectedOrder && customerSystemId && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Thông tin khách hàng</CardTitle>
             </CardHeader>
@@ -1189,7 +1190,7 @@ export function ComplaintFormPage() {
           };
           
           return (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Sản phẩm bị ảnh hưởng</CardTitle>
                 <p className="text-xs text-muted-foreground">
@@ -1454,7 +1455,7 @@ export function ComplaintFormPage() {
 
         {/* Card: Tổng kết sản phẩm */}
         {affectedProducts.length > 0 && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
             </CardHeader>
@@ -1551,7 +1552,7 @@ export function ComplaintFormPage() {
         )}
 
         {/* Card: Thông tin khiếu nại */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Thông tin khiếu nại</CardTitle>
           </CardHeader>
@@ -1676,6 +1677,6 @@ export function ComplaintFormPage() {
         open={previewState.open}
         onOpenChange={(open) => setPreviewState(prev => ({ ...prev, open }))}
       />
-    </div>
+    </FormPageShell>
   );
 }

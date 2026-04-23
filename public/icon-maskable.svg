@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ERP">
+  <rect width="512" height="512" fill="#09090b"/>
+  <g transform="translate(144 144)" fill="none" stroke="#fafafa" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="30" width="212" height="168" rx="16"/>
+    <path d="M6 80h212"/>
+    <circle cx="32" cy="55" r="6" fill="#fafafa"/>
+    <circle cx="56" cy="55" r="6" fill="#fafafa"/>
+    <circle cx="80" cy="55" r="6" fill="#fafafa"/>
+    <path d="M34 112h48M34 140h72M34 168h60"/>
+    <path d="M144 118l24 24 42-48" stroke="#22c55e" stroke-width="22"/>
+  </g>
+</svg>

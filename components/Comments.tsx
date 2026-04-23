@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { MessageSquare, Reply, Send, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { mobileBleedCardClass } from './layout/page-section';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCommentDraft } from '@/hooks/use-comment-draft';
@@ -402,9 +403,9 @@ export function Comments<
   };
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className={cn(mobileBleedCardClass, className)}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
           <MessageSquare className="h-4 w-4" />
           {title}
           <Badge variant="secondary" className="ml-auto">

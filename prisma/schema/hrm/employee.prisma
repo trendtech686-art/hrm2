@@ -89,6 +89,7 @@ model Employee {
   assignedPackagings                Packaging[]
   notificationsReceived             Notification[]     @relation("NotificationRecipient")
   notificationsSent                 Notification[]     @relation("NotificationSender")
+  pushSubscriptions                 PushSubscription[] @relation("PushSubscriptionOwner")
 
   @@index([branchId])
   @@index([departmentId])

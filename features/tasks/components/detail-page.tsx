@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { formatDate, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -362,7 +364,7 @@ export function TaskDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <Skeleton className="h-8 w-1/3" />
           </CardHeader>
@@ -390,10 +392,10 @@ export function TaskDetailPage() {
   const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
 
   return (
-    <div className="space-y-4">
+    <DetailPageShell gap="md">
       {/* Completion Action Card - shown at the very top */}
       {isAssignee && task.status === 'Đang thực hiện' && !task.completionEvidence && task.approvalStatus !== 'pending' && (
-        <Card className="border-2 border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20">
+        <Card className={cn("border-2 border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20", mobileBleedCardClass)}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
@@ -416,7 +418,7 @@ export function TaskDetailPage() {
 
       {/* Rejection + Resubmit Card */}
       {isAssignee && task.approvalStatus === 'rejected' && task.rejectionReason && (
-        <Card className="border-2 border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-950/20">
+        <Card className={cn("border-2 border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-950/20", mobileBleedCardClass)}>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 mt-0.5 text-destructive shrink-0" />
@@ -442,7 +444,7 @@ export function TaskDetailPage() {
         />
       )}
 
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-4 md:pt-6 space-y-6">
           {/* Progress */}
           <div>
@@ -739,7 +741,7 @@ export function TaskDetailPage() {
       <EntityActivityTable entityType="task" entityId={task.systemId} />
 
       {/* Metadata Section */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle size="default">Thông tin hệ thống</CardTitle>
         </CardHeader>
@@ -823,6 +825,6 @@ export function TaskDetailPage() {
           onSubmit={handleCompleteTask}
         />
       )}
-    </div>
+    </DetailPageShell>
   );
 }

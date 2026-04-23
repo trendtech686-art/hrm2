@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { WarrantyProduct } from '../../types';
 import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface WarrantySummaryCardProps {
   products: WarrantyProduct[];
@@ -109,7 +110,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
       : 'text-base font-bold';
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Thanh toán</CardTitle>
       </CardHeader>

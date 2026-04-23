@@ -57,11 +57,17 @@ export async function deletePenalty(systemId: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete');
 }
 
-// Penalty Types
+// Penalty Types — cần all=true mới trả mảng phẳng; không thì API trả { data, pagination }.
 export async function fetchPenaltyTypes(): Promise<PenaltyType[]> {
-  const res = await fetch(`${BASE_URL}/types`);
+  const res = await fetch(`${BASE_URL}/types?all=true`);
   if (!res.ok) throw new Error('Failed to fetch');
-  return res.json();
+  const json: unknown = await res.json();
+  if (Array.isArray(json)) return json as PenaltyType[];
+  if (json && typeof json === 'object' && 'data' in json) {
+    const d = (json as { data: unknown }).data;
+    if (Array.isArray(d)) return d as PenaltyType[];
+  }
+  return [];
 }
 
 export async function createPenaltyType(data: Partial<PenaltyType>): Promise<PenaltyType> {

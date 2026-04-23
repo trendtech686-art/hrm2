@@ -248,9 +248,12 @@ export function usePageHeader(config?: PageHeaderState) {
 
   React.useEffect(() => {
     const currentConfig = configRef.current;
-    if (currentConfig) {
-      setPageHeader(currentConfig);
+    if (!currentConfig) {
+      // Không đăng ký clearPageHeader khi hook chỉ dùng để lấy setPageHeader thủ công — tránh
+      // Strict Mode (unmount/remount) hoặc unmount xóa header mà component con vừa set.
+      return;
     }
+    setPageHeader(currentConfig);
     return () => clearPageHeader();
   }, [configFingerprint, setPageHeader, clearPageHeader]);
 

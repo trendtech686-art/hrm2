@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, CashAccountType } from '../../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { randomUUID } from 'crypto';
+import { getDefaultBranchForSeed, loadStoreInfo } from './lib/read-db-settings';
 
 const connectionString = process.env.DATABASE_URL!;
 const adapter = new PrismaPg({ connectionString });
@@ -65,7 +66,7 @@ export async function seedPaymentSettings() {
     for (const item of paymentTypes) {
       await prisma.settingsData.upsert({
         where: { id_type: { id: item.id, type: 'payment-type' } },
-        update: { name: item.name, description: item.description, isDefault: item.isDefault, metadata: item.metadata },
+        update: { isDefault: item.isDefault, isActive: true },
         create: {
           systemId: randomUUID(),
           id: item.id,
@@ -93,7 +94,7 @@ export async function seedPaymentSettings() {
     for (const item of targetGroups) {
       await prisma.settingsData.upsert({
         where: { id_type: { id: item.id, type: 'target-group' } },
-        update: { name: item.name, description: item.description, isDefault: item.isDefault },
+        update: { isDefault: item.isDefault, isActive: true },
         create: {
           systemId: randomUUID(),
           id: item.id,
@@ -130,12 +131,7 @@ export async function seedPaymentSettings() {
       }
       await prisma.paymentMethod.upsert({
         where: { id: item.id },
-        update: {
-          name: item.name,
-          description: item.description,
-          isDefault: item.isDefault,
-          isActive: true,
-        },
+        update: { isDefault: item.isDefault, isActive: true },
         create: {
           systemId: randomUUID(),
           id: item.id,
@@ -212,16 +208,42 @@ export async function seedPaymentSettings() {
           accountType: item.accountType === CashAccountType.CASH ? 'cash' : item.accountType === CashAccountType.WALLET ? 'wallet' : 'bank',
         },
         update: {
-          name: item.name,
-          type: item.accountType,
+          isDefault: item.isDefault,
           isActive: true,
-          bankName: item.bankName ?? null,
-          bankAccountNumber: item.bankAccountNumber ?? null,
-          accountType: item.accountType === CashAccountType.CASH ? 'cash' : item.accountType === CashAccountType.WALLET ? 'wallet' : 'bank',
         },
       });
     }
     console.log(`  ✓ Upserted ${cashAccountSeed.length} cash accounts`);
+
+    // Đồng bộ TK ngân hàng mẫu (CA-002) với Cài đặt > Cửa hàng (nếu đã khai báo)
+    const store = await loadStoreInfo(prisma);
+    const branch = await getDefaultBranchForSeed(prisma);
+    const bankName = String(store?.bankName ?? '').trim();
+    const bankNo = String(store?.bankAccountNumber ?? '').trim();
+    if (bankName && bankNo) {
+      const holder = String(store?.bankAccountName ?? '').trim() || null;
+      try {
+        await prisma.cashAccount.update({
+          where: { id: 'CA-002' },
+          data: {
+            name: `Ngân hàng ${bankName}`,
+            bankName,
+            bankAccountNumber: bankNo,
+            accountHolder: holder,
+            ...(branch ? { branchSystemId: branch.systemId } : {}),
+          },
+        });
+        console.log('  ✓ CA-002 đồng bộ từ Cài đặt > Thông tin cửa hàng (ngân hàng / STK)');
+      } catch {
+        /* bản ghi chưa có khi chạy lệch thứ tự */
+      }
+    }
+    if (branch) {
+      await prisma.cashAccount.updateMany({
+        where: { id: 'CA-001', branchSystemId: null },
+        data: { branchSystemId: branch.systemId },
+      });
+    }
 
     console.log('✅ Payment settings seeded successfully!');
   } catch (error) {

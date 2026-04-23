@@ -31,6 +31,8 @@ import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card
 import type { Subtask } from '../../components/shared/subtask-list';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import { useComments } from '../../hooks/use-comments';
@@ -309,9 +311,9 @@ export function SalesReturnDetailPage() {
     }
 
     return (
-        <div className="space-y-4 md:space-y-6">
+        <DetailPageShell gap="lg">
             {/* Status Card */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3">
                         <Badge variant="secondary" className="text-sm">Đã hoàn thành</Badge>
@@ -326,7 +328,7 @@ export function SalesReturnDetailPage() {
             {/* Main Info Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                 {/* Left Column - Customer & Order Info - 40% */}
-                <Card className="lg:col-span-4">
+                <Card className={cn("lg:col-span-4", mobileBleedCardClass)}>
                     <CardHeader>
                         <CardTitle>Thông tin trả hàng</CardTitle>
                     </CardHeader>
@@ -387,7 +389,7 @@ export function SalesReturnDetailPage() {
                 </Card>
 
                 {/* Middle Column - Financial Summary - 30% */}
-                <Card className="lg:col-span-3">
+                <Card className={cn("lg:col-span-3", mobileBleedCardClass)}>
                     <CardHeader>
                         <CardTitle>Tổng quan tài chính</CardTitle>
                     </CardHeader>
@@ -495,7 +497,7 @@ export function SalesReturnDetailPage() {
 
             {/* Reason Card */}
             {salesReturn.reason && (
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader>
                         <CardTitle>Lý do trả hàng</CardTitle>
                     </CardHeader>
@@ -506,7 +508,7 @@ export function SalesReturnDetailPage() {
             )}
 
             {salesReturn.items.length > 0 && (
-                 <Card>
+                 <Card className={mobileBleedCardClass}>
                     <CardHeader>
                         <CardTitle>Sản phẩm trả lại</CardTitle>
                     </CardHeader>
@@ -534,7 +536,7 @@ export function SalesReturnDetailPage() {
             )}
 
             {salesReturn.exchangeItems.length > 0 && (
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader>
                         <CardTitle>Sản phẩm đổi (lấy thêm)</CardTitle>
                     </CardHeader>
@@ -560,7 +562,7 @@ export function SalesReturnDetailPage() {
 
             {/* Notes if any */}
             {salesReturn.note && (
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader>
                         <CardTitle>Ghi chú</CardTitle>
                     </CardHeader>
@@ -585,6 +587,6 @@ export function SalesReturnDetailPage() {
 
             {/* Activity History */}
             <EntityActivityTable entityType="sales_return" entityId={systemId} />
-        </div>
+        </DetailPageShell>
     );
 }

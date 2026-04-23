@@ -16,7 +16,7 @@ import { ROUTES } from '@/lib/router';
 import { formatCurrency } from '@/lib/format-utils';
 import { fetchReportsOverview } from '@/features/reports/api/reports-api';
 import type { SalesReportSummary } from './business-activity/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -92,27 +92,46 @@ function KpiCard({
   return content;
 }
 
-// Mini bar chart (pure CSS) — dùng px cho chiều cao cột; % trong flex cột dễ co về 0 nên vẽ không thấy.
-const MINI_CHART_PX = 64;
+// Mini bar chart (pure CSS) — dùng px cho chiều cao. Tránh scale tuyến tính theo max thật:
+// một ngày cực lớn (vài trăm M) làm hầu hết cột còn lại = 2px (trông như chỉ 1 cột).
+// log1p: vẫn nổi bật ngày cao nhất, các ngày thấp vẫn thấy được.
+const MINI_CHART_PX = 80;
+
+function barHeight(
+  value: number,
+  maxValue: number,
+  chartPx: number,
+): number {
+  if (value <= 0) return 0
+  if (maxValue <= 0) return 0
+  const ratio = Math.log1p(value) / Math.log1p(maxValue)
+  return Math.max(1, ratio * chartPx)
+}
 
 function MiniBarChart({ data, maxValue }: { data: { label: string; value: number }[]; maxValue: number }) {
   return (
-    <div className="flex items-end gap-1 w-full" style={{ height: MINI_CHART_PX }}>
-      {data.map((item, i) => {
-        const h =
-          maxValue > 0 ? Math.max(2, (item.value / maxValue) * MINI_CHART_PX) : 2
-        return (
-          <div
-            key={i}
-            className="flex-1 flex flex-col items-stretch justify-end h-full min-h-0"
-          >
+    <div className="w-full" role="img" aria-label="Biểu đồ cột doanh thu 14 ngày">
+      <div className="flex items-end justify-stretch gap-0.5 w-full" style={{ height: MINI_CHART_PX }}>
+        {data.map((item, i) => {
+          const h = barHeight(item.value, maxValue, MINI_CHART_PX)
+          return (
             <div
-              className="w-full bg-primary/80 rounded-t-sm transition-all"
-              style={{ height: h }}
-            />
-          </div>
-        )
-      })}
+              key={i}
+              className="min-w-0 flex-1 flex flex-col items-stretch justify-end h-full"
+              title={`${item.label}: ${item.value.toLocaleString('vi-VN')} ₫`}
+            >
+              {h > 0 ? (
+                <div
+                  className="w-full max-w-full bg-primary/80 rounded-t-sm transition-all"
+                  style={{ height: h }}
+                />
+              ) : (
+                <div className="w-full h-px bg-border/60" aria-hidden />
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   );
 }
@@ -248,11 +267,15 @@ export function ReportsOverviewPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
-              <Skeleton className="h-6 w-56 mb-2" />
-              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-6 w-56" />
             </CardHeader>
-            <CardContent>
-              <Skeleton className="h-16 w-full" />
+            <CardContent className="pt-0 space-y-3">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-3 w-full" />
+              <div className="pt-2 border-t space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-10 w-full" />
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -269,11 +292,8 @@ export function ReportsOverviewPage() {
         {/* Revenue Mini Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Doanh thu 14 ngày gần nhất</CardTitle>
-                <CardDescription>Tổng: {formatCurrency(miniChartData.reduce((s, d) => s + d.value, 0))}</CardDescription>
-              </div>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle>Doanh thu 14 ngày gần nhất</CardTitle>
               <Link href={ROUTES.REPORTS.SALES_BY_TIME}>
                 <Button variant="outline" size="sm">
                   <BarChart3 className="h-4 w-4 mr-2" />
@@ -282,15 +302,26 @@ export function ReportsOverviewPage() {
               </Link>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 space-y-3">
             <MiniBarChart data={miniChartData} maxValue={miniChartMax} />
-            <div className="flex justify-between mt-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
               {miniChartData.length > 0 && (
                 <>
-                  <span className="text-xs text-muted-foreground">{miniChartData[0]?.label}</span>
-                  <span className="text-xs text-muted-foreground">{miniChartData[miniChartData.length - 1]?.label}</span>
+                  <span>{miniChartData[0]?.label}</span>
+                  <span>{miniChartData[miniChartData.length - 1]?.label}</span>
                 </>
               )}
+            </div>
+            <div className="pt-2 border-t space-y-1.5 text-sm">
+              <p className="text-xs font-medium text-muted-foreground">Doanh thu 14 ngày gần nhất</p>
+              <p className="text-foreground font-medium tabular-nums">
+                Tổng: {formatCurrency(miniChartData.reduce((s, d) => s + d.value, 0))}
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Cùng công thức với thẻ tháng (theo ngày hoàn thành hoặc ngày đơn hàng nếu chưa có). Chiều
+                cột theo tỷ lệ log (log) để so sánh tương đối giữa các ngày; số tổng ở trên vẫn cộng đủ
+                theo công thức tuyệt đối.
+              </p>
             </div>
           </CardContent>
         </Card>

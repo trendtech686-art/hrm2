@@ -4,7 +4,6 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { OptimizedImage } from '../../../components/ui/optimized-image';
 import { Image, Eye, AlertCircle } from 'lucide-react';
-import { cn } from '../../../lib/utils';
 import type { CompletionEvidence, ApprovalStatus } from '../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
@@ -29,20 +28,20 @@ export function EvidenceThumbnailGrid({
     if (!status) return null;
     
     const configs = {
-      pending: { 
-        label: 'Chờ admin duyệt', 
-        variant: 'secondary' as const,
-        className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400 animate-pulse'
+      pending: {
+        label: 'Chờ duyệt',
+        variant: 'warning' as const,
+        className: ''
       },
-      approved: { 
-        label: 'Admin đã duyệt', 
-        variant: 'default' as const,
-        className: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400'
+      approved: {
+        label: 'Đã duyệt',
+        variant: 'success' as const,
+        className: ''
       },
-      rejected: { 
-        label: 'Admin yêu cầu làm lại', 
+      rejected: {
+        label: 'Yêu cầu làm lại',
         variant: 'destructive' as const,
-        className: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400'
+        className: ''
       },
     };
     
@@ -52,12 +51,7 @@ export function EvidenceThumbnailGrid({
   const statusConfig = getStatusConfig(approvalStatus);
 
   return (
-    <Card className={cn(
-      "border-2",
-      approvalStatus === 'pending' && "border-yellow-300 dark:border-yellow-700",
-      approvalStatus === 'rejected' && "border-red-300 dark:border-red-700",
-      approvalStatus === 'approved' && "border-green-300 dark:border-green-700"
-    )}>
+    <Card className="border">
       <CardContent className="p-4">
         <div className="space-y-3">
           {/* Header với status badge */}
@@ -70,7 +64,7 @@ export function EvidenceThumbnailGrid({
               </Badge>
             </div>
             {statusConfig && (
-              <Badge className={statusConfig.className}>
+              <Badge variant={statusConfig.variant} className={statusConfig.className}>
                 {approvalStatus === 'pending' && <AlertCircle className="mr-1 h-3 w-3" />}
                 {statusConfig.label}
               </Badge>

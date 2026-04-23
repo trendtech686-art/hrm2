@@ -15,6 +15,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +31,7 @@ import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
 import { UnifiedProductSearch } from '@/components/shared/unified-product-search';
+import { BarcodeScannerButton } from '@/components/shared/barcode-scanner-button';
 import { StockTransferWorkflowCard } from '../components/stock-transfer-workflow-card';
 import type { Subtask } from '@/components/shared/subtask-list';
 import type { Product } from '@/features/products/types';
@@ -346,12 +349,12 @@ export function StockTransferFormPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <FormPageShell gap="lg">
       <form id="stock-transfer-form" onSubmit={form.handleSubmit(onSubmit, onFormError)} className="space-y-6">
         {/* Row 1: Thông tin chuyển kho (70%) + Quy trình xử lý (30%) */}
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
           {/* Thông tin chuyển kho - 70% */}
-          <Card className="lg:col-span-7">
+          <Card className={cn(mobileBleedCardClass, 'lg:col-span-7')}>
             <CardHeader>
               <CardTitle size="lg">Thông tin chuyển kho</CardTitle>
             </CardHeader>
@@ -472,7 +475,7 @@ export function StockTransferFormPage() {
         </div>
 
         {/* Product List */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle size="lg">Danh sách sản phẩm</CardTitle>
           </CardHeader>
@@ -480,14 +483,35 @@ export function StockTransferFormPage() {
             {/* Search bar like order form */}
             <div className="mb-4">
               <div className="flex items-center gap-2">
-                <UnifiedProductSearch
-                  onSelectProduct={handleAddSingleProduct}
+                <div className="flex-1 min-w-0">
+                  <UnifiedProductSearch
+                    onSelectProduct={handleAddSingleProduct}
+                    disabled={!fromBranchId}
+                    placeholder="Thêm sản phẩm (F3)"
+                    searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                    excludeTypes={['combo', 'service']}
+                    branchSystemId={fromBranchId}
+                    showCostPrice={true}
+                  />
+                </div>
+                <BarcodeScannerButton
                   disabled={!fromBranchId}
-                  placeholder="Thêm sản phẩm (F3)"
-                  searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
-                  excludeTypes={['combo', 'service']}
-                  branchSystemId={fromBranchId}
-                  showCostPrice={true}
+                  onDetect={async (code) => {
+                    try {
+                      const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`);
+                      if (!res.ok) throw new Error('search failed');
+                      const json = await res.json() as { data: Product[] };
+                      const match = json.data?.[0];
+                      if (!match) {
+                        toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                        return;
+                      }
+                      handleAddSingleProduct(match);
+                      toast.success(`Đã thêm: ${match.name}`);
+                    } catch {
+                      toast.error('Không thể tra cứu mã vạch. Thử lại.');
+                    }
+                  }}
                 />
                 <Button 
                   type="button" 
@@ -770,6 +794,6 @@ export function StockTransferFormPage() {
         images={[previewState.image]} 
         title={previewState.title}
       />
-    </div>
+    </FormPageShell>
   );
 }

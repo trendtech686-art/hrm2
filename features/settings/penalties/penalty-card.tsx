@@ -4,11 +4,20 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import type { Penalty, PenaltyStatus } from './types';
-import { Card, CardContent } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 import { Button } from '../../../components/ui/button';
-import { MoreHorizontal, User, Calendar, DollarSign, FileText } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
+import {
+  MobileCard,
+  MobileCardBody,
+  MobileCardHeader,
+} from '../../../components/mobile/mobile-card';
 
 interface PenaltyCardProps {
   penalty: Penalty;
@@ -16,74 +25,70 @@ interface PenaltyCardProps {
 }
 
 const formatCurrency = (value?: number) => {
-  if (typeof value !== 'number') return '';
+  if (typeof value !== 'number') return '—';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-const statusVariants: Record<PenaltyStatus, "warning" | "success" | "secondary"> = {
-  "Chưa thanh toán": "warning",
-  "Đã thanh toán": "success",
-  "Đã hủy": "secondary",
+const statusVariants: Record<PenaltyStatus, 'warning' | 'success' | 'secondary'> = {
+  'Chưa thanh toán': 'warning',
+  'Đã thanh toán': 'success',
+  'Đã hủy': 'secondary',
 };
 
 export function PenaltyCard({ penalty, onDelete }: PenaltyCardProps) {
   const router = useRouter();
 
-  const handleCardClick = () => {
-    router.push(`/penalties/${penalty.systemId}`);
-  };
-
   return (
-    <Card 
-      className="hover:shadow-md transition-shadow cursor-pointer"
-      onClick={handleCardClick}
-    >
-      <CardContent className="p-4">
-        {/* Header: ID + Status + Menu */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className="font-semibold text-sm font-mono">{penalty.id}</span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <Badge variant={statusVariants[penalty.status]} className="text-xs">
-                {penalty.status}
-              </Badge>
-            </div>
+    <MobileCard onClick={() => router.push(`/penalties/${penalty.systemId}`)}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Phiếu phạt</div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <div className="text-sm font-semibold text-foreground truncate font-mono">{penalty.id}</div>
+            <Badge variant={statusVariants[penalty.status]} className="text-xs shrink-0">
+              {penalty.status}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div className="text-lg font-bold leading-none text-destructive">{formatCurrency(penalty.amount)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Số tiền phạt</div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 flex-shrink-0"
+                className="h-8 w-8 p-0 -mr-2 -mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  router.push(`/penalties/${penalty.systemId}`); 
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/penalties/${penalty.systemId}`);
                 }}
               >
                 Xem chi tiết
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  router.push(`/penalties/${penalty.systemId}/edit`); 
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/penalties/${penalty.systemId}/edit`);
                 }}
               >
                 Chỉnh sửa
               </DropdownMenuItem>
               {onDelete && (
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive"
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    onDelete(penalty.systemId); 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(penalty.systemId);
                   }}
                 >
                   Xóa
@@ -92,50 +97,32 @@ export function PenaltyCard({ penalty, onDelete }: PenaltyCardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </MobileCardHeader>
 
-        {/* Employee Name */}
-        <div className="flex items-center text-sm mb-2">
-          <User className="h-3 w-3 mr-1.5 flex-shrink-0 text-muted-foreground" />
-          <span className="font-medium truncate">{penalty.employeeName}</span>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t mb-3" />
-
-        {/* Reason */}
-        <div className="mb-3">
-          <div className="flex items-start text-xs text-muted-foreground">
-            <FileText className="h-3 w-3 mr-1.5 mt-0.5 flex-shrink-0" />
-            <span className="line-clamp-2">{penalty.reason}</span>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Nhân viên</dt>
+            <dd className="font-medium truncate">{penalty.employeeName}</dd>
           </div>
-        </div>
-
-        {/* Amount + Date */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center text-muted-foreground">
-              <DollarSign className="h-3 w-3 mr-1.5" />
-              <span>Số tiền phạt</span>
-            </div>
-            <span className="font-semibold text-sm">{formatCurrency(penalty.amount)}</span>
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày lập</dt>
+            <dd className="font-medium">{formatDate(penalty.issueDate)}</dd>
           </div>
-          
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center text-muted-foreground">
-              <Calendar className="h-3 w-3 mr-1.5" />
-              <span>Ngày lập</span>
-            </div>
-            <span className="text-muted-foreground">{formatDate(penalty.issueDate)}</span>
-          </div>
-
           {penalty.issuerName && (
-            <div className="flex items-center justify-between text-xs pt-1 border-t">
-              <span className="text-muted-foreground">Người lập</span>
-              <span className="text-muted-foreground">{penalty.issuerName}</span>
+            <div>
+              <dt className="text-xs text-muted-foreground">Người lập</dt>
+              <dd className="font-medium truncate">{penalty.issuerName}</dd>
             </div>
           )}
-        </div>
-      </CardContent>
-    </Card>
+          {penalty.reason && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Lý do</dt>
+              <dd className="font-medium line-clamp-2">{penalty.reason}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

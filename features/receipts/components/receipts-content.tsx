@@ -54,6 +54,7 @@ import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { formatCurrency, formatNumber } from "@/lib/format-utils"
 import { cn } from '@/lib/utils'
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Dynamic imports for import/export dialogs
 const ReceiptImportDialog = dynamic(
   () => import('./receipt-import-export-dialogs').then(mod => ({ default: mod.ReceiptImportDialog })),
@@ -500,7 +501,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
       {isMobile ? (
         <div className={cn('space-y-2 flex-1 overflow-y-auto', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
           {filteredData.length === 0 && !isLoading ? (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardContent className="p-8 text-center text-muted-foreground">
                 Không tìm thấy phiếu thu nào
               </CardContent>
@@ -517,7 +518,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
                 />
               ))}
               {filters.mobileLoadedCount < filteredData.length && (
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardContent className="p-4 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>

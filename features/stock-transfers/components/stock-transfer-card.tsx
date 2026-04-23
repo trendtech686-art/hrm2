@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import type { StockTransfer } from '@/lib/types/prisma-extended';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Truck, ArrowRight, Package, Calendar, User, MoreHorizontal, Eye, Edit, XCircle } from 'lucide-react';
+import { ArrowRight, MoreHorizontal, Eye, Edit, XCircle } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
   switch (status) {
@@ -40,25 +41,25 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
   const totalQuantity = transfer.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-sm text-primary">{transfer.id}</span>
-              <Badge variant={getStatusVariant(transfer.status)}>
-                {getStatusLabel(transfer.status)}
-              </Badge>
-            </div>
-            {transfer.referenceCode && (
-              <p className="text-xs text-muted-foreground">
-                Mã tham chiếu: {transfer.referenceCode}
-              </p>
-            )}
+    <MobileCard onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Chuyển kho</div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <div className="text-sm font-semibold text-foreground truncate font-mono">{transfer.id}</div>
+            <Badge variant={getStatusVariant(transfer.status)} className="text-xs shrink-0">
+              {getStatusLabel(transfer.status)}
+            </Badge>
           </div>
-          
+        </div>
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div className="text-2xl font-bold leading-none">{totalQuantity}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Tổng SL</div>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -74,7 +75,7 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
                     Chỉnh sửa
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => onDelete?.(transfer.systemId)}
                   >
@@ -86,48 +87,46 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </MobileCardHeader>
 
-        {/* Branch Transfer Info */}
-        <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded-md">
-          <div className="flex-1 text-center">
-            <p className="text-xs text-muted-foreground">Từ</p>
-            <p className="font-medium text-sm">{transfer.fromBranchName}</p>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Tuyến</dt>
+            <dd className="font-medium flex items-center gap-1.5">
+              <span className="truncate">{transfer.fromBranchName}</span>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate">{transfer.toBranchName}</span>
+            </dd>
           </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          <div className="flex-1 text-center">
-            <p className="text-xs text-muted-foreground">Đến</p>
-            <p className="font-medium text-sm">{transfer.toBranchName}</p>
+          <div>
+            <dt className="text-xs text-muted-foreground">Số sản phẩm</dt>
+            <dd className="font-medium">{transfer.items?.length || 0}</dd>
           </div>
-        </div>
-
-        {/* Info Row */}
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Package className="h-3.5 w-3.5" />
-            <span>{transfer.items?.length || 0} SP</span>
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày tạo</dt>
+            <dd className="font-medium">{formatDate(transfer.createdDate)}</dd>
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Truck className="h-3.5 w-3.5" />
-            <span>{totalQuantity} SL</span>
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{formatDate(transfer.createdDate)}</span>
-          </div>
-        </div>
-
-        {/* Creator */}
-        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-          <User className="h-3 w-3" />
-          <span>{transfer.createdByName}</span>
-        </div>
-
-        {/* Note */}
-        {transfer.note && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {transfer.note}
-          </p>
-        )}
-    </div>
+          {transfer.createdByName && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Người tạo</dt>
+              <dd className="font-medium truncate">{transfer.createdByName}</dd>
+            </div>
+          )}
+          {transfer.referenceCode && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Mã tham chiếu</dt>
+              <dd className="font-medium truncate font-mono">{transfer.referenceCode}</dd>
+            </div>
+          )}
+          {transfer.note && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Ghi chú</dt>
+              <dd className="font-medium line-clamp-2">{transfer.note}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

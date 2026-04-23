@@ -38,8 +38,10 @@ function buildSummary(
   shippingFee: number,
   returnAmount: number,
   cogs: number,
+  /** Tổng grandTotal đơn trong kỳ — doanh thu = grandTotalSum − hoàn tiền */
+  orderGrandTotalSum: number,
 ): SalesReportSummary {
-  const revenue = productAmount - returnAmount
+  const revenue = orderGrandTotalSum - returnAmount
   const grossProfit = revenue - cogs
   return {
     orderCount,
@@ -61,6 +63,7 @@ async function salesSummaryForRange(
       Array<{
         order_count: bigint
         product_amount: unknown
+        grand_total_sum: unknown
         tax_amount: unknown
         shipping_fee: unknown
       }>
@@ -68,12 +71,13 @@ async function salesSummaryForRange(
       SELECT
         COUNT(*)::bigint AS order_count,
         COALESCE(SUM(o.subtotal), 0) AS product_amount,
+        COALESCE(SUM(o."grandTotal"), 0) AS grand_total_sum,
         COALESCE(SUM(o.tax), 0) AS tax_amount,
         COALESCE(SUM(o."shippingFee"), 0) AS shipping_fee
       FROM orders o
       WHERE o.status = 'COMPLETED'
-        AND o."orderDate" >= ${start}
-        AND o."orderDate" <= ${end}
+        AND COALESCE(o."completedDate", o."orderDate") >= ${start}
+        AND COALESCE(o."completedDate", o."orderDate") <= ${end}
     `,
     prisma.$queryRaw<Array<{ refund_sum: unknown }>>`
       SELECT COALESCE(
@@ -95,8 +99,8 @@ async function salesSummaryForRange(
       INNER JOIN orders o ON o."systemId" = oli."orderId"
       LEFT JOIN products p ON p."systemId" = oli."productId"
       WHERE o.status = 'COMPLETED'
-        AND o."orderDate" >= ${start}
-        AND o."orderDate" <= ${end}
+        AND COALESCE(o."completedDate", o."orderDate") >= ${start}
+        AND COALESCE(o."completedDate", o."orderDate") <= ${end}
     `,
   ])
 
@@ -108,6 +112,7 @@ async function salesSummaryForRange(
     num(o?.shipping_fee),
     num(retAgg[0]?.refund_sum),
     num(cogsAgg[0]?.cogs),
+    num(o?.grand_total_sum),
   )
 }
 
@@ -123,20 +128,22 @@ async function salesLast14DaysSeries(): Promise<
         d: Date
         order_count: bigint
         product_amount: unknown
+        grand_total_sum: unknown
         tax_amount: unknown
         shipping_fee: unknown
       }>
     >`
       SELECT
-        CAST(o."orderDate" AS DATE) AS d,
+        CAST(COALESCE(o."completedDate", o."orderDate") AS DATE) AS d,
         COUNT(*)::bigint AS order_count,
         COALESCE(SUM(o.subtotal), 0) AS product_amount,
+        COALESCE(SUM(o."grandTotal"), 0) AS grand_total_sum,
         COALESCE(SUM(o.tax), 0) AS tax_amount,
         COALESCE(SUM(o."shippingFee"), 0) AS shipping_fee
       FROM orders o
       WHERE o.status = 'COMPLETED'
-        AND o."orderDate" >= ${start}
-        AND o."orderDate" <= ${end}
+        AND COALESCE(o."completedDate", o."orderDate") >= ${start}
+        AND COALESCE(o."completedDate", o."orderDate") <= ${end}
       GROUP BY 1
       ORDER BY 1
     `,
@@ -159,6 +166,7 @@ async function salesLast14DaysSeries(): Promise<
     {
       orderCount: number
       productAmount: number
+      grandTotalSum: number
       taxAmount: number
       shippingFee: number
     }
@@ -168,6 +176,7 @@ async function salesLast14DaysSeries(): Promise<
     dailyOrders.set(key, {
       orderCount: num(r.order_count),
       productAmount: num(r.product_amount),
+      grandTotalSum: num(r.grand_total_sum),
       taxAmount: num(r.tax_amount),
       shippingFee: num(r.shipping_fee),
     })
@@ -183,12 +192,13 @@ async function salesLast14DaysSeries(): Promise<
     const o = dailyOrders.get(dayKey) ?? {
       orderCount: 0,
       productAmount: 0,
+      grandTotalSum: 0,
       taxAmount: 0,
       shippingFee: 0,
     }
     const ret = dailyReturns.get(dayKey) ?? 0
     const { label } = getTimeKey(day, 'day')
-    const revenue = o.productAmount - ret
+    const revenue = o.grandTotalSum - ret
     out.push({ label, value: revenue })
   }
 

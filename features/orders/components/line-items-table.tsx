@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useFormContext, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import Link from 'next/link';
-import { AlertTriangle, X, Package, Eye, ChevronDown, ChevronRight, StickyNote, Pencil } from 'lucide-react';
+import { AlertTriangle, X, Package, Eye, ChevronDown, ChevronRight, StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../components/ui/table';
 import { NumberInput } from '../../../components/ui/number-input';
 import { CurrencyInput } from '../../../components/ui/currency-input';
@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Textarea } from '../../../components/ui/textarea';
+import { Label } from '../../../components/ui/label';
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from '../../../components/mobile/mobile-card';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../../components/ui/sheet';
 import { useProductsByIds } from '../../products/hooks/use-products';
 import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
 import { Separator } from '../../../components/ui/separator';
@@ -528,6 +531,453 @@ const LineItemRow = React.memo(({
 
 LineItemRow.displayName = 'LineItemRow';
 
+// =============================================================================
+// Mobile: LineItemMobileCard — card tương đương 1 row desktop
+// Quick-edit inline: Số lượng, Đơn giá (90% use case)
+// Advanced fields (tax, chiết khấu, ghi chú) → bottom Sheet
+// =============================================================================
+const LineItemMobileCard = React.memo(({
+    item,
+    index,
+    branchSystemId,
+    disabled,
+    onRemove,
+    control,
+    onPreview,
+    pricingPolicyId,
+    onOpenAdvanced,
+    fieldName = 'lineItems',
+    productsMap,
+    prefetchedPricingPolicies,
+}: {
+    item: FormLineItem;
+    index: number;
+    branchSystemId?: string;
+    disabled: boolean;
+    onRemove: (index: number) => void;
+    control: Control<FieldValues>;
+    onPreview: (image: string, title: string) => void;
+    pricingPolicyId?: string;
+    onOpenAdvanced: (index: number) => void;
+    fieldName?: string;
+    productsMap: Map<string, Product>;
+    prefetchedPricingPolicies?: Array<{ systemId: string; name: string; type: string; isDefault: boolean }>;
+}) => {
+    const { data: fetchedPolicies } = useAllPricingPolicies({ enabled: !prefetchedPricingPolicies });
+    const pricingPolicies = prefetchedPricingPolicies ?? fetchedPolicies ?? [];
+    const effectivePolicyId = React.useMemo(() => {
+        if (pricingPolicyId) return pricingPolicyId;
+        const defaultPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
+        return defaultPolicy?.systemId;
+    }, [pricingPolicyId, pricingPolicies]);
+    const [isComboExpanded, setIsComboExpanded] = React.useState(false);
+
+    const quantity = useWatch({ control, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
+    const unitPrice = useWatch({ control, name: `${fieldName}.${index}.unitPrice`, defaultValue: 0 });
+    const discount = useWatch({ control, name: `${fieldName}.${index}.discount`, defaultValue: 0 });
+    const discountType = useWatch({ control, name: `${fieldName}.${index}.discountType`, defaultValue: 'fixed' });
+    const tax = useWatch({ control, name: `${fieldName}.${index}.tax`, defaultValue: 0 });
+    const note = useWatch({ control, name: `${fieldName}.${index}.note`, defaultValue: '' });
+
+    const calculatedTotal = React.useMemo(
+        () => calculateLineTotalInRow(quantity, unitPrice, discount, discountType as 'percentage' | 'fixed', tax),
+        [quantity, unitPrice, discount, discountType, tax],
+    );
+
+    const product = React.useMemo(() => productsMap.get(item.productSystemId), [item.productSystemId, productsMap]);
+    const isCombo = product?.type === 'combo';
+    const comboItems = React.useMemo(() => {
+        if (!isCombo || !product?.comboItems) return [];
+        return product.comboItems.map(ci => {
+            const childProduct = productsMap.get(ci.productSystemId);
+            let price = 0;
+            if (childProduct) {
+                if (effectivePolicyId && childProduct.prices?.[effectivePolicyId]) {
+                    price = childProduct.prices[effectivePolicyId] || 0;
+                } else if (childProduct.prices && Object.keys(childProduct.prices).length > 0) {
+                    const firstPolicy = Object.keys(childProduct.prices)[0];
+                    price = childProduct.prices[firstPolicy] || 0;
+                } else if (typeof childProduct.costPrice === 'number') {
+                    price = childProduct.costPrice || 0;
+                }
+            }
+            return { ...ci, product: childProduct, price };
+        });
+    }, [isCombo, product?.comboItems, productsMap, effectivePolicyId]);
+
+    const permanentImages = useImageStore(state => state.permanentImages[item.productSystemId]);
+    const lastFetched = useImageStore(state => state.permanentMeta[item.productSystemId]?.lastFetched);
+    const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
+    const storeGallery = permanentImages?.gallery?.[0]?.url;
+
+    const displayImage = React.useMemo(() => {
+        if (storeThumbnail) return storeThumbnail;
+        if (storeGallery) return storeGallery;
+        if (product) {
+            const productImage = product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
+            if (productImage) return productImage;
+        }
+        return item.thumbnailImage;
+    }, [storeThumbnail, storeGallery, product, item]);
+
+    React.useEffect(() => {
+        if (!displayImage && !lastFetched && item.productSystemId) {
+            import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
+                queueProductImageFetch(item.productSystemId);
+            });
+        }
+    }, [item.productSystemId, displayImage, lastFetched]);
+
+    const stockInfo = React.useMemo(() => {
+        if (!branchSystemId || !product) return { stock: 0, isValid: false };
+        if (isComboProduct(product) && product.comboItems?.length) {
+            const comboChildProducts = product.comboItems
+                .map(ci => productsMap.get(ci.productSystemId))
+                .filter((p): p is Product => !!p);
+            const available = calculateComboStock(product.comboItems, comboChildProducts, branchSystemId as SystemId);
+            return { stock: available, isValid: true };
+        }
+        if (!product.inventoryByBranch) return { stock: 0, isValid: true };
+        const stock = product.inventoryByBranch[branchSystemId] || 0;
+        return { stock, isValid: true };
+    }, [branchSystemId, product, productsMap]);
+
+    const isOutOfStock = stockInfo.isValid && quantity > stockInfo.stock;
+    const isService = item.productId === 'DỊCH-VỤ';
+    const hasAdvanced = (Number(discount) || 0) > 0 || (Number(tax) || 0) > 0 || !!note;
+
+    return (
+        <MobileCard inert emphasis={!isService && isOutOfStock ? 'destructive' : 'none'}>
+            <MobileCardHeader className="items-start justify-between gap-3">
+                {displayImage ? (
+                    <div
+                        className="group relative h-12 w-12 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
+                        onClick={() => onPreview(displayImage, item.productName)}
+                    >
+                        <LazyImage
+                            src={displayImage}
+                            alt={item.productName}
+                            className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                            loading="lazy"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="h-12 w-12 shrink-0 bg-muted rounded-md flex items-center justify-center">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                )}
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-semibold leading-tight line-clamp-2 wrap-break-word">
+                            {item.productName}
+                        </span>
+                        {isCombo && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium shrink-0">
+                                COMBO
+                            </span>
+                        )}
+                    </div>
+                    <Link
+                        href={`/products/${item.productSystemId}`}
+                        className="text-xs text-primary hover:underline inline-block mt-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {product?.id || item.productId}
+                    </Link>
+                    {!isService && isOutOfStock && (
+                        <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
+                            <AlertTriangle className="h-3 w-3 shrink-0" />
+                            <span>Không đủ tồn (còn {stockInfo.stock})</span>
+                        </div>
+                    )}
+                </div>
+
+                {!disabled && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 h-8 w-8"
+                        onClick={() => onRemove(index)}
+                        aria-label="Xoá sản phẩm"
+                    >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                )}
+            </MobileCardHeader>
+
+            <MobileCardBody>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <Label className="text-xs text-muted-foreground">Số lượng</Label>
+                        <Controller
+                            control={control}
+                            name={`${fieldName}.${index}.quantity`}
+                            render={({ field }) => (
+                                <NumberInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    min={1}
+                                    className="h-10 mt-1 text-sm"
+                                    format={false}
+                                    disabled={disabled}
+                                />
+                            )}
+                        />
+                    </div>
+                    <div>
+                        <Label className="text-xs text-muted-foreground">Đơn giá</Label>
+                        <Controller
+                            control={control}
+                            name={`${fieldName}.${index}.unitPrice`}
+                            render={({ field }) => (
+                                <CurrencyInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    className="h-10 mt-1 text-sm"
+                                    disabled={disabled}
+                                />
+                            )}
+                        />
+                    </div>
+
+                    {/* Advanced summary chips (hiện khi có chiết khấu/thuế/ghi chú) */}
+                    {hasAdvanced && (
+                        <div className="col-span-2 flex flex-wrap gap-1.5 pt-1">
+                            {(Number(tax) || 0) > 0 && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    Thuế {tax}%
+                                </span>
+                            )}
+                            {(Number(discount) || 0) > 0 && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    CK {discountType === 'percentage' ? `${discount}%` : formatCurrency(Number(discount))}
+                                </span>
+                            )}
+                            {note && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 inline-flex items-center gap-1 max-w-full">
+                                    <StickyNote className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">{note}</span>
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="col-span-2 flex items-center justify-between border-t border-border/50 pt-2 mt-1">
+                        <span className="text-sm text-muted-foreground">Thành tiền</span>
+                        <span className="text-base font-bold text-primary">{formatCurrency(calculatedTotal)}</span>
+                    </div>
+
+                    {isCombo && comboItems.length > 0 && (
+                        <div className="col-span-2">
+                            <button
+                                type="button"
+                                className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground py-1.5"
+                                onClick={() => setIsComboExpanded(v => !v)}
+                            >
+                                <span className="inline-flex items-center gap-1">
+                                    {isComboExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                    Thành phần combo ({comboItems.length})
+                                </span>
+                            </button>
+                            {isComboExpanded && (
+                                <div className="space-y-1.5 pl-4 border-l border-border/50 mt-1">
+                                    {comboItems.map((ci, ciIdx) => (
+                                        <div
+                                            key={`combo-m-${index}-${ciIdx}`}
+                                            className="flex items-center justify-between gap-2 text-xs"
+                                        >
+                                            <div className="min-w-0 flex-1 truncate text-muted-foreground">
+                                                {ci.product?.name || 'Sản phẩm không tồn tại'}
+                                            </div>
+                                            <div className="shrink-0 text-muted-foreground tabular-nums">
+                                                × {ci.quantity * (Number(quantity) || 0)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </MobileCardBody>
+
+            {!disabled && (
+                <MobileCardFooter noBorder={false}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-10"
+                        onClick={() => onOpenAdvanced(index)}
+                    >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                        Sửa chi tiết
+                    </Button>
+                </MobileCardFooter>
+            )}
+        </MobileCard>
+    );
+});
+
+LineItemMobileCard.displayName = 'LineItemMobileCard';
+
+// =============================================================================
+// Mobile: LineItemAdvancedSheet — bottom sheet sửa tax / discount / note.
+// Binds cùng react-hook-form (Controller) → submit dùng chung state với desktop.
+// =============================================================================
+const LineItemAdvancedSheet = ({
+    open,
+    onOpenChange,
+    index,
+    fieldName,
+    control,
+    disabled,
+    onTaxChange,
+    productName,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    index: number | null;
+    fieldName: string;
+    control: Control<FieldValues>;
+    disabled: boolean;
+    onTaxChange: (index: number, taxId: string, rate: number) => void;
+    productName: string;
+}) => {
+    const taxId = useWatch({
+        control,
+        name: index !== null ? `${fieldName}.${index}.taxId` : `${fieldName}.0.taxId`,
+        defaultValue: '',
+    });
+    const discountType = useWatch({
+        control,
+        name: index !== null ? `${fieldName}.${index}.discountType` : `${fieldName}.0.discountType`,
+        defaultValue: 'fixed',
+    });
+    const isPercentage = discountType === 'percentage';
+
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="bottom" className="h-[90vh] overflow-y-auto md:hidden">
+                <SheetHeader>
+                    <SheetTitle>Sửa chi tiết sản phẩm</SheetTitle>
+                    {productName && (
+                        <p className="text-sm text-muted-foreground text-left line-clamp-2">{productName}</p>
+                    )}
+                </SheetHeader>
+
+                {index !== null && (
+                    <div className="space-y-5 mt-5 pb-10">
+                        <div>
+                            <Label className="text-sm">Thuế</Label>
+                            <div className="mt-1.5">
+                                <TaxSelector
+                                    value={taxId || ''}
+                                    onChange={(newTaxId, rate) => onTaxChange(index, newTaxId, rate)}
+                                    disabled={disabled}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-sm">Chiết khấu</Label>
+                            <div className="mt-1.5 flex items-center gap-2">
+                                <Controller
+                                    control={control}
+                                    name={`${fieldName}.${index}.discountType`}
+                                    render={({ field }) => (
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                            disabled={disabled}
+                                        >
+                                            <SelectTrigger className="h-10 w-20">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="fixed">đ</SelectItem>
+                                                <SelectItem value="percentage">%</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {isPercentage ? (
+                                    <div className="relative flex-1">
+                                        <Controller
+                                            control={control}
+                                            name={`${fieldName}.${index}.discount`}
+                                            render={({ field }) => (
+                                                <NumberInput
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    min={0}
+                                                    max={100}
+                                                    className="h-10"
+                                                    disabled={disabled}
+                                                    format={false}
+                                                />
+                                            )}
+                                        />
+                                        <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none z-10">
+                                            %
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1">
+                                        <Controller
+                                            control={control}
+                                            name={`${fieldName}.${index}.discount`}
+                                            render={({ field }) => (
+                                                <CurrencyInput
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    className="h-10"
+                                                    disabled={disabled}
+                                                />
+                                            )}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-sm">Ghi chú</Label>
+                            <Controller
+                                control={control}
+                                name={`${fieldName}.${index}.note`}
+                                render={({ field }) => (
+                                    <Textarea
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        placeholder="Ghi chú cho sản phẩm..."
+                                        rows={3}
+                                        disabled={disabled}
+                                        className="mt-1.5"
+                                    />
+                                )}
+                            />
+                        </div>
+
+                        <Button
+                            type="button"
+                            className="w-full h-11"
+                            onClick={() => onOpenChange(false)}
+                        >
+                            Xong
+                        </Button>
+                    </div>
+                )}
+            </SheetContent>
+        </Sheet>
+    );
+};
+
 export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, fields: parentFields, remove: parentRemove, pricingPolicyId, allowNoteEdit, fieldName = 'lineItems', prefetchedPricingPolicies }: { 
     disabled: boolean; 
     onAddService?: () => void;
@@ -617,8 +1067,19 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
         setValue(`${fieldName}.${index}.tax`, rate, { shouldDirty: true });
     }, [setValue, fieldName]);
 
+    // ✅ Mobile-only: bottom Sheet cho advanced fields (tax / discount / note)
+    const [advancedIdx, setAdvancedIdx] = React.useState<number | null>(null);
+    const handleOpenAdvanced = React.useCallback((index: number) => {
+        setAdvancedIdx(index);
+    }, []);
+    const handleCloseAdvanced = React.useCallback((open: boolean) => {
+        if (!open) setAdvancedIdx(null);
+    }, []);
+
     return (
-        <div className="border border-border rounded-md overflow-x-auto">
+        <div className="border border-border rounded-md">
+            {/* ===== DESKTOP: Table editable nguyên trạng ===== */}
+            <div className="hidden md:block overflow-x-auto">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -695,8 +1156,82 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                     )}
                 </TableBody>
             </Table>
+            </div>
+
+            {/* ===== MOBILE: MobileCard stack + inline quick-edit + Sheet advanced ===== */}
+            <div className="md:hidden space-y-3">
+                {fields.length === 0 && (
+                    <div className="py-10 text-center text-sm text-muted-foreground border border-dashed border-border/50 rounded-lg">
+                        Chưa có sản phẩm nào
+                    </div>
+                )}
+                {fields.map((item, index) => (
+                    <LineItemMobileCard
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        {...(branchSystemId ? { branchSystemId } : {})}
+                        disabled={disabled}
+                        onRemove={remove}
+                        control={control}
+                        onPreview={handlePreview}
+                        onOpenAdvanced={handleOpenAdvanced}
+                        {...(typeof pricingPolicyId === 'string' ? { pricingPolicyId } : {})}
+                        fieldName={fieldName}
+                        productsMap={productsMap}
+                        prefetchedPricingPolicies={prefetchedPricingPolicies}
+                    />
+                ))}
+
+                {/* Service fees — mobile compact list */}
+                {serviceFeeFields.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                        {serviceFeeFields.map((fee, index) => {
+                            const serviceFee = fee as unknown as { id: string; name: string; amount: number };
+                            return (
+                                <div
+                                    key={fee.id}
+                                    className="flex items-center justify-between gap-2 rounded-lg bg-orange-50/60 dark:bg-orange-950/30 p-3"
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-xs text-orange-700 dark:text-orange-300 font-medium">[Phí dịch vụ]</div>
+                                        <div className="text-sm font-medium truncate">{serviceFee.name}</div>
+                                    </div>
+                                    <div className="shrink-0 text-sm font-semibold text-orange-700 dark:text-orange-300 tabular-nums">
+                                        {formatCurrency(serviceFee.amount)}
+                                    </div>
+                                    {!disabled && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="shrink-0 h-8 w-8"
+                                            onClick={() => removeServiceFee(index)}
+                                        >
+                                            <X className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
             <ProductTableBottomToolbar disabled={disabled} onAddService={onAddService} onApplyPromotion={onApplyPromotion} />
-            
+
+            {/* Mobile bottom sheet cho advanced edit (tax / CK / ghi chú) */}
+            <LineItemAdvancedSheet
+                open={advancedIdx !== null}
+                onOpenChange={handleCloseAdvanced}
+                index={advancedIdx}
+                fieldName={fieldName}
+                control={control}
+                disabled={disabled}
+                onTaxChange={handleTaxChange}
+                productName={advancedIdx !== null && fields[advancedIdx] ? fields[advancedIdx].productName : ''}
+            />
+
             <ImagePreviewDialog 
                 open={previewState.open} 
                 onOpenChange={(open) => setPreviewState(prev => ({ ...prev, open }))} 

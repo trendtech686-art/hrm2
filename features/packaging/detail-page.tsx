@@ -9,6 +9,8 @@ import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import type { PackagingStatus } from '../orders/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Button } from '../../components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { usePrint } from '../../lib/use-print';
@@ -92,7 +94,7 @@ function PackagingDetailSkeleton() {
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <Card className="lg:col-span-2">
+        <Card className={cn(mobileBleedCardClass, 'lg:col-span-2')}>
           <CardHeader>
             <Skeleton className="h-6 w-48" />
           </CardHeader>
@@ -107,7 +109,7 @@ function PackagingDetailSkeleton() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <Skeleton className="h-6 w-32" />
           </CardHeader>
@@ -116,7 +118,7 @@ function PackagingDetailSkeleton() {
           </CardContent>
         </Card>
       </div>
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-0">
           <Skeleton className="h-64 w-full" />
         </CardContent>
@@ -373,7 +375,7 @@ export function PackagingDetailPage() {
         {/* Main Info Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           {/* Left Column - 2/3 width */}
-          <Card className="lg:col-span-2">
+          <Card className={cn(mobileBleedCardClass, 'lg:col-span-2')}>
             <CardHeader>
               <CardTitle>Thông tin phiếu đóng gói</CardTitle>
             </CardHeader>
@@ -486,7 +488,7 @@ export function PackagingDetailPage() {
           </Card>
 
           {/* Right Column - 1/3 width */}
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Thông tin bổ sung</CardTitle>
             </CardHeader>

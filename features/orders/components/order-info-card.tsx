@@ -3,6 +3,8 @@ import { useFormContext } from 'react-hook-form';
 import { useEmployeeComboboxSearch } from '../../employees/hooks/use-employee-search';
 import { useAllBranches, type Branch } from '../../settings/branches/hooks/use-all-branches';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '../../../components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Combobox } from '../../../components/ui/combobox';
@@ -74,9 +76,9 @@ export function OrderInfoCard({
     const hasPaymentMethodOptions = paymentMethodOptions.length > 0;
 
     return (
-        <Card className="flex flex-col h-96.25">
+        <Card className={cn(mobileBleedCardClass, "flex flex-col md:h-96.25")}>
             <CardHeader className="shrink-0"><CardTitle>Thông tin bổ sung</CardTitle></CardHeader>
-            <CardContent className="flex-1 overflow-y-auto space-y-4">
+            <CardContent className="flex-1 md:overflow-y-auto space-y-4">
                 <FormField control={control} name="branchSystemId" render={({ field }) => (
                   <FormItem><FormLabel>Bán tại</FormLabel><Select key={`branch-${field.value || 'empty'}`} onValueChange={field.onChange} value={field.value || undefined} disabled={disabled || isBranchLocked || isMetadataOnlyMode}><FormControl><SelectTrigger><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger></FormControl><SelectContent>{branchOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select>
                   {isBranchLocked && <p className="text-xs text-muted-foreground mt-1">🔒 Chi nhánh bị khóa sau khi duyệt đơn</p>}

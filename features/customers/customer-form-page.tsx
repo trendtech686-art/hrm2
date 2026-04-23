@@ -15,7 +15,9 @@ import {
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
+import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Customer } from '@/lib/types/prisma-extended';
 import { logError } from '@/lib/logger'
 
@@ -82,8 +84,8 @@ export function CustomerFormPage() {
   }, []);
 
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" className="h-9" onClick={handleCancel} disabled={isBusy}>Hủy</Button>,
-    <Button key="save" type="button" className="h-9" onClick={handleSaveClick} disabled={isBusy}>
+    <Button key="cancel" type="button" variant="outline" size="sm" className="hidden md:inline-flex h-9" onClick={handleCancel} disabled={isBusy}>Hủy</Button>,
+    <Button key="save" type="button" size="sm" className="hidden md:inline-flex h-9" onClick={handleSaveClick} disabled={isBusy}>
       {isBusy ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -113,7 +115,7 @@ export function CustomerFormPage() {
   // Loading state
   if (systemId && isLoading) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6 space-y-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
@@ -125,20 +127,48 @@ export function CustomerFormPage() {
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <CustomerForm 
-            initialData={customer ? {
-              ...customer,
-              // Use calculated debt from stats API instead of stored value
-              currentDebt: customerStats?.financial?.currentDebt ?? customer.currentDebt,
-            } : null} 
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            onSuccess={handleSuccess}
-            isEditMode={isEditMode}
-        />
-      </CardContent>
-    </Card>
+    <>
+      <Card className={cn(mobileBleedCardClass, 'pb-[calc(env(safe-area-inset-bottom)+72px)] md:pb-0')}>
+        <CardContent className="pt-6">
+          <CustomerForm 
+              initialData={customer ? {
+                ...customer,
+                currentDebt: customerStats?.financial?.currentDebt ?? customer.currentDebt,
+              } : null} 
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              onSuccess={handleSuccess}
+              isEditMode={isEditMode}
+          />
+        </CardContent>
+      </Card>
+      {/* Mobile-only sticky action bar */}
+      <FormPageFooter className="md:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleCancel}
+          disabled={isBusy}
+          className="h-10 flex-1"
+        >
+          Hủy
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleSaveClick}
+          disabled={isBusy}
+          className="h-10 flex-1"
+        >
+          {isBusy ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Đang lưu...
+            </>
+          ) : 'Lưu'}
+        </Button>
+      </FormPageFooter>
+    </>
   );
 }

@@ -1,5 +1,7 @@
 ﻿import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { mobileBleedCardClass } from "@/components/layout/page-section";
+import { cn } from "@/lib/utils";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { SupplierCombobox } from "./supplier-combobox";
@@ -31,7 +33,7 @@ export function SupplierSelectionCard({
   };
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className={cn(mobileBleedCardClass, "h-full flex flex-col")}>
       <CardHeader className="shrink-0 py-3">
         <CardTitle size="sm">Thông tin nhà cung cấp</CardTitle>
       </CardHeader>

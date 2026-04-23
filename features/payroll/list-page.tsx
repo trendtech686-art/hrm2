@@ -35,6 +35,7 @@ import {
 } from './hooks/use-payroll-list-handlers';
 import { useAuth } from '@/contexts/auth-context';
 import { useQueryClient } from '@tanstack/react-query';
+import { ListPageShell } from '@/components/layout/page-section';
 
 // Dynamic import for print dialog
 const SimplePrintOptionsDialog = dynamic(
@@ -211,7 +212,7 @@ export function PayrollListPage({ initialStats }: PayrollListPageProps = {}) {
   });
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       <PayrollSummaryCards items={summaryCards} />
       
       {canEditSettings && <PageToolbar leftActions={<Button variant="outline" size="sm" onClick={() => router.push('/settings/employees')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>} />}
@@ -275,6 +276,6 @@ export function PayrollListPage({ initialStats }: PayrollListPageProps = {}) {
         selectedCount={printState.pendingPrintBatches.length}
         title="In bảng lương"
       />
-    </div>
+    </ListPageShell>
   );
 }

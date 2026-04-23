@@ -34,6 +34,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '@/components/shared/simple-print-options-dialog';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 const CostAdjustmentImportDialog = dynamic(() => import("./components/cost-adjustments-import-export-dialogs").then(mod => ({ default: mod.CostAdjustmentImportDialog })), { ssr: false });
 const CostAdjustmentExportDialog = dynamic(() => import("./components/cost-adjustments-import-export-dialogs").then(mod => ({ default: mod.CostAdjustmentExportDialog })), { ssr: false });
@@ -178,7 +179,7 @@ export function CostAdjustmentListPage() {
   const handleCancelCard = React.useCallback((id: string) => { router.push(`/cost-adjustments/${id}`); toast.info('Mở chi tiết để hủy'); }, [router]);
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
       <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu điều chỉnh..."><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /><AdvancedFilterPanel
           filters={filterConfigs}
@@ -195,6 +196,6 @@ export function CostAdjustmentListPage() {
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu điều chỉnh" />
       <CostAdjustmentImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={allAdjustments} onImport={handleImport} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />
       <CostAdjustmentExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={allAdjustments} filteredData={allAdjustments} currentPageData={tableData} selectedData={allSelectedRows} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />
-    </div>
+    </ListPageShell>
   );
 }

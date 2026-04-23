@@ -2,7 +2,8 @@ import * as React from "react";
 import { Badge } from "../../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { TouchButton } from "../../components/mobile/touch-button";
-import { Building2, Calendar, DollarSign, MoreHorizontal, Package, Printer, XCircle, CreditCard, PackageCheck } from "lucide-react";
+import { MobileCard, MobileCardBody, MobileCardHeader } from "../../components/mobile/mobile-card";
+import { MoreHorizontal, Printer, XCircle, CreditCard, PackageCheck } from "lucide-react";
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { formatDate } from "../../lib/date-utils";
 
@@ -58,34 +59,38 @@ export function PurchaseOrderCard({
   };
 
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={() => onClick(po)}
-    >
-      {/* Header: Code + Status + Menu */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-          <span className="text-sm font-medium font-mono">{po.id}</span>
-          <Badge variant={getStatusVariant(po.status)} className="text-xs">
-            {po.status}
-          </Badge>
+    <MobileCard onClick={() => onClick(po)}>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Đơn mua hàng</div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <div className="text-sm font-semibold text-foreground truncate font-mono">{po.id}</div>
+            <Badge variant={getStatusVariant(po.status)} className="text-xs shrink-0">
+              {po.status}
+            </Badge>
+          </div>
         </div>
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div className="text-lg font-bold leading-none text-primary">{formatCurrency(po.grandTotal)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Tổng tiền</div>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <TouchButton
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 shrink-0"
+                className="h-8 w-8 p-0 -mr-2 -mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </TouchButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onPrint(po); 
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPrint(po);
                 }}
               >
                 <Printer className="mr-2 h-4 w-4" />
@@ -94,10 +99,10 @@ export function PurchaseOrderCard({
               {po.status !== 'Đã hủy' && po.status !== 'Kết thúc' && (
                 <>
                   {po.paymentStatus !== 'Đã thanh toán' && (
-                    <DropdownMenuItem 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        onPayment(po); 
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPayment(po);
                       }}
                     >
                       <CreditCard className="mr-2 h-4 w-4" />
@@ -105,20 +110,20 @@ export function PurchaseOrderCard({
                     </DropdownMenuItem>
                   )}
                   {po.deliveryStatus !== 'Đã nhập' && (
-                    <DropdownMenuItem 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        onReceiveGoods(po); 
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReceiveGoods(po);
                       }}
                     >
                       <PackageCheck className="mr-2 h-4 w-4" />
                       Nhập hàng
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      onCancel(po); 
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCancel(po);
                     }}
                     className="text-destructive"
                   >
@@ -130,46 +135,46 @@ export function PurchaseOrderCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </MobileCardHeader>
 
-      {/* Supplier + Branch */}
-      <div className="text-sm font-medium mb-1">{po.supplierName}</div>
-      <div className="text-xs text-muted-foreground mb-3 flex items-center">
-        <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
-        <span className="truncate">{po.branchName}</span>
-      </div>
-
-      {/* Date Info */}
-      <div className="space-y-1.5 mb-3">
-        <div className="flex items-center text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
-          <span>Đặt hàng: {formatDate(po.orderDate)}</span>
-        </div>
-        {po.deliveryDate && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            <Package className="h-3 w-3 mr-1.5 shrink-0" />
-            <span>Dự kiến: {formatDate(po.deliveryDate)}</span>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Nhà cung cấp</dt>
+            <dd className="font-medium truncate">{po.supplierName}</dd>
           </div>
-        )}
-      </div>
-
-      {/* Delivery & Payment Status */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        <Badge variant={getDeliveryStatusVariant(po.deliveryStatus)} className="text-xs">
-          {po.deliveryStatus}
-        </Badge>
-        <Badge variant={getPaymentStatusVariant(po.paymentStatus)} className="text-xs">
-          {po.paymentStatus}
-        </Badge>
-      </div>
-
-      {/* Amount */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-border/50">
-        <span className="text-xs text-muted-foreground">Tổng tiền:</span>
-        <div className="flex items-center gap-1">
-          <DollarSign className="h-3 w-3 text-muted-foreground" />
-          <span className="text-sm font-semibold">{formatCurrency(po.grandTotal)}</span>
-        </div>
-      </div>
-    </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Chi nhánh</dt>
+            <dd className="font-medium truncate">{po.branchName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Ngày đặt</dt>
+            <dd className="font-medium">{formatDate(po.orderDate)}</dd>
+          </div>
+          {po.deliveryDate && (
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Dự kiến nhận</dt>
+              <dd className="font-medium">{formatDate(po.deliveryDate)}</dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-xs text-muted-foreground">Giao hàng</dt>
+            <dd>
+              <Badge variant={getDeliveryStatusVariant(po.deliveryStatus)} className="text-xs">
+                {po.deliveryStatus}
+              </Badge>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Thanh toán</dt>
+            <dd>
+              <Badge variant={getPaymentStatusVariant(po.paymentStatus)} className="text-xs">
+                {po.paymentStatus}
+              </Badge>
+            </dd>
+          </div>
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }

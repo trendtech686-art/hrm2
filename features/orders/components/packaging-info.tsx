@@ -500,7 +500,7 @@ export function PackagingInfo({
     };
 
     return (
-        <div className="border rounded-md bg-background">
+        <div className="border bg-background rounded-md max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
             {/* Header */}
             <div className="flex flex-col p-3 border-b border-border gap-2">
                 <div className="flex items-start sm:items-center justify-between gap-2">

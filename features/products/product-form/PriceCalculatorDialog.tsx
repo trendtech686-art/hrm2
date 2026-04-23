@@ -148,7 +148,7 @@ export function PriceCalculatorDialog({
           Tính giá
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent mobileFullScreen className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Tính giá bán từ giá vốn</DialogTitle>
           <DialogDescription>

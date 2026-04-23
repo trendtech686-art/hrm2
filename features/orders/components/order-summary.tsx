@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useFormContext, useWatch, useFieldArray, Controller } from 'react-hook-form';
 import { PlusCircle, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { NumberInput } from '../../../components/ui/number-input';
 import { CurrencyInput } from '../../../components/ui/currency-input';
 import { Separator } from '../../../components/ui/separator';
@@ -127,7 +128,7 @@ export function OrderSummary({
     }, [paymentMethodsData]);
     
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader><CardTitle>Thanh toán</CardTitle></CardHeader>
         <CardContent className="p-4 space-y-2 text-sm">
           <div className="flex items-center justify-between py-1"><span className="text-muted-foreground">Tổng tiền ({lineItems.length} sản phẩm)</span><span className="font-medium text-foreground">{formatCurrency(subtotal)}</span></div>

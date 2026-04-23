@@ -28,8 +28,9 @@ import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer, Download, Settings } from 'lucide-react';
+import { PlusCircle, Undo2, MoreHorizontal, Printer, Download, Settings } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '../../components/mobile/mobile-card';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { useAuth } from '../../contexts/auth-context';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
@@ -37,6 +38,7 @@ import { ROUTES } from '../../lib/router';
 import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '../../hooks/use-column-visibility';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 const SalesReturnExportDialog = dynamic(() => import("./components/sales-returns-import-export-dialogs").then(mod => ({ default: mod.SalesReturnExportDialog })), { ssr: false });
 
@@ -215,35 +217,60 @@ export function SalesReturnsPage() {
     const allSelectedRows = React.useMemo(() => returns.filter(r => rowSelection[r.systemId]), [returns, rowSelection]);
     const bulkActions = React.useMemo(() => [{ label: 'In phiếu trả hàng', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
-    const MobileSalesReturnCard = ({ salesReturn }: { salesReturn: SalesReturn }) => (
-        <div className='rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer' onClick={() => handleRowClick(salesReturn)}>
-            <div className='flex items-center justify-between mb-2'>
-                <div className='flex items-center gap-2 flex-1 min-w-0'>
-                    <Avatar className='h-9 w-9 shrink-0 bg-orange-100'><AvatarFallback className='text-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback></Avatar>
-                    <div className='min-w-0 flex-1'>
-                        <h3 className='font-medium text-sm truncate'>{salesReturn.id}</h3>
-                        <span className='text-xs text-muted-foreground font-mono'>{salesReturn.orderId}</span>
+    const MobileSalesReturnCard = ({ salesReturn }: { salesReturn: SalesReturn }) => {
+        const totalQty = salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0);
+        return (
+            <MobileCard onClick={() => handleRowClick(salesReturn)}>
+                <MobileCardHeader className='items-start justify-between'>
+                    <div className='flex items-start gap-2 min-w-0 flex-1'>
+                        <Avatar className='h-10 w-10 shrink-0 bg-orange-100'><AvatarFallback className='text-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback></Avatar>
+                        <div className='min-w-0 flex-1'>
+                            <div className='text-xs uppercase tracking-wide text-muted-foreground'>Phiếu trả hàng</div>
+                            <div className='mt-0.5 text-sm font-semibold text-foreground truncate font-mono'>{salesReturn.id}</div>
+                            <div className='text-xs text-muted-foreground font-mono truncate'>ĐH: {salesReturn.orderId}</div>
+                        </div>
                     </div>
-                </div>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
-                    <DropdownMenuContent align='end'><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleReturn(salesReturn.systemId); }}>In Phiếu Trả Hàng</DropdownMenuItem></DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-            <div className='text-xs text-muted-foreground mb-2 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{salesReturn.customerName}</span></div>
-            <div className='space-y-1.5 pt-2.5 border-t border-border/50'>
-                <div className='flex items-center text-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0)} sản phẩm</span></div>
-                <div className='flex items-center text-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(salesReturn.returnDate)}</span></div>
-                <div className='flex items-center justify-between text-xs pt-1'>
-                    <span className='font-semibold'>{formatCurrency(salesReturn.totalReturnValue)}</span>
-                    <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-xs'>{salesReturn.isReceived ? 'Đã nhận' : 'Chưa nhận'}</Badge>
-                </div>
-            </div>
-        </div>
-    );
+                    <div className='flex items-start gap-1 shrink-0'>
+                        <div className='text-right'>
+                            <div className='text-lg font-bold leading-none'>{formatCurrency(salesReturn.totalReturnValue)}</div>
+                            <div className='mt-1 text-xs text-muted-foreground'>Giá trị trả</div>
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 -mr-2 -mt-1' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
+                            <DropdownMenuContent align='end'><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleReturn(salesReturn.systemId); }}>In Phiếu Trả Hàng</DropdownMenuItem></DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </MobileCardHeader>
+                <MobileCardBody>
+                    <dl className='grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm'>
+                        <div className='col-span-2'>
+                            <dt className='text-xs text-muted-foreground'>Khách hàng</dt>
+                            <dd className='font-medium truncate'>{salesReturn.customerName}</dd>
+                        </div>
+                        <div>
+                            <dt className='text-xs text-muted-foreground'>Ngày trả</dt>
+                            <dd className='font-medium'>{formatDate(salesReturn.returnDate)}</dd>
+                        </div>
+                        <div>
+                            <dt className='text-xs text-muted-foreground'>Số lượng SP</dt>
+                            <dd className='font-medium'>{totalQty}</dd>
+                        </div>
+                        <div className='col-span-2'>
+                            <dt className='text-xs text-muted-foreground'>Trạng thái</dt>
+                            <dd>
+                                <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-xs'>
+                                    {salesReturn.isReceived ? 'Đã nhận' : 'Chưa nhận'}
+                                </Badge>
+                            </dd>
+                        </div>
+                    </dl>
+                </MobileCardBody>
+            </MobileCard>
+        );
+    };
 
     return (
-        <div className='flex flex-col w-full h-full'>
+        <ListPageShell>
             {!isMobile && (
                 <PageToolbar
                     leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>}
@@ -280,6 +307,6 @@ export function SalesReturnsPage() {
             <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu trả hàng" />
             {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}
             {exportDialogOpen && <SalesReturnExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={activeExportReturns} filteredData={activeExportReturns} currentPageData={returns} selectedData={allSelectedRows} currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }} />}
-        </div>
+        </ListPageShell>
     );
 }

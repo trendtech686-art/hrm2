@@ -25,10 +25,13 @@ import { useStockHistoryMutations } from '../stock-history/hooks/use-stock-histo
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { DetailField } from '../../components/ui/detail-field';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
 import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 // ✅ Heavy components - lazy loaded
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell } from '@/components/layout/page-section';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 const Comments = dynamic(
   () => import('../../components/Comments').then(m => ({ default: m.Comments })),
   { ssr: false }
@@ -1155,7 +1158,7 @@ export function PurchaseOrderDetailPage() {
       case 'Chưa thanh toán':
       case 'Thanh toán một phần':
           paymentSection = (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                   <CardHeader>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                           <div className="flex items-center gap-2">
@@ -1192,7 +1195,7 @@ export function PurchaseOrderDetailPage() {
           break;
       case 'Đã thanh toán':
           paymentSection = (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                   <CardHeader>
                       <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
@@ -1227,7 +1230,7 @@ export function PurchaseOrderDetailPage() {
 
   if (isEffectivelyReceived) {
       receivingSection = (
-          <Card>
+          <Card className={mobileBleedCardClass}>
               <CardHeader>
                   <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="h-5 w-5" />
@@ -1238,7 +1241,7 @@ export function PurchaseOrderDetailPage() {
       );
   } else { // 'Chưa nhập'
       receivingSection = (
-          <Card>
+          <Card className={mobileBleedCardClass}>
               <CardHeader>
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1265,7 +1268,7 @@ export function PurchaseOrderDetailPage() {
   }
 
   return (
-      <div className="space-y-6">
+      <DetailPageShell gap="lg">
           <StatusTimeline
             status={purchaseOrder.status}
             deliveryStatus={purchaseOrder.deliveryStatus}
@@ -1277,7 +1280,7 @@ export function PurchaseOrderDetailPage() {
           {/* Thông tin NCC và Đơn hàng */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                  <Card>
+                  <Card className={mobileBleedCardClass}>
                       <CardHeader>
                         <div className="flex items-center gap-2">
                           <Users className="h-5 w-5 text-muted-foreground" />
@@ -1308,7 +1311,7 @@ export function PurchaseOrderDetailPage() {
               </div>
 
               <div className="lg:col-span-1">
-                  <Card className="flex flex-col">
+                  <Card className={cn("flex flex-col", mobileBleedCardClass)}>
                       <CardHeader>
                         <CardTitle size="lg">Thông tin đơn nhập hàng</CardTitle>
                       </CardHeader>
@@ -1331,12 +1334,12 @@ export function PurchaseOrderDetailPage() {
               {paymentSection}
           </div>
 
-          <Card>
+          <Card className={mobileBleedCardClass}>
               <CardHeader>
                   <CardTitle size="lg">Thông tin sản phẩm</CardTitle>
               </CardHeader>
               <CardContent>
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="hidden md:block border rounded-md overflow-x-auto">
                       <Table>
                           <TableHeader>
                               <TableRow>
@@ -1483,13 +1486,150 @@ export function PurchaseOrderDetailPage() {
                           </TableFooter>
                       </Table>
                   </div>
+
+                  {/* Mobile: card stack */}
+                  <div className="md:hidden space-y-3">
+                    {(purchaseOrder.lineItems || []).map((item, index) => {
+                      const lineGross = item.quantity * item.unitPrice;
+                      const discountAmount = item.discountType === 'percentage'
+                        ? lineGross * (item.discount / 100)
+                        : item.discount;
+                      const lineTotal = lineGross - discountAmount;
+                      const product = findProductById(item.productSystemId);
+                      const productTypeName = product?.productTypeSystemId
+                        ? getProductTypeName(product.productTypeSystemId)
+                        : 'Hàng hóa';
+                      const totalQty = (purchaseOrder.lineItems || []).reduce((sum, i) => sum + i.quantity, 0);
+                      const totalFees = Number(purchaseOrder.shippingFee || 0) + Number(purchaseOrder.tax || 0);
+                      const feePerUnit = totalQty > 0 ? totalFees / totalQty : 0;
+                      const itemCostPrice = Math.round(item.unitPrice + feePerUnit);
+                      const discountLabel = item.discountType === 'percentage'
+                        ? `${item.discount || 0}%`
+                        : formatCurrency(item.discount || 0);
+
+                      return (
+                        <MobileCard key={item.productSystemId} inert>
+                          <MobileCardHeader className="items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <ProductThumbnailCell
+                                productSystemId={item.productSystemId}
+                                product={product}
+                                productName={item.productName}
+                                itemThumbnailImage={item.imageUrl}
+                                onPreview={(url, title) => setPreviewImage({ url, title })}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs text-muted-foreground">#{index + 1}</div>
+                                <Link
+                                  href={`/products/${item.productSystemId}`}
+                                  className="mt-0.5 block text-sm font-semibold text-primary hover:underline line-clamp-2"
+                                >
+                                  {item.productName}
+                                </Link>
+                                <Link
+                                  href={`/products/${item.productSystemId}`}
+                                  className="mt-0.5 block text-xs text-muted-foreground hover:underline"
+                                >
+                                  {item.sku || item.productId}
+                                </Link>
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className="text-xs uppercase tracking-wide text-muted-foreground">Thành tiền</div>
+                              <div className="mt-0.5 text-sm font-semibold">{formatCurrency(lineTotal)}</div>
+                            </div>
+                          </MobileCardHeader>
+                          <MobileCardBody>
+                            <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                              <div>
+                                <dt className="text-xs text-muted-foreground">SL nhập</dt>
+                                <dd className="font-medium">{item.quantity} {item.unit || ''}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-muted-foreground">Đơn giá nhập</dt>
+                                <dd className="font-medium">{formatCurrency(item.unitPrice)}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-muted-foreground">Giá vốn</dt>
+                                <dd className="font-medium">{formatCurrency(itemCostPrice)}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-muted-foreground">Loại SP</dt>
+                                <dd className="font-medium truncate">{productTypeName}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-muted-foreground">Thuế</dt>
+                                <dd className="font-medium">{item.taxRate}%</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-muted-foreground">Chiết khấu</dt>
+                                <dd className="font-medium">{discountLabel}</dd>
+                              </div>
+                            </dl>
+                            {item.note && (
+                              <p className="mt-3 text-xs italic text-muted-foreground">• {item.note}</p>
+                            )}
+                          </MobileCardBody>
+                        </MobileCard>
+                      );
+                    })}
+
+                    {/* Mobile totals */}
+                    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-2 text-sm">
+                      {(() => {
+                        const subtotal = (purchaseOrder.lineItems || []).reduce((sum, item) => {
+                          const lineGross = item.quantity * item.unitPrice;
+                          const discountAmount = item.discountType === 'percentage'
+                            ? lineGross * (item.discount / 100)
+                            : item.discount;
+                          return sum + (lineGross - discountAmount);
+                        }, 0);
+                        const totalQuantity = (purchaseOrder.lineItems || []).reduce((sum, item) => sum + item.quantity, 0);
+                        const orderDiscount = purchaseOrder.discountType === 'percentage'
+                          ? ((purchaseOrder.subtotal || 0) * (purchaseOrder.discount ?? 0) / 100)
+                          : (purchaseOrder.discount ?? 0);
+                        return (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Tổng SL</span>
+                              <span className="font-medium">{totalQuantity}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Tổng tiền hàng</span>
+                              <span className="font-medium">{formatCurrency(subtotal)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Chiết khấu {purchaseOrder.discountType === 'percentage' && (purchaseOrder.discount ?? 0) > 0 ? `(${purchaseOrder.discount}%)` : ''}
+                              </span>
+                              <span className="text-red-600">
+                                {orderDiscount > 0 ? `-${formatCurrency(orderDiscount)}` : formatCurrency(0)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Phí vận chuyển</span>
+                              <span>{formatCurrency(purchaseOrder.shippingFee)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Chi phí khác</span>
+                              <span>{formatCurrency(purchaseOrder.tax)}</span>
+                            </div>
+                            <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                              <span className="text-h3 font-bold">Thành tiền</span>
+                              <span className="text-h3 font-bold">{formatCurrency(purchaseOrder.grandTotal)}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
               </CardContent>
           </Card>
 
           <Tabs defaultValue="stock_history">
-              <TabsList>
-                  <TabsTrigger value="stock_history">Lịch sử kho ({poReceipts.length + (Array.isArray(purchaseReturns) ? purchaseReturns.length : 0)})</TabsTrigger>
-              </TabsList>
+              <MobileTabsList>
+                  <MobileTabsTrigger value="stock_history">Lịch sử kho ({poReceipts.length + (Array.isArray(purchaseReturns) ? purchaseReturns.length : 0)})</MobileTabsTrigger>
+              </MobileTabsList>
               <TabsContent value="stock_history" className="mt-4">
                  <StockHistoryTab 
                    poReceipts={poReceipts} 
@@ -1580,6 +1720,6 @@ export function PurchaseOrderDetailPage() {
           onOpenChange={(open) => !open && setPreviewImage(null)}
           title={previewImage?.title}
         />
-      </div>
+      </DetailPageShell>
   );
 }

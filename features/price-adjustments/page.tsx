@@ -24,8 +24,10 @@ import { PageFilters } from '@/components/layout/page-filters';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
+import { formatDate } from '@/lib/date-utils';
+import { ListPageShell } from '@/components/layout/page-section';
 
 // Simple card for mobile
 function PriceAdjustmentCard({ 
@@ -57,23 +59,45 @@ function PriceAdjustmentCard({
     }
   };
   
+  const itemCount = adjustment.items?.length || 0;
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="font-medium">{adjustment.id}</p>
-            <p className="text-sm text-muted-foreground">{adjustment.pricingPolicyName}</p>
+    <MobileCard>
+      <MobileCardHeader className="items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Phiếu điều chỉnh giá</div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <div className="text-sm font-semibold text-foreground truncate font-mono">{adjustment.id}</div>
+            <Badge variant={getStatusVariant(adjustment.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'success'} className="text-xs shrink-0">
+              {getStatusLabel(adjustment.status)}
+            </Badge>
           </div>
-          <Badge variant={getStatusVariant(adjustment.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'success'}>
-            {getStatusLabel(adjustment.status)}
-          </Badge>
         </div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          {adjustment.items?.length || 0} sản phẩm
+        <div className="text-right shrink-0">
+          <div className="text-2xl font-bold leading-none">{itemCount}</div>
+          <div className="mt-1 text-xs text-muted-foreground">Sản phẩm</div>
         </div>
-      </CardContent>
-    </Card>
+      </MobileCardHeader>
+      <MobileCardBody>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Chính sách giá</dt>
+            <dd className="font-medium truncate">{adjustment.pricingPolicyName || '—'}</dd>
+          </div>
+          {adjustment.createdDate && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Ngày tạo</dt>
+              <dd className="font-medium">{formatDate(adjustment.createdDate)}</dd>
+            </div>
+          )}
+          {adjustment.createdByName && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Người tạo</dt>
+              <dd className="font-medium truncate">{adjustment.createdByName}</dd>
+            </div>
+          )}
+        </dl>
+      </MobileCardBody>
+    </MobileCard>
   );
 }
 
@@ -271,7 +295,7 @@ export function PriceAdjustmentListPage() {
   }, [router]);
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {!isMobile && (
         <PageToolbar 
           leftActions={
@@ -358,6 +382,6 @@ export function PriceAdjustmentListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ListPageShell>
   );
 }

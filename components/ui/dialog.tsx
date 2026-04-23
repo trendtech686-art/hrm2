@@ -41,11 +41,18 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { 
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     id?: string;
     open?: boolean;
+    /**
+     * When true, dialog occupies the full viewport on mobile (<md) — ideal for
+     * content-heavy dialogs like product / customer pickers, big forms, etc.
+     * Desktop layout is unaffected.
+     * @default false (mobile shows 85vh bottom sheet)
+     */
+    mobileFullScreen?: boolean;
   }
->(({ className, children, id: propId, open: _open, style: propStyle, ...props }, ref) => {
+>(({ className, children, id: propId, open: _open, style: propStyle, mobileFullScreen = false, ...props }, ref) => {
   const generatedId = React.useId();
   const contextId = React.useContext(DialogContext);
   const id = propId || contextId || `dialog-${generatedId}`;
@@ -63,10 +70,18 @@ const DialogContent = React.forwardRef<
         className={cn(
           // Base styles (max-w-lg, p-6, rounded-lg are overridable via className + tailwind-merge)
           "dialog-content fixed z-50 grid w-full max-w-lg gap-4 border border-border bg-background p-6 rounded-lg shadow-lg duration-200",
-          // Mobile: bottom sheet style (max-md: overrides base via higher cascade priority)
-          "max-md:max-w-none max-md:bottom-0 max-md:left-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-2xl max-md:rounded-b-none max-md:max-h-[85vh] max-md:overflow-y-auto max-md:p-4 max-md:pb-8",
-          "max-md:data-[state=open]:animate-in max-md:data-[state=open]:slide-in-from-bottom max-md:data-[state=open]:fade-in-0",
-          "max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=closed]:fade-out-0",
+          // Mobile: bottom sheet style (85vh) OR full-screen sheet
+          mobileFullScreen
+            ? [
+                "max-md:max-w-none max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:w-screen max-md:h-dvh max-md:max-h-dvh max-md:p-4 max-md:overflow-y-auto max-md:[scrollbar-width:thin]",
+                "max-md:data-[state=open]:animate-in max-md:data-[state=open]:slide-in-from-bottom max-md:data-[state=open]:fade-in-0",
+                "max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=closed]:fade-out-0",
+              ]
+            : [
+                "max-md:max-w-none max-md:bottom-0 max-md:left-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-2xl max-md:rounded-b-none max-md:max-h-[85vh] max-md:overflow-y-auto max-md:p-4 max-md:pb-8",
+                "max-md:data-[state=open]:animate-in max-md:data-[state=open]:slide-in-from-bottom max-md:data-[state=open]:fade-in-0",
+                "max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=closed]:fade-out-0",
+              ],
           // Desktop: centered modal + animations
           "md:left-[50%] md:top-[50%] md:translate-x-[-50%] md:translate-y-[-50%]",
           "md:data-[state=open]:animate-in md:data-[state=open]:fade-in-0 md:data-[state=open]:zoom-in-95",
@@ -76,8 +91,10 @@ const DialogContent = React.forwardRef<
         {...props}
         style={{ ...propStyle, zIndex }}
       >
-        {/* Mobile drag handle indicator */}
-        <div className="mx-auto w-10 h-1 rounded-full bg-muted-foreground/20 shrink-0 md:hidden" />
+        {/* Mobile drag handle indicator (only on bottom-sheet mode, not full-screen) */}
+        {!mobileFullScreen && (
+          <div className="mx-auto w-10 h-1 rounded-full bg-muted-foreground/20 shrink-0 md:hidden" />
+        )}
         <DialogProvider id={id}>
           {children}
           <DialogPrimitive.Close

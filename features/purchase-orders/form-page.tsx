@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils';
 import type { PurchaseOrderPaymentStatus as PaymentStatus, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus } from '@/lib/types/prisma-extended';
 import { Button } from '../../components/ui/button';
+import { FormPageShell } from '../../components/layout/page-section';
 import { SupplierSelectionCard } from './components/supplier-selection-card';
 import { OrderInfoCard } from './components/order-info-card';
 import {
@@ -811,7 +812,7 @@ export function PurchaseOrderFormPage() {
       variant="outline" 
       onClick={handleExit} 
       size="sm" 
-      className="h-9"
+      className="hidden lg:inline-flex h-9"
       disabled={isSaving}
     >
       Thoát
@@ -822,7 +823,7 @@ export function PurchaseOrderFormPage() {
       variant="outline" 
       onClick={handleSaveWithoutReceive} 
       size="sm" 
-      className="h-9"
+      className="hidden lg:inline-flex h-9"
       disabled={isSaving}
     >
       {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Tạo & chưa nhập"}
@@ -832,7 +833,7 @@ export function PurchaseOrderFormPage() {
       type="button" 
       onClick={handleSaveWithReceive} 
       size="sm" 
-      className="h-9"
+      className="hidden lg:inline-flex h-9"
       disabled={isSaving}
     >
       {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Tạo & nhập hàng"}
@@ -856,7 +857,7 @@ export function PurchaseOrderFormPage() {
   });
 
   return (
-    <div className="w-full h-full space-y-4 pb-20 lg:pb-4">
+    <FormPageShell gap="md" className="h-full pb-[calc(env(safe-area-inset-bottom)+72px)] lg:pb-4">
       {/* Row 1: Supplier Info (70%) + Order Info (30%) - Mobile: Stack vertical */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-auto">
         <div className="lg:col-span-7 h-full overflow-hidden order-2 lg:order-1">
@@ -923,7 +924,7 @@ export function PurchaseOrderFormPage() {
         </div>
         
         {/* Mobile Sticky Footer - Chỉ hiện trên mobile */}
-        <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-background border-t p-4 flex gap-2 z-50 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-background border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex gap-2 z-50 shadow-lg">
           <Button 
             type="button" 
             variant="outline" 
@@ -951,6 +952,6 @@ export function PurchaseOrderFormPage() {
             {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Lưu & Nhập"}
           </Button>
         </div>
-    </div>
+    </FormPageShell>
   );
 }

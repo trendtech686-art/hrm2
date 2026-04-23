@@ -15,6 +15,7 @@ import { Plus, Minus, Trash2, Package, AlertCircle, Info, AlertTriangle } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { ProductImage } from './product-image';
 
 import {
@@ -374,7 +375,7 @@ export function ComboSection() {
   };
   
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">

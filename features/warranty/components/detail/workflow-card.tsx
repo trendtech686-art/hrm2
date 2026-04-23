@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../components
 import { SubtaskList, type Subtask } from '../../../../components/shared/subtask-list';
 import type { WarrantyTicket } from '../../types';
 import { getWorkflowTemplate } from '../../../settings/printer/workflow-templates-page';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface WarrantyWorkflowCardProps {
   ticket: WarrantyTicket;
@@ -90,7 +91,7 @@ export function WarrantyWorkflowCard({
   }
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>

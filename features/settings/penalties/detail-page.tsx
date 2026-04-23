@@ -18,6 +18,7 @@ import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
 import { Comments, type Comment as _CommentType } from '../../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useAuth } from '../../../contexts/auth-context';
 import { usePrint } from '../../../lib/use-print';
@@ -177,7 +178,7 @@ export function PenaltyDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-4">
             <Skeleton className="h-7 w-48" />
           </CardHeader>
@@ -198,7 +199,7 @@ export function PenaltyDetailPage() {
 
   if (!penalty) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center text-muted-foreground">
           Không tìm thấy phiếu phạt
         </CardContent>
@@ -211,9 +212,9 @@ export function PenaltyDetailPage() {
     : null;
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Thông tin chính */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <CardTitle size="lg">Thông tin phiếu phạt</CardTitle>
         </CardHeader>
@@ -294,7 +295,7 @@ export function PenaltyDetailPage() {
       
       {/* Liên kết */}
       {(penalty.linkedComplaintSystemId || penalty.linkedOrderSystemId || penalty.deductedInPayrollId) && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-4">
           <CardTitle size="lg">Liên kết</CardTitle>
         </CardHeader>
@@ -344,7 +345,7 @@ export function PenaltyDetailPage() {
       )}
       
       {/* Thông tin hệ thống */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           {penalty.createdAt && (
             <p>
@@ -380,6 +381,6 @@ export function PenaltyDetailPage() {
 
       {/* Activity History */}
       <EntityActivityTable entityType="penalty" entityId={systemId} />
-    </div>
+    </DetailPageShell>
   );
 }

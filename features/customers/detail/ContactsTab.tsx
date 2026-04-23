@@ -5,6 +5,7 @@ import { Phone, Mail } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import type { Customer } from '@/lib/types/prisma-extended';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 export interface ContactsTabProps {
   customer: Customer;
@@ -12,7 +13,7 @@ export interface ContactsTabProps {
 
 export function ContactsTab({ customer }: ContactsTabProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle>Danh sách liên hệ</CardTitle>
       </CardHeader>

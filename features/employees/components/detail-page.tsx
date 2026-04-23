@@ -8,6 +8,8 @@ import { formatDate, getMonthsDiff } from '@/lib/date-utils';
 import { useEmployee } from '../hooks/use-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { usePageHeader } from '@/contexts/page-header-context';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useAuth } from '@/contexts/auth-context';
 import { Comments } from '@/components/Comments';
@@ -32,7 +34,8 @@ import { InfoItem } from '@/components/ui/info-card';
 import { StatsCard } from '@/components/ui/stats-card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 
 import { EmployeeDocuments } from './employee-documents';
 import { EmployeeAccountTab } from './employee-account-tab';
@@ -115,7 +118,7 @@ const renderEmploymentStatusBadge = (status?: Employee["employmentStatus"]) => {
 };
 
 const PlaceholderTabContent = ({ title }: { title: string }) => (
-  <Card className="mt-4">
+  <Card className={cn("mt-4", mobileBleedCardClass)}>
     <CardContent className="p-0">
       <div className="flex h-40 items-center justify-center rounded-lg border-dashed">
         <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
@@ -128,7 +131,7 @@ const PlaceholderTabContent = ({ title }: { title: string }) => (
 );
 
 const TabLoadingSkeleton = () => (
-  <Card>
+  <Card className={mobileBleedCardClass}>
     <CardContent className="p-4 space-y-3">
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-8 w-full" />
@@ -258,7 +261,7 @@ export function EmployeeDetailPage() {
   // Loading state while React Query is fetching
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 md:p-6">
         <div className="flex items-center gap-4">
           <Skeleton className="h-24 w-24 rounded-full" />
           <div className="space-y-2">
@@ -273,7 +276,7 @@ export function EmployeeDetailPage() {
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
         </div>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <Skeleton className="h-5 w-32" />
           </CardHeader>
@@ -317,10 +320,10 @@ export function EmployeeDetailPage() {
   };
 
   return (
-    <div className="w-full h-full">
+    <DetailPageShell className="w-full h-full">
       <div className="space-y-6">
         {/* Profile Card */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
             <CardContent className="pt-6">
                 <div className="flex flex-col sm:flex-row gap-6">
                     <Avatar className="h-20 w-20">
@@ -390,25 +393,23 @@ export function EmployeeDetailPage() {
         </div>
 
         <Tabs defaultValue="personal">
-            <div className="w-full overflow-x-auto overflow-y-hidden mb-4 pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
-                <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start">
-                    <TabsTrigger value="personal" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Thông tin cá nhân</TabsTrigger>
-                    <TabsTrigger value="addresses" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Địa chỉ</TabsTrigger>
-                    <TabsTrigger value="work" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Thông tin công việc</TabsTrigger>
-                    <TabsTrigger value="account" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Thông tin đăng nhập</TabsTrigger>
-                    <TabsTrigger value="documents" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Tài liệu</TabsTrigger>
-                    <TabsTrigger value="penalties" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Phiếu phạt</TabsTrigger>
-                    <TabsTrigger value="leaves" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Lịch sử nghỉ phép</TabsTrigger>
-                    <TabsTrigger value="kpi" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">KPI</TabsTrigger>
-                    <TabsTrigger value="tasks" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Công việc</TabsTrigger>
-                    <TabsTrigger value="payroll" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">Lương & chấm công</TabsTrigger>
-                </TabsList>
-            </div>
+            <MobileTabsList className="mb-4">
+                <MobileTabsTrigger value="personal">Thông tin cá nhân</MobileTabsTrigger>
+                <MobileTabsTrigger value="addresses">Địa chỉ</MobileTabsTrigger>
+                <MobileTabsTrigger value="work">Thông tin công việc</MobileTabsTrigger>
+                <MobileTabsTrigger value="account">Thông tin đăng nhập</MobileTabsTrigger>
+                <MobileTabsTrigger value="documents">Tài liệu</MobileTabsTrigger>
+                <MobileTabsTrigger value="penalties">Phiếu phạt</MobileTabsTrigger>
+                <MobileTabsTrigger value="leaves">Lịch sử nghỉ phép</MobileTabsTrigger>
+                <MobileTabsTrigger value="kpi">KPI</MobileTabsTrigger>
+                <MobileTabsTrigger value="tasks">Công việc</MobileTabsTrigger>
+                <MobileTabsTrigger value="payroll">Lương & chấm công</MobileTabsTrigger>
+            </MobileTabsList>
 
             <TabsContent value="personal" className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                     {/* Personal Information */}
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Thông tin cá nhân</CardTitle>
                         </CardHeader>
@@ -423,7 +424,7 @@ export function EmployeeDetailPage() {
                     </Card>
 
                     {/* Identification & Bank */}
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Định danh & Ngân hàng</CardTitle>
                         </CardHeader>
@@ -440,7 +441,7 @@ export function EmployeeDetailPage() {
                     </Card>
 
                     {/* Emergency Contact */}
-                    <Card className="md:col-span-2">
+                    <Card className={cn("md:col-span-2", mobileBleedCardClass)}>
                         <CardHeader>
                             <CardTitle>Liên hệ khẩn cấp</CardTitle>
                         </CardHeader>
@@ -454,7 +455,7 @@ export function EmployeeDetailPage() {
 
             <TabsContent value="addresses" className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Địa chỉ thường trú</CardTitle>
                         </CardHeader>
@@ -474,7 +475,7 @@ export function EmployeeDetailPage() {
                              )}
                         </CardContent>
                     </Card>
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Địa chỉ tạm trú</CardTitle>
                         </CardHeader>
@@ -500,7 +501,7 @@ export function EmployeeDetailPage() {
             <TabsContent value="work" className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                     {/* Work Information */}
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Thông tin công việc</CardTitle>
                         </CardHeader>
@@ -543,7 +544,7 @@ export function EmployeeDetailPage() {
                     </Card>
 
                     {/* Salary & Allowances */}
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>Lương & Phụ cấp</CardTitle>
                         </CardHeader>
@@ -608,6 +609,6 @@ export function EmployeeDetailPage() {
 
 
       </div>
-    </div>
+    </DetailPageShell>
   );
 }

@@ -6,7 +6,12 @@ import { formatDate } from '@/lib/date-utils';
 import { useLeaveById, useLeaveMutations } from '../hooks/use-leaves';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DetailPageShell,
+  MobileSectionCard,
+  MobileSectionHeader,
+  MobileSectionTitle,
+} from '@/components/layout/page-section';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Edit, Ban, Loader2, MoreHorizontal } from 'lucide-react';
 import { DetailField } from '@/components/ui/detail-field';
@@ -258,69 +263,61 @@ export function LeaveDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Card><CardContent className="p-8 text-center text-muted-foreground">Đang tải...</CardContent></Card>
-      </div>
+      <MobileSectionCard className="p-8 text-center text-muted-foreground">Đang tải...</MobileSectionCard>
     );
   }
 
   if (!request) {
     return (
-      <div className="text-center p-8">
+      <MobileSectionCard className="p-8 text-center">
         <h2 className="text-h3 font-bold">Không tìm thấy đơn nghỉ phép</h2>
         <Button onClick={() => router.push('/leaves')} className="mt-4">Quay về danh sách</Button>
-      </div>
+      </MobileSectionCard>
     );
   }
 
   return (
-    <>
-    <div className="grid gap-4 md:grid-cols-2">
+    <DetailPageShell>
+    <div className="grid gap-3 md:gap-4 md:grid-cols-2">
       {/* Thông tin đơn */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Thông tin đơn</CardTitle>
-          <CardDescription>Mã đơn: {request.id}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl>
-            <DetailField label="Trạng thái">
-              <Badge variant={statusVariants[request.status] || 'secondary'}>{request.status}</Badge>
-            </DetailField>
-            <DetailField label="Loại phép" value={request.leaveTypeName} />
-            <DetailField label="Có lương">
-              {request.leaveTypeIsPaid ? <Badge variant="success">Có</Badge> : <Badge variant="secondary">Không</Badge>}
-            </DetailField>
-            <DetailField label="Ngày tạo đơn" value={formatDate(request.requestDate)} />
-          </dl>
-        </CardContent>
-      </Card>
+      <MobileSectionCard>
+        <MobileSectionHeader>
+          <MobileSectionTitle>Thông tin đơn</MobileSectionTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">Mã đơn: {request.id}</p>
+        </MobileSectionHeader>
+        <dl>
+          <DetailField label="Trạng thái">
+            <Badge variant={statusVariants[request.status] || 'secondary'}>{request.status}</Badge>
+          </DetailField>
+          <DetailField label="Loại phép" value={request.leaveTypeName} />
+          <DetailField label="Có lương">
+            {request.leaveTypeIsPaid ? <Badge variant="success">Có</Badge> : <Badge variant="secondary">Không</Badge>}
+          </DetailField>
+          <DetailField label="Ngày tạo đơn" value={formatDate(request.requestDate)} />
+        </dl>
+      </MobileSectionCard>
 
       {/* Thông tin nhân viên */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Nhân viên</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl>
-            <DetailField label="Họ tên" value={request.employeeName} />
-            <DetailField label="Mã nhân viên" value={request.employeeId} />
-            <DetailField label="Thời gian nghỉ" value={`${formatDate(request.startDate)} → ${formatDate(request.endDate)}`} />
-            <DetailField label="Số ngày nghỉ" value={`${request.numberOfDays} ngày`} />
-          </dl>
-        </CardContent>
-      </Card>
+      <MobileSectionCard>
+        <MobileSectionHeader>
+          <MobileSectionTitle>Nhân viên</MobileSectionTitle>
+        </MobileSectionHeader>
+        <dl>
+          <DetailField label="Họ tên" value={request.employeeName} />
+          <DetailField label="Mã nhân viên" value={request.employeeId} />
+          <DetailField label="Thời gian nghỉ" value={`${formatDate(request.startDate)} → ${formatDate(request.endDate)}`} />
+          <DetailField label="Số ngày nghỉ" value={`${request.numberOfDays} ngày`} />
+        </dl>
+      </MobileSectionCard>
     </div>
 
     {/* Lý do */}
-    <Card>
-      <CardHeader>
-        <CardTitle>Lý do nghỉ phép</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm whitespace-pre-wrap">{request.reason || 'Không có lý do'}</p>
-      </CardContent>
-    </Card>
+    <MobileSectionCard>
+      <MobileSectionHeader>
+        <MobileSectionTitle>Lý do nghỉ phép</MobileSectionTitle>
+      </MobileSectionHeader>
+      <p className="text-sm whitespace-pre-wrap">{request.reason || 'Không có lý do'}</p>
+    </MobileSectionCard>
 
     {/* Comments */}
     <Comments
@@ -365,6 +362,6 @@ export function LeaveDetailPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    </>
+    </DetailPageShell>
   );
 }

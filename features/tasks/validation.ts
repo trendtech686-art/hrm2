@@ -4,6 +4,19 @@ import { z } from 'zod';
 // TASK VALIDATION SCHEMAS
 // =============================================================================
 
+/** Form / JSON gửi ngày bằng chuỗi ISO; `z.date()` từ chối string → lỗi "expected date, received string". */
+function zOptionalDateFromForm() {
+  return z.preprocess((val: unknown) => {
+    if (val === undefined || val === null || val === '') return undefined;
+    if (val instanceof Date) return Number.isNaN(val.getTime()) ? undefined : val;
+    if (typeof val === 'string' || typeof val === 'number') {
+      const d = new Date(val);
+      return Number.isNaN(d.getTime()) ? undefined : d;
+    }
+    return undefined;
+  }, z.date().optional());
+}
+
 /**
  * Task Priority & Status
  */
@@ -51,7 +64,7 @@ export const subtaskSchema = z.object({
     .min(1, 'Tiêu đề không được để trống')
     .max(200, 'Tiêu đề không được quá 200 ký tự'),
   completed: z.boolean().default(false),
-  dueDate: z.date().optional(),
+  dueDate: zOptionalDateFromForm(),
   assigneeId: z.string().optional(),
 });
 
@@ -73,9 +86,9 @@ export const createTaskSchema = z.object({
   priority: taskPrioritySchema.default('Trung bình'),
   status: taskStatusSchema.default('Chưa bắt đầu'),
   
-  // Dates
-  startDate: z.date().optional(),
-  dueDate: z.date().optional(),
+  // Dates (chuỗi ISO từ client)
+  startDate: zOptionalDateFromForm(),
+  dueDate: zOptionalDateFromForm(),
   
   // Assignees
   assignees: z.array(taskAssigneeSchema).default([]),

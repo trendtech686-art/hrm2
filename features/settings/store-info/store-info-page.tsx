@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useAuth } from '../../../contexts/auth-context';
@@ -226,7 +227,7 @@ export function StoreInfoPage() {
     return (
         <>
         <div className="space-y-8">
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardHeader>
                     <CardTitle>Thông tin chung</CardTitle>
                     <CardDescription>Các thông tin cơ bản của công ty hoặc chuỗi cửa hàng.</CardDescription>
@@ -533,7 +534,7 @@ export function StoreInfoPage() {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className={mobileBleedCardClass}>
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div>

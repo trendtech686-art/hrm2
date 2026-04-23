@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { cn } from "../../../lib/utils";
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Copy, Plus, AlertTriangle, FileText, Receipt, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge, COMPLAINT_STATUS_MAP } from "../../../components/StatusBadge";
@@ -60,7 +61,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
   const totalPenalties = allPenalties.filter(p => p.status !== 'Đã hủy' && p.status?.toLowerCase() !== 'cancelled').reduce((sum, p) => sum + Number(p.amount), 0);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle size="lg">Thông tin phiếu khiếu nại</CardTitle>
       </CardHeader>

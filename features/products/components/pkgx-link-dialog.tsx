@@ -118,7 +118,7 @@ export function PkgxLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-125">
+      <DialogContent mobileFullScreen className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>Liên kết với sản phẩm PKGX</DialogTitle>
           <DialogDescription>

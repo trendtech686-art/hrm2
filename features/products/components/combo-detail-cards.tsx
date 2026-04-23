@@ -9,6 +9,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Eye, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LazyImage } from '@/components/ui/lazy-image';
@@ -118,7 +119,7 @@ export function ComboItemsCard({
   const savings = totalOriginalPrice > comboPrice ? totalOriginalPrice - comboPrice : 0;
   
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle size="lg">
           Thành phần Combo
@@ -355,7 +356,7 @@ export function ComboInventoryCard({
   }, [product.comboItems, product.committedByBranch, product.inTransitByBranch, allProducts, branches]);
   
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle size="lg">Tồn kho theo chi nhánh</CardTitle>
       </CardHeader>

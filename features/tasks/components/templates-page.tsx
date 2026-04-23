@@ -376,7 +376,7 @@ export function TaskTemplatesPage() {
 
       {/* Use Template Dialog */}
       <Dialog open={showUseDialog} onOpenChange={setShowUseDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent mobileFullScreen className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Tạo công việc từ mẫu: {selectedTemplate?.name}</DialogTitle>
             <DialogDescription>

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatDateCustom } from '@/lib/date-utils';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Comments, type Comment } from '../../components/Comments';
 import { useAuth } from '../../contexts/auth-context';
 import { usePrint } from '../../lib/use-print';
@@ -243,7 +244,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
   
   if (isLoading) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center text-muted-foreground">
           Đang tải thông tin phiếu thu...
         </CardContent>
@@ -253,7 +254,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
   
   if (!receipt) {
     return (
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center text-muted-foreground">
           Không tìm thấy phiếu thu
         </CardContent>
@@ -262,9 +263,9 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
   }
   
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Thông tin phiếu thu */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Thông tin phiếu thu</CardTitle>
         </CardHeader>
@@ -342,7 +343,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
       </Card>
       
       {/* System Info */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           <p>
             Người tạo:{' '}
@@ -367,6 +368,6 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
       
       {/* Activity History */}
       <EntityActivityTable entityType="receipt" entityId={systemId} />
-    </div>
+    </DetailPageShell>
   );
 }

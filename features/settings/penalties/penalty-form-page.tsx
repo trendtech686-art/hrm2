@@ -7,6 +7,7 @@ import type { Penalty } from './types';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { PenaltyForm } from './form';
 import { Card, CardContent } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '../../../components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -100,7 +101,7 @@ export function PenaltyFormPage() {
   }
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="p-6">
         <PenaltyForm
           initialData={penalty}

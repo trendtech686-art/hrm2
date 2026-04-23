@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useLeaveMutations } from '../hooks/use-leaves'
 import { usePageHeader } from '@/contexts/page-header-context'
 import { LeaveForm } from './leave-form'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { MobileSectionCard, MobileSectionHeader, MobileSectionTitle } from '@/components/layout/page-section'
 import { toast } from 'sonner'
 import type { LeaveRequest } from '@/lib/types/prisma-extended'
 import type { LeaveCreateInput } from '../api/leaves-api'
@@ -57,18 +57,16 @@ export function LeaveCreatePage() {
   }, [router])
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Tạo đơn nghỉ phép mới</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <LeaveForm
-          initialData={null}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          isSubmitting={mutations.create.isPending}
-        />
-      </CardContent>
-    </Card>
+    <MobileSectionCard>
+      <MobileSectionHeader>
+        <MobileSectionTitle>Tạo đơn nghỉ phép mới</MobileSectionTitle>
+      </MobileSectionHeader>
+      <LeaveForm
+        initialData={null}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        isSubmitting={mutations.create.isPending}
+      />
+    </MobileSectionCard>
   )
 }

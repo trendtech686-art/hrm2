@@ -65,9 +65,8 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "../ui/tabs"
+import { MobileTabsList, MobileTabsTrigger } from "../layout/page-section"
 import {
   Popover,
   PopoverContent,
@@ -1259,20 +1258,20 @@ export function GenericImportDialogV2<T>({
                   setPreviewPage(0)
                 })
               }}>
-                <TabsList>
-                  <TabsTrigger value="all">
+                <MobileTabsList>
+                  <MobileTabsTrigger value="all">
                     Tất cả ({previewResult.totalRows})
-                  </TabsTrigger>
-                  <TabsTrigger value="valid">
+                  </MobileTabsTrigger>
+                  <MobileTabsTrigger value="valid">
                     Hợp lệ ({previewResult.validCount})
-                  </TabsTrigger>
-                  <TabsTrigger value="error">
+                  </MobileTabsTrigger>
+                  <MobileTabsTrigger value="error">
                     Lỗi ({previewResult.errorCount})
-                  </TabsTrigger>
-                  <TabsTrigger value="warning">
+                  </MobileTabsTrigger>
+                  <MobileTabsTrigger value="warning">
                     Cảnh báo ({previewResult.warningCount})
-                  </TabsTrigger>
-                </TabsList>
+                  </MobileTabsTrigger>
+                </MobileTabsList>
                 
                 <TabsContent value={previewTab} className="mt-4">
                   <div className="rounded-md border overflow-hidden">

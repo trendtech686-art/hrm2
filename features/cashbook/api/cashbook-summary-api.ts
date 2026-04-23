@@ -39,6 +39,13 @@ export interface CashbookSummary {
   totalReceipts: number;
   totalPayments: number;
   closingBalance: number;
+  /** Số dư cuối kỳ (theo bộ lọc) từng tài khoản quỹ */
+  accountBalances?: Array<{
+    systemId: string;
+    name: string;
+    type: string;
+    balance: number;
+  }>;
 }
 
 export interface CashbookResponse {

@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Separator } from '@/components/ui/separator';
 import type { PublicWarrantyProduct } from '../public-warranty-api';
 import {
@@ -38,7 +39,7 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
   const grandTotal = calculateGrandTotal(products, shippingFee);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
         <CardTitle className="flex items-center gap-2 text-h4">
           <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />

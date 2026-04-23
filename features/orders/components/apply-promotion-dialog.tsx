@@ -41,7 +41,7 @@ export function ApplyPromotionDialog({ open, onOpenChange, onApply, disabled = f
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent mobileFullScreen className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5" />

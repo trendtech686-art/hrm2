@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mất kết nối – ERP</title>
+    <meta name="theme-color" content="#09090b" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #09090b;
+        --muted: #71717a;
+        --border: #e4e4e7;
+        --accent: #18181b;
+        --accent-fg: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #09090b;
+          --fg: #fafafa;
+          --muted: #a1a1aa;
+          --border: #27272a;
+          --accent: #fafafa;
+          --accent-fg: #09090b;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        max-width: 420px;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 28px 24px;
+        text-align: center;
+      }
+      .icon {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 16px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      button {
+        appearance: none;
+        cursor: pointer;
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 18px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        font-weight: 600;
+        font-size: 14px;
+        width: 100%;
+      }
+      button:hover { opacity: .92; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 1l22 22" />
+            <path d="M8.5 16.5a5 5 0 0 1 7 0" />
+            <path d="M2 8.82a15 15 0 0 1 4.17-2.65" />
+            <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76" />
+            <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68" />
+            <path d="M5 13a10 10 0 0 1 5.17-2.69" />
+            <line x1="12" y1="20" x2="12.01" y2="20" />
+          </svg>
+        </div>
+        <h1>Mất kết nối</h1>
+        <p>Không thể truy cập máy chủ ngay lúc này. Vui lòng kiểm tra kết nối mạng và thử lại.</p>
+        <button type="button" onclick="location.reload()">Thử lại</button>
+      </div>
+    </div>
+  </body>
+</html>

@@ -13,6 +13,8 @@
 import * as React from 'react';
 import { useFormContext, useFieldArray } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { PackageOpen, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,6 +24,8 @@ import type { StagingFile } from '@/lib/file-upload-api';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
 // ✅ Use UnifiedProductSearch giống trang đơn hàng, có ảnh, giá, tồn kho
 import { UnifiedProductSearch } from '@/components/shared/unified-product-search';
+import { BarcodeScannerButton } from '@/components/shared/barcode-scanner-button';
+import { toast } from 'sonner';
 import type { Product } from '@/features/products/types';
 import { useAllProducts } from '@/features/products/hooks/use-all-products';
 import { useCustomerOrders } from '@/features/customers/hooks/use-customer-related-data';
@@ -35,6 +39,7 @@ import {
 } from '../utils/warranty-products-helpers';
 import { WarrantyProductsSettingsDialog, type ProductsSectionSettings } from './warranty-products-settings-dialog';
 import { WarrantyProductRow } from './warranty-product-row';
+import { WarrantyProductMobileCard } from './warranty-product-mobile-card';
 
 interface WarrantyProductsSectionProps {
   disabled?: boolean;
@@ -194,7 +199,7 @@ export function WarrantyProductsSection({
   }, [getImagesStateRef]); // Only depend on ref itself, function reads from refs
 
   return (
-    <Card className="flex flex-col">
+    <Card className={cn(mobileBleedCardClass, 'flex flex-col')}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle>Danh sách sản phẩm bảo hành</CardTitle>
 
@@ -239,6 +244,25 @@ export function WarrantyProductsSection({
               allowCreateNew={false}
             />
           </div>
+          <BarcodeScannerButton
+            disabled={disabled}
+            onDetect={async (code) => {
+              try {
+                const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`);
+                if (!res.ok) throw new Error('search failed');
+                const json = await res.json() as { data: Product[] };
+                const match = json.data?.[0];
+                if (!match) {
+                  toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                  return;
+                }
+                onSelectProduct(match);
+                toast.success(`Đã thêm: ${match.name}`);
+              } catch {
+                toast.error('Không thể tra cứu mã vạch. Thử lại.');
+              }
+            }}
+          />
           <Button
             type="button"
             variant="outline"
@@ -260,7 +284,8 @@ export function WarrantyProductsSection({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="border rounded-lg overflow-x-auto">
+            {/* ===== DESKTOP: Table editable nguyên trạng ===== */}
+            <div className="hidden md:block border rounded-lg overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
                   <TableRow>
@@ -301,6 +326,33 @@ export function WarrantyProductsSection({
                   })}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* ===== MOBILE: MobileCard stack ===== */}
+            <div className="md:hidden space-y-3">
+              {fields.map((field, index) => {
+                const typedField = field as unknown as WarrantyProductField;
+                const productSystemId = typedField.systemId || '';
+
+                return (
+                  <WarrantyProductMobileCard
+                    key={field.id}
+                    index={index}
+                    field={typedField}
+                    control={control}
+                    availableProducts={mappedProducts}
+                    disabled={disabled}
+                    permanentFiles={productPermanentFiles[productSystemId] || EMPTY_SIMPLE_FILES_ARRAY}
+                    stagingFiles={productStagingFiles[productSystemId] || EMPTY_FILES_ARRAY}
+                    sessionId={productSessionIds[productSystemId]}
+                    filesToDelete={productFilesToDelete[productSystemId] || EMPTY_STRINGS_ARRAY}
+                    onMarkForDeletion={(fileId) => handleMarkForDeletion(productSystemId, fileId)}
+                    onStagingFilesChange={(files) => handleStagingFilesChange(productSystemId, files)}
+                    onSessionChange={(sessionId) => handleSessionChange(productSystemId, sessionId)}
+                    onRemove={() => remove(index)}
+                  />
+                );
+              })}
             </div>
           </div>
         )}

@@ -1,0 +1,21 @@
+/// Web Push subscription registered by a user-agent. We key off the `endpoint`
+/// because browsers re-issue it when the user reinstalls/clears the SW, so a
+/// plain unique constraint keeps the table de-duplicated automatically.
+model PushSubscription {
+  id          String    @id @default(uuid())
+  endpoint    String    @unique
+  p256dh      String
+  auth        String
+  userAgent   String?
+  employeeId  String // recipient Employee.systemId
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime  @default(now())
+  failedCount Int       @default(0)
+  disabledAt  DateTime?
+
+  employee Employee @relation("PushSubscriptionOwner", fields: [employeeId], references: [systemId], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([disabledAt])
+  @@map("push_subscriptions")
+}

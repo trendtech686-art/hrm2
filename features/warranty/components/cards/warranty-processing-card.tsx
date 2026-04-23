@@ -16,6 +16,7 @@ import { useWarrantyTransactionGroups } from '../../hooks/use-warranty-transacti
 import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
 import { WarrantyTransactionGroups } from '../sections/warranty-transaction-groups';
 import type { WarrantyCustomerInfo } from '../../types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface WarrantyProcessingCardProps {
   warrantyId: string;
@@ -122,7 +123,7 @@ export function WarrantyProcessingCard({
   }
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>
           Xử lý bảo hành

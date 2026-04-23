@@ -19,6 +19,7 @@ import { Separator } from '../../components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DetailField } from '../../components/ui/detail-field';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { 
   AlertDialog, 
@@ -35,6 +36,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
 import { CheckCircle, XCircle, Printer, TrendingUp, TrendingDown, ArrowRight, MoreHorizontal } from 'lucide-react';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
 import { Comments } from '../../components/Comments';
@@ -326,11 +328,11 @@ export function CostAdjustmentDetailPage() {
   }
   
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info */}
         <div className="lg:col-span-2 space-y-6">
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Thông tin phiếu</CardTitle>
             </CardHeader>
@@ -345,7 +347,7 @@ export function CostAdjustmentDetailPage() {
           
           {/* Notes */}
           {adjustment.note && (
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Ghi chú</CardTitle>
               </CardHeader>
@@ -358,7 +360,7 @@ export function CostAdjustmentDetailPage() {
 
         {/* Sidebar - Timeline Info */}
         <div className="space-y-6">
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle>Thông tin xử lý</CardTitle>
             </CardHeader>
@@ -390,12 +392,12 @@ export function CostAdjustmentDetailPage() {
       </div>
 
       {/* Product List - Full Width */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Danh sách sản phẩm ({adjustment.items.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -480,7 +482,85 @@ export function CostAdjustmentDetailPage() {
               </TableBody>
             </Table>
           </div>
-          
+
+          {/* Mobile: card stack */}
+          <div className="md:hidden space-y-3">
+            {adjustment.items.map((item, index) => {
+              const product = findProductById(item.productSystemId);
+              const displayName = item.productName || product?.name || 'Sản phẩm';
+              const displayId = item.productId || product?.id || item.productSystemId;
+              const diff = item.adjustmentAmount ?? 0;
+              const diffPct = item.adjustmentPercent ?? 0;
+
+              return (
+                <MobileCard key={index} inert>
+                  <MobileCardHeader className="items-start justify-between">
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      <ProductThumbnailCell
+                        productSystemId={item.productSystemId}
+                        product={product}
+                        productName={displayName}
+                        itemThumbnailImage={item.productImage}
+                        onPreview={(url, title) => setPreviewImage({ url, title })}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                          #{index + 1}
+                        </div>
+                        <Link
+                          href={`/products/${item.productSystemId}`}
+                          className="mt-0.5 block text-sm font-semibold text-primary hover:underline line-clamp-2"
+                        >
+                          {displayName}
+                        </Link>
+                        {displayId && (
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {displayId}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-base font-bold leading-none flex items-center justify-end gap-1 ${
+                        diff > 0 ? 'text-emerald-600' :
+                        diff < 0 ? 'text-destructive' :
+                        'text-muted-foreground'
+                      }`}>
+                        {diff !== 0 && (
+                          diff > 0 ? (
+                            <TrendingUp className="h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4" />
+                          )
+                        )}
+                        <span>{diff >= 0 ? '+' : ''}{formatCurrency(diff)}</span>
+                      </div>
+                      <div className={`mt-1 text-xs ${
+                        diffPct > 0 ? 'text-emerald-600' :
+                        diffPct < 0 ? 'text-destructive' :
+                        'text-muted-foreground'
+                      }`}>
+                        {diffPct >= 0 ? '+' : ''}{diffPct.toFixed(1)}%
+                      </div>
+                    </div>
+                  </MobileCardHeader>
+                  <MobileCardBody>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Giá vốn cũ</dt>
+                        <dd className="font-medium text-muted-foreground">{formatCurrency(item.oldCostPrice)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Giá vốn mới</dt>
+                        <dd className="font-semibold">{formatCurrency(item.newCostPrice)}</dd>
+                      </div>
+                    </dl>
+                  </MobileCardBody>
+                </MobileCard>
+              );
+            })}
+          </div>
+
           <Separator className="my-4" />
           
           <div className="flex justify-end">
@@ -578,6 +658,6 @@ export function CostAdjustmentDetailPage() {
         onOpenChange={(open) => !open && setPreviewImage(null)}
         title={previewImage?.title}
       />
-    </div>
+    </DetailPageShell>
   );
 }

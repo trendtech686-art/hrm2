@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { ExistingDocumentsViewer } from '../../../components/ui/existing-documents-viewer';
 import { NewDocumentsUpload } from '../../../components/ui/new-documents-upload';
 import type { StagingFile } from '../../../lib/file-upload-api';
@@ -46,7 +47,7 @@ export function WarrantyProcessedImagesCard({
   onMarkForDeletion,
 }: WarrantyProcessedImagesCardProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle>Hình ảnh đã xử lý</CardTitle>
       </CardHeader>

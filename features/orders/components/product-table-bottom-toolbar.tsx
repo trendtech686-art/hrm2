@@ -25,27 +25,27 @@ export function ProductTableBottomToolbar({ onAddService, onApplyPromotion, disa
     };
 
     return (
-        <div className="flex items-center justify-between py-3 px-4 bg-muted/30 border-t">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 px-4 bg-muted/30 border-t">
             <Button
                 type="button"
                 variant="link"
-                className="text-primary h-auto p-0"
+                className="text-primary h-auto p-0 justify-start sm:justify-center"
                 onClick={handleAddService}
                 disabled={disabled}
             >
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Thêm dịch vụ khác (F9)
+                <PlusCircle className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Thêm dịch vụ khác <span className="hidden sm:inline">(F9)</span></span>
             </Button>
-            
+
             <Button
                 type="button"
                 variant="link"
-                className="text-primary h-auto p-0"
+                className="text-primary h-auto p-0 justify-start sm:justify-center"
                 onClick={handleApplyPromotion}
                 disabled={disabled}
             >
-                <Gift className="h-4 w-4 mr-2" />
-                Áp dụng chương trình khuyến mại
+                <Gift className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Áp dụng khuyến mại</span>
             </Button>
         </div>
     );

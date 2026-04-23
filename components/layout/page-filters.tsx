@@ -40,7 +40,7 @@ export function PageFilters({
   
   if (!useNewLayout && children) {
     return (
-      <div 
+      <div
         className={cn(
           "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 py-3 bg-muted/20",
           className
@@ -74,7 +74,7 @@ export function PageFilters({
   
   // New layout: Search + leftFilters | rightFilters
   return (
-    <div 
+    <div
       className={cn(
         "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 py-3 bg-muted/20",
         className

@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 // types
 import type { Product } from '@/features/products/types';
 import type { ProductFormValues } from '@/features/products/validation';
-import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress, Customer, CustomerAddress as _CustomerAddress, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, OrderInvoiceInfo } from '@/lib/types/prisma-extended';
+import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress, Customer, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, OrderInvoiceInfo } from '@/lib/types/prisma-extended';
 
 // stores
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
@@ -27,14 +27,15 @@ import { validateStockAvailability } from '@/features/products/api/products-api'
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { getSalesSettingsSync } from '@/features/settings/sales/sales-management-service';
 import { useStockHistoryMutations } from '@/features/stock-history/hooks/use-stock-history';
-import { SUPPORTED_SHIPPING_PARTNERS as _SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES as _SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId as _ShippingPartnerId } from '../shipping-partners-config';
+import { isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey } from '../shipping-partners-config';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { generateTempId } from '@/lib/id-utils';
 
 // UI components
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 // Lazy load heavy dialogs for better initial load performance
 const ProductSelectionDialog = dynamic(
@@ -57,6 +58,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { CustomerSelector } from './customer-selector';
 import { OrderInfoCard } from './order-info-card';
 import { OrderProductSearch } from '@/components/shared/unified-product-search';
+import { BarcodeScannerButton } from '@/components/shared/barcode-scanner-button';
 // LineItemsTable is lazy loaded below for better performance (700+ lines)
 import { OrderSummary } from './order-summary';
 import { OrderNotes } from './order-notes';
@@ -1480,6 +1482,7 @@ export function OrderFormPage() {
     }, []);
 
     // ✅ OPTIMIZED: Memoize actions array to prevent usePageHeader re-renders
+    // Desktop-only in the top header; on mobile the actions live in the sticky FormPageFooter at the bottom
     const actions = React.useMemo(() => [
         <Button 
             key="exit" 
@@ -1487,12 +1490,10 @@ export function OrderFormPage() {
             variant="outline" 
             onClick={handleExitClick} 
             size="sm" 
-            className="h-9"
+            className="hidden md:inline-flex h-9"
         >
             Thoát
         </Button>,
-        // ✅ In edit mode: show "Lưu thay đổi" button only
-        // ✅ In create mode: show "Tạo đơn và duyệt" button only (removed duplicate "Tạo đơn hàng (F1)")
         <Button 
             key="save-approve" 
             type="submit"
@@ -1500,7 +1501,7 @@ export function OrderFormPage() {
             disabled={isFullyReadOnly || isSubmitting}
             onClick={isEditing ? handleDraftClick : handleApproveClick}
             size="sm" 
-            className="h-9"
+            className="hidden md:inline-flex h-9"
         >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Đang xử lý...' : (isEditing ? 'Lưu thay đổi' : 'Tạo đơn và duyệt')}
@@ -1554,11 +1555,11 @@ export function OrderFormPage() {
         <FormProvider {...form}>
             <form id="order-form" onSubmit={handleSubmit(processSubmit)} className="h-full flex flex-col">
                 <OrderCalculations />
-                <ScrollArea className="grow">
-                    <div className="pr-4 space-y-4">
+                <div className="grow overflow-y-auto [scrollbar-width:thin] md:pr-4 md:pl-0">
+                    <div className="space-y-4">
                         {/* ✅ Thông báo khi chỉ sửa metadata */}
                         {isMetadataOnlyMode && (
-                            <Card className="border-amber-200 bg-amber-50">
+                            <Card className={cn(mobileBleedCardClass, 'border-amber-200 bg-amber-50')}>
                                 <CardContent className="pt-6">
                                     <p className="text-sm text-amber-800">
                                         <strong>Lưu ý:</strong> Đơn hàng đã đóng gói/xuất kho. Chỉ có thể chỉnh sửa: Ngày bán, Hẹn giao, Đường dẫn, Tham chiếu{!isShippedOrCompleted ? ', Tags, Ghi chú' : ''}.
@@ -1571,7 +1572,7 @@ export function OrderFormPage() {
                             <div className="grow-7 w-full md:w-0"><CustomerSelector disabled={isFormDisabled || isMetadataOnlyMode} /></div>
                             <div className="grow-3 w-full md:w-0"><OrderInfoCard disabled={isFormDisabled} isBranchLocked={isBranchLocked} isMetadataOnlyMode={isMetadataOnlyMode} /></div>
                         </div>
-                        <Card className="flex flex-col">
+                        <Card className={cn(mobileBleedCardClass, 'flex flex-col')}>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <CardTitle>Thông tin sản phẩm</CardTitle>
                                 <ProductTableToolbar 
@@ -1583,23 +1584,45 @@ export function OrderFormPage() {
                                 />
                             </CardHeader>
                             <CardContent>
-                                <div className="mb-4">
+                                <div className="mb-4 space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <OrderProductSearch 
-                                            onSelectProduct={(p) => handleSelectProducts([p])}
+                                        <div className="flex-1 min-w-0">
+                                            <OrderProductSearch 
+                                                onSelectProduct={(p) => handleSelectProducts([p])}
+                                                disabled={isFormDisabled || isMetadataOnlyMode}
+                                                allowCreateNew={true}
+                                                placeholder="Thêm sản phẩm (F3)"
+                                                searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                                                pricingPolicyId={selectedPolicyId}
+                                                {...(selectedBranchSystemId ? { branchSystemId: selectedBranchSystemId } : {})}
+                                            />
+                                        </div>
+                                        <BarcodeScannerButton
                                             disabled={isFormDisabled || isMetadataOnlyMode}
-                                            allowCreateNew={true}
-                                            placeholder="Thêm sản phẩm (F3)"
-                                            searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
-                                            pricingPolicyId={selectedPolicyId}
-                                            {...(selectedBranchSystemId ? { branchSystemId: selectedBranchSystemId } : {})}
+                                            onDetect={async (code) => {
+                                                try {
+                                                    const params = new URLSearchParams({ q: code, limit: '5', offset: '0' });
+                                                    const res = await fetch(`/api/search/products?${params}`);
+                                                    if (!res.ok) throw new Error('search failed');
+                                                    const json = await res.json() as { data: Product[] };
+                                                    const match = json.data?.[0];
+                                                    if (!match) {
+                                                        toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                                                        return;
+                                                    }
+                                                    handleSelectProducts([match]);
+                                                    toast.success(`Đã thêm: ${match.name}`);
+                                                } catch {
+                                                    toast.error('Không thể tra cứu mã vạch. Thử lại.');
+                                                }
+                                            }}
                                         />
                                         <Button type="button" variant="outline" className="h-9 shrink-0" onClick={openProductSelection} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
-                                        <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId} disabled={isFormDisabled || isMetadataOnlyMode}>
-                                            <SelectTrigger className="h-9 w-45 shrink-0"><SelectValue /></SelectTrigger>
-                                            <SelectContent>{salesPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
-                                        </Select>
                                     </div>
+                                    <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId} disabled={isFormDisabled || isMetadataOnlyMode}>
+                                        <SelectTrigger className="h-9 w-full md:w-45"><SelectValue /></SelectTrigger>
+                                        <SelectContent>{salesPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
+                                    </Select>
                                 </div>
                                 {fields.length === 0 ? (
                                     <>
@@ -1638,7 +1661,30 @@ export function OrderFormPage() {
                         {/* ✅ CHỈ hiển thị card Giao hàng ở chế độ TẠO đơn hàng, KHÔNG hiển thị ở chế độ SỬA */}
                         <ShippingCard hidden={isEditing} />
                     </div>
-                </ScrollArea>
+                </div>
+                {/* Mobile-only sticky action bar */}
+                <FormPageFooter className="md:hidden">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleExitClick}
+                        size="sm"
+                        className="h-10 flex-1"
+                    >
+                        Thoát
+                    </Button>
+                    <Button
+                        type="submit"
+                        form="order-form"
+                        disabled={isFullyReadOnly || isSubmitting}
+                        onClick={isEditing ? handleDraftClick : handleApproveClick}
+                        size="sm"
+                        className="h-10 flex-1"
+                    >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isSubmitting ? 'Đang xử lý...' : (isEditing ? 'Lưu thay đổi' : 'Tạo đơn và duyệt')}
+                    </Button>
+                </FormPageFooter>
                 <ProductSelectionDialog 
                     isOpen={isProductSelectionOpen}
                     onOpenChange={setIsProductSelectionOpen}

@@ -9,6 +9,8 @@ import {
   Card,
   CardContent,
 } from '../../components/ui/card';
+import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Button } from '../../components/ui/button';
 import type { Product } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -49,12 +51,16 @@ export function ProductFormPage() {
     router.push('/products');
   }, [router]);
 
+  const handleSubmitClick = React.useCallback(() => {
+    formRef.current?.submit();
+  }, []);
+
   const headerActions = React.useMemo(() => [
     <Button 
       key="cancel"
       variant="outline"
       size="sm"
-      className="h-9"
+      className="hidden md:inline-flex h-9"
       onClick={handleCancel}
     >
       Hủy
@@ -63,14 +69,14 @@ export function ProductFormPage() {
       key="submit"
       type="button"
       size="sm"
-      className="h-9"
+      className="hidden md:inline-flex h-9"
       disabled={isBusy}
-      onClick={() => formRef.current?.submit()}
+      onClick={handleSubmitClick}
     >
       {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {isBusy ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Tạo mới'}
     </Button>
-  ], [handleCancel, isEditing, isBusy]);
+  ], [handleCancel, isEditing, isBusy, handleSubmitClick]);
 
   const fallbackBreadcrumb = React.useMemo(() => (
     product ? [
@@ -367,25 +373,49 @@ export function ProductFormPage() {
   };
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        {isEditing && isLoadingProduct ? (
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : (
-          <ProductFormComplete 
-            ref={formRef}
-            initialData={product ?? null} 
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            isEditMode={isEditing}
-            defaultType={isComboMode ? 'combo' : undefined}
-          />
-        )}
-      </CardContent>
-    </Card>
+    <>
+      <Card className={cn(mobileBleedCardClass, 'pb-[calc(env(safe-area-inset-bottom)+72px)] md:pb-0')}>
+        <CardContent className="pt-6">
+          {isEditing && isLoadingProduct ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <ProductFormComplete 
+              ref={formRef}
+              initialData={product ?? null} 
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditMode={isEditing}
+              defaultType={isComboMode ? 'combo' : undefined}
+            />
+          )}
+        </CardContent>
+      </Card>
+      {/* Mobile-only sticky action bar */}
+      <FormPageFooter className="md:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleCancel}
+          className="h-10 flex-1"
+        >
+          Hủy
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={isBusy}
+          onClick={handleSubmitClick}
+          className="h-10 flex-1"
+        >
+          {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isBusy ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Tạo mới'}
+        </Button>
+      </FormPageFooter>
+    </>
   );
 }

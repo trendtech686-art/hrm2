@@ -3,6 +3,7 @@ import type { Brand } from '../settings/inventory/types';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TouchButton } from "@/components/mobile/touch-button";
+import { MobileCard } from "@/components/mobile/mobile-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Globe, ExternalLink, Power, Eye, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 
@@ -30,10 +31,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
   };
 
   return (
-    <div 
-      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-      onClick={() => handleRowClick(brand)}
-    >
+    <MobileCard onClick={() => handleRowClick(brand)}>
         {/* Header: Logo + Name + Status + Menu */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -145,6 +143,6 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
             Tạo: {formatDate(brand.createdAt)}
           </span>
         </div>
-    </div>
+    </MobileCard>
   );
 };

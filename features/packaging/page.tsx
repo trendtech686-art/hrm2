@@ -42,6 +42,7 @@ import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { bulkAssignPackagingAction } from '@/app/actions/order-actions';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 const PackagingExportDialog = dynamic(() => import("./components/packaging-import-export-dialogs").then(mod => ({ default: mod.PackagingExportDialog })), { ssr: false });
 
@@ -298,7 +299,7 @@ export function PackagingPage() {
     );
 
     return (
-        <div className='flex flex-col w-full h-full'>
+        <ListPageShell>
             {!isMobile && (
                 <PageToolbar
                     leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/shipping')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>}
@@ -360,6 +361,6 @@ export function PackagingPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-        </div>
+        </ListPageShell>
     );
 }

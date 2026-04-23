@@ -94,7 +94,7 @@ export interface SalesTimeReportRow {
   returnAmount: number; // Tiền hàng trả lại
   taxAmount: number; // Tiền thuế
   shippingFee: number; // Phí giao hàng
-  revenue: number; // Doanh thu = Tiền hàng - Trả lại + Phí giao + Thuế
+  revenue: number; // Doanh thu = tổng grandTotal đơn (theo mốc ghi nhận) − hoàn tiền trong kỳ
   grossProfit: number; // Lợi nhuận gộp
   
   // Cost data (for profit calculation)

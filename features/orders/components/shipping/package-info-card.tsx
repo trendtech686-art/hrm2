@@ -11,6 +11,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, Weight, Ruler, DollarSign } from 'lucide-react';
 import type { PackageInfo } from './types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface PackageInfoCardProps {
   packageInfo: PackageInfo;
@@ -34,7 +35,7 @@ export function PackageInfoCard({
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle size="sm" className="flex items-center gap-2">
           <Package className="h-4 w-4" />

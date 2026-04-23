@@ -13,6 +13,7 @@
 
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { SimpleImageUpload, type UploadedImage } from '../../../components/ui/simple-image-upload';
 
 interface WarrantyImagesCardProps {
@@ -46,7 +47,7 @@ export function WarrantyImagesCard({
   helperText,
 }: WarrantyImagesCardProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3">
         <CardTitle>{title}</CardTitle>
       </CardHeader>

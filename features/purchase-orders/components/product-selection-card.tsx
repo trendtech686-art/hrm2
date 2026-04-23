@@ -1,10 +1,14 @@
 ﻿import * as React from "react";
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { mobileBleedCardClass } from "@/components/layout/page-section";
 import { Button } from "../../../components/ui/button";
 import { NumberInput } from "../../../components/ui/number-input";
 import { CurrencyInput } from "../../../components/ui/currency-input";
-import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, ChevronRight, Calculator, HelpCircle } from "lucide-react";
+import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, ChevronRight, Calculator, HelpCircle, Trash2 } from "lucide-react";
+import { Label } from "../../../components/ui/label";
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from "../../../components/mobile/mobile-card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../../../components/ui/sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +16,8 @@ import {
   TooltipTrigger,
 } from "../../../components/ui/tooltip";
 import { PurchaseProductSearch } from "../../../components/shared/unified-product-search";
+import { BarcodeScannerButton } from "../../../components/shared/barcode-scanner-button";
+import { toast } from "sonner";
 import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
 import { TaxSelector } from "./tax-selector";
 import { useAllTaxesData } from '../../settings/taxes/hooks/use-all-taxes';
@@ -187,6 +193,8 @@ export function ProductSelectionCard({
     open: false, image: '', title: ''
   });
   const [expandedCombos, setExpandedCombos] = React.useState<Record<number, boolean>>({});
+  // ✅ Mobile: bottom sheet cho advanced edit
+  const [advancedIdx, setAdvancedIdx] = React.useState<number | null>(null);
   
   // Get default tax from taxes store
   const { getDefaultPurchase } = useAllTaxesData();
@@ -452,18 +460,38 @@ export function ProductSelectionCard({
   const excludedProductIds: string[] = [];
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Thông tin sản phẩm</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Search + Bulk Add + Price Mode - Dùng component dùng chung */}
         <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex-1">
-            <PurchaseProductSearch
-              onSelectProduct={handleAddProduct}
-              placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
-              excludeProductIds={excludedProductIds}
+          <div className="flex-1 flex gap-2">
+            <div className="flex-1 min-w-0">
+              <PurchaseProductSearch
+                onSelectProduct={handleAddProduct}
+                placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
+                excludeProductIds={excludedProductIds}
+              />
+            </div>
+            <BarcodeScannerButton
+              onDetect={async (code) => {
+                try {
+                  const res = await fetch(`/api/search/products?q=${encodeURIComponent(code)}&limit=5&offset=0`);
+                  if (!res.ok) throw new Error('search failed');
+                  const json = await res.json() as { data: Product[] };
+                  const match = json.data?.[0];
+                  if (!match) {
+                    toast.error(`Không tìm thấy sản phẩm cho mã "${code}"`);
+                    return;
+                  }
+                  handleAddProduct(match);
+                  toast.success(`Đã thêm: ${match.name}`);
+                } catch {
+                  toast.error('Không thể tra cứu mã vạch. Thử lại.');
+                }
+              }}
             />
           </div>
           <Button
@@ -569,7 +597,9 @@ export function ProductSelectionCard({
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* ===== DESKTOP: Table editable nguyên trạng ===== */}
+            <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -951,6 +981,301 @@ export function ProductSelectionCard({
               </TableBody>
             </Table>
             </div>
+
+            {/* ===== MOBILE: MobileCard stack + inline quick-edit ===== */}
+            <div className="md:hidden p-3 space-y-3">
+              {items.map((item, index) => {
+                const hasZeroPrice = item.unitPrice === 0;
+                const hasInvalidQuantity = item.quantity <= 0;
+                const hasError = hasZeroPrice || hasInvalidQuantity;
+                const isPercentage = item.discountType === 'percent';
+                const isComboItem = item.product.type === 'combo' && !!item.product.comboItems?.length;
+                const isComboExpanded = !!expandedCombos[index];
+                const comboChildList = isComboItem
+                  ? (item.product.comboItems ?? []).map((ci: ComboItem) => ({
+                      ...ci,
+                      product: comboChildProductsMap.get(ci.productSystemId),
+                    }))
+                  : [];
+                const hasAdvanced = item.tax > 0 || item.discount > 0 || !!item.notes;
+
+                const feePerUnit = totalQuantity > 0 ? totalFees / totalQuantity : 0;
+                let estimatedCost = item.unitPrice;
+                if (costCalculationMethod === 'with_fees') {
+                  estimatedCost = Math.round(item.unitPrice + feePerUnit);
+                }
+                const imageUrl = item.product.thumbnailImage
+                  || item.product.galleryImages?.[0]
+                  || item.product.images?.[0];
+
+                return (
+                  <MobileCard
+                    key={item.product.systemId}
+                    inert
+                    emphasis={hasError ? 'destructive' : 'none'}
+                  >
+                    <MobileCardHeader className="items-start justify-between gap-3">
+                      {imageUrl ? (
+                        <div
+                          className="group relative h-12 w-12 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
+                          onClick={() => handlePreview(imageUrl, item.product.name)}
+                        >
+                          <Image
+                            src={imageUrl}
+                            alt={item.product.name}
+                            fill
+                            sizes="48px"
+                            className="object-cover transition-all group-hover:brightness-75"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-12 w-12 shrink-0 bg-muted rounded-md flex items-center justify-center">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href={`/products/${item.product.systemId}`}
+                            className="text-sm font-semibold leading-tight line-clamp-2 hover:underline text-foreground"
+                          >
+                            {item.product.name}
+                          </Link>
+                          {isComboItem && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium shrink-0">
+                              COMBO
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          {getProductTypeLabel(item.product)} · <Link
+                            href={`/products/${item.product.systemId}`}
+                            className="text-primary hover:underline"
+                          >{item.product.id}</Link>
+                        </div>
+                        {hasZeroPrice && (
+                          <div className="mt-1 text-xs text-destructive font-medium">
+                            Chưa có giá nhập
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 h-8 w-8"
+                        onClick={() => handleRemove(index)}
+                        aria-label="Xoá sản phẩm"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </MobileCardHeader>
+
+                    <MobileCardBody>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Số lượng</Label>
+                          <NumberInput
+                            value={item.quantity}
+                            onChange={(v) => handleQuantityChange(index, v)}
+                            min={1}
+                            className={`h-10 mt-1 text-sm ${hasInvalidQuantity ? 'border-red-500' : ''}`}
+                            format={false}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Đơn giá nhập</Label>
+                          <CurrencyInput
+                            value={item.unitPrice}
+                            onChange={(v) => handlePriceChange(index, v)}
+                            className={`h-10 mt-1 text-sm ${hasZeroPrice ? 'border-red-500' : ''}`}
+                          />
+                        </div>
+
+                        {hasAdvanced && (
+                          <div className="col-span-2 flex flex-wrap gap-1.5 pt-1">
+                            {item.tax > 0 && (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                Thuế {item.tax}%
+                              </span>
+                            )}
+                            {item.discount > 0 && (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                CK {isPercentage ? `${item.discount}%` : formatCurrency(item.discount)}
+                              </span>
+                            )}
+                            {item.notes && (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 inline-flex items-center gap-1 max-w-full">
+                                <StickyNote className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{item.notes}</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Giá vốn dự kiến (read-only) */}
+                        <div className="col-span-2 flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Giá vốn dự kiến</span>
+                          <span className="font-medium text-foreground tabular-nums">
+                            {formatCurrency(estimatedCost)} ₫
+                            {costCalculationMethod === 'with_fees' && feePerUnit > 0 && (
+                              <span className="text-muted-foreground font-normal"> (+{formatCurrency(Math.round(feePerUnit))} phí)</span>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2 flex items-center justify-between border-t border-border/50 pt-2 mt-1">
+                          <span className="text-sm text-muted-foreground">Thành tiền</span>
+                          <span className="text-base font-bold text-primary">{formatCurrency(item.total)} ₫</span>
+                        </div>
+
+                        {isComboItem && comboChildList.length > 0 && (
+                          <div className="col-span-2">
+                            <button
+                              type="button"
+                              className="w-full flex items-center text-xs text-muted-foreground hover:text-foreground py-1.5"
+                              onClick={() => toggleComboExpanded(index)}
+                            >
+                              {isComboExpanded ? <ChevronDown className="h-3.5 w-3.5 mr-1" /> : <ChevronRight className="h-3.5 w-3.5 mr-1" />}
+                              Thành phần combo ({comboChildList.length})
+                            </button>
+                            {isComboExpanded && (
+                              <div className="space-y-1.5 pl-4 border-l border-border/50 mt-1">
+                                {comboChildList.map((ci, ciIdx) => (
+                                  <div
+                                    key={`combo-m-${index}-${ciIdx}`}
+                                    className="flex items-center justify-between gap-2 text-xs"
+                                  >
+                                    <div className="min-w-0 flex-1 truncate text-muted-foreground">
+                                      {ci.product?.name || 'Sản phẩm không tồn tại'}
+                                    </div>
+                                    <div className="shrink-0 text-muted-foreground tabular-nums">
+                                      × {ci.quantity * item.quantity}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </MobileCardBody>
+
+                    <MobileCardFooter noBorder={false}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-10"
+                        onClick={() => setAdvancedIdx(index)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                        Sửa chi tiết (thuế, CK, ghi chú)
+                      </Button>
+                    </MobileCardFooter>
+                  </MobileCard>
+                );
+              })}
+            </div>
+
+            {/* Mobile bottom sheet — tax, CK, ghi chú */}
+            <Sheet open={advancedIdx !== null} onOpenChange={(open) => !open && setAdvancedIdx(null)}>
+              <SheetContent side="bottom" className="h-[90vh] overflow-y-auto md:hidden">
+                <SheetHeader>
+                  <SheetTitle>Sửa chi tiết sản phẩm</SheetTitle>
+                  {advancedIdx !== null && items[advancedIdx] && (
+                    <p className="text-sm text-muted-foreground text-left line-clamp-2">
+                      {items[advancedIdx].product.name}
+                    </p>
+                  )}
+                </SheetHeader>
+
+                {advancedIdx !== null && items[advancedIdx] && (
+                  <div className="space-y-5 mt-5 pb-10">
+                    <div>
+                      <Label className="text-sm">Thuế</Label>
+                      <div className="mt-1.5">
+                        <TaxSelector
+                          value={items[advancedIdx].taxId || ''}
+                          onChange={(taxId, rate) => handleTaxChange(advancedIdx, taxId, rate)}
+                          type="purchase"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Chiết khấu</Label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <Select
+                          value={items[advancedIdx].discountType}
+                          onValueChange={(v: 'percent' | 'fixed') => handleDiscountTypeChange(advancedIdx, v)}
+                        >
+                          <SelectTrigger className="h-10 w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fixed">đ</SelectItem>
+                            <SelectItem value="percent">%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {items[advancedIdx].discountType === 'percent' ? (
+                          <div className="relative flex-1">
+                            <NumberInput
+                              value={items[advancedIdx].discount}
+                              onChange={(v) => handleDiscountChange(advancedIdx, v)}
+                              min={0}
+                              max={100}
+                              className="h-10"
+                              format={false}
+                            />
+                            <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none z-10">
+                              %
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex-1">
+                            <CurrencyInput
+                              value={items[advancedIdx].discount}
+                              onChange={(v) => handleDiscountChange(advancedIdx, v)}
+                              className="h-10"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Ghi chú</Label>
+                      <Textarea
+                        value={items[advancedIdx].notes || ''}
+                        onChange={(e) => {
+                          const newItems = [...items];
+                          newItems[advancedIdx].notes = e.target.value;
+                          onItemsChange(newItems);
+                        }}
+                        placeholder="Ghi chú cho sản phẩm..."
+                        rows={3}
+                        className="mt-1.5"
+                      />
+                    </div>
+
+                    <Button
+                      type="button"
+                      className="w-full h-11"
+                      onClick={() => setAdvancedIdx(null)}
+                    >
+                      Xong
+                    </Button>
+                  </div>
+                )}
+              </SheetContent>
+            </Sheet>
+            </>
           )}
         </div>
       </CardContent>

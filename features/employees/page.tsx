@@ -31,6 +31,7 @@ import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/componen
 import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 import { FAB } from '@/components/mobile/fab';
+import { ListPageShell } from '@/components/layout/page-section';
 
 
 const EmployeeImportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeImportDialog })), { ssr: false });
@@ -228,7 +229,7 @@ export function EmployeesPage({ initialStats }: EmployeesPageProps = {}) {
   usePageHeader({ title: 'Danh sách nhân viên', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Nhân viên', href: '/employees', isCurrent: true }], actions: headerActions, showBackButton: false });
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {/* Stats Bar - instant display from Server Component */}
       <StatsBar
         className="mb-4"
@@ -249,6 +250,6 @@ export function EmployeesPage({ initialStats }: EmployeesPageProps = {}) {
       <EmployeeImportDialog open={isImportV2Open} onOpenChange={setIsImportV2Open} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} requireBranch={true} defaultBranchId={branches[0]?.systemId} existingData={allEmployeesForFilters ?? []} onImport={handleImportV2} currentUser={currentUser} />
       <EmployeeExportDialog open={isExportV2Open} onOpenChange={setIsExportV2Open} allData={allEmployeesForFilters ?? []} filteredData={employees} currentPageData={employees} selectedData={allSelectedRows} appliedFilters={{ branch: branchFilter !== 'all' ? branchFilter : undefined, department: departmentFilter.size > 0 ? Array.from(departmentFilter) : undefined, jobTitle: jobTitleFilter.size > 0 ? Array.from(jobTitleFilter) : undefined, status: statusFilter.size > 0 ? Array.from(statusFilter) : undefined, search: debouncedSearchQuery || undefined }} currentUser={currentUser} />
       {isMobile && canCreate && <FAB onClick={() => router.push('/employees/new')} />}
-    </div>
+    </ListPageShell>
   );
 }

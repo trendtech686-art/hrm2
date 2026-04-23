@@ -4,7 +4,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Switch } from '../../components/ui/switch';
 import { Checkbox } from '../../components/ui/checkbox';
-import { MapPin as _MapPin, Plus, Edit as _Edit, Trash2, Check as _Check, ArrowLeftRight as _ArrowLeftRight, X as _X, MoreHorizontal, Eye as _Eye } from 'lucide-react';
+import { Plus, Trash2, MoreHorizontal } from 'lucide-react';
 import { DataTablePagination } from '../../components/data-table/data-table-pagination';
 import {
   Table,
@@ -29,12 +29,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { toast } from 'sonner';
-import { cn as _cn } from '../../lib/utils';
 import { AddressBidirectionalConverter } from './components/address-bidirectional-converter';
 import { AddressFormDialog } from './components/address-form-dialog';
 import type { EnhancedCustomerAddress } from './types/enhanced-address';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Use EnhancedCustomerAddress as CustomerAddress
 export type CustomerAddress = EnhancedCustomerAddress;
 
@@ -234,14 +235,14 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
       </div>
 
       {addresses.length === 0 ? (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="py-12 text-center text-muted-foreground">
             Chưa có địa chỉ nào. Nhấn "Thêm địa chỉ" để tạo mới.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          <div className="rounded-md border border-border overflow-x-auto">
+          <div className="hidden md:block rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -333,7 +334,114 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
             </TableBody>
           </Table>
           </div>
-          
+
+          {/* Mobile: card stack */}
+          <div className="md:hidden space-y-3">
+            {paginatedAddresses.map((address) => {
+              const isSelected = selectedIds.has(address.id);
+              return (
+                <MobileCard
+                  key={address.id}
+                  inert
+                  emphasis={address.isDefaultShipping ? 'success' : 'none'}
+                >
+                  <MobileCardHeader className="items-start justify-between">
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      {!readonly && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => handleSelectOne(address.id, !!checked)}
+                          aria-label={`Chọn địa chỉ ${address.street}`}
+                          className="mt-1"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Địa chỉ
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold truncate">
+                          {address.street}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground truncate">
+                          {formatFullAddress(address)}
+                        </div>
+                      </div>
+                    </div>
+                    <Badge
+                      variant={address.inputLevel === '2-level' ? 'secondary' : 'default'}
+                      className="shrink-0"
+                    >
+                      {address.inputLevel === '2-level' ? '2 cấp' : '3 cấp'}
+                    </Badge>
+                  </MobileCardHeader>
+                  <MobileCardBody>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Tỉnh/TP</dt>
+                        <dd className="font-medium truncate">{address.province || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Quận/Huyện</dt>
+                        <dd className="font-medium truncate">{address.district || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Phường/Xã</dt>
+                        <dd className="font-medium truncate">{address.ward || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Liên hệ</dt>
+                        <dd className="font-medium truncate">{address.contactName || '—'}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs text-muted-foreground">SĐT</dt>
+                        <dd className="font-medium break-all">{address.contactPhone || '—'}</dd>
+                      </div>
+                      <div className="col-span-2 flex items-center justify-between pt-1">
+                        <span className="text-xs text-muted-foreground">Mặc định giao hàng</span>
+                        <Switch
+                          checked={address.isDefaultShipping}
+                          onCheckedChange={readonly ? undefined : () => handleSetDefault(address.id, 'shipping')}
+                          disabled={readonly}
+                        />
+                      </div>
+                    </dl>
+                  </MobileCardBody>
+                  {!readonly && (
+                    <MobileCardFooter>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEdit(address)}
+                      >
+                        Sửa
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleConvert(address)}
+                        >
+                          {address.inputLevel === '2-level' ? '→ 3 cấp' : '→ 2 cấp'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(address.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          Xóa
+                        </Button>
+                      </div>
+                    </MobileCardFooter>
+                  )}
+                </MobileCard>
+              );
+            })}
+          </div>
+
           <div className="border-t border-border px-6 py-3">
             <DataTablePagination
               pageIndex={pageIndex}

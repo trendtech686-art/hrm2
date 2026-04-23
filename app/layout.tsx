@@ -29,6 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#09090b" },
@@ -42,8 +43,21 @@ export const metadata: Metadata = {
   },
   description: "Enterprise Resource Planning System - Quản lý nhân sự, kho hàng, đơn hàng, bảo hành, tài chính và vận hành doanh nghiệp.",
   manifest: "/manifest.json",
+  applicationName: "ERP",
+  appleWebApp: {
+    capable: true,
+    title: "ERP",
+    statusBarStyle: "default",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
     apple: "/apple-touch-icon.png",
   },
   openGraph: {

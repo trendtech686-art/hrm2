@@ -161,11 +161,12 @@ export function VirtualizedCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="p-0"
-        style={{ width: triggerWidth > 0 ? `${triggerWidth}px` : undefined }}
+        className="p-0 max-w-[calc(100vw-1rem)]"
+        style={{ width: triggerWidth > 0 ? `${Math.max(triggerWidth, 320)}px` : 320 }}
         align="start"
         side="bottom"
         sideOffset={4}
+        collisionPadding={8}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
       >

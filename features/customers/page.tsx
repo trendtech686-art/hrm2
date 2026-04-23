@@ -40,6 +40,7 @@ import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { logError } from '@/lib/logger'
 import { useAuth } from "@/contexts/auth-context";
 import { FAB } from '@/components/mobile/fab';
+import { ListPageShell } from '@/components/layout/page-section';
 
 const BulkActionConfirmDialog = dynamic(() => import("./components/bulk-action-confirm-dialog").then(mod => ({ default: mod.BulkActionConfirmDialog })), { ssr: false });
 const CustomerImportDialog = dynamic(() => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerImportDialog })), { ssr: false });
@@ -364,7 +365,7 @@ export function CustomersPage({ initialStats, initialGroups: _initialGroups }: C
   }, [pendingAction, bulkDelete, bulkRestore, bulkUpdateStatus]);
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       <div className="flex flex-col gap-4">
         {/* Workflow Cards — click to filter */}
         <div className="overflow-x-auto mb-2">
@@ -446,6 +447,6 @@ export function CustomersPage({ initialStats, initialGroups: _initialGroups }: C
       <CustomerImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={activeCustomers} onImport={handleImportV2} currentUser={currentUser} />
       <CustomerExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={activeCustomers} filteredData={displayData} currentPageData={displayData} selectedData={selectedCustomers} currentUser={currentUser} />
       {isMobile && canCreate && <FAB onClick={() => router.push('/customers/new')} />}
-    </div>
+    </ListPageShell>
   );
 }

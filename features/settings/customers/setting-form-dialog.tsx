@@ -116,7 +116,7 @@ export function CustomerTypeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent mobileFullScreen className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Chỉnh sửa' : 'Thêm mới'} Loại khách hàng</DialogTitle>
         </DialogHeader>
@@ -270,7 +270,7 @@ export function CustomerGroupFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Chỉnh sửa' : 'Thêm mới'} Nhóm khách hàng</DialogTitle>
         </DialogHeader>
@@ -466,7 +466,7 @@ export function CustomerSourceFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Chỉnh sửa' : 'Thêm mới'} Nguồn khách hàng</DialogTitle>
         </DialogHeader>
@@ -641,7 +641,7 @@ export function PaymentTermFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Chỉnh sửa' : 'Thêm mới'} Hạn thanh toán</DialogTitle>
         </DialogHeader>
@@ -816,7 +816,7 @@ export function CreditRatingFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Chỉnh sửa' : 'Thêm mới'} Xếp hạng tín dụng</DialogTitle>
         </DialogHeader>
@@ -1013,7 +1013,7 @@ export function LifecycleStageFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Chỉnh sửa' : 'Thêm mới'} Giai đoạn khách hàng</DialogTitle>
         </DialogHeader>

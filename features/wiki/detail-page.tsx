@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import { useWikiById } from './hooks/use-wiki';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -40,7 +41,7 @@ export function WikiDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <Skeleton className="h-10 w-2/3" />
             <div className="pt-4 space-y-2">
@@ -73,8 +74,8 @@ export function WikiDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-        <Card>
+    <DetailPageShell className="max-w-4xl mx-auto">
+        <Card className={mobileBleedCardClass}>
             <CardHeader>
                 <CardTitle size="lg" className="font-extrabold tracking-tight">{article.title}</CardTitle>
                 <CardDescription className="pt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -95,6 +96,6 @@ export function WikiDetailPage() {
                  )}
             </CardContent>
         </Card>
-    </div>
+    </DetailPageShell>
   );
 }

@@ -206,7 +206,7 @@ export function ReportHeaderActions({
 
 // Default glossary for sales reports
 export const SALES_REPORT_GLOSSARY = [
-  { term: 'Doanh thu', definition: 'Tổng tiền hàng bán ra trừ đi tiền hàng trả lại.' },
+  { term: 'Doanh thu', definition: 'Tổng thành tiền đơn hàng (grand total) theo mốc ghi nhận, trừ hoàn tiền trả hàng trong kỳ.' },
   { term: 'Lợi nhuận gộp', definition: 'Doanh thu trừ đi giá vốn hàng bán.' },
   { term: 'Tiền hàng', definition: 'Tổng giá trị các sản phẩm trong đơn hàng.' },
   { term: 'Tiền hàng trả lại', definition: 'Tổng giá trị các sản phẩm đã trả lại.' },

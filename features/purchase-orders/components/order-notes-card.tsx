@@ -1,5 +1,6 @@
 ﻿import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { mobileBleedCardClass } from "@/components/layout/page-section";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
 import { Input } from "../../../components/ui/input";
@@ -18,7 +19,7 @@ export function OrderNotesCard({
   onTagsChange,
 }: OrderNotesCardProps) {
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Ghi chú đơn</CardTitle>
       </CardHeader>

@@ -4,7 +4,7 @@ import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner";
-import { Package, Calendar as CalendarIcon, Users, FileText, Printer, Download, Settings } from "lucide-react";
+import { Printer, Download, Settings } from "lucide-react";
 
 import { ROUTES } from '@/lib/router';
 import { formatDate, formatDateCustom, parseDate } from '@/lib/date-utils';
@@ -24,6 +24,7 @@ import type { ColumnDef } from "@/components/data-table/types";
 import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { MobileCard, MobileCardBody, MobileCardHeader } from "@/components/mobile/mobile-card";
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { PageFilters } from "@/components/layout/page-filters";
 import { PageToolbar } from "@/components/layout/page-toolbar";
@@ -174,16 +175,51 @@ export function InventoryReceiptsPage() {
   const displayData = isMobile ? receipts.slice(0, mobileLoadedCount) : receipts;
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
-  const MobileReceiptCard = ({ receipt }: { receipt: InventoryReceipt }) => (
-    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => handleRowClick(receipt)}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3"><div className="p-2 rounded-full bg-green-100 text-green-600"><Package className="h-6 w-6" /></div>
-            <div className="flex-1"><div className="font-semibold text-sm mb-1">{receipt.id}</div><div className="text-sm text-muted-foreground space-y-1"><div className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" /><span>{formatDate(receipt.receivedDate)}</span></div><div className="flex items-center gap-1"><Users className="h-3 w-3" /><span>{receipt.supplierName || '-'}</span></div>{receipt.purchaseOrderId && <div className="flex items-center gap-1"><FileText className="h-3 w-3" /><span>Đơn: {receipt.purchaseOrderId}</span></div>}</div></div>
+  const MobileReceiptCard = ({ receipt }: { receipt: InventoryReceipt }) => {
+    const totalQty = (receipt.items || []).reduce((s, i) => s + (Number(i.receivedQuantity) || 0), 0);
+    return (
+      <MobileCard onClick={() => handleRowClick(receipt)}>
+        <MobileCardHeader className="items-start justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Phiếu nhập kho</div>
+            <div className="mt-0.5 text-sm font-semibold text-foreground truncate font-mono">{receipt.id}</div>
           </div>
-          <div className="text-right"><div className="font-semibold text-sm">{(receipt.items || []).reduce((s, i) => s + (Number(i.receivedQuantity) || 0), 0)} SP</div></div>
-        </div>
-    </div>
-  );
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-bold leading-none">{totalQty}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Tổng SL</div>
+          </div>
+        </MobileCardHeader>
+        <MobileCardBody>
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Nhà cung cấp</dt>
+              <dd className="font-medium truncate">{receipt.supplierName || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Ngày nhập</dt>
+              <dd className="font-medium">{formatDate(receipt.receivedDate)}</dd>
+            </div>
+            {receipt.purchaseOrderId && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Đơn mua hàng</dt>
+                <dd className="font-medium truncate font-mono">{receipt.purchaseOrderId}</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-xs text-muted-foreground">Số mặt hàng</dt>
+              <dd className="font-medium">{(receipt.items || []).length}</dd>
+            </div>
+            {receipt.receiverName && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Người nhận</dt>
+                <dd className="font-medium truncate">{receipt.receiverName}</dd>
+              </div>
+            )}
+          </dl>
+        </MobileCardBody>
+      </MobileCard>
+    );
+  };
 
   return (
     <div className="space-y-4 flex flex-col h-full">

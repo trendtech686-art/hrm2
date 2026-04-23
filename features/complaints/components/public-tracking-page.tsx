@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Comments } from '@/components/Comments';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 // Lazy load ImagePreviewDialog để giảm bundle size
 const ImagePreviewDialog = React.lazy(() => 
@@ -307,7 +308,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
         </Card>
         
         {/* Order Information */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
@@ -524,7 +525,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
         
         {/* Timeline - Lịch sử xử lý */}
         {settings.showTimeline && timelineActions.length > 0 && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
@@ -598,7 +599,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
         {/* Affected Products - Bê nguyên component từ detail page */}
         {settings.showProducts && complaint.affectedProducts && complaint.affectedProducts.length > 0 && (
           <>
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle size="lg" className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
@@ -834,7 +835,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
             </Card>
 
             {/* Tổng kết sản phẩm bị ảnh hưởng */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle size="lg" className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5" />
@@ -936,7 +937,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
 
         {/* Compensation Payment/Receipt */}
         {compensationData && (compensationData.payment || compensationData.receipt) && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5">
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
@@ -1013,7 +1014,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
 
         {/* Customer Images */}
         {settings.showImages && complaint.images && complaint.images.filter(img => img.type === 'initial').length > 0 && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
@@ -1060,7 +1061,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
 
         {/* Employee Images */}
         {settings.showImages && complaint.employeeImages && complaint.employeeImages.length > 0 && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
@@ -1105,7 +1106,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
 
         {/* Video Links */}
         {complaint.videoLinks && (complaint.videoLinks?.trim().length ?? 0) > 0 && (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />

@@ -19,8 +19,10 @@ import type { StoreSettings } from '@/lib/print-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { MobileCard, MobileCardBody, MobileCardFooter, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { formatCurrency } from './types';
 import { ProductThumbnailCell } from './product-thumbnail-cell';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface ReturnHistoryTabProps {
   order: Order;
@@ -139,8 +141,9 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
     }, [findBranchById, print, findCustomerById]);
 
     return (
-        <Card>
-            <CardContent className="p-0 overflow-x-auto">
+        <Card className={mobileBleedCardClass}>
+            <CardContent className="p-0">
+                <div className="hidden md:block overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -630,6 +633,251 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                         })}
                     </TableBody>
                 </Table>
+                </div>
+
+                {/* Mobile: card stack */}
+                <div className="md:hidden space-y-3 p-3">
+                    {salesReturnsForOrder.map(returnSlip => {
+                        const isExpanded = expandedReturnId === returnSlip.systemId;
+                        const totalReturnQty = (returnSlip.items || []).reduce((sum, item) => sum + (Number(item.returnQuantity) || 0), 0);
+                        const totalExchangeQty = (returnSlip.exchangeItems || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+                        const exchangeTrackingCode = (returnSlip as Record<string, unknown>).exchangeTrackingCode as string | null;
+                        const exchangeOrderBusinessId = (returnSlip as Record<string, unknown>).exchangeOrderId as string | null;
+                        const exchangeOrder = returnSlip.exchangeOrderSystemId ? findOrderById(returnSlip.exchangeOrderSystemId) : null;
+                        const difference = Number(returnSlip.finalAmount) || (Number(returnSlip.grandTotalNew) - Number(returnSlip.totalReturnValue));
+
+                        const paymentIds = returnSlip.paymentVoucherSystemIds || (returnSlip.paymentVoucherSystemId ? [returnSlip.paymentVoucherSystemId] : []);
+                        const receiptIds = returnSlip.receiptVoucherSystemIds || [];
+                        const refundAmount = Number(returnSlip.refundAmount) || 0;
+                        const paymentBusinessIds = (returnSlip as unknown as { paymentVoucherIds?: string[] }).paymentVoucherIds || [];
+                        const receiptBusinessIds = (returnSlip as unknown as { receiptVoucherIds?: string[] }).receiptVoucherIds || [];
+                        const payments = paymentBusinessIds.length > 0
+                            ? paymentBusinessIds.map((id, idx) => ({ systemId: paymentIds[idx] || id, id }))
+                            : paymentIds.map(id => findPaymentById(id)).filter(Boolean);
+                        const receipts = receiptBusinessIds.length > 0
+                            ? receiptBusinessIds.map((id, idx) => ({ systemId: receiptIds[idx] || id, id }))
+                            : receiptIds.map(id => findReceiptById(id)).filter(Boolean);
+
+                        return (
+                            <MobileCard
+                                key={returnSlip.systemId}
+                                inert
+                                emphasis={returnSlip.isReceived ? 'success' : 'warning'}
+                            >
+                                <MobileCardHeader className="items-start justify-between">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Mã đơn trả</div>
+                                        <Link
+                                            href={`/returns/${returnSlip.systemId}`}
+                                            className="mt-0.5 block text-sm font-semibold text-primary hover:underline truncate"
+                                        >
+                                            {returnSlip.id}
+                                        </Link>
+                                        <span className={`inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-[10px] font-medium ${
+                                            returnSlip.isReceived ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                                        }`}>
+                                            {returnSlip.isReceived ? 'Đã nhận' : 'Chưa nhận'}
+                                        </span>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <div className="text-lg font-bold leading-none">{formatCurrency(returnSlip.totalReturnValue)}</div>
+                                        <div className="mt-1 text-xs text-muted-foreground">Giá trị trả</div>
+                                    </div>
+                                </MobileCardHeader>
+                                <MobileCardBody>
+                                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">Ngày trả</dt>
+                                            <dd className="font-medium">
+                                                {returnSlip.returnDate
+                                                    ? formatDate(returnSlip.returnDate)
+                                                    : returnSlip.createdAt
+                                                        ? formatDate(returnSlip.createdAt)
+                                                        : '—'}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">SL hàng trả</dt>
+                                            <dd className="font-medium">{totalReturnQty}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">SL hàng đổi</dt>
+                                            <dd className="font-medium">{totalExchangeQty > 0 ? totalExchangeQty : '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">Giá trị hàng đổi</dt>
+                                            <dd className="font-medium">
+                                                {returnSlip.grandTotalNew > 0 ? formatCurrency(returnSlip.grandTotalNew) : '—'}
+                                            </dd>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <dt className="text-xs text-muted-foreground">Mã vận đơn</dt>
+                                            <dd className="font-medium break-all">
+                                                {exchangeTrackingCode ? (
+                                                    <Link href={`/orders/${returnSlip.exchangeOrderSystemId || order.systemId}`} className="text-primary hover:underline font-mono text-xs">
+                                                        {exchangeTrackingCode}
+                                                    </Link>
+                                                ) : (exchangeOrderBusinessId || exchangeOrder) ? (
+                                                    <Link href={`/orders/${returnSlip.exchangeOrderSystemId}`} className="text-primary hover:underline">
+                                                        {exchangeOrderBusinessId || exchangeOrder?.id}
+                                                    </Link>
+                                                ) : totalExchangeQty > 0 ? (
+                                                    <span className="text-muted-foreground text-xs">Chờ xử lý</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs">—</span>
+                                                )}
+                                            </dd>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <dt className="text-xs text-muted-foreground">Chênh lệch</dt>
+                                            <dd className="font-semibold">
+                                                {difference === 0 ? (
+                                                    <span className="text-muted-foreground">0</span>
+                                                ) : difference > 0 ? (
+                                                    <span className="text-amber-600">+{formatCurrency(difference)}</span>
+                                                ) : (
+                                                    <span className="text-green-600">{formatCurrency(difference)}</span>
+                                                )}
+                                            </dd>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <dt className="text-xs text-muted-foreground">Phiếu thu/chi</dt>
+                                            <dd className="font-medium">
+                                                {(payments.length > 0 || receipts.length > 0) ? (
+                                                    <div className="flex flex-col gap-0.5 text-xs">
+                                                        {payments.map((payment) => (
+                                                            <Link key={payment!.systemId} href={`/payments/${payment!.systemId}`} className="text-green-600 hover:underline">
+                                                                {payment!.id}
+                                                            </Link>
+                                                        ))}
+                                                        {receipts.map((receipt) => (
+                                                            <Link key={receipt!.systemId} href={`/receipts/${receipt!.systemId}`} className="text-blue-600 hover:underline">
+                                                                {receipt!.id}
+                                                            </Link>
+                                                        ))}
+                                                    </div>
+                                                ) : refundAmount > 0 ? (
+                                                    <span className="text-green-600 text-xs">Đã chi: {formatCurrency(refundAmount)}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                </MobileCardBody>
+                                <MobileCardFooter>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setExpandedReturnId(isExpanded ? null : returnSlip.systemId)}
+                                    >
+                                        {isExpanded ? (<><ChevronDown className="h-4 w-4 mr-1" />Thu gọn</>) : (<><ChevronRight className="h-4 w-4 mr-1" />Chi tiết</>)}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => handlePrintReturn(e, returnSlip)}
+                                        title="In phiếu trả hàng"
+                                    >
+                                        <Printer className="h-4 w-4 mr-1" />
+                                        In
+                                    </Button>
+                                </MobileCardFooter>
+                                {isExpanded && (
+                                    <div className="mt-3 pt-3 border-t border-border/50 space-y-4">
+                                        <div>
+                                            <h4 className="font-semibold mb-2 text-sm">Chi tiết hàng trả</h4>
+                                            <div className="space-y-2">
+                                                {returnSlip.items.map((item: { productSystemId: string; returnQuantity: number; unitPrice: number; totalValue: number; productName?: string; productId?: string; note?: string; thumbnailImage?: string; productType?: string }, index: number) => {
+                                                    const product = findProductById(item.productSystemId);
+                                                    return (
+                                                        <div key={`m-return-${returnSlip.systemId}-${item.productSystemId}-${index}`} className="flex gap-3 rounded-lg border border-border/50 p-2">
+                                                            <ProductThumbnailCell
+                                                                productSystemId={item.productSystemId}
+                                                                product={product}
+                                                                productName={item.productName || ''}
+                                                                size="sm"
+                                                                onPreview={onPreview}
+                                                                itemThumbnailImage={item.thumbnailImage}
+                                                            />
+                                                            <div className="min-w-0 flex-1 text-sm">
+                                                                <Link href={`/products/${item.productSystemId}`} className="font-medium text-primary hover:underline line-clamp-2">
+                                                                    {item.productName || product?.name}
+                                                                </Link>
+                                                                <div className="text-xs text-muted-foreground mt-0.5">
+                                                                    SL: {item.returnQuantity} × {formatCurrency(item.unitPrice)}
+                                                                </div>
+                                                                {item.note && (
+                                                                    <div className="text-xs text-amber-600 italic mt-0.5 flex items-center gap-1">
+                                                                        <StickyNote className="h-3 w-3" />
+                                                                        <span>{item.note}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-right shrink-0 text-sm font-semibold">
+                                                                {formatCurrency(item.totalValue)}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
+                                                    <span className="font-semibold">Tổng cộng</span>
+                                                    <span className="font-bold">{formatCurrency(returnSlip.totalReturnValue)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {returnSlip.exchangeItems && returnSlip.exchangeItems.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold mb-2 text-sm">Chi tiết hàng đổi</h4>
+                                                <div className="space-y-2">
+                                                    {returnSlip.exchangeItems.map((item: { productSystemId: string; quantity: number; unitPrice: number; discount: number; discountType?: 'percentage' | 'fixed'; productName?: string; productId?: string; note?: string; thumbnailImage?: string; productType?: string }) => {
+                                                        const lineTotal = item.quantity * item.unitPrice - (item.discountType === 'percentage' ? (item.quantity * item.unitPrice * item.discount / 100) : item.discount);
+                                                        const product = findProductById(item.productSystemId);
+                                                        return (
+                                                            <div key={`m-ex-${returnSlip.systemId}-${item.productSystemId}`} className="flex gap-3 rounded-lg border border-border/50 p-2">
+                                                                <ProductThumbnailCell
+                                                                    productSystemId={item.productSystemId}
+                                                                    product={product}
+                                                                    productName={item.productName || ''}
+                                                                    size="sm"
+                                                                    onPreview={onPreview}
+                                                                    itemThumbnailImage={item.thumbnailImage}
+                                                                />
+                                                                <div className="min-w-0 flex-1 text-sm">
+                                                                    <Link href={`/products/${item.productSystemId}`} className="font-medium text-primary hover:underline line-clamp-2">
+                                                                        {item.productName}
+                                                                    </Link>
+                                                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                                                        SL: {item.quantity} × {formatCurrency(item.unitPrice)}
+                                                                    </div>
+                                                                    {item.note && (
+                                                                        <div className="text-xs text-amber-600 italic mt-0.5 flex items-center gap-1">
+                                                                            <StickyNote className="h-3 w-3" />
+                                                                            <span>{item.note}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-right shrink-0 text-sm font-semibold">
+                                                                    {formatCurrency(lineTotal)}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
+                                                        <span className="font-semibold">Tổng cộng</span>
+                                                        <span className="font-bold">{formatCurrency(returnSlip.grandTotalNew)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </MobileCard>
+                        );
+                    })}
+                </div>
             </CardContent>
         </Card>
     )

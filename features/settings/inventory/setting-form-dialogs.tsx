@@ -25,7 +25,8 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../components/layout/page-section';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import {
   Select,
@@ -337,7 +338,7 @@ export function ProductCategoryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {initialData ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}
@@ -356,10 +357,10 @@ export function ProductCategoryFormDialog({
         <Form {...form}>
           <form id="product-category-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'basic' | 'seo')}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="basic">Thông tin cơ bản</TabsTrigger>
-                <TabsTrigger value="seo">SEO & Mô tả</TabsTrigger>
-              </TabsList>
+              <MobileTabsList>
+                <MobileTabsTrigger value="basic">Thông tin cơ bản</MobileTabsTrigger>
+                <MobileTabsTrigger value="seo">SEO & Mô tả</MobileTabsTrigger>
+              </MobileTabsList>
               
               <TabsContent value="basic" className="space-y-4 mt-4">
                 {/* Row 1: ID and Sort Order */}

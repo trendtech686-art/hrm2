@@ -27,10 +27,13 @@ import {
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { DetailField } from '../../components/ui/detail-field';
 import { Badge } from '../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { LazyImage } from '../../components/ui/lazy-image';
 import { useComments } from '@/hooks/use-comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
+import { DetailPageShell } from '@/components/layout/page-section';
 // ✅ Heavy components - lazy loaded
 const Comments = dynamic(
   () => import('../../components/Comments').then(m => ({ default: m.Comments })),
@@ -46,6 +49,7 @@ import { purchasePriceHistoryColumns, type PriceHistoryEntry } from './purchase-
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
 import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
@@ -805,7 +809,7 @@ export function ProductDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-6">
             <div className="flex gap-6">
               <Skeleton className="w-32 h-32 rounded-lg" />
@@ -817,7 +821,7 @@ export function ProductDetailPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-6 space-y-4">
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -846,9 +850,9 @@ export function ProductDetailPage() {
   const totalInventory = Object.values(product.inventoryByBranch || {}).reduce<number>((sum, qty) => sum + Number(qty || 0), 0);
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <DetailPageShell gap="lg">
         {/* Header Summary Card with Image and Basic Info */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4 md:p-6">
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Product Image */}
@@ -965,21 +969,21 @@ export function ProductDetailPage() {
 
         {/* Main Tabs */}
         <Tabs defaultValue="info" className="w-full">
-            <TabsList className="flex-wrap h-auto gap-1">
-                <TabsTrigger value="info">Thông tin</TabsTrigger>
-                <TabsTrigger value="images">Hình ảnh</TabsTrigger>
-                <TabsTrigger value="pricing">Giá & Kho</TabsTrigger>
-                <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
-                <TabsTrigger value="label">Tem phụ</TabsTrigger>
-                <TabsTrigger value="seo-default">SEO Chung</TabsTrigger>
-                <TabsTrigger value="seo-pkgx">SEO PKGX</TabsTrigger>
-                <TabsTrigger value="seo-trendtech">SEO Trendtech</TabsTrigger>
-                {isComboProduct(product) && <TabsTrigger value="combo">Combo</TabsTrigger>}
-            </TabsList>
+            <MobileTabsList>
+                <MobileTabsTrigger value="info">Thông tin</MobileTabsTrigger>
+                <MobileTabsTrigger value="images">Hình ảnh</MobileTabsTrigger>
+                <MobileTabsTrigger value="pricing">Giá & Kho</MobileTabsTrigger>
+                <MobileTabsTrigger value="logistics">Vận chuyển</MobileTabsTrigger>
+                <MobileTabsTrigger value="label">Tem phụ</MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-default">SEO Chung</MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-pkgx">SEO PKGX</MobileTabsTrigger>
+                <MobileTabsTrigger value="seo-trendtech">SEO Trendtech</MobileTabsTrigger>
+                {isComboProduct(product) && <MobileTabsTrigger value="combo">Combo</MobileTabsTrigger>}
+            </MobileTabsList>
 
             {/* Tab: Thông tin cơ bản */}
             <TabsContent value="info" className="mt-4 space-y-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader><CardTitle size="lg">Thông tin cơ bản</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   <DetailField label="Mã SKU" value={
@@ -1014,7 +1018,7 @@ export function ProductDetailPage() {
               </Card>
               {/* Mô tả sản phẩm */}
               {(product.shortDescription || product.description) && (
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader><CardTitle size="lg">Mô tả sản phẩm</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     {product.shortDescription && (
@@ -1039,7 +1043,7 @@ export function ProductDetailPage() {
                 </Card>
               )}
               {/* Hệ thống */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader><CardTitle size="lg">Thông tin hệ thống</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   {product.launchedDate && <DetailField label="Ngày ra mắt" value={formatDateForDisplay(product.launchedDate)} />}
@@ -1054,7 +1058,7 @@ export function ProductDetailPage() {
 
             {/* Tab: Hình ảnh */}
             <TabsContent value="images" className="mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader><CardTitle size="lg">Hình ảnh sản phẩm</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   {hasImages ? (
@@ -1093,7 +1097,7 @@ export function ProductDetailPage() {
 
             {/* Tab: SEO Chung (Default) */}
             <TabsContent value="seo-default" className="mt-4 space-y-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <CardTitle size="lg" className="flex items-center gap-2">
                     <Globe className="h-5 w-5" />
@@ -1125,7 +1129,7 @@ export function ProductDetailPage() {
 
             {/* Tab: SEO PKGX */}
             <TabsContent value="seo-pkgx" className="mt-4 space-y-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <CardTitle size="lg" className="flex items-center gap-2">
                     <Globe className="h-5 w-5 text-blue-600" />
@@ -1154,7 +1158,7 @@ export function ProductDetailPage() {
 
             {/* Tab: SEO Trendtech */}
             <TabsContent value="seo-trendtech" className="mt-4 space-y-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader>
                   <CardTitle size="lg" className="flex items-center gap-2">
                     <Globe className="h-5 w-5 text-green-600" />
@@ -1186,7 +1190,7 @@ export function ProductDetailPage() {
             <TabsContent value="pricing" className="mt-4 space-y-4">
               {/* Cảnh báo tồn kho */}
               {getProductStockAlerts(product).length > 0 && (
-                <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+                <Card className={cn("border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20", mobileBleedCardClass)}>
                   <CardHeader className="pb-2"><CardTitle size="lg" className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Cảnh báo tồn kho</CardTitle></CardHeader>
                   <CardContent>
                     <StockAlertBadges product={product} showDescription />
@@ -1195,7 +1199,7 @@ export function ProductDetailPage() {
                 </Card>
               )}
               <div className="grid gap-4 lg:grid-cols-2">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader><CardTitle size="lg">Giá</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     {can('edit_products') && <DetailField label="Giá vốn" value={formatCurrency(product.costPrice ?? 0)} />}
@@ -1204,7 +1208,7 @@ export function ProductDetailPage() {
                     {product.type !== 'combo' && can('edit_products') && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className={mobileBleedCardClass}>
                   <CardHeader><CardTitle size="lg">Bảng giá bán</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     {salesPolicies.map(p => <DetailField key={p.systemId} label={`${p.name}${p.isDefault ? ' (Mặc định)' : ''}`} value={formatCurrency(product.prices[p.systemId])} />)}
@@ -1215,7 +1219,7 @@ export function ProductDetailPage() {
 
             {/* Tab: Vận chuyển & Logistics */}
             <TabsContent value="logistics" className="mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader><CardTitle size="lg">Thông tin vận chuyển</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   {product.weight !== undefined && <DetailField label="Khối lượng" value={`${product.weight} ${product.weightUnit || 'g'}`} />}
@@ -1227,7 +1231,7 @@ export function ProductDetailPage() {
 
             {/* Tab: Tem phụ */}
             <TabsContent value="label" className="mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader><CardTitle size="lg">Thông tin Tem phụ</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   <DetailField label="Tên hàng hóa (VAT)" value={product.nameVat || '-'} />
@@ -1251,14 +1255,14 @@ export function ProductDetailPage() {
         </Tabs>
 
         {/* Panel Tồn kho & Lịch sử - 3 sub-tabs */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardContent className="p-4">
             <Tabs defaultValue="inventory" className="w-full">
-              <TabsList>
-                <TabsTrigger value="inventory">Tồn kho</TabsTrigger>
-                <TabsTrigger value="stock-history">Lịch sử kho</TabsTrigger>
-                {product.type !== 'combo' && can('edit_products') && <TabsTrigger value="price-history">Lịch sử giá nhập</TabsTrigger>}
-              </TabsList>
+              <MobileTabsList>
+                <MobileTabsTrigger value="inventory">Tồn kho</MobileTabsTrigger>
+                <MobileTabsTrigger value="stock-history">Lịch sử kho</MobileTabsTrigger>
+                {product.type !== 'combo' && can('edit_products') && <MobileTabsTrigger value="price-history">Lịch sử giá nhập</MobileTabsTrigger>}
+              </MobileTabsList>
               
               {/* Sub-tab: Tồn kho theo chi nhánh */}
               <TabsContent value="inventory" className="mt-4">
@@ -1268,25 +1272,67 @@ export function ProductDetailPage() {
                     onInTransitClick={(b) => { setInTransitBranch({ systemId: b.systemId, name: b.name }); setInTransitDialogOpen(true); }}
                   />
                 ) : (
-                  <div className="overflow-x-auto -mx-4 px-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Chi nhánh</TableHead>
-                        <TableHead>Tồn kho</TableHead>
-                        {can('edit_products') && <TableHead>Giá vốn (đ/SP)</TableHead>}
-                        {can('edit_products') && <TableHead>Giá trị tồn</TableHead>}
-                        <TableHead>Có thể bán</TableHead>
-                        <TableHead>Chờ xuất kho</TableHead>
-                        <TableHead>Đang về</TableHead>
-                        <TableHead>Đang giao</TableHead>
-                        <TableHead>Tổng đã bán</TableHead>
-                        <TableHead>Tồn tối thiểu</TableHead>
-                        <TableHead>Tồn tối đa</TableHead>
-                        <TableHead>Điểm lưu kho</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <>
+                    {/* Desktop: Table layout */}
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Chi nhánh</TableHead>
+                            <TableHead>Tồn kho</TableHead>
+                            {can('edit_products') && <TableHead>Giá vốn (đ/SP)</TableHead>}
+                            {can('edit_products') && <TableHead>Giá trị tồn</TableHead>}
+                            <TableHead>Có thể bán</TableHead>
+                            <TableHead>Chờ xuất kho</TableHead>
+                            <TableHead>Đang về</TableHead>
+                            <TableHead>Đang giao</TableHead>
+                            <TableHead>Tổng đã bán</TableHead>
+                            <TableHead>Tồn tối thiểu</TableHead>
+                            <TableHead>Tồn tối đa</TableHead>
+                            <TableHead>Điểm lưu kho</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {branches.map(branch => {
+                            const onHand = product.inventoryByBranch?.[branch.systemId] || 0;
+                            const committed = product.committedByBranch?.[branch.systemId] || 0;
+                            const inTransit = product.inTransitByBranch?.[branch.systemId] || 0;
+                            const inDelivery = product.inDeliveryByBranch?.[branch.systemId] || 0;
+                            const reorderLevel = product.reorderLevel ?? 0;
+                            const maxStock = product.maxStock ?? 0;
+                            const availableToSell = onHand - committed;
+                            const getStockStatusClass = () => {
+                              if (onHand < 0) return 'text-yellow-600 font-bold';
+                              if (onHand === 0) return 'text-red-600 font-bold';
+                              if (reorderLevel > 0 && onHand <= reorderLevel) return 'text-orange-500 font-semibold';
+                              if (maxStock > 0 && onHand > maxStock) return 'text-blue-600 font-semibold';
+                              return 'font-semibold';
+                            };
+                            const branchSold = soldByBranch[branch.systemId] || 0;
+                            const inventoryValue = Math.abs(onHand) * (product.costPrice || 0);
+                            return (
+                              <TableRow key={branch.systemId}>
+                                <TableCell className="font-medium">{branch.name}</TableCell>
+                                <TableCell className={getStockStatusClass()}>{onHand}</TableCell>
+                                {can('edit_products') && <TableCell>{formatCurrency(product.costPrice || 0)}</TableCell>}
+                                {can('edit_products') && <TableCell>{formatCurrency(inventoryValue)}</TableCell>}
+                                <TableCell className={availableToSell < 0 ? 'text-red-600 font-semibold' : ''}>{availableToSell}</TableCell>
+                                <TableCell className={committed > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => committed > 0 && (setSelectedBranch({ systemId: branch.systemId, name: branch.name }), setCommittedDialogOpen(true))}>{committed}</TableCell>
+                                <TableCell className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inTransit > 0 && (setInTransitBranch({ systemId: branch.systemId, name: branch.name }), setInTransitDialogOpen(true))}>{inTransit}</TableCell>
+                                <TableCell className={inDelivery > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inDelivery > 0 && (setInDeliveryBranch({ systemId: branch.systemId, name: branch.name }), setInDeliveryDialogOpen(true))}>{inDelivery}</TableCell>
+                                <TableCell className={branchSold > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => branchSold > 0 && (setSoldBranch({ systemId: branch.systemId, name: branch.name }), setSoldDialogOpen(true))}>{branchSold}</TableCell>
+                                <TableCell>{reorderLevel}</TableCell>
+                                <TableCell>{maxStock}</TableCell>
+                                <TableCell>{product.warehouseLocation || storageLocation?.name || '-'}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Mobile: Card stack per branch */}
+                    <div className="md:hidden space-y-3">
                       {branches.map(branch => {
                         const onHand = product.inventoryByBranch?.[branch.systemId] || 0;
                         const committed = product.committedByBranch?.[branch.systemId] || 0;
@@ -1294,42 +1340,94 @@ export function ProductDetailPage() {
                         const inDelivery = product.inDeliveryByBranch?.[branch.systemId] || 0;
                         const reorderLevel = product.reorderLevel ?? 0;
                         const maxStock = product.maxStock ?? 0;
-                        const availableToSell = onHand - committed; // Có thể bán = Tồn kho - Chờ xuất kho
-                        
-                        // ✅ Determine stock status for color coding
-                        const getStockStatusClass = () => {
-                          if (onHand < 0) return 'text-yellow-600 font-bold'; // Âm kho - lỗi
-                          if (onHand === 0) return 'text-red-600 font-bold'; // Hết hàng
-                          if (reorderLevel > 0 && onHand <= reorderLevel) return 'text-orange-500 font-semibold'; // Sắp hết
-                          if (maxStock > 0 && onHand > maxStock) return 'text-blue-600 font-semibold'; // Tồn cao
-                          return 'font-semibold'; // Bình thường
-                        };
-                        
+                        const availableToSell = onHand - committed;
+                        const stockColor =
+                          onHand < 0 ? 'text-yellow-600' :
+                          onHand === 0 ? 'text-red-600' :
+                          reorderLevel > 0 && onHand <= reorderLevel ? 'text-orange-500' :
+                          maxStock > 0 && onHand > maxStock ? 'text-blue-600' :
+                          'text-foreground';
                         const branchSold = soldByBranch[branch.systemId] || 0;
                         const inventoryValue = Math.abs(onHand) * (product.costPrice || 0);
-                        
+
+                        const handleCommittedClick = () => { if (committed > 0) { setSelectedBranch({ systemId: branch.systemId, name: branch.name }); setCommittedDialogOpen(true); } };
+                        const handleInTransitClick = () => { if (inTransit > 0) { setInTransitBranch({ systemId: branch.systemId, name: branch.name }); setInTransitDialogOpen(true); } };
+                        const handleInDeliveryClick = () => { if (inDelivery > 0) { setInDeliveryBranch({ systemId: branch.systemId, name: branch.name }); setInDeliveryDialogOpen(true); } };
+                        const handleSoldClick = () => { if (branchSold > 0) { setSoldBranch({ systemId: branch.systemId, name: branch.name }); setSoldDialogOpen(true); } };
+
                         return (
-                          <TableRow key={branch.systemId}>
-                            <TableCell className="font-medium">{branch.name}</TableCell>
-                            <TableCell className={getStockStatusClass()}>
-                              {onHand}
-                            </TableCell>
-                            {can('edit_products') && <TableCell>{formatCurrency(product.costPrice || 0)}</TableCell>}
-                            {can('edit_products') && <TableCell>{formatCurrency(inventoryValue)}</TableCell>}
-                            <TableCell className={availableToSell < 0 ? 'text-red-600 font-semibold' : ''}>{availableToSell}</TableCell>
-                            <TableCell className={committed > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => committed > 0 && (setSelectedBranch({ systemId: branch.systemId, name: branch.name }), setCommittedDialogOpen(true))}>{committed}</TableCell>
-                            <TableCell className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inTransit > 0 && (setInTransitBranch({ systemId: branch.systemId, name: branch.name }), setInTransitDialogOpen(true))}>{inTransit}</TableCell>
-                            <TableCell className={inDelivery > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inDelivery > 0 && (setInDeliveryBranch({ systemId: branch.systemId, name: branch.name }), setInDeliveryDialogOpen(true))}>{inDelivery}</TableCell>
-                            <TableCell className={branchSold > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => branchSold > 0 && (setSoldBranch({ systemId: branch.systemId, name: branch.name }), setSoldDialogOpen(true))}>{branchSold}</TableCell>
-                            <TableCell>{reorderLevel}</TableCell>
-                            <TableCell>{maxStock}</TableCell>
-                            <TableCell>{product.warehouseLocation || storageLocation?.name || '-'}</TableCell>
-                          </TableRow>
+                          <MobileCard key={branch.systemId} inert>
+                            <MobileCardHeader className="items-center justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs uppercase tracking-wide text-muted-foreground">Chi nhánh</div>
+                                <div className="mt-0.5 text-sm font-semibold text-foreground truncate">{branch.name}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className={cn('text-2xl font-bold leading-none', stockColor)}>{onHand}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">Tồn kho</div>
+                              </div>
+                            </MobileCardHeader>
+                            <MobileCardBody>
+                              <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+                                {can('edit_products') && (
+                                  <>
+                                    <div>
+                                      <dt className="text-xs text-muted-foreground">Giá vốn</dt>
+                                      <dd className="font-medium">{formatCurrency(product.costPrice || 0)}</dd>
+                                    </div>
+                                    <div>
+                                      <dt className="text-xs text-muted-foreground">Giá trị tồn</dt>
+                                      <dd className="font-medium">{formatCurrency(inventoryValue)}</dd>
+                                    </div>
+                                  </>
+                                )}
+                                <div>
+                                  <dt className="text-xs text-muted-foreground">Có thể bán</dt>
+                                  <dd className={cn('font-medium', availableToSell < 0 && 'text-red-600')}>{availableToSell}</dd>
+                                </div>
+                                <div
+                                  {...(committed > 0 ? { role: 'button', tabIndex: 0, onClick: handleCommittedClick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCommittedClick(); } }, className: 'cursor-pointer' } : {})}
+                                >
+                                  <dt className="text-xs text-muted-foreground">Chờ xuất kho</dt>
+                                  <dd className={cn('font-medium', committed > 0 && 'text-primary underline')}>{committed}</dd>
+                                </div>
+                                <div
+                                  {...(inTransit > 0 ? { role: 'button', tabIndex: 0, onClick: handleInTransitClick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleInTransitClick(); } }, className: 'cursor-pointer' } : {})}
+                                >
+                                  <dt className="text-xs text-muted-foreground">Đang về</dt>
+                                  <dd className={cn('font-medium', inTransit > 0 && 'text-primary underline')}>{inTransit}</dd>
+                                </div>
+                                <div
+                                  {...(inDelivery > 0 ? { role: 'button', tabIndex: 0, onClick: handleInDeliveryClick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleInDeliveryClick(); } }, className: 'cursor-pointer' } : {})}
+                                >
+                                  <dt className="text-xs text-muted-foreground">Đang giao</dt>
+                                  <dd className={cn('font-medium', inDelivery > 0 && 'text-primary underline')}>{inDelivery}</dd>
+                                </div>
+                                <div
+                                  {...(branchSold > 0 ? { role: 'button', tabIndex: 0, onClick: handleSoldClick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSoldClick(); } }, className: 'cursor-pointer' } : {})}
+                                >
+                                  <dt className="text-xs text-muted-foreground">Tổng đã bán</dt>
+                                  <dd className={cn('font-medium', branchSold > 0 && 'text-primary underline')}>{branchSold}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-xs text-muted-foreground">Tồn tối thiểu</dt>
+                                  <dd className="font-medium">{reorderLevel}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-xs text-muted-foreground">Tồn tối đa</dt>
+                                  <dd className="font-medium">{maxStock}</dd>
+                                </div>
+                                <div className="col-span-2">
+                                  <dt className="text-xs text-muted-foreground">Điểm lưu kho</dt>
+                                  <dd className="font-medium">{product.warehouseLocation || storageLocation?.name || '-'}</dd>
+                                </div>
+                              </dl>
+                            </MobileCardBody>
+                          </MobileCard>
                         );
                       })}
-                    </TableBody>
-                  </Table>
-                  </div>
+                    </div>
+                  </>
                 )}
               </TabsContent>
               
@@ -1446,6 +1544,6 @@ export function ProductDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-    </div>
+    </DetailPageShell>
   );
 }

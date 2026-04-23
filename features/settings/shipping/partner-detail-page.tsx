@@ -16,6 +16,7 @@ import { PartnerConfigDialog, ShippingPartner } from './partner-config-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
+import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 
 const PARTNER_INFO: Record<string, { name: string; description: string; website?: string }> = {
   'GHN': { 
@@ -97,9 +98,9 @@ export function ShippingPartnerDetailPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <DetailPageShell gap="lg">
       {/* Partner Info Card */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -148,7 +149,7 @@ export function ShippingPartnerDetailPage() {
       </Card>
 
       {/* Account List Card */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -201,6 +202,6 @@ export function ShippingPartnerDetailPage() {
         accountId={editingAccountId}
         onSave={handleAccountSaved}
       />
-    </div>
+    </DetailPageShell>
   );
 }

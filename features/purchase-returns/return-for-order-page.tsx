@@ -14,6 +14,7 @@ import { CreditCard, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 import { usePurchaseOrder } from '../purchase-orders/hooks/use-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
@@ -447,7 +448,7 @@ export function PurchaseReturnForOrderPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left - Product table */}
             <div className="lg:col-span-2">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle>Thông tin sản phẩm trả</CardTitle>
@@ -656,7 +657,7 @@ export function PurchaseReturnForOrderPage() {
             {/* Right - Info cards */}
             <div className="space-y-6">
               {/* Supplier info */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-2">
                   <CardTitle>Nhà cung cấp</CardTitle>
                 </CardHeader>
@@ -671,7 +672,7 @@ export function PurchaseReturnForOrderPage() {
               </Card>
 
               {/* Branch info */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-2">
                   <CardTitle>Chi nhánh hoàn trả</CardTitle>
                 </CardHeader>
@@ -683,7 +684,7 @@ export function PurchaseReturnForOrderPage() {
               </Card>
 
               {/* Return reason */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-2">
                   <CardTitle>Lý do hoàn trả</CardTitle>
                 </CardHeader>

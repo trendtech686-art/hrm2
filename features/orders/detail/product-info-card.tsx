@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ReadOnlyProductsTable } from '@/components/shared/read-only-products-table';
 import { formatCurrency } from './types';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface ProductInfoCardProps {
   order: Order;
@@ -60,7 +61,7 @@ export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, sal
     });
     
     return (
-        <Card>
+        <Card className={mobileBleedCardClass}>
             <CardHeader>
                 <CardTitle>Thông tin sản phẩm</CardTitle>
             </CardHeader>

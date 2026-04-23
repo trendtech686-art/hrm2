@@ -13,6 +13,7 @@ import { formatOrderAddress } from '../address-utils';
 import { ORDER_STATUS_LABELS, getMainOrderStatus } from '@/lib/constants/order-enums';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,7 @@ import { Comments } from '@/components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { OrderPrintButton } from './order-print-button';
+import { ShareButton } from '@/components/shared/share-button';
 import { useOrderPrintHandlers } from '@/features/orders/hooks/use-order-print-handlers';
 
 // ✅ Import extracted components from detail folder
@@ -85,17 +87,6 @@ const PackerSelectionDialog = dynamic(() => import('../detail').then(mod => ({ d
 
 // ✅ Helper to format address object or string (kept inline as it depends on formatOrderAddress)
 const formatAddressObject = (address: OrderAddress | string | null | undefined): string => formatOrderAddress(address);
-
-// _simpleHash kept for internal use if needed
-function _simpleHash(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return Math.abs(hash);
-}
 
 // Removed inline components: StatusStepper, statusVariants, productTypeFallbackLabels, OrderComment 
 // Now imported from '../detail/'
@@ -1268,9 +1259,30 @@ export function OrderDetailPage() {
 
         const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
 
-        // Print & Copy
+        // Print & Copy & Share
         menuItems.push({ label: 'In đơn hàng', onClick: () => handlePrintOrder(order) });
         menuItems.push({ label: 'Sao chép đơn', onClick: handleCopyOrder });
+        menuItems.push({
+            label: 'Chia sẻ',
+            onClick: async () => {
+                const title = `Đơn hàng ${order.id ?? order.systemId}`;
+                const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+                if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                    try {
+                        await navigator.share({ title, text: `${title} — ${order.customer?.name ?? ''}`.trim(), url: shareUrl });
+                        return;
+                    } catch (err) {
+                        if (err instanceof Error && err.name === 'AbortError') return;
+                    }
+                }
+                try {
+                    await navigator.clipboard?.writeText(shareUrl);
+                    toast.success('Đã sao chép liên kết');
+                } catch {
+                    toast.error('Không thể sao chép liên kết');
+                }
+            },
+        });
 
         // Workflow actions
         if (canSelectDelivery && activePackaging) {
@@ -1445,6 +1457,12 @@ export function OrderDetailPage() {
                             order={order}
                             onPrintProductLabels={handlePrintProductLabels}
                         />
+                        <ShareButton
+                            size="sm"
+                            className="h-7"
+                            title={`Đơn hàng ${order.id ?? order.systemId}`}
+                            text={`Đơn hàng ${order.id ?? order.systemId} — ${order.customer?.name ?? ''}`.trim()}
+                        />
                         <Button
                             variant="outline"
                             size="sm"
@@ -1495,7 +1513,7 @@ export function OrderDetailPage() {
     if (isLoading) {
         return (
             <div className="space-y-4">
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="pt-6">
                         <div className="animate-pulse space-y-4">
                             <div className="h-8 bg-muted rounded w-1/3" />
@@ -1503,7 +1521,7 @@ export function OrderDetailPage() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="pt-6">
                         <div className="animate-pulse space-y-4">
                             <div className="h-32 bg-muted rounded" />
@@ -1555,7 +1573,7 @@ export function OrderDetailPage() {
         <>
             <div className="space-y-4 md:space-y-6">
                 {/* Status Card - Full width */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardContent className="p-4">
                         <StatusStepper order={order} />
                     </CardContent>
@@ -1564,7 +1582,7 @@ export function OrderDetailPage() {
                 {/* Row 1: Thông tin khách hàng (40%) + Quy trình xử lý (30%) + Thông tin đơn hàng (30%) */}
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                     {/* Thông tin khách hàng - 40% width on desktop */}
-                    <Card className="lg:col-span-4 flex flex-col">
+                    <Card className={cn(mobileBleedCardClass, "lg:col-span-4 flex flex-col")}>
                         <CardHeader className="shrink-0">
                             <CardTitle>Thông tin khách hàng</CardTitle>
                         </CardHeader>
@@ -1786,7 +1804,7 @@ export function OrderDetailPage() {
                     </div>
 
                     {/* Thông tin đơn hàng - 30% width on desktop */}
-                    <Card className="lg:col-span-3 flex flex-col h-full lg:h-auto">
+                    <Card className={cn(mobileBleedCardClass, "lg:col-span-3 flex flex-col h-full lg:h-auto")}>
                         <CardHeader className="shrink-0">
                             <CardTitle>Thông tin đơn hàng</CardTitle>
                         </CardHeader>
@@ -1882,7 +1900,7 @@ export function OrderDetailPage() {
                 </div>
 
                 {/* Row 2: Đơn hàng chờ thanh toán - Full width */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-2">
@@ -2234,7 +2252,7 @@ export function OrderDetailPage() {
                 </Card>
 
                 {/* Row 3: Đóng gói và Giao hàng - Full width */}
-                <Card>
+                <Card className={mobileBleedCardClass}>
                     <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-2">
@@ -2303,7 +2321,7 @@ export function OrderDetailPage() {
                 
                 {/* Return History Card - Show only if there are returns */}
                 {salesReturnsForOrder.length > 0 && (
-                    <Card>
+                    <Card className={mobileBleedCardClass}>
                         <CardHeader>
                             <CardTitle>
                                 Lịch sử trả hàng ({salesReturnsForOrder.length})

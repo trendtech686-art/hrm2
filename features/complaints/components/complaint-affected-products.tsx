@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import { OptimizedImage } from "../../../components/ui/optimized-image";
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { useProductFinder } from "../../products/hooks/use-all-products";
 import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
 import { Package, Eye } from 'lucide-react';
@@ -44,7 +45,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
   return (
     <>
       {/* Card: Sản phẩm bị ảnh hưởng */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle size="lg">Sản phẩm bị ảnh hưởng</CardTitle>
         </CardHeader>
@@ -196,7 +197,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
       </Card>
 
       {/* Card: Tổng kết sản phẩm */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle size="lg">Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
         </CardHeader>

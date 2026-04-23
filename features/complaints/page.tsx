@@ -38,6 +38,7 @@ import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks
 import { FAB } from '@/components/mobile/fab';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 function parseColorClass(colorClass: string): React.CSSProperties {
   if (!colorClass || typeof colorClass !== 'string') return {};
@@ -242,7 +243,7 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
   const hasActiveFilters = Object.values(advancedFilters).some(v => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)) || searchQuery !== "";
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {/* Stats Bar - instant display from Server Component */}
       <StatsBar
         className="mb-4"
@@ -299,6 +300,6 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
 
       <Dialog open={confirmDialog.open} onOpenChange={o => setConfirmDialog(p => ({ ...p, open: o }))}><DialogContent><DialogHeader><DialogTitle>{confirmDialog.title}</DialogTitle><DialogDescription>{confirmDialog.description}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" className="h-9" onClick={() => setConfirmDialog(p => ({ ...p, open: false }))}>Hủy</Button><Button className="h-9" onClick={confirmDialog.onConfirm}>Xác nhận</Button></DialogFooter></DialogContent></Dialog>
       {isMobile && canCreate && <FAB onClick={() => router.push('/complaints/new')} />}
-    </div>
+    </ListPageShell>
   );
 }

@@ -8,7 +8,8 @@ import { useAllTaxes } from "../settings/taxes/hooks/use-taxes";
 import { useImporterFinder } from "../settings/inventory/hooks/use-inventory-settings";
 import { useEntityFiles } from "@/hooks/use-file-upload";
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Tabs, TabsContent } from "../../components/ui/tabs";
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 import { Globe } from "lucide-react";
 import { MIN_COMBO_ITEMS, MAX_COMBO_ITEMS, calculateComboCostPrice, calculateFinalComboPricesByPolicy } from './combo-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -572,25 +573,25 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
         className="space-y-6"
       >
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="basic">Cơ bản & Giá bán</TabsTrigger>
-            <TabsTrigger value="images">Hình ảnh</TabsTrigger>
-            <TabsTrigger value="inventory">Kho</TabsTrigger>
-            <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
-            <TabsTrigger value="label">Tem phụ</TabsTrigger>
-            <TabsTrigger value="seo-default" className="gap-1">
+          <MobileTabsList>
+            <MobileTabsTrigger value="basic">Cơ bản & Giá bán</MobileTabsTrigger>
+            <MobileTabsTrigger value="images">Hình ảnh</MobileTabsTrigger>
+            <MobileTabsTrigger value="inventory">Kho</MobileTabsTrigger>
+            <MobileTabsTrigger value="logistics">Vận chuyển</MobileTabsTrigger>
+            <MobileTabsTrigger value="label">Tem phụ</MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-default" className="gap-1">
               <Globe className="h-3 w-3" />
               SEO Chung
-            </TabsTrigger>
-            <TabsTrigger value="seo-pkgx" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-pkgx" className="gap-1">
               <Globe className="h-3 w-3" style={{ color: '#ef4444' }} />
               SEO PKGX
-            </TabsTrigger>
-            <TabsTrigger value="seo-trendtech" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-trendtech" className="gap-1">
               <Globe className="h-3 w-3" style={{ color: '#3b82f6' }} />
               SEO Trendtech
-            </TabsTrigger>
-          </TabsList>
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           {/* Tab 1: Basic Info */}
           <TabsContent value="basic" className="space-y-4 mt-4">

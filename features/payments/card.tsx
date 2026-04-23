@@ -4,6 +4,7 @@ import type { Payment } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../lib/id-types';
 import { Badge } from "../../components/ui/badge";
 import { TouchButton } from "../../components/mobile/touch-button";
+import { MobileCard } from "../../components/mobile/mobile-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { MoreHorizontal, Calendar, User, Building2, FileText, XCircle, Eye, Pencil } from "lucide-react";
 
@@ -41,10 +42,7 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
     };
 
     return (
-        <div 
-            className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
-            onClick={() => handleRowClick(payment)}
-        >
+        <MobileCard onClick={() => handleRowClick(payment)}>
                 {/* Header: ID + Amount + Menu */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -124,6 +122,6 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
                         {getStatusBadge(payment.status)}
                     </div>
                 </div>
-        </div>
+        </MobileCard>
     );
 };

@@ -30,6 +30,7 @@ import { convertStockTransferForPrint, mapStockTransferToPrintData, mapStockTran
 import { useColumnLayout } from '../../hooks/use-column-visibility';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
 import { useFilterPresets } from '../../hooks/use-filter-presets';
+import { ListPageShell } from '@/components/layout/page-section';
 
 const StockTransferImportDialog = dynamic(() => import("./components/stock-transfers-import-export-dialogs").then(mod => ({ default: mod.StockTransferImportDialog })), { ssr: false });
 const StockTransferExportDialog = dynamic(() => import("./components/stock-transfers-import-export-dialogs").then(mod => ({ default: mod.StockTransferExportDialog })), { ssr: false });
@@ -205,7 +206,7 @@ export function StockTransfersPage({ initialStats }: StockTransfersPageProps = {
   const bulkActions: BulkAction<StockTransfer>[] = React.useMemo(() => [{ label: 'In phiếu', icon: Printer, onSelect: (rows) => { setItemsToPrint(rows); setPrintDialogOpen(true); } }], []);
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {/* Stats Bar - instant display from Server Component */}
       <StatsBar
         className="mb-4"
@@ -232,6 +233,6 @@ export function StockTransfersPage({ initialStats }: StockTransfersPageProps = {
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu chuyển kho" />
       <StockTransferImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={allTransfers} onImport={handleImport} currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }} />
       <StockTransferExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={allTransfers} filteredData={transfers} currentPageData={transfers} selectedData={selectedTransfers} currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }} />
-    </div>
+    </ListPageShell>
   );
 }

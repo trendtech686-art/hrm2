@@ -7,7 +7,8 @@ import { Badge } from '../../../../../components/ui/badge';
 import { Label } from '../../../../../components/ui/label';
 import { ScrollArea } from '../../../../../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../../components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../../../../components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '../../../../../components/layout/page-section';
 import { OptimizedImage } from '../../../../../components/ui/optimized-image';
 import { 
   Package, 
@@ -61,7 +62,7 @@ export function ProductDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent mobileFullScreen className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {product.goods_thumb && (
@@ -84,24 +85,24 @@ export function ProductDetailDialog({
         </DialogHeader>
         
         <Tabs defaultValue="basic" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="basic" className="text-xs">
+          <MobileTabsList>
+            <MobileTabsTrigger value="basic">
               <Package className="h-3 w-3 mr-1" />
               Cơ bản
-            </TabsTrigger>
-            <TabsTrigger value="price" className="text-xs">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="price">
               <DollarSign className="h-3 w-3 mr-1" />
               Giá & Kho
-            </TabsTrigger>
-            <TabsTrigger value="seo" className="text-xs">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo">
               <FileText className="h-3 w-3 mr-1" />
               Nội dung & SEO
-            </TabsTrigger>
-            <TabsTrigger value="images" className="text-xs">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="images">
               <ImageIcon className="h-3 w-3 mr-1" />
               Hình ảnh
-            </TabsTrigger>
-          </TabsList>
+            </MobileTabsTrigger>
+          </MobileTabsList>
           
           {/* Tab: Thông tin cơ bản */}
           <TabsContent value="basic" className="flex-1 overflow-auto mt-4">

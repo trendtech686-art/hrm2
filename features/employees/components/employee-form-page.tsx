@@ -14,6 +14,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { FormPageShell } from '@/components/layout/page-section';
 import { Button } from '@/components/ui/button';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { toast } from 'sonner';
@@ -286,12 +287,12 @@ export function EmployeeFormPage() {
   }
 
   return (
-    <div className="w-full h-full">
+    <FormPageShell className="w-full h-full">
         <Card className="border-0 shadow-none">
           <CardContent className="min-w-0 overflow-x-hidden p-0">
             <EmployeeForm initialData={employee ?? null} onSubmit={handleSubmit} onCancel={handleCancel} isEditMode={!!employee} />
           </CardContent>
         </Card>
-    </div>
+    </FormPageShell>
   );
 }

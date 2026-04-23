@@ -23,6 +23,7 @@ import { usePageHeader } from "../../../contexts/page-header-context"
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../../components/data-table/dynamic-column-customizer'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { TouchButton } from "../../../components/mobile/touch-button"
+import { MobileCard } from "../../../components/mobile/mobile-card"
 import { Badge } from "../../../components/ui/badge"
 import { useMediaQuery } from "../../../lib/use-media-query"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu"
@@ -33,6 +34,7 @@ import { convertPenaltyForPrint, mapPenaltyToPrintData, createStoreSettings } fr
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog"
 import { useColumnLayout } from '../../../hooks/use-column-visibility'
 import { useAuth } from '@/contexts/auth-context'
+import { ListPageShell } from '@/components/layout/page-section'
 
 const formatCurrency = (v?: number | string) => {
   if (v === undefined || v === null) return '';
@@ -136,7 +138,7 @@ export function PenaltiesPage() {
   const MobilePenaltyCard = ({ penalty }: { penalty: Penalty }) => {
     const statusVariant = { 'Chưa thanh toán': 'warning', 'Đã thanh toán': 'success', 'Đã hủy': 'secondary' }[penalty.status] as "warning" | "success" | "secondary" || 'secondary'
     return (
-      <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => handleRowClick(penalty)}>
+      <MobileCard onClick={() => handleRowClick(penalty)}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0"><AlertTriangle className="h-4 w-4 text-destructive shrink-0" /><span className="font-semibold text-sm font-mono">{penalty.id}</span><Badge variant={statusVariant} className="text-xs ml-auto">{penalty.status}</Badge></div>
             <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0 -mr-2 -mt-1 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
@@ -149,12 +151,12 @@ export function PenaltiesPage() {
             <div className="flex items-center text-muted-foreground"><Calendar className="h-3 w-3 mr-1" />{formatDate(penalty.issueDate)}</div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">Người lập: {penalty.issuerName}</div>
-      </div>
+      </MobileCard>
     )
   }
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {!isMobile && <PageToolbar leftActions={<><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={penalties} filteredData={penalties} pageData={penalties} config={exportConfig} /></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
       <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu phạt (mã, tên NV, lý do)...">
         <Select value={employeeFilter} onValueChange={setEmployeeFilter}><SelectTrigger className="w-full sm:w-45 h-9"><SelectValue placeholder="Tất cả nhân viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả nhân viên</SelectItem>{employeeOptions.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent></Select>
@@ -165,6 +167,6 @@ export function PenaltiesPage() {
         <ResponsiveDataTable columns={columns} data={penalties} renderMobileCard={p => <MobilePenaltyCard penalty={p} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} isLoading={isLoadingPenalties} emptyTitle="Chưa có phiếu phạt" emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm" />
       </div>
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu phạt" />
-    </div>
+    </ListPageShell>
   )
 }

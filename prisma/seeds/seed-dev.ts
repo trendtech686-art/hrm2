@@ -7,10 +7,11 @@
  * 
  * This seeds:
  * 1. Users & Employees (required for authentication)
- * 2. Branches
- * 3. Taxes
- * 4. Administrative Units (Provinces, Districts, Wards)
- * 5. All Settings (inventory, pricing, payment, tasks, etc.)
+ * 2. Branches (SĐT từ DB; 1 chi nhánh mặc định)
+ * 3. Store info (từ chi nhánh + user — không dùng chuỗi mẫu HRM/company.com trong file)
+ * 4. Taxes
+ * 5. Administrative Units (Provinces, Districts, Wards)
+ * 6. All Settings (inventory, pricing, payment, tasks, etc.)
  * 
  * NOTE: This is for DEV only. Production should use migrations.
  */
@@ -26,24 +27,26 @@ const prisma = new PrismaClient({ adapter });
 import { seedAllSettings } from './seed-all-settings';
 import { seedAdminUnits } from './seed-admin-units-v2';
 import { seedUsers } from './seed-users';
+import { seedStoreInfo } from './seed-store-info';
+import { alignPrimaryBranchNameWithStore, inferPrimaryBranchForDevSeed } from './lib/read-db-settings';
 
+/** Chi nhánh mặc định: SĐT lấy từ nhân viên; không còn địa chỉ mẫu HN / HCM / ĐN trong code. */
 async function seedBranches() {
-  console.log('🏢 Seeding Branches...');
-  
-  const branches = [
-    { systemId: crypto.randomUUID(), id: 'CN001', name: 'Chi nhánh Hà Nội (HQ)', address: '123 Trần Hưng Đạo, Hoàn Kiếm, Hà Nội', phone: '024-1234567', isDefault: true },
-    { systemId: crypto.randomUUID(), id: 'CN002', name: 'Chi nhánh TP.HCM', address: '456 Nguyễn Huệ, Quận 1, TP.HCM', phone: '028-7654321', isDefault: false },
-    { systemId: crypto.randomUUID(), id: 'CN003', name: 'Chi nhánh Đà Nẵng', address: '789 Bạch Đằng, Hải Châu, Đà Nẵng', phone: '0236-9876543', isDefault: false },
-  ];
-
-  for (const branch of branches) {
-    await prisma.branch.upsert({
-      where: { id: branch.id },
-      update: {},
-      create: branch,
-    });
-    console.log(`   ✓ Branch: ${branch.name}`);
-  }
+  console.log('🏢 Seeding Branches (gốc từ dữ liệu user / nhân viên trong DB)...');
+  const row = await inferPrimaryBranchForDevSeed(prisma);
+  await prisma.branch.upsert({
+    where: { id: row.id },
+    update: {},
+    create: {
+      systemId: crypto.randomUUID(),
+      id: row.id,
+      name: row.name,
+      address: row.address || null,
+      phone: row.phone || null,
+      isDefault: row.isDefault,
+    },
+  });
+  console.log(`   ✓ ${row.id} — ${row.name}${row.phone ? ` — ${row.phone}` : ''}`);
   console.log('✅ Branches seeded!');
 }
 
@@ -86,30 +89,38 @@ async function main() {
     await seedUsers();
     console.log('');
 
-    // 2. Branches
+    // 2. Branches (trước store-info đ infer được từ chi nhánh)
     console.log('┌──────────────────────────────────────────────────────────┐');
     console.log('│ STEP 2: BRANCHES                                         │');
     console.log('└──────────────────────────────────────────────────────────┘');
     await seedBranches();
     console.log('');
 
-    // 3. Taxes
+    // 3. Store + system keys còn thiếu (store-info = suy ra từ DB, không ghi đè bản cũ)
     console.log('┌──────────────────────────────────────────────────────────┐');
-    console.log('│ STEP 3: TAXES                                            │');
+    console.log('│ STEP 3: STORE & SYSTEM DEFAULTS (NẾU THIẾU)              │');
+    console.log('└──────────────────────────────────────────────────────────┘');
+    await seedStoreInfo();
+    await alignPrimaryBranchNameWithStore(prisma, 'CN001');
+    console.log('');
+
+    // 4. Taxes
+    console.log('┌──────────────────────────────────────────────────────────┐');
+    console.log('│ STEP 4: TAXES                                            │');
     console.log('└──────────────────────────────────────────────────────────┘');
     await seedTaxes();
     console.log('');
 
-    // 4. Administrative Units (Provinces, Districts, Wards) - OPTIONAL, takes ~30s
+    // 5. Administrative Units (Provinces, Districts, Wards) - OPTIONAL, takes ~30s
     console.log('┌──────────────────────────────────────────────────────────┐');
-    console.log('│ STEP 4: ADMINISTRATIVE UNITS (Provinces/Districts/Wards) │');
+    console.log('│ STEP 5: ADMINISTRATIVE UNITS (Provinces/Districts/Wards)│');
     console.log('└──────────────────────────────────────────────────────────┘');
     await seedAdminUnits();
     console.log('');
 
-    // 5. All Settings
+    // 6. All Settings
     console.log('┌──────────────────────────────────────────────────────────┐');
-    console.log('│ STEP 5: ALL SETTINGS                                     │');
+    console.log('│ STEP 6: ALL SETTINGS                                     │');
     console.log('└──────────────────────────────────────────────────────────┘');
     await seedAllSettings();
     console.log('');

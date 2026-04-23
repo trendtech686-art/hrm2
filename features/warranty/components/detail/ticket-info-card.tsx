@@ -6,6 +6,7 @@ import { Copy, Plus } from 'lucide-react';
 import type { WarrantyTicket } from '../../types';
 import type { WarrantyHistory } from '../../../../lib/types/prisma-extended';
 import { formatDateTime } from '../../../../lib/date-utils';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface TicketInfoCardProps {
   ticket: WarrantyTicket;
@@ -58,7 +59,7 @@ export function TicketInfoCard({
   }, [ticket.history]);
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Thông Tin Phiếu Bảo hành</CardTitle>
       </CardHeader>

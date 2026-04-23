@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { ShippingConfig, PartnerAccount, PickupAddress } from '@/lib/types/shipping-config';
 import { addPartnerAccount, updatePartnerAccount } from '@/lib/utils/shipping-config-migration';
@@ -168,15 +169,15 @@ export function GHTKConfigForm({
       )}
 
       <Tabs defaultValue="account" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-full grid-cols-3 shrink-0">
-          <TabsTrigger value="account">Tài khoản</TabsTrigger>
-          <TabsTrigger value="pickup-addresses" disabled={!isEditMode}>
+        <MobileTabsList>
+          <MobileTabsTrigger value="account">Tài khoản</MobileTabsTrigger>
+          <MobileTabsTrigger value="pickup-addresses" disabled={!isEditMode}>
             Địa chỉ lấy hàng
-          </TabsTrigger>
-          <TabsTrigger value="default-settings" disabled={!isEditMode}>
+          </MobileTabsTrigger>
+          <MobileTabsTrigger value="default-settings" disabled={!isEditMode}>
             Cài đặt mặc định
-          </TabsTrigger>
-        </TabsList>
+          </MobileTabsTrigger>
+        </MobileTabsList>
 
         {/* Tab 1: Account Info */}
         <TabsContent value="account" className="space-y-6 pb-4 overflow-y-auto flex-1">

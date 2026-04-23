@@ -76,7 +76,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
   return (
     <>
       <Dialog open={open} onOpenChange={resetAndClose}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent mobileFullScreen className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Phê duyệt công việc hoàn thành</DialogTitle>
             <DialogDescription>

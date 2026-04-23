@@ -48,6 +48,7 @@ import { formatCurrency, formatNumber } from "@/lib/format-utils"
 import { cn } from "@/lib/utils"
 import type { ProductStats } from "./hooks/use-products"
 import { FAB } from '@/components/mobile/fab';
+import { ListPageShell } from '@/components/layout/page-section';
 
 const PkgxBulkSyncConfirmDialog = dynamic(() => import("../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog").then(mod => ({ default: mod.PkgxBulkSyncConfirmDialog })), { ssr: false });
 const PkgxLinkDialog = dynamic(() => import("./components/pkgx-link-dialog").then(mod => ({ default: mod.PkgxLinkDialog })), { ssr: false });
@@ -393,7 +394,7 @@ export function ProductsPage({ initialStats }: ProductsPageProps = {}) {
   const renderMobileCard = React.useCallback((p: Product) => <MobileProductCard product={p} categories={activeCategories as unknown as import("@/features/settings/inventory/types").ProductCategory[]} onRowClick={handleRowClick} onDelete={handleDelete} canEdit={canEdit} canDelete={canDelete} />, [activeCategories, handleRowClick, handleDelete, canEdit, canDelete]);
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <ListPageShell>
       {/* Workflow Cards */}
       <div className="overflow-x-auto mb-2">
         <ToggleGroup
@@ -448,6 +449,6 @@ export function ProductsPage({ initialStats }: ProductsPageProps = {}) {
       <PkgxLinkDialog open={pkgxLinkDialogOpen} onOpenChange={setPkgxLinkDialogOpen} product={productToLink} onSuccess={handlePkgxLinkSuccess} />
       <PkgxBulkSyncConfirmDialog confirmAction={bulkConfirmAction} progress={bulkProgress} onConfirm={executeBulkAction} onCancel={cancelBulkConfirm} />
       {isMobile && canCreate && <FAB onClick={() => router.push('/products/new')} />}
-    </div>
+    </ListPageShell>
   );
 }

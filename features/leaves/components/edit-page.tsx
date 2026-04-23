@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useLeaveById, useLeaveMutations } from '../hooks/use-leaves'
 import { usePageHeader } from '@/contexts/page-header-context'
 import { LeaveForm } from './leave-form'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { MobileSectionCard, MobileSectionHeader, MobileSectionTitle } from '@/components/layout/page-section'
 import { toast } from 'sonner'
 import type { LeaveRequest } from '@/lib/types/prisma-extended'
 
@@ -48,21 +48,17 @@ export function LeaveEditPage() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center text-muted-foreground">
-          Đang tải...
-        </CardContent>
-      </Card>
+      <MobileSectionCard className="p-8 text-center text-muted-foreground">
+        Đang tải...
+      </MobileSectionCard>
     )
   }
 
   if (!request) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center text-muted-foreground">
-          Không tìm thấy đơn nghỉ phép
-        </CardContent>
-      </Card>
+      <MobileSectionCard className="p-8 text-center text-muted-foreground">
+        Không tìm thấy đơn nghỉ phép
+      </MobileSectionCard>
     )
   }
 
@@ -72,18 +68,16 @@ export function LeaveEditPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Chỉnh sửa đơn nghỉ phép</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <LeaveForm
-          initialData={request}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          isSubmitting={mutations.update.isPending}
-        />
-      </CardContent>
-    </Card>
+    <MobileSectionCard>
+      <MobileSectionHeader>
+        <MobileSectionTitle>Chỉnh sửa đơn nghỉ phép</MobileSectionTitle>
+      </MobileSectionHeader>
+      <LeaveForm
+        initialData={request}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        isSubmitting={mutations.update.isPending}
+      />
+    </MobileSectionCard>
   )
 }

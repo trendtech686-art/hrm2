@@ -38,6 +38,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Task } from '../types';
 
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 type DateRange = '7d' | '30d' | '90d' | 'all';
 
 export function TasksDashboardPage() {
@@ -195,7 +196,7 @@ export function TasksDashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Status Distribution */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Phân bổ trạng thái</CardTitle>
             <CardDescription>Tổng quan công việc theo trạng thái</CardDescription>
@@ -237,7 +238,7 @@ export function TasksDashboardPage() {
         </Card>
 
         {/* Workload by Assignee */}
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <CardTitle>Khối lượng công việc</CardTitle>
             <CardDescription>Top người thực hiện nhiều nhất</CardDescription>
@@ -285,7 +286,7 @@ export function TasksDashboardPage() {
       </div>
 
       {/* Recent Tasks Table */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Công việc gần đây</CardTitle>
           <CardDescription>10 công việc mới nhất</CardDescription>
@@ -332,7 +333,7 @@ function MetricCard({
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle size="sm">{title}</CardTitle>
         <div className={cn('p-2 rounded-lg', iconColors[color])}>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLeaves, useLeaveMutations, useBatchLeaveMutation, leaveKeys } from './hooks/use-leaves';
 import { getColumns } from './columns';
 import type { LeaveRequest, LeaveStatus } from "@/lib/types/prisma-extended";
+import { MobileCard, MobileCardBody, MobileCardHeader } from "@/components/mobile/mobile-card";
 import type { SystemId } from '@/lib/id-types';
 import type { BatchCreateItem } from './api/leaves-api';
 import { fetchLeaveById } from './api/leaves-api';
@@ -273,18 +274,43 @@ export function LeavesPage() {
   const renderMobileCard = React.useCallback((leave: LeaveRequest) => {
     const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = { "Chờ duyệt": "warning", "Đã duyệt": "success", "Đã từ chối": "destructive" };
     return (
-      <div key={leave.systemId} className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation">
-        <div className="flex items-center justify-between mb-2">
-          <div><div className="text-sm font-medium">{leave.employeeName}</div><div className="text-xs text-muted-foreground">{leave.employeeId}</div></div>
-          <Badge variant={statusVariants[leave.status]}>{leave.status}</Badge>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div><span className="text-muted-foreground">Loại phép:</span><div>{leave.leaveTypeName}</div></div>
-          <div><span className="text-muted-foreground">Số ngày:</span><div>{leave.numberOfDays}</div></div>
-          <div className="col-span-2"><span className="text-muted-foreground">Thời gian:</span><div>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</div></div>
-          {leave.reason && <div className="col-span-2"><span className="text-muted-foreground">Lý do:</span><div className="truncate">{leave.reason}</div></div>}
-        </div>
-      </div>
+      <MobileCard key={leave.systemId} inert>
+        <MobileCardHeader className="items-start justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Nhân viên</div>
+            <div className="mt-0.5 text-sm font-semibold text-foreground truncate">{leave.employeeName}</div>
+            <div className="text-xs text-muted-foreground font-mono truncate">{leave.employeeId}</div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-bold leading-none">{leave.numberOfDays}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Ngày</div>
+          </div>
+        </MobileCardHeader>
+        <MobileCardBody>
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Loại phép</dt>
+              <dd className="font-medium truncate">{leave.leaveTypeName}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Trạng thái</dt>
+              <dd>
+                <Badge variant={statusVariants[leave.status]} className="text-xs">{leave.status}</Badge>
+              </dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground">Thời gian</dt>
+              <dd className="font-medium">{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</dd>
+            </div>
+            {leave.reason && (
+              <div className="col-span-2">
+                <dt className="text-xs text-muted-foreground">Lý do</dt>
+                <dd className="font-medium line-clamp-2">{leave.reason}</dd>
+              </div>
+            )}
+          </dl>
+        </MobileCardBody>
+      </MobileCard>
     );
   }, []);
 

@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { logError } from '@/lib/logger'
@@ -186,7 +187,7 @@ export function ReceiptFormPage({ systemId, initialOptions }: ReceiptFormPagePro
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardContent className="pt-6">
         <ReceiptForm 
           ref={formRef}

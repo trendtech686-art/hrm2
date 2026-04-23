@@ -95,7 +95,7 @@ export function PayslipDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
+      <DialogContent mobileFullScreen className="sm:max-w-[600px] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Chi tiết phiếu lương</DialogTitle>
           <DialogDescription>{payslip.employeeName}</DialogDescription>

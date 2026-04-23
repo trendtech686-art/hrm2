@@ -27,7 +27,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -553,27 +555,27 @@ export function BrandDetailPage() {
     return (
       <div className="space-y-6 pb-8">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-            <TabsTrigger value="general">Thông tin</TabsTrigger>
-            <TabsTrigger value="seo-default" className="gap-1">
+          <MobileTabsList>
+            <MobileTabsTrigger value="general">Thông tin</MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-default" className="gap-1">
               <Globe className="h-3 w-3" />
               SEO Chung
-            </TabsTrigger>
-            <TabsTrigger value="seo-pkgx" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-pkgx" className="gap-1">
               <Globe className="h-3 w-3 text-red-500" />
               SEO PKGX
-            </TabsTrigger>
-            <TabsTrigger value="seo-trendtech" className="gap-1">
+            </MobileTabsTrigger>
+            <MobileTabsTrigger value="seo-trendtech" className="gap-1">
               <Globe className="h-3 w-3 text-blue-500" />
               SEO Trendtech
-            </TabsTrigger>
-          </TabsList>
+            </MobileTabsTrigger>
+          </MobileTabsList>
 
           {/* General Tab */}
           <TabsContent value="general" className="space-y-4 mt-4">
             {/* PKGX Mapping Info Card */}
             {brandMapping && (
-              <Card className="border-blue-200 bg-blue-50/50">
+              <Card className={cn("border-blue-200 bg-blue-50/50", mobileBleedCardClass)}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-blue-600" />
@@ -592,7 +594,7 @@ export function BrandDetailPage() {
             )}
             
             {/* Brand Header Card */}
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader className="pb-3">
                 <CardTitle>Thông tin cơ bản</CardTitle>
               </CardHeader>
@@ -636,7 +638,7 @@ export function BrandDetailPage() {
 
             {/* Description Card */}
             {brand.description && (
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle>Mô tả</CardTitle>
                 </CardHeader>
@@ -649,7 +651,7 @@ export function BrandDetailPage() {
 
           {/* SEO Default Tab */}
           <TabsContent value="seo-default" className="space-y-4 mt-4">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4" />
@@ -688,7 +690,7 @@ export function BrandDetailPage() {
 
           {/* SEO PKGX Tab */}
           <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -738,7 +740,7 @@ export function BrandDetailPage() {
 
           {/* SEO Trendtech Tab */}
           <TabsContent value="seo-trendtech" className="space-y-4 mt-4">
-            <Card>
+            <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-blue-500" />
@@ -805,25 +807,25 @@ export function BrandDetailPage() {
       <Form {...form}>
         <form className="space-y-6">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-              <TabsTrigger value="general">Thông tin</TabsTrigger>
-              <TabsTrigger value="seo-default" className="gap-1">
+            <MobileTabsList>
+              <MobileTabsTrigger value="general">Thông tin</MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-default" className="gap-1">
                 <Globe className="h-3 w-3" />
                 SEO Chung
-              </TabsTrigger>
-              <TabsTrigger value="seo-pkgx" className="gap-1">
+              </MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-pkgx" className="gap-1">
                 <Globe className="h-3 w-3 text-red-500" />
                 SEO PKGX
-              </TabsTrigger>
-              <TabsTrigger value="seo-trendtech" className="gap-1">
+              </MobileTabsTrigger>
+              <MobileTabsTrigger value="seo-trendtech" className="gap-1">
                 <Globe className="h-3 w-3 text-blue-500" />
                 SEO Trendtech
-              </TabsTrigger>
-            </TabsList>
+              </MobileTabsTrigger>
+            </MobileTabsList>
 
             {/* General Tab */}
             <TabsContent value="general" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle>Thông tin cơ bản</CardTitle>
                 </CardHeader>
@@ -932,7 +934,7 @@ export function BrandDetailPage() {
               </Card>
 
               {/* Logo Upload Card */}
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4" />
@@ -981,7 +983,7 @@ export function BrandDetailPage() {
 
             {/* SEO Default Tab */}
             <TabsContent value="seo-default" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4" />
@@ -1077,7 +1079,7 @@ export function BrandDetailPage() {
 
             {/* SEO PKGX Tab */}
             <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-red-500" />
@@ -1185,7 +1187,7 @@ export function BrandDetailPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
                 </CardHeader>
@@ -1203,7 +1205,7 @@ export function BrandDetailPage() {
 
             {/* SEO Trendtech Tab */}
             <TabsContent value="seo-trendtech" className="space-y-4 mt-4">
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-blue-500" />
@@ -1311,7 +1313,7 @@ export function BrandDetailPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={mobileBleedCardClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
                 </CardHeader>

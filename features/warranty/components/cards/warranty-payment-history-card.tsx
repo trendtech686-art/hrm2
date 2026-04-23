@@ -16,6 +16,7 @@ import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import type { SettlementMethod } from '../../types';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 interface WarrantyPaymentHistoryCardProps {
   warrantySystemId: string;
@@ -105,7 +106,7 @@ export function WarrantyPaymentHistoryCard({
   };
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <CardTitle>Lịch sử thanh toán</CardTitle>
       </CardHeader>

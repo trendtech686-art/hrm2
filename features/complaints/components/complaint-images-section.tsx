@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ProgressiveImage } from "../../../components/ui/progressive-image";
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import type { Complaint, ComplaintImage } from '../types';
 
 interface NormalizedImage {
@@ -89,7 +90,7 @@ export const ComplaintImagesSection: React.FC<Props> = React.memo(({ complaint, 
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Hình ảnh từ khách hàng ({customerImages.length})</CardTitle>
         </CardHeader>
@@ -98,7 +99,7 @@ export const ComplaintImagesSection: React.FC<Props> = React.memo(({ complaint, 
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Hình ảnh kiểm tra từ nhân viên ({employeeImages.length})</CardTitle>
         </CardHeader>
