@@ -3,7 +3,7 @@
 /**
  * Sales Order Report Page
  * 
- * B�o c�o b�n h�ng theo don h�ng
+ * Báo cáo bán hàng theo đơn hàng
  */
 
 import * as React from 'react';
@@ -36,19 +36,19 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'orderId',
     accessorKey: 'orderId',
-    header: 'M� don h�ng',
+    header: 'Mã đơn hàng',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => (
       <span className={row._isSummary ? 'font-semibold' : 'text-primary font-medium'}>
-        {row._isSummary ? 'T?ng' : row.orderId}
+        {row._isSummary ? 'Tổng' : row.orderId}
       </span>
     ),
   },
   {
     id: 'orderDate',
     accessorKey: 'orderDate',
-    header: 'Ng�y d?t',
+    header: 'Ngày đặt',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : (row.orderDate ? format(parseISO(row.orderDate), 'dd/MM/yyyy') : '-'),
@@ -56,7 +56,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'customerName',
     accessorKey: 'customerName',
-    header: 'Kh�ch h�ng',
+    header: 'Khách hàng',
     size: 180,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : row.customerName,
@@ -64,7 +64,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'employeeName',
     accessorKey: 'employeeName',
-    header: 'Nh�n vi�n',
+    header: 'Nhân viên',
     size: 150,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : (row.employeeName || '-'),
@@ -72,16 +72,16 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'status',
     accessorKey: 'status',
-    header: 'Tr?ng th�i',
+    header: 'Trạng thái',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => {
       if (row._isSummary) return '';
       const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        'completed': { label: 'Ho�n th�nh', variant: 'default' },
-        'pending': { label: 'Ch? x? l�', variant: 'secondary' },
-        'cancelled': { label: 'D� h?y', variant: 'destructive' },
-        'processing': { label: 'Dang x? l�', variant: 'outline' },
+        'completed': { label: 'Hoàn thành', variant: 'default' },
+        'pending': { label: 'Chờ xử lý', variant: 'secondary' },
+        'cancelled': { label: 'Đã hủy', variant: 'destructive' },
+        'processing': { label: 'Đang xử lý', variant: 'outline' },
       };
       const statusKey = row.status ?? '';
       const s = statusMap[statusKey] || { label: row.status || 'N/A', variant: 'secondary' as const };
@@ -91,7 +91,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'productAmount',
     accessorKey: 'productAmount',
-    header: 'Ti?n h�ng',
+    header: 'Tiền hàng',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{formatCurrency(row.productAmount)}</span>,
@@ -99,7 +99,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'discountAmount',
     accessorKey: 'discountAmount',
-    header: 'Gi?m gi�',
+    header: 'Giảm giá',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => (
@@ -111,7 +111,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'totalAmount',
     accessorKey: 'totalAmount',
-    header: 'T?ng ti?n',
+    header: 'Tổng tiền',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block font-medium">{formatCurrency(row.totalAmount)}</span>,
@@ -154,7 +154,7 @@ export function SalesOrderReportPage() {
         orderId: order.id,
         orderDate: order.createdAt || '',
         customerSystemId: order.customerSystemId,
-        customerName: customer?.name || order.customerName || 'Kh�ch l?',
+        customerName: customer?.name || order.customerName || 'Khách lẻ',
         employeeSystemId: order.salespersonSystemId,
         employeeName: order.salesperson || undefined,
         status: order.status || 'pending',
@@ -187,7 +187,7 @@ export function SalesOrderReportPage() {
   const tableData = React.useMemo(() => {
     const summaryRow: SalesOrderReportRow & { systemId: SystemId; _isSummary: boolean } = {
       orderSystemId: '__summary__' as SystemId,
-      orderId: 'T?ng',
+      orderId: 'Tổng',
       orderDate: '',
       customerName: '',
       employeeName: '',
@@ -241,26 +241,26 @@ export function SalesOrderReportPage() {
   const pageCount = Math.ceil(data.length / pagination.pageSize);
   
   const exportColumns = React.useMemo(() => [
-    { key: 'orderId', label: 'M� don h�ng', selected: true },
-    { key: 'orderDate', label: 'Ng�y d?t', selected: true },
-    { key: 'customerName', label: 'Kh�ch h�ng', selected: true },
-    { key: 'employeeName', label: 'Nh�n vi�n', selected: true },
-    { key: 'status', label: 'Tr?ng th�i', selected: true },
-    { key: 'productAmount', label: 'Ti?n h�ng', selected: true },
-    { key: 'discountAmount', label: 'Gi?m gi�', selected: true },
-    { key: 'totalAmount', label: 'T?ng ti?n', selected: true },
+    { key: 'orderId', label: 'Mã đơn hàng', selected: true },
+    { key: 'orderDate', label: 'Ngày đặt', selected: true },
+    { key: 'customerName', label: 'Khách hàng', selected: true },
+    { key: 'employeeName', label: 'Nhân viên', selected: true },
+    { key: 'status', label: 'Trạng thái', selected: true },
+    { key: 'productAmount', label: 'Tiền hàng', selected: true },
+    { key: 'discountAmount', label: 'Giảm giá', selected: true },
+    { key: 'totalAmount', label: 'Tổng tiền', selected: true },
   ], []);
   
   const summaryCards = React.useMemo(() => [
-    { title: 'T?ng don h�ng', value: summary.orderCount, icon: FileText },
-    { title: 'Ti?n h�ng', value: formatCurrency(summary.productAmount), icon: ShoppingCart },
-    { title: 'T?ng doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
-    { title: 'D� thu', value: formatCurrency(data.reduce((sum, r) => sum + r.paidAmount, 0)), icon: DollarSign },
+    { title: 'Tổng đơn hàng', value: summary.orderCount, icon: FileText },
+    { title: 'Tiền hàng', value: formatCurrency(summary.productAmount), icon: ShoppingCart },
+    { title: 'Tổng doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
+    { title: 'Đã thu', value: formatCurrency(data.reduce((sum, r) => sum + r.paidAmount, 0)), icon: DollarSign },
   ], [summary, data]);
   
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
-      title="B�o c�o b�n h�ng theo don h�ng"
+      title="Báo cáo bán hàng theo đơn hàng"
       data={data as unknown as Record<string, unknown>[]}
       columns={exportColumns}
       glossary={SALES_REPORT_GLOSSARY}
@@ -268,12 +268,12 @@ export function SalesOrderReportPage() {
   ), [data, exportColumns]);
   
   usePageHeader({
-    title: 'B�o c�o b�n h�ng theo don h�ng',
-    subtitle: 'Chi ti?t t?ng don h�ng trong k?',
+    title: 'Báo cáo bán hàng theo đơn hàng',
+    subtitle: 'Chi tiết từng đơn hàng trong kỳ',
     breadcrumb: [
-      { label: 'Trang ch?', href: ROUTES.ROOT },
-      { label: 'B�o c�o', href: ROUTES.REPORTS.INDEX },
-      { label: 'B�n h�ng theo don h�ng', href: ROUTES.REPORTS.SALES_BY_ORDER, isCurrent: true },
+      { label: 'Trang chủ', href: ROUTES.ROOT },
+      { label: 'Báo cáo', href: ROUTES.REPORTS.INDEX },
+      { label: 'Bán hàng theo đơn hàng', href: ROUTES.REPORTS.SALES_BY_ORDER, isCurrent: true },
     ],
     showBackButton: true,
     actions: [headerActions],
@@ -285,11 +285,11 @@ export function SalesOrderReportPage() {
     <div className={`p-4 space-y-3 ${row._isSummary ? 'bg-muted/50' : ''}`}>
       <div className="flex items-center justify-between">
         <span className={`font-medium ${row._isSummary ? 'text-base' : 'text-primary'}`}>
-          {row._isSummary ? 'T?ng c?ng' : row.orderId}
+          {row._isSummary ? 'Tổng cộng' : row.orderId}
         </span>
         {!row._isSummary && row.status && (
           <Badge variant={row.status === 'completed' ? 'default' : 'secondary'}>
-            {row.status === 'completed' ? 'Ho�n th�nh' : row.status}
+            {row.status === 'completed' ? 'Hoàn thành' : row.status}
           </Badge>
         )}
       </div>
@@ -299,10 +299,10 @@ export function SalesOrderReportPage() {
         </div>
       )}
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div><span className="text-muted-foreground">Ti?n h�ng:</span> {formatCurrency(row.productAmount)}</div>
-        <div><span className="text-muted-foreground">Gi?m gi�:</span> {formatCurrency(row.discountAmount)}</div>
-        <div className="font-medium"><span className="text-muted-foreground">T?ng:</span> {formatCurrency(row.totalAmount)}</div>
-        <div><span className="text-muted-foreground">D� thu:</span> {formatCurrency(row.paidAmount)}</div>
+        <div><span className="text-muted-foreground">Tiền hàng:</span> {formatCurrency(row.productAmount)}</div>
+        <div><span className="text-muted-foreground">Giảm giá:</span> {formatCurrency(row.discountAmount)}</div>
+        <div className="font-medium"><span className="text-muted-foreground">Tổng:</span> {formatCurrency(row.totalAmount)}</div>
+        <div><span className="text-muted-foreground">Đã thu:</span> {formatCurrency(row.paidAmount)}</div>
       </div>
     </div>
   );
@@ -322,10 +322,10 @@ export function SalesOrderReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Chi ti?t don h�ng</CardTitle>
+            <CardTitle>Chi tiết đơn hàng</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
-              L?c ({data.length})
+              Lọc ({data.length})
             </Button>
           </div>
         </CardHeader>

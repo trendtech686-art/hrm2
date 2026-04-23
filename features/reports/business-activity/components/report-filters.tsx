@@ -159,7 +159,7 @@ export function ReportFilters({
       {/* Date Range Picker — Preset grid style */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm font-normal min-w-45">
+          <Button variant="outline" size="sm" className="gap-1.5 text-sm font-normal min-w-45">
             <CalendarIcon className="h-4 w-4" />
             {displayLabel}
           </Button>

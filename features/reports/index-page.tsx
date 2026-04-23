@@ -28,6 +28,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/lib/router';
@@ -267,7 +268,7 @@ export function ReportsIndexPage() {
       {/* Report groups */}
       <div className="grid gap-6">
         {reportGroups.map((group) => (
-          <Card key={group.title}>
+          <Card key={group.title} className={mobileBleedCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${group.color}`}>

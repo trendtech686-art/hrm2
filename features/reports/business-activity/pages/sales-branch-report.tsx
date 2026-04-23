@@ -3,7 +3,7 @@
 /**
  * Sales Branch Report Page
  * 
- * B�o c�o b�n h�ng theo chi nh�nh
+ * Báo cáo bán hàng theo chi nhánh
  */
 
 import * as React from 'react';
@@ -35,12 +35,12 @@ const getColumns = (): ColumnDef<SalesBranchReportRow & { systemId: string; _isS
   {
     id: 'branchName',
     accessorKey: 'branchName',
-    header: 'Chi nh�nh',
+    header: 'Chi nhánh',
     size: 180,
     enableSorting: true,
     cell: ({ row }) => (
       <div className={row._isSummary ? 'font-semibold' : ''}>
-        {row._isSummary ? 'T?ng' : (
+        {row._isSummary ? 'Tổng' : (
           <div>
             <div className="font-medium">{row.branchName}</div>
             {row.branchCode && <div className="text-xs text-muted-foreground">{row.branchCode}</div>}
@@ -52,7 +52,7 @@ const getColumns = (): ColumnDef<SalesBranchReportRow & { systemId: string; _isS
   {
     id: 'orderCount',
     accessorKey: 'orderCount',
-    header: 'SL don h�ng',
+    header: 'SL đơn hàng',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{row.orderCount}</span>,
@@ -60,7 +60,7 @@ const getColumns = (): ColumnDef<SalesBranchReportRow & { systemId: string; _isS
   {
     id: 'productAmount',
     accessorKey: 'productAmount',
-    header: 'Ti?n h�ng',
+    header: 'Tiền hàng',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{formatCurrency(row.productAmount)}</span>,
@@ -68,7 +68,7 @@ const getColumns = (): ColumnDef<SalesBranchReportRow & { systemId: string; _isS
   {
     id: 'returnAmount',
     accessorKey: 'returnAmount',
-    header: 'Ti?n tr? l?i',
+    header: 'Tiền trả lại',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => (
@@ -88,7 +88,7 @@ const getColumns = (): ColumnDef<SalesBranchReportRow & { systemId: string; _isS
   {
     id: 'grossProfit',
     accessorKey: 'grossProfit',
-    header: 'L?i nhu?n g?p',
+    header: 'Lợi nhuận gộp',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => (
@@ -101,9 +101,9 @@ const getColumns = (): ColumnDef<SalesBranchReportRow & { systemId: string; _isS
 
 const DISPLAY_OPTIONS = [
   { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
-  { key: 'grossProfit', label: 'L?i nhu?n g?p', color: 'var(--chart-2)', type: 'line' as const },
-  { key: 'productAmount', label: 'Ti?n h�ng', color: 'var(--chart-3)', type: 'bar' as const },
-  { key: 'orderCount', label: 'S? don h�ng', color: 'var(--chart-5)', type: 'line' as const },
+  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'var(--chart-2)', type: 'line' as const },
+  { key: 'productAmount', label: 'Tiền hàng', color: 'var(--chart-3)', type: 'bar' as const },
+  { key: 'orderCount', label: 'S? đơn hàng', color: 'var(--chart-5)', type: 'line' as const },
 ];
 
 export function SalesBranchReportPage() {
@@ -121,7 +121,7 @@ export function SalesBranchReportPage() {
   const tableData = React.useMemo(() => {
     const summaryRow: SalesBranchReportRow & { systemId: SystemId; _isSummary: boolean } = {
       branchSystemId: '__summary__' as SystemId,
-      branchName: 'T?ng',
+      branchName: 'Tổng',
       branchCode: '',
       orderCount: summary.orderCount,
       customerCount: 0,
@@ -188,26 +188,26 @@ export function SalesBranchReportPage() {
   }), [selectedChartOptions]);
   
   const exportColumns = React.useMemo(() => [
-    { key: 'branchName', label: 'Chi nh�nh', selected: true },
-    { key: 'branchCode', label: 'M� CN', selected: true },
-    { key: 'orderCount', label: 'SL don h�ng', selected: true },
-    { key: 'productAmount', label: 'Ti?n h�ng', selected: true },
-    { key: 'returnAmount', label: 'Ti?n tr? l?i', selected: true },
+    { key: 'branchName', label: 'Chi nhánh', selected: true },
+    { key: 'branchCode', label: 'Mã CN', selected: true },
+    { key: 'orderCount', label: 'SL đơn hàng', selected: true },
+    { key: 'productAmount', label: 'Tiền hàng', selected: true },
+    { key: 'returnAmount', label: 'Tiền trả lại', selected: true },
     { key: 'revenue', label: 'Doanh thu', selected: true },
-    { key: 'grossProfit', label: 'L?i nhu?n g?p', selected: true },
+    { key: 'grossProfit', label: 'Lợi nhuận gộp', selected: true },
   ], []);
   
   const summaryCards = React.useMemo(() => [
-    { title: 'S? chi nh�nh', value: data.length, icon: Building2 },
-    { title: 'T?ng don h�ng', value: summary.orderCount, icon: ShoppingCart },
+    { title: 'Số chi nhánh', value: data.length, icon: Building2 },
+    { title: 'Tổng đơn hàng', value: summary.orderCount, icon: ShoppingCart },
     { title: 'Doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
-    { title: 'L?i nhu?n g?p', value: formatCurrency(summary.grossProfit), icon: DollarSign,
+    { title: 'Lợi nhuận gộp', value: formatCurrency(summary.grossProfit), icon: DollarSign,
       className: summary.grossProfit >= 0 ? 'text-green-600' : 'text-red-500' },
   ], [data.length, summary]);
   
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
-      title="B�o c�o b�n h�ng theo chi nh�nh"
+      title="Báo cáo bán hàng theo chi nhánh"
       data={data as unknown as Record<string, unknown>[]}
       columns={exportColumns}
       glossary={SALES_REPORT_GLOSSARY}
@@ -215,12 +215,12 @@ export function SalesBranchReportPage() {
   ), [data, exportColumns]);
   
   usePageHeader({
-    title: 'B�o c�o b�n h�ng theo chi nh�nh',
-    subtitle: 'So s�nh doanh thu gi?a c�c chi nh�nh',
+    title: 'Báo cáo bán hàng theo chi nhánh',
+    subtitle: 'So sánh doanh thu giữa các chi nhánh',
     breadcrumb: [
-      { label: 'Trang ch?', href: ROUTES.ROOT },
-      { label: 'B�o c�o', href: ROUTES.REPORTS.INDEX },
-      { label: 'B�n h�ng theo chi nh�nh', href: ROUTES.REPORTS.SALES_BY_BRANCH, isCurrent: true },
+      { label: 'Trang chủ', href: ROUTES.ROOT },
+      { label: 'Báo cáo', href: ROUTES.REPORTS.INDEX },
+      { label: 'Bán hàng theo chi nhánh', href: ROUTES.REPORTS.SALES_BY_BRANCH, isCurrent: true },
     ],
     showBackButton: true,
     actions: [headerActions],
@@ -232,16 +232,16 @@ export function SalesBranchReportPage() {
     <div className={`p-4 space-y-3 ${row._isSummary ? 'bg-muted/50' : ''}`}>
       <div className="flex items-center justify-between">
         <span className={`font-medium ${row._isSummary ? 'text-base' : ''}`}>
-          {row._isSummary ? 'T?ng c?ng' : row.branchName}
+          {row._isSummary ? 'Tổng cộng' : row.branchName}
         </span>
         <Badge variant="secondary">{row.orderCount} don</Badge>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div><span className="text-muted-foreground">Ti?n h�ng:</span> {formatCurrency(row.productAmount)}</div>
+        <div><span className="text-muted-foreground">Tiền hàng:</span> {formatCurrency(row.productAmount)}</div>
         <div><span className="text-muted-foreground">Doanh thu:</span> {formatCurrency(row.revenue)}</div>
-        <div><span className="text-muted-foreground">Tr? l?i:</span> {formatCurrency(row.returnAmount)}</div>
+        <div><span className="text-muted-foreground">Trả lại:</span> {formatCurrency(row.returnAmount)}</div>
         <div className={row.grossProfit >= 0 ? 'text-green-600' : 'text-red-500'}>
-          <span className="text-muted-foreground">LN g?p:</span> {formatCurrency(row.grossProfit)}
+          <span className="text-muted-foreground">LN gộp:</span> {formatCurrency(row.grossProfit)}
         </div>
       </div>
     </div>
@@ -274,10 +274,10 @@ export function SalesBranchReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Chi ti?t theo chi nh�nh</CardTitle>
+            <CardTitle>Chi tiết theo chi nhánh</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
-              L?c ({data.length})
+              Lọc ({data.length})
             </Button>
           </div>
         </CardHeader>
