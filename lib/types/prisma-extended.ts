@@ -2102,52 +2102,15 @@ export type WarrantyStatus =
   | 'RETURNED'       // Đã trả
   | 'CANCELLED';     // Đã hủy
 
-export const WARRANTY_STATUS_LABELS: Record<WarrantyStatus, string> = {
-  RECEIVED: 'Đã tiếp nhận',
-  PROCESSING: 'Đang xử lý',
-  WAITING_PARTS: 'Chờ linh kiện',
-  COMPLETED: 'Hoàn tất',
-  RETURNED: 'Đã trả',
-  CANCELLED: 'Đã hủy',
-};
-
-export const WARRANTY_STATUS_COLORS: Record<WarrantyStatus, string> = {
-  RECEIVED: 'bg-yellow-100 text-yellow-800',
-  PROCESSING: 'bg-blue-100 text-blue-800',
-  WAITING_PARTS: 'bg-orange-100 text-orange-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  RETURNED: 'bg-muted text-muted-foreground',
-  CANCELLED: 'bg-red-100 text-red-800 line-through',
-};
-
 export type WarrantySettlementStatus = 'pending' | 'partial' | 'completed';
 
-export const WARRANTY_SETTLEMENT_STATUS_LABELS: Record<WarrantySettlementStatus, string> = {
-  pending: 'Chưa thanh toán',
-  partial: 'Thanh toán một phần',
-  completed: 'Đã thanh toán',
-};
-
-export const WARRANTY_SETTLEMENT_STATUS_COLORS: Record<WarrantySettlementStatus, string> = {
-  pending: 'bg-red-100 text-red-800',
-  partial: 'bg-orange-100 text-orange-800',
-  completed: 'bg-green-100 text-green-800',
-};
-
-export type ResolutionType = 
+export type ResolutionType =
   | 'return'
   | 'replace'
   | 'deduct'
   | 'out_of_stock';
 
-export const RESOLUTION_LABELS: Record<ResolutionType, string> = {
-  return: 'Trả lại',
-  replace: 'Đổi mới',
-  deduct: 'Trừ tiền',
-  out_of_stock: 'Hết hàng',
-};
-
-export type SettlementType = 
+export type SettlementType =
   | 'cash'
   | 'transfer'
   | 'debt'
@@ -2155,40 +2118,11 @@ export type SettlementType =
   | 'order_deduction'
   | 'mixed';
 
-export const SETTLEMENT_TYPE_LABELS: Record<SettlementType, string> = {
-  cash: 'Trả tiền mặt',
-  transfer: 'Chuyển khoản',
-  debt: 'Ghi công nợ',
-  voucher: 'Tạo voucher',
-  order_deduction: 'Trừ vào tiền hàng',
-  mixed: 'Kết hợp nhiều phương thức',
-};
-
 export type SettlementStatus = 'pending' | 'partial' | 'completed' | 'cancelled';
 
-export const SETTLEMENT_STATUS_LABELS: Record<SettlementStatus, string> = {
-  pending: 'Chưa bù trừ',
-  partial: 'Bù trừ 1 phần',
-  completed: 'Đã hoàn thành',
-  cancelled: 'Đã hủy',
-};
-
-export const WARRANTY_STATUS_TRANSITIONS: Record<WarrantyStatus, WarrantyStatus[]> = {
-  RECEIVED: ['PROCESSING', 'WAITING_PARTS'],
-  PROCESSING: ['COMPLETED', 'WAITING_PARTS'],
-  WAITING_PARTS: ['PROCESSING'],
-  COMPLETED: ['RETURNED'],
-  RETURNED: [],
-  CANCELLED: [],
-};
-
-export function canTransitionStatus(currentStatus: WarrantyStatus, newStatus: WarrantyStatus): boolean {
-  return WARRANTY_STATUS_TRANSITIONS[currentStatus].includes(newStatus);
-}
-
-export function getNextAllowedStatuses(currentStatus: WarrantyStatus): WarrantyStatus[] {
-  return WARRANTY_STATUS_TRANSITIONS[currentStatus];
-}
+// NOTE (dedupe): Labels, color maps và workflow transitions của Warranty được định nghĩa
+// một lần tại `features/warranty/types.ts` để tránh lệch bản (VD: WARRANTY_STATUS_TRANSITIONS
+// trước đây có 2 bản khác nhau). Không import lại ở đây.
 
 export type UnsettledProduct = {
   productName: string;

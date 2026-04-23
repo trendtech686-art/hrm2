@@ -48,23 +48,23 @@ const actionIcons: Record<TaskActivity['action'], React.ElementType> = {
 };
 
 const actionColors: Record<TaskActivity['action'], string> = {
-  created: 'text-blue-600 bg-blue-50 dark:bg-blue-950',
+  created: 'text-info bg-info/10',
   updated: 'text-muted-foreground bg-muted',
-  status_changed: 'text-purple-600 bg-purple-50 dark:bg-purple-950',
-  assigned: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950',
-  assignee_added: 'text-green-600 bg-green-50 dark:bg-green-950',
-  assignee_removed: 'text-red-600 bg-red-50 dark:bg-red-950',
-  priority_changed: 'text-orange-600 bg-orange-50 dark:bg-orange-950',
-  progress_updated: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950',
-  timer_started: 'text-green-600 bg-green-50 dark:bg-green-950',
-  timer_stopped: 'text-red-600 bg-red-50 dark:bg-red-950',
-  subtask_completed: 'text-green-600 bg-green-50 dark:bg-green-950',
+  status_changed: 'text-purple-600 bg-purple-50',
+  assigned: 'text-indigo-600 bg-indigo-50',
+  assignee_added: 'text-success bg-success/10',
+  assignee_removed: 'text-destructive bg-destructive/10',
+  priority_changed: 'text-warning bg-warning/10',
+  progress_updated: 'text-cyan-600 bg-cyan-50',
+  timer_started: 'text-success bg-success/10',
+  timer_stopped: 'text-destructive bg-destructive/10',
+  subtask_completed: 'text-success bg-success/10',
   subtask_uncompleted: 'text-muted-foreground bg-muted',
-  completed: 'text-green-600 bg-green-50 dark:bg-green-950',
-  commented: 'text-blue-600 bg-blue-50 dark:bg-blue-950',
-  evidence_submitted: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950',
-  evidence_approved: 'text-green-600 bg-green-50 dark:bg-green-950',
-  evidence_rejected: 'text-red-600 bg-red-50 dark:bg-red-950',
+  completed: 'text-success bg-success/10',
+  commented: 'text-info bg-info/10',
+  evidence_submitted: 'text-warning bg-warning/10',
+  evidence_approved: 'text-success bg-success/10',
+  evidence_rejected: 'text-destructive bg-destructive/10',
 };
 
 export function ActivityTimeline({ activities = [], maxVisible = 5 }: ActivityTimelineProps) {

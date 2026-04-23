@@ -19,6 +19,10 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
+import {
+  THEME_BOOT_STORAGE_KEY,
+  THEME_BOOT_VAR_KEYS,
+} from '@/components/theme-boot-script'
 export type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
 
 export type CustomThemeConfig = {
@@ -231,13 +235,16 @@ export async function loadAppearanceFromDatabase() {
           ? (data.customThemeConfig as Record<string, string>)
           : {};
       const mergedConfig = { ...defaultCustomTheme, ...fromApi } as CustomThemeConfig;
-      useAppearanceStore.setState({
-        theme: data.theme ?? prev.theme,
-        colorMode: data.colorMode ?? prev.colorMode,
-        font: data.font ?? prev.font,
-        fontSize: data.fontSize ?? prev.fontSize,
+      const next = {
+        theme: (data.theme ?? prev.theme) as Theme,
+        colorMode: (data.colorMode ?? prev.colorMode) as ColorMode,
+        font: (data.font ?? prev.font) as Font,
+        fontSize: (data.fontSize ?? prev.fontSize) as FontSize,
         customThemeConfig: mergedConfig,
-      });
+      };
+      useAppearanceStore.setState(next);
+      // Đảm bảo cache boot luôn có nguồn mới nhất từ DB, kể cả khi subscribe không fire.
+      writeThemeBootCache(next.colorMode, next.fontSize, next.customThemeConfig);
     }
   } catch (error) {
     console.warn('Error loading appearance from database:', error);
@@ -248,17 +255,44 @@ export async function loadAppearanceFromDatabase() {
 
 // Auto-save when settings change (after initial load)
 useAppearanceStore.subscribe(
-  (state) => ({ 
-    theme: state.theme, 
-    colorMode: state.colorMode, 
-    font: state.font, 
+  (state) => ({
+    theme: state.theme,
+    colorMode: state.colorMode,
+    font: state.font,
     fontSize: state.fontSize,
     customThemeConfig: state.customThemeConfig,
   }),
-  () => {
+  (current) => {
+    // Ghi boot cache để lần render tiếp theo không bị FOUC (đọc ở components/theme-boot-script.tsx).
+    writeThemeBootCache(current.colorMode, current.fontSize, current.customThemeConfig);
     if (isInitialized) {
       syncAppearanceToDatabase();
     }
   },
   { equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
 );
+
+/**
+ * Chỉ lưu subset các CSS var quan trọng nhất để script boot áp sớm tránh FOUC.
+ * Không đồng bộ ngược lại: DB vẫn là nguồn sự thật khi load tiếp theo.
+ */
+function writeThemeBootCache(
+  colorMode: ColorMode,
+  fontSize: FontSize,
+  config: CustomThemeConfig,
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const vars: Record<string, string> = {};
+    for (const key of THEME_BOOT_VAR_KEYS) {
+      const value = config[key as keyof CustomThemeConfig];
+      if (value) vars[key] = value;
+    }
+    window.localStorage.setItem(
+      THEME_BOOT_STORAGE_KEY,
+      JSON.stringify({ colorMode, fontSize, vars }),
+    );
+  } catch {
+    // Bỏ qua: storage có thể bị chặn (privacy mode) — chỉ mất FOUC nhẹ.
+  }
+}

@@ -29,9 +29,9 @@ import { usePageHeader } from '@/contexts/page-header-context'
 
 // Lucide icon mapping for notification types
 const NOTIFICATION_TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; fg: string }> = {
-  order:            { icon: Package,         bg: 'bg-blue-100',    fg: 'text-blue-600' },
+  order:            { icon: Package,         bg: 'bg-info/15',     fg: 'text-info' },
   warranty:         { icon: Wrench,          bg: 'bg-sky-100',     fg: 'text-sky-600' },
-  complaint:        { icon: FileText,        bg: 'bg-red-100',     fg: 'text-red-600' },
+  complaint:        { icon: FileText,        bg: 'bg-destructive/15', fg: 'text-destructive' },
   sales_return:     { icon: RotateCcw,       bg: 'bg-orange-100',  fg: 'text-orange-600' },
   customer:         { icon: User,            bg: 'bg-cyan-100',    fg: 'text-cyan-600' },
   shipment:         { icon: Truck,           bg: 'bg-indigo-100',  fg: 'text-indigo-600' },
@@ -49,12 +49,12 @@ const NOTIFICATION_TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: st
   comment:          { icon: MessageCircle,   bg: 'bg-indigo-100',  fg: 'text-indigo-600' },
   mention:          { icon: AtSign,          bg: 'bg-pink-100',    fg: 'text-pink-600' },
   attendance:       { icon: Clock,           bg: 'bg-amber-100',   fg: 'text-amber-600' },
-  leave:            { icon: TreePalm,        bg: 'bg-green-100',   fg: 'text-green-600' },
+  leave:            { icon: TreePalm,        bg: 'bg-success/15',  fg: 'text-success' },
   payroll:          { icon: Banknote,        bg: 'bg-emerald-100', fg: 'text-emerald-600' },
-  penalty:          { icon: AlertTriangle,   bg: 'bg-red-100',     fg: 'text-red-600' },
+  penalty:          { icon: AlertTriangle,   bg: 'bg-destructive/15', fg: 'text-destructive' },
   employee:         { icon: User,            bg: 'bg-purple-100',  fg: 'text-purple-600' },
   payment:          { icon: CreditCard,      bg: 'bg-emerald-100', fg: 'text-emerald-600' },
-  receipt_doc:      { icon: Receipt,         bg: 'bg-blue-100',    fg: 'text-blue-600' },
+  receipt_doc:      { icon: Receipt,         bg: 'bg-info/15',     fg: 'text-info' },
 }
 
 function NotificationIcon({ type }: { type: string }) {

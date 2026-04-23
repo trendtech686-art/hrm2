@@ -320,16 +320,16 @@ function MetricCard({
   color = 'blue',
 }: MetricCardProps) {
   const trendColors = {
-    up: 'text-green-600',
-    down: 'text-red-600',
+    up: 'text-success',
+    down: 'text-destructive',
     neutral: 'text-muted-foreground',
   };
 
   const iconColors = {
-    green: 'text-green-600 bg-green-100 dark:bg-green-900/20',
-    red: 'text-red-600 bg-red-100 dark:bg-red-900/20',
-    blue: 'text-blue-600 bg-blue-100 dark:bg-blue-900/20',
-    yellow: 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20',
+    green: 'text-success bg-success/15',
+    red: 'text-destructive bg-destructive/15',
+    blue: 'text-info bg-info/15',
+    yellow: 'text-warning bg-warning/15',
   };
 
   return (

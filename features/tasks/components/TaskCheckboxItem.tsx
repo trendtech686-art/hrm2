@@ -21,10 +21,10 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
   const isRejected = task.approvalStatus === 'rejected';
   
   const priorityColors: Record<TaskPriorityVi, string> = {
-    'Thấp': 'bg-blue-100 text-blue-800',
-    'Trung bình': 'bg-yellow-100 text-yellow-800',
-    'Cao': 'bg-orange-100 text-orange-800',
-    'Khẩn cấp': 'bg-red-100 text-red-800',
+    'Thấp': 'bg-info/15 text-info-foreground',
+    'Trung bình': 'bg-warning/15 text-warning-foreground',
+    'Cao': 'bg-warning/25 text-warning-foreground',
+    'Khẩn cấp': 'bg-destructive/15 text-destructive',
   };
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
@@ -38,9 +38,9 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
     <Card 
       className={cn(
         "mb-2 cursor-pointer hover:shadow-md transition-shadow",
-        isOverdue && "border-red-300",
-        isPendingApproval && "border-yellow-300 bg-yellow-50",
-        isRejected && "border-orange-300 bg-orange-50"
+        isOverdue && "border-destructive/30",
+        isPendingApproval && "border-warning/30 bg-warning/10",
+        isRejected && "border-warning/30 bg-warning/10"
       )}
       onClick={() => onViewDetails(task)}
     >
@@ -53,7 +53,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
               disabled={isCompleted || isPendingApproval}
               className={cn(
                 "h-5 w-5",
-                isPendingApproval && "border-yellow-500"
+                isPendingApproval && "border-warning"
               )}
             />
           </div>
@@ -88,7 +88,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
               {/* Due date */}
               <div className={cn(
                 "flex items-center gap-1",
-                isOverdue && "text-red-600 font-medium"
+                isOverdue && "text-destructive font-medium"
               )}>
                 <Calendar className="h-4 w-4" />
                 <span>
@@ -114,7 +114,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
 
               {/* Evidence submitted */}
               {task.completionEvidence && (
-                <div className="flex items-center gap-1 text-green-600">
+                <div className="flex items-center gap-1 text-success">
                   <Image className="h-4 w-4" />
                   <span>{task.completionEvidence.images.length} ảnh</span>
                 </div>
@@ -124,21 +124,21 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
             {/* Status badges */}
             <div className="flex flex-wrap gap-2 mt-2">
               {isPendingApproval && (
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                <Badge variant="outline" className="bg-warning/15 text-warning-foreground border-warning/30">
                   <Clock className="h-3 w-3 mr-1" />
                   Chờ admin duyệt
                 </Badge>
               )}
               
               {isRejected && (
-                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                <Badge variant="outline" className="bg-warning/25 text-warning-foreground border-warning/30">
                   <AlertCircle className="h-3 w-3 mr-1" />
                   Admin yêu cầu làm lại
                 </Badge>
               )}
               
               {isCompleted && task.approvalStatus === 'approved' && (
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                <Badge variant="outline" className="bg-success/15 text-success-foreground border-success/30">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Admin đã duyệt
                 </Badge>
@@ -161,9 +161,9 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
 
             {/* Rejection reason */}
             {isRejected && task.rejectionReason && (
-              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm">
-                <strong className="text-orange-800">Lý do từ chối:</strong>
-                <p className="text-orange-700 mt-1">{task.rejectionReason}</p>
+              <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-sm">
+                <strong className="text-warning-foreground">Lý do từ chối:</strong>
+                <p className="text-warning-foreground mt-1">{task.rejectionReason}</p>
               </div>
             )}
           </div>

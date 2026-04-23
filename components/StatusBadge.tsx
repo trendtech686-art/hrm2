@@ -144,22 +144,22 @@ export const WARRANTY_RESOLUTION_MAP: Record<string, StatusConfig> = {
   'return': { 
     label: 'Trả lại', 
     variant: 'success',
-    className: 'bg-green-100 text-green-800 border-green-300'
+    className: 'bg-success/15 text-success-foreground border-success/30'
   },
   'replace': { 
     label: 'Đổi mới', 
     variant: 'default',
-    className: 'bg-blue-100 text-blue-800 border-blue-300'
+    className: 'bg-info/15 text-info-foreground border-info/30'
   },
   'deduct': { 
     label: 'Trừ tiền', 
     variant: 'warning',
-    className: 'bg-orange-100 text-orange-800 border-orange-300'
+    className: 'bg-warning/25 text-warning-foreground border-warning/30'
   },
   'out_of_stock': { 
     label: 'Hết hàng', 
     variant: 'destructive',
-    className: 'bg-red-100 text-red-800 border-red-300'
+    className: 'bg-destructive/15 text-destructive border-destructive/30'
   },
 };
 

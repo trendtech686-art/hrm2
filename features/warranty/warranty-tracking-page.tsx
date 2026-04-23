@@ -195,10 +195,10 @@ function PublicProductsTable({ products, onImageClick }: {
 
   const getResolutionBadge = (resolution: string) => {
     const variants: Record<string, string> = {
-      return: 'bg-green-100 text-green-800',
-      replace: 'bg-blue-100 text-blue-800',
-      deduct: 'bg-orange-100 text-orange-800',
-      out_of_stock: 'bg-red-100 text-red-800',
+      return: 'bg-success/15 text-success-foreground',
+      replace: 'bg-info/15 text-info-foreground',
+      deduct: 'bg-warning/25 text-warning-foreground',
+      out_of_stock: 'bg-destructive/15 text-destructive',
     };
     return variants[resolution] || 'bg-muted text-foreground';
   };
@@ -283,7 +283,7 @@ function PublicProductsTable({ products, onImageClick }: {
                       <Separator />
                       <div className="space-y-1">
                         {product.issueDescription && (
-                          <p className="text-xs text-orange-600 font-medium">
+                          <p className="text-xs text-warning font-medium">
                             <span className="text-muted-foreground">Vấn đề: </span>{product.issueDescription}
                           </p>
                         )}
@@ -305,9 +305,9 @@ function PublicProductsTable({ products, onImageClick }: {
 
                   {/* Compensation */}
                   {product.resolution === 'out_of_stock' && (
-                    <div className="flex justify-between items-center bg-red-50 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
-                      <span className="text-xs font-medium text-red-700">Bù trừ:</span>
-                      <span className="font-bold text-sm text-red-600">
+                    <div className="flex justify-between items-center bg-destructive/10 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
+                      <span className="text-xs font-medium text-destructive">Bù trừ:</span>
+                      <span className="font-bold text-sm text-destructive">
                         {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                       </span>
                     </div>
@@ -394,7 +394,7 @@ function PublicProductsTable({ products, onImageClick }: {
                   <td className="py-3 px-2">
                     <div className="space-y-0.5">
                       {product.issueDescription && (
-                        <p className="text-xs text-orange-600 font-medium">Vấn đề: {product.issueDescription}</p>
+                        <p className="text-xs text-warning font-medium">Vấn đề: {product.issueDescription}</p>
                       )}
                       {product.notes && (
                         <p className="text-xs text-muted-foreground">{product.notes}</p>
@@ -409,7 +409,7 @@ function PublicProductsTable({ products, onImageClick }: {
                   </td>
                   <td className="text-right py-3 px-2 font-medium">
                     {product.resolution === 'out_of_stock' ? (
-                      <span className="text-red-600">
+                      <span className="text-destructive">
                         {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                       </span>
                     ) : (
@@ -535,7 +535,7 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
           {shippingFee > 0 && (
             <div className="flex justify-between items-center gap-3">
               <span className="text-sm text-muted-foreground">Phí ship gửi về</span>
-              <span className="font-medium text-sm text-orange-600">-{fmt(shippingFee)} đ</span>
+              <span className="font-medium text-sm text-warning">-{fmt(shippingFee)} đ</span>
             </div>
           )}
 
@@ -589,7 +589,7 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
                             {formatDateTime(payment.createdAt)}
                           </p>
                         </div>
-                        <span className="font-semibold text-emerald-600 whitespace-nowrap text-sm">
+                        <span className="font-semibold text-success whitespace-nowrap text-sm">
                           +{fmt(payment.amount)} đ
                         </span>
                       </div>
@@ -616,7 +616,7 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
               {/* Summary */}
               <div className="flex justify-between items-center gap-3 pt-1">
                 <span className="text-sm text-muted-foreground">Đã thanh toán</span>
-                <span className="font-semibold text-emerald-600 text-sm">{fmt(totalPaid)} đ</span>
+                <span className="font-semibold text-success text-sm">{fmt(totalPaid)} đ</span>
               </div>
             </div>
           </>
@@ -626,9 +626,9 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
         {remaining > 0 && (
           <>
             <Separator />
-            <div className="flex justify-between items-center gap-3 bg-orange-50 -mx-4 px-4 py-2.5 md:-mx-6 md:px-6 rounded-b-lg">
-              <span className="text-sm font-semibold text-orange-800">Còn lại</span>
-              <span className="font-bold text-orange-600 text-base">{fmt(remaining)} đ</span>
+            <div className="flex justify-between items-center gap-3 bg-warning/10 -mx-4 px-4 py-2.5 md:-mx-6 md:px-6 rounded-b-lg">
+              <span className="text-sm font-semibold text-warning-foreground">Còn lại</span>
+              <span className="font-bold text-warning text-base">{fmt(remaining)} đ</span>
             </div>
           </>
         )}
@@ -636,7 +636,7 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
         {isPaid && (
           <>
             <Separator />
-            <div className="flex items-center justify-center gap-2 py-2 text-green-600">
+            <div className="flex items-center justify-center gap-2 py-2 text-success">
               <CheckCircle className="h-5 w-5" />
               <span className="font-semibold text-sm">Đã thanh toán đủ</span>
             </div>
@@ -730,7 +730,7 @@ function PublicCommentsSection({
                     className={cn(
                       'rounded-lg p-3 text-sm',
                       isCustomer
-                        ? 'bg-blue-50 border border-blue-100 ml-4 sm:ml-8'
+                        ? 'bg-info/10 border border-info/30 ml-4 sm:ml-8'
                         : 'bg-muted mr-4 sm:mr-8'
                     )}
                   >
@@ -849,7 +849,7 @@ export function WarrantyTrackingPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-600">
+            <CardTitle className="flex items-center gap-2 text-warning">
               <AlertCircle className="h-5 w-5" />
               Tính năng tạm thời không khả dụng
             </CardTitle>
@@ -972,7 +972,7 @@ export function WarrantyTrackingPage() {
                 {settings.showEmployeeName && (
                   <div>
                     <p className="text-xs text-muted-foreground">Nhân viên</p>
-                    <p className="font-medium text-sm text-blue-600">{ticket.employeeName || '—'}</p>
+                    <p className="font-medium text-sm text-info">{ticket.employeeName || '—'}</p>
                   </div>
                 )}
 
@@ -992,7 +992,7 @@ export function WarrantyTrackingPage() {
                 {ticket.linkedOrderSystemId && (
                   <div>
                     <p className="text-xs text-muted-foreground">Trả bảo hành vào đơn hàng</p>
-                    <p className="font-medium text-sm text-blue-600">
+                    <p className="font-medium text-sm text-info">
                       {linkedOrder?.id || ticket.linkedOrderSystemId}
                     </p>
                   </div>
@@ -1018,13 +1018,13 @@ export function WarrantyTrackingPage() {
                 {ticket.completedAt && (
                   <div>
                     <p className="text-xs text-muted-foreground">Kết thúc phiếu</p>
-                    <p className="text-sm text-blue-600">{formatDateTime(ticket.completedAt)}</p>
+                    <p className="text-sm text-info">{formatDateTime(ticket.completedAt)}</p>
                   </div>
                 )}
                 {ticket.cancelledAt && (
                   <div>
                     <p className="text-xs text-muted-foreground">Đã hủy</p>
-                    <p className="text-sm text-red-600">{formatDateTime(ticket.cancelledAt)}</p>
+                    <p className="text-sm text-destructive">{formatDateTime(ticket.cancelledAt)}</p>
                     {ticket.cancelReason && (
                       <p className="text-xs text-muted-foreground mt-0.5">Lý do: {ticket.cancelReason}</p>
                     )}

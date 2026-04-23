@@ -238,7 +238,7 @@ export function NotificationCenter() {
                         "group relative flex gap-3 p-3 rounded-lg cursor-pointer transition-colors",
                         notification.isRead 
                           ? "hover:bg-accent/50" 
-                          : "bg-blue-50 hover:bg-blue-100 border-l-2 border-blue-500"
+                          : "bg-info/10 hover:bg-info/15 border-l-2 border-info"
                       )}
                       role="button"
                       tabIndex={0}
@@ -300,7 +300,7 @@ export function NotificationCenter() {
                           {!notification.isRead && (
                             <>
                               <span className="text-xs text-muted-foreground">•</span>
-                              <span className="text-xs text-blue-600 font-medium">Mới</span>
+                              <span className="text-xs text-info font-medium">Mới</span>
                             </>
                           )}
                         </div>

@@ -1479,12 +1479,12 @@ export function OrderDetailPage() {
                     {displayStatus}
                 </Badge>
                 {order.returnStatus === 'Trả hàng một phần' && (
-                    <Badge variant="outline" className="border-orange-500 text-orange-600 bg-orange-50">
+                    <Badge variant="outline" className="border-warning/30 text-warning-foreground bg-warning/10">
                         Trả hàng một phần
                     </Badge>
                 )}
                 {order.returnStatus === 'Trả hàng toàn bộ' && (
-                    <Badge variant="outline" className="border-red-500 text-red-600 bg-red-50">
+                    <Badge variant="outline" className="border-destructive/30 text-destructive bg-destructive/10">
                         Trả hàng toàn bộ
                     </Badge>
                 )}
@@ -1712,7 +1712,7 @@ export function OrderDetailPage() {
                                         <span className="text-muted-foreground">Công nợ/Hạn mức:</span>
                                         <div className="text-right">
                                             <Link href={`/customers/${customer?.systemId}?tab=debt`} 
-                                                className="font-medium text-red-500 hover:underline cursor-pointer"
+                                                className="font-medium text-destructive hover:underline cursor-pointer"
                                             >
                                                 {formatCurrency(customerDebtBalance)}
                                             </Link>
@@ -1727,11 +1727,11 @@ export function OrderDetailPage() {
                                     <div className="border-t border-dashed my-2" />
                                     {customerMetrics.map(metric => {
                                         const toneClass = metric.tone === 'destructive'
-                                            ? 'text-red-600'
+                                            ? 'text-destructive'
                                             : metric.tone === 'warning'
-                                                ? 'text-amber-600'
+                                                ? 'text-warning'
                                                 : metric.tone === 'success'
-                                                    ? 'text-green-600'
+                                                    ? 'text-success'
                                                     : metric.tone === 'secondary'
                                                         ? 'text-muted-foreground'
                                                         : 'text-foreground';
@@ -1744,8 +1744,8 @@ export function OrderDetailPage() {
                                                         className={cn(
                                                             'text-xs uppercase tracking-tight',
                                                             metric.badge.tone === 'destructive'
-                                                                ? 'bg-red-100 text-red-700 border-red-200'
-                                                                : 'bg-amber-100 text-amber-700 border-amber-200'
+                                                                ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                                                : 'bg-warning/10 text-warning-foreground border-warning/30'
                                                         )}
                                                     >
                                                         {metric.badge.label}
@@ -1779,8 +1779,8 @@ export function OrderDetailPage() {
                     {/* Quy trình xử lý - 30% width on desktop */}
                     <div className="lg:col-span-3 space-y-3">
                         {!hasOrderWorkflowTemplate && (
-                            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                                <Info className="h-4 w-4 text-amber-600" />
+                            <Alert className="border-warning/30 bg-warning/10 text-warning-foreground">
+                                <Info className="h-4 w-4 text-warning" />
                                 <AlertTitle>Chưa cấu hình quy trình xử lý đơn hàng</AlertTitle>
                                 <AlertDescription>
                                     Thiết lập quy trình mặc định tại{' '}
@@ -1828,7 +1828,7 @@ export function OrderDetailPage() {
                             {order.referenceUrl && (
                                 <div>
                                     <span className="text-muted-foreground">Link đơn hàng:</span>{' '}
-                                    <a href={order.referenceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                    <a href={order.referenceUrl} target="_blank" rel="noopener noreferrer" className="text-info hover:underline">
                                         {order.referenceUrl}
                                     </a>
                                 </div>
@@ -2372,9 +2372,9 @@ export function OrderDetailPage() {
                     <div className="space-y-4">
                         {/* Warning for paid orders */}
                         {order && order.payments && order.payments.length > 0 && (
-                            <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/50">
-                                <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                                <p className="text-xs text-amber-700 dark:text-amber-400">
+                            <div className="flex gap-2 rounded-md border border-warning/30 bg-warning/10 p-3">
+                                <Info className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                                <p className="text-xs text-warning-foreground">
                                     Đơn hàng đã có thanh toán. Sau khi hủy, bạn cần tạo phiếu chi hoàn tiền thủ công nếu cần.
                                 </p>
                             </div>
@@ -2398,9 +2398,9 @@ export function OrderDetailPage() {
                         {/* Stock info - depends on dispatch status */}
                         {order && (!order.stockOutStatus || order.stockOutStatus === 'NOT_STOCKED_OUT' || order.stockOutStatus === 'Chưa xuất kho') ? (
                             /* Not dispatched - just release committed */
-                            <div className="flex gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/50">
-                                <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                            <div className="flex gap-2 rounded-md border border-info/30 bg-info/10 p-3">
+                                <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
+                                <p className="text-xs text-info-foreground">
                                     Đơn chưa xuất kho — hệ thống sẽ giải phóng {totalLineQuantity} sản phẩm đang tạm giữ.
                                 </p>
                             </div>

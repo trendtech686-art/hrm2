@@ -221,9 +221,9 @@ export function WarrantyDetailPage() {
     }
     const minutesLeft = Math.min(status.responseTimeLeft, status.processingTimeLeft, status.returnTimeLeft);
     if (minutesLeft < 60) {
-      return { label: 'Sắp hết hạn', color: 'text-orange-500' };
+      return { label: 'Sắp hết hạn', color: 'text-warning' };
     }
-    return { label: 'Đúng hạn', color: 'text-green-600' };
+    return { label: 'Đúng hạn', color: 'text-success' };
   }, [ticket, slaTargets]);
 
 
@@ -276,7 +276,7 @@ export function WarrantyDetailPage() {
             key="reopen" 
             size="sm" 
             variant="outline"
-            className="text-green-600 hover:text-green-700"
+            className="text-success hover:text-success/80"
             onClick={() => setShowReopenDialog(true)}
           >
             Mở lại
@@ -333,7 +333,7 @@ export function WarrantyDetailPage() {
             key="complete" 
             size="sm" 
             variant="default"
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleCompleteTicket}
             disabled={isCompletingTicket}
           >
@@ -349,7 +349,7 @@ export function WarrantyDetailPage() {
             key="reopen-from-completed" 
             size="sm" 
             variant="outline"
-            className="text-blue-600 hover:text-blue-700"
+            className="text-info hover:text-info/80"
             onClick={() => setShowReopenReturnedDialog(true)}
           >
             Mở lại
@@ -433,16 +433,16 @@ export function WarrantyDetailPage() {
           <span className="text-muted-foreground">Phản hồi:</span>
           <span className={cn(
             "font-medium",
-            timeMetrics.responseStatus === 'overdue' ? 'text-red-600' :
-            timeMetrics.responseStatus === 'warning' ? 'text-yellow-600' : 'text-green-600'
+            timeMetrics.responseStatus === 'overdue' ? 'text-destructive' :
+            timeMetrics.responseStatus === 'warning' ? 'text-warning' : 'text-success'
           )}>{timeMetrics.responseTimeFormatted}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground">Xử lý:</span>
           <span className={cn(
             "font-medium",
-            timeMetrics.processingStatus === 'overdue' ? 'text-red-600' :
-            timeMetrics.processingStatus === 'warning' ? 'text-yellow-600' : 'text-green-600'
+            timeMetrics.processingStatus === 'overdue' ? 'text-destructive' :
+            timeMetrics.processingStatus === 'warning' ? 'text-warning' : 'text-success'
           )}>{timeMetrics.processingTimeFormatted}</span>
         </div>
         <div className="flex items-center gap-1">
@@ -515,14 +515,14 @@ export function WarrantyDetailPage() {
           <div className="space-y-4">
             {/* Warning Banner - Show only when RECEIVED status AND no products */}
             {ticket?.status === 'RECEIVED' && (!ticket.products || (ticket.products as unknown[]).length === 0) && (
-              <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-4">
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-1">
+                    <h3 className="font-semibold text-warning-foreground mb-1">
                       Phiếu chưa đầy đủ thông tin
                     </h3>
-                    <p className="text-sm text-orange-800 dark:text-orange-200">
+                    <p className="text-sm text-warning-foreground/90">
                       Vui lòng cập nhật <strong>Danh sách sản phẩm bảo hành</strong> để chuyển sang trạng thái "Đang xử lý" và tiếp tục xử lý phiếu.
                     </p>
                   </div>

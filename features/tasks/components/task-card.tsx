@@ -31,11 +31,11 @@ const PRIORITY_DOT: Record<string, string> = {
 
 const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   'Chưa bắt đầu': { bg: 'bg-muted', text: 'text-foreground' },
-  'Đang thực hiện': { bg: 'bg-blue-100', text: 'text-blue-700' },
-  'Đang chờ': { bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  'Chờ duyệt': { bg: 'bg-amber-100', text: 'text-amber-700' },
-  'Chờ xử lý': { bg: 'bg-orange-100', text: 'text-orange-700' },
-  'Hoàn thành': { bg: 'bg-green-100', text: 'text-green-700' },
+  'Đang thực hiện': { bg: 'bg-info/10', text: 'text-info-foreground' },
+  'Đang chờ': { bg: 'bg-warning/10', text: 'text-warning-foreground' },
+  'Chờ duyệt': { bg: 'bg-warning/10', text: 'text-warning-foreground' },
+  'Chờ xử lý': { bg: 'bg-warning/25', text: 'text-warning-foreground' },
+  'Hoàn thành': { bg: 'bg-success/10', text: 'text-success-foreground' },
   'Đã hủy': { bg: 'bg-muted', text: 'text-muted-foreground' },
 };
 
@@ -56,7 +56,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
       className={cn(
         'border-l-[3px]',
         PRIORITY_BORDER[task.priority] || 'border-l-border',
-        isOverdue && 'bg-red-50/50',
+        isOverdue && 'bg-destructive/10',
       )}
       onClick={() => router.push(`/tasks/${task.systemId}`)}
     >
@@ -106,13 +106,13 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
           <span
             className={cn(
               'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full',
-              isOverdue ? 'bg-red-100 text-red-700 font-medium' : 'bg-muted text-muted-foreground',
+              isOverdue ? 'bg-destructive/10 text-destructive font-medium' : 'bg-muted text-muted-foreground',
             )}
           >
             <Calendar className="h-3 w-3" />
             {dueDateStr}
           </span>
-          <span className={cn('text-xs', isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground')}>
+          <span className={cn('text-xs', isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground')}>
             {dueTimeRelative}
           </span>
         </div>

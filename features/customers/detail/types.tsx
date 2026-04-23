@@ -471,7 +471,7 @@ export const debtColumns: ColumnDef<DebtTransaction>[] = [
       const prefix = displayValue > 0 ? '+' : '';
       
       return (
-        <span className={isDebtIncrease ? 'text-red-600' : 'text-green-600'}>
+        <span className={isDebtIncrease ? 'text-destructive' : 'text-success'}>
           {prefix}{formatCurrency(displayValue)}
           {(isRefundFromReturn || isRefundFromComplaint) && <span className="text-xs text-muted-foreground ml-1">(tiền mặt)</span>}
         </span>
@@ -655,7 +655,7 @@ export const createOrderColumnsWithReturns = (): ColumnDef<OrderWithReturns>[] =
     header: 'Còn lại', 
     cell: ({ row }) => {
       const remaining = row.grandTotal - row.paidAmount;
-      return <span className={remaining > 0 ? 'text-red-600' : ''}>{formatCurrency(remaining)}</span>;
+      return <span className={remaining > 0 ? 'text-destructive' : ''}>{formatCurrency(remaining)}</span>;
     }, 
     meta: { displayName: 'Còn lại' } 
   },
@@ -695,7 +695,7 @@ export const createOrderColumnsWithReturns = (): ColumnDef<OrderWithReturns>[] =
       }
       return (
         <div className="flex flex-col">
-          <span className="text-amber-600 font-medium">{row.returnCount} phiếu</span>
+          <span className="text-warning font-medium">{row.returnCount} phiếu</span>
           <span className="text-xs text-muted-foreground">{formatCurrency(row.totalReturnValue || 0)}</span>
         </div>
       );

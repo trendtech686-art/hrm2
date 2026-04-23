@@ -19,11 +19,11 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
   const isOverdue = overdueStatus.isOverdueResponse || overdueStatus.isOverdueResolve;
   
   const statusConfig: Record<string, { icon: typeof Clock; color: string }> = {
-    pending: { icon: Clock, color: 'text-yellow-600' },
-    investigating: { icon: AlertCircle, color: 'text-blue-600' },
-    resolved: { icon: CheckCircle2, color: 'text-green-600' },
+    pending: { icon: Clock, color: 'text-warning' },
+    investigating: { icon: AlertCircle, color: 'text-info' },
+    resolved: { icon: CheckCircle2, color: 'text-success' },
     rejected: { icon: XCircle, color: 'text-muted-foreground' },
-    cancelled: { icon: XCircle, color: 'text-red-600' },
+    cancelled: { icon: XCircle, color: 'text-destructive' },
     ended: { icon: CheckCircle2, color: 'text-purple-600' },
   };
   
@@ -31,13 +31,13 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
   
   const priorityConfig: Record<string, { label: string; color: string }> = {
     low: { label: 'Thấp', color: 'bg-muted text-foreground' },
-    medium: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800' },
-    high: { label: 'Cao', color: 'bg-orange-100 text-orange-800' },
-    urgent: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-800' },
+    medium: { label: 'Trung bình', color: 'bg-warning/15 text-warning-foreground' },
+    high: { label: 'Cao', color: 'bg-warning/25 text-warning-foreground' },
+    urgent: { label: 'Khẩn cấp', color: 'bg-destructive/15 text-destructive' },
     LOW: { label: 'Thấp', color: 'bg-muted text-foreground' },
-    MEDIUM: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800' },
-    HIGH: { label: 'Cao', color: 'bg-orange-100 text-orange-800' },
-    CRITICAL: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-800' },
+    MEDIUM: { label: 'Trung bình', color: 'bg-warning/15 text-warning-foreground' },
+    HIGH: { label: 'Cao', color: 'bg-warning/25 text-warning-foreground' },
+    CRITICAL: { label: 'Khẩn cấp', color: 'bg-destructive/15 text-destructive' },
   };
   
   const assignedEmployee = complaint.assignedTo 
@@ -50,10 +50,10 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
       onClick={onClick}
       className={cn(
         "border-l-4",
-        isOverdue && "border-l-red-500 bg-red-50",
-        !isOverdue && complaint.priority === 'CRITICAL' && "border-l-red-400 bg-red-50",
-        !isOverdue && complaint.priority === 'HIGH' && "border-l-orange-400 bg-orange-50",
-        !isOverdue && complaint.priority === 'MEDIUM' && "border-l-amber-400 bg-amber-50",
+        isOverdue && "border-l-destructive bg-destructive/10",
+        !isOverdue && complaint.priority === 'CRITICAL' && "border-l-destructive bg-destructive/10",
+        !isOverdue && complaint.priority === 'HIGH' && "border-l-warning bg-warning/10",
+        !isOverdue && complaint.priority === 'MEDIUM' && "border-l-warning bg-warning/10",
         !isOverdue && complaint.priority === 'LOW' && "border-l-border bg-muted/50"
       )}
     >
@@ -70,7 +70,7 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
         <div className="flex flex-col items-end gap-1 shrink-0">
           <StatusBadge status={complaint.status} statusMap={COMPLAINT_STATUS_MAP} />
           {isOverdue && (
-            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 whitespace-nowrap">
+            <Badge variant="outline" className="text-xs bg-destructive/15 text-destructive whitespace-nowrap">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Quá hạn
             </Badge>

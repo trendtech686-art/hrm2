@@ -3,6 +3,7 @@ import { Inter, Source_Serif_4, Geist_Mono } from "next/font/google"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css"
 import { Providers } from "./providers"
+import { ThemeBootScript } from "@/components/theme-boot-script"
 // preloadSettings moved to (authenticated)/layout.tsx — only needed for auth pages
 
 const inter = Inter({ 
@@ -79,6 +80,7 @@ export default async function RootLayout({
     <html lang="vi" className="font-size-base" suppressHydrationWarning>
       <head>
         {/* Fonts are self-hosted via next/font — no external requests */}
+        <ThemeBootScript />
       </head>
       <body className={`${inter.variable} ${sourceSerif4.variable} ${geistMono.variable} bg-background text-foreground antialiased`}>
         <Providers>

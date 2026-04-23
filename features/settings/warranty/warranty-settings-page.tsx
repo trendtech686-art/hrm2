@@ -131,12 +131,12 @@ const _defaultPublicTracking: PublicTrackingSettings = {
 
 const defaultCardColors: CardColorSettings = {
   statusColors: {
-    new: 'bg-blue-50 border-blue-200',
-    pending: 'bg-yellow-50 border-yellow-200',
-    processed: 'bg-green-50 border-green-200',
+    new: 'bg-info/10 border-info/30',
+    pending: 'bg-warning/10 border-warning/30',
+    processed: 'bg-success/10 border-success/30',
     returned: 'bg-muted border-border',
   },
-  overdueColor: 'bg-red-50 border-red-400',
+  overdueColor: 'bg-destructive/10 border-destructive/40',
   enableStatusColors: true,
   enableOverdueColor: true,
 };
@@ -189,25 +189,25 @@ const WARRANTY_SLA_PRIORITY_CONFIGS: Array<{
     key: 'low',
     label: 'Ưu tiên thấp',
     description: 'Các yêu cầu bảo hành cơ bản, không ảnh hưởng đến trải nghiệm khách hàng.',
-    indicatorClass: 'bg-green-500',
+    indicatorClass: 'bg-success',
   },
   {
     key: 'medium',
     label: 'Ưu tiên trung bình',
     description: 'Cần xử lý trong vòng 2-3 ngày làm việc.',
-    indicatorClass: 'bg-yellow-500',
+    indicatorClass: 'bg-warning',
   },
   {
     key: 'high',
     label: 'Ưu tiên cao',
     description: 'Sản phẩm lỗi gây gián đoạn sử dụng, cần phản hồi trong ngày.',
-    indicatorClass: 'bg-orange-500',
+    indicatorClass: 'bg-warning',
   },
   {
     key: 'urgent',
     label: 'Ưu tiên khẩn cấp',
     description: 'Sự cố nghiêm trọng, yêu cầu phản hồi trong vòng 1 giờ.',
-    indicatorClass: 'bg-red-500',
+    indicatorClass: 'bg-destructive',
   },
 ];
 
@@ -971,13 +971,13 @@ export function WarrantySettingsPage() {
                 <SettingsFormSection
                   title="Màu quá hạn SLA"
                   description="Áp dụng ngay khi phiếu vượt SLA, bỏ qua các thiết lập khác."
-                  className="bg-red-50/50 dark:bg-red-950/20"
+                  className="bg-destructive/10"
                 >
                   <TailwindColorPicker
                     value={cardColors.overdueColor}
                     onChange={(value) => handleCardColorChange('overdueColor', '', value)}
                     label="Màu nền và viền"
-                    placeholder="Ví dụ: bg-red-50 border-red-400"
+                    placeholder="Ví dụ: bg-destructive/10 border-destructive/40"
                   />
                 </SettingsFormSection>
               )}
@@ -992,21 +992,21 @@ export function WarrantySettingsPage() {
                       value={cardColors.statusColors.new}
                       onChange={(value) => handleCardColorChange('statusColors', 'new', value)}
                       label="Mới (New)"
-                      placeholder="Ví dụ: bg-blue-50 border-blue-200"
+                      placeholder="Ví dụ: bg-info/10 border-info/30"
                     />
 
                     <TailwindColorPicker
                       value={cardColors.statusColors.pending}
                       onChange={(value) => handleCardColorChange('statusColors', 'pending', value)}
                       label="Chưa xử lý (Pending)"
-                      placeholder="Ví dụ: bg-yellow-50 border-yellow-200"
+                      placeholder="Ví dụ: bg-warning/10 border-warning/30"
                     />
 
                     <TailwindColorPicker
                       value={cardColors.statusColors.processed}
                       onChange={(value) => handleCardColorChange('statusColors', 'processed', value)}
                       label="Đã xử lý (Processed)"
-                      placeholder="Ví dụ: bg-green-50 border-green-200"
+                      placeholder="Ví dụ: bg-success/10 border-success/30"
                     />
 
                     <TailwindColorPicker
@@ -1020,11 +1020,11 @@ export function WarrantySettingsPage() {
               )}
 
               {/* Info Box */}
-              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 text-sm">
-                <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+              <div className="rounded-lg bg-info/10 p-4 text-sm">
+                <p className="font-medium text-info-foreground mb-1">
                   💡 Thứ tự ưu tiên màu sắc
                 </p>
-                <ol className="text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
+                <ol className="text-info-foreground/90 space-y-1 list-decimal list-inside">
                   <li>Màu quá hạn SLA (nếu bật) - Ưu tiên cao nhất</li>
                   <li>Màu theo trạng thái (nếu bật) - Ưu tiên thấp</li>
                   <li>Màu mặc định (nếu tắt tất cả)</li>

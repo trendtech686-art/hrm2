@@ -190,8 +190,8 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                         <TableCell>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                                 returnSlip.isReceived 
-                                                    ? 'bg-green-100 text-green-800' 
-                                                    : 'bg-amber-100 text-amber-800'
+                                                    ? 'bg-success/15 text-success-foreground' 
+                                                    : 'bg-warning/15 text-warning-foreground'
                                             }`}>
                                                 {returnSlip.isReceived ? 'Đã nhận' : 'Chưa nhận'}
                                             </span>
@@ -245,11 +245,11 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 
                                                 if (difference > 0) {
                                                     // Khách cần trả thêm
-                                                    return <span className="text-amber-600">+{formatCurrency(difference)}</span>;
+                                                    return <span className="text-warning">+{formatCurrency(difference)}</span>;
                                                 }
                                                 
                                                 // Cần hoàn tiền cho khách
-                                                return <span className="text-green-600">{formatCurrency(difference)}</span>;
+                                                return <span className="text-success">{formatCurrency(difference)}</span>;
                                             })()}
                                         </TableCell>
                                         <TableCell>
@@ -281,7 +281,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                     key={payment!.systemId}
                                                                     href={`/payments/${payment!.systemId}`}
                                                                     onClick={e => e.stopPropagation()}
-                                                                    className="text-green-600 hover:underline"
+                                                                    className="text-success hover:underline"
                                                                 >
                                                                     {payment!.id}
                                                                 </Link>
@@ -291,7 +291,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                     key={receipt!.systemId}
                                                                     href={`/receipts/${receipt!.systemId}`}
                                                                     onClick={e => e.stopPropagation()}
-                                                                    className="text-blue-600 hover:underline"
+                                                                    className="text-info hover:underline"
                                                                 >
                                                                     {receipt!.id}
                                                                 </Link>
@@ -304,7 +304,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 // Nếu khách chưa thanh toán đơn gốc → không phát sinh tiền → hiện "-"
                                                 if (refundAmount > 0) {
                                                     return (
-                                                        <span className="text-green-600 text-xs">
+                                                        <span className="text-success text-xs">
                                                             Đã chi: {formatCurrency(refundAmount)}
                                                         </span>
                                                     );
@@ -413,8 +413,8 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                 </Link>
                                                                                                 {item.note && (
                                                                                                     <>
-                                                                                                        <StickyNote className="h-3 w-3 text-amber-600 ml-1" />
-                                                                                                        <span className="text-amber-600 italic">{item.note}</span>
+                                                                                                        <StickyNote className="h-3 w-3 text-warning ml-1" />
+                                                                                                        <span className="text-warning italic">{item.note}</span>
                                                                                                     </>
                                                                                                 )}
                                                                                             </div>
@@ -561,8 +561,8 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                     </Link>
                                                                                                     {item.note && (
                                                                                                         <>
-                                                                                                            <StickyNote className="h-3 w-3 text-amber-600 ml-1" />
-                                                                                                            <span className="text-amber-600 italic">{item.note}</span>
+                                                                                                            <StickyNote className="h-3 w-3 text-warning ml-1" />
+                                                                                                            <span className="text-warning italic">{item.note}</span>
                                                                                                         </>
                                                                                                     )}
                                                                                                 </div>
@@ -674,7 +674,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                             {returnSlip.id}
                                         </Link>
                                         <span className={`inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-[10px] font-medium ${
-                                            returnSlip.isReceived ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                                            returnSlip.isReceived ? 'bg-success/15 text-success-foreground' : 'bg-warning/15 text-warning-foreground'
                                         }`}>
                                             {returnSlip.isReceived ? 'Đã nhận' : 'Chưa nhận'}
                                         </span>
@@ -734,9 +734,9 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 {difference === 0 ? (
                                                     <span className="text-muted-foreground">0</span>
                                                 ) : difference > 0 ? (
-                                                    <span className="text-amber-600">+{formatCurrency(difference)}</span>
+                                                    <span className="text-warning">+{formatCurrency(difference)}</span>
                                                 ) : (
-                                                    <span className="text-green-600">{formatCurrency(difference)}</span>
+                                                    <span className="text-success">{formatCurrency(difference)}</span>
                                                 )}
                                             </dd>
                                         </div>
@@ -746,18 +746,18 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 {(payments.length > 0 || receipts.length > 0) ? (
                                                     <div className="flex flex-col gap-0.5 text-xs">
                                                         {payments.map((payment) => (
-                                                            <Link key={payment!.systemId} href={`/payments/${payment!.systemId}`} className="text-green-600 hover:underline">
+                                                            <Link key={payment!.systemId} href={`/payments/${payment!.systemId}`} className="text-success hover:underline">
                                                                 {payment!.id}
                                                             </Link>
                                                         ))}
                                                         {receipts.map((receipt) => (
-                                                            <Link key={receipt!.systemId} href={`/receipts/${receipt!.systemId}`} className="text-blue-600 hover:underline">
+                                                            <Link key={receipt!.systemId} href={`/receipts/${receipt!.systemId}`} className="text-info hover:underline">
                                                                 {receipt!.id}
                                                             </Link>
                                                         ))}
                                                     </div>
                                                 ) : refundAmount > 0 ? (
-                                                    <span className="text-green-600 text-xs">Đã chi: {formatCurrency(refundAmount)}</span>
+                                                    <span className="text-success text-xs">Đã chi: {formatCurrency(refundAmount)}</span>
                                                 ) : (
                                                     <span className="text-muted-foreground">—</span>
                                                 )}
@@ -810,7 +810,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                     SL: {item.returnQuantity} × {formatCurrency(item.unitPrice)}
                                                                 </div>
                                                                 {item.note && (
-                                                                    <div className="text-xs text-amber-600 italic mt-0.5 flex items-center gap-1">
+                                                                    <div className="text-xs text-warning italic mt-0.5 flex items-center gap-1">
                                                                         <StickyNote className="h-3 w-3" />
                                                                         <span>{item.note}</span>
                                                                     </div>
@@ -853,7 +853,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                         SL: {item.quantity} × {formatCurrency(item.unitPrice)}
                                                                     </div>
                                                                     {item.note && (
-                                                                        <div className="text-xs text-amber-600 italic mt-0.5 flex items-center gap-1">
+                                                                        <div className="text-xs text-warning italic mt-0.5 flex items-center gap-1">
                                                                             <StickyNote className="h-3 w-3" />
                                                                             <span>{item.note}</span>
                                                                         </div>

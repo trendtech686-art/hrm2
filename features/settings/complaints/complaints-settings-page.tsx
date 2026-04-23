@@ -833,13 +833,13 @@ export function ComplaintsSettingsPage() {
               <SettingsFormSection
                 title="Hướng dẫn nhập màu Tailwind"
                 description="Áp dụng đồng nhất giữa màu nền (bg-*) và viền (border-*) để card trông hài hòa."
-                className="bg-blue-50/80 border-blue-200"
+                className="bg-info/10 border-info/30"
                 contentClassName="space-y-3"
               >
-                <p className="text-sm text-blue-900 font-medium">💡 Gợi ý:</p>
-                <ul className="list-inside list-disc text-sm text-blue-800 space-y-1">
-                  <li>Sử dụng định dạng <code className="bg-blue-100 px-1 rounded">bg-[màu]-[độ đậm]</code> và <code className="bg-blue-100 px-1 rounded">border-[màu]-[độ đậm]</code>.</li>
-                  <li>Ví dụ: <code className="bg-blue-100 px-1 rounded">bg-red-50 border-red-400</code></li>
+                <p className="text-sm text-info-foreground font-medium">💡 Gợi ý:</p>
+                <ul className="list-inside list-disc text-sm text-foreground space-y-1">
+                  <li>Sử dụng định dạng <code className="bg-info/15 px-1 rounded">bg-[màu]-[độ đậm]</code> và <code className="bg-info/15 px-1 rounded">border-[màu]-[độ đậm]</code>.</li>
+                  <li>Ví dụ: <code className="bg-info/15 px-1 rounded">bg-red-50 border-red-400</code></li>
                   <li>Dãy màu hợp lệ: red, blue, green, yellow, amber, slate, gray,...</li>
                   <li>Độ đậm phổ biến: 50 → 900</li>
                 </ul>

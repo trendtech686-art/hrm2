@@ -92,8 +92,8 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
               <span className="text-muted-foreground">SLA:</span>
               <span className={cn(
                 "font-medium",
-                timeTracking.resolutionStatus === 'overdue' ? 'text-red-600' :
-                timeTracking.resolutionStatus === 'warning' ? 'text-yellow-600' : 'text-green-600'
+                timeTracking.resolutionStatus === 'overdue' ? 'text-destructive' :
+                timeTracking.resolutionStatus === 'warning' ? 'text-warning' : 'text-success'
               )}>
                 {getSLAStatusLabel(timeTracking.resolutionStatus ?? 'pending')}
               </span>
@@ -102,16 +102,16 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
               <span className="text-muted-foreground">Phản hồi:</span>
               <span className={cn(
                 "font-medium",
-                timeTracking.responseStatus === 'overdue' ? 'text-red-600' :
-                timeTracking.responseStatus === 'warning' ? 'text-yellow-600' : 'text-green-600'
+                timeTracking.responseStatus === 'overdue' ? 'text-destructive' :
+                timeTracking.responseStatus === 'warning' ? 'text-warning' : 'text-success'
               )}>{timeTracking.responseTimeFormatted === '-' ? 'Chưa phản hồi' : timeTracking.responseTimeFormatted}</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-muted-foreground">Giải quyết:</span>
               <span className={cn(
                 "font-medium",
-                timeTracking.resolutionStatus === 'overdue' ? 'text-red-600' :
-                timeTracking.resolutionStatus === 'warning' ? 'text-yellow-600' : 'text-green-600'
+                timeTracking.resolutionStatus === 'overdue' ? 'text-destructive' :
+                timeTracking.resolutionStatus === 'warning' ? 'text-warning' : 'text-success'
               )}>{timeTracking.resolutionTimeFormatted === '-' ? 'Đang xử lý' : timeTracking.resolutionTimeFormatted}</span>
             </div>
             <div className="flex items-center gap-1">
@@ -130,7 +130,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                 <div className="text-sm break-all">
                   {complaint.publicTrackingCode
                     ? generateTrackingUrl(complaint)
-                    : <span className="text-orange-600">⚠️ Chưa có mã tra cứu</span>
+                    : <span className="text-warning">⚠️ Chưa có mã tra cứu</span>
                   }
                 </div>
               </div>
@@ -228,7 +228,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
           {complaint.resolvedAt && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Đóng lúc:</span>
-              <span className="font-medium text-green-600">
+              <span className="font-medium text-success">
                 {new Date(complaint.resolvedAt).toLocaleString("vi-VN")}
               </span>
             </div>
@@ -236,7 +236,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
           {complaint.endedAt && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Kết thúc lúc:</span>
-              <span className="font-medium text-blue-600">
+              <span className="font-medium text-info">
                 {new Date(complaint.endedAt).toLocaleString("vi-VN")}
               </span>
             </div>
@@ -244,7 +244,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
           {complaint.verification && complaint.verification !== 'pending-verification' && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Xác minh:</span>
-              <span className={cn("font-medium", complaint.verification === 'verified-correct' ? "text-red-600" : "text-green-600")}>
+              <span className={cn("font-medium", complaint.verification === 'verified-correct' ? "text-destructive" : "text-success")}>
                 {complaint.verification === 'verified-correct' ? "Lỗi thật" : "Khách sai"}
               </span>
             </div>
@@ -351,7 +351,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                     {needsBalance && (
                       <div className="flex items-center gap-1.5 mt-1.5 ml-5.5">
                         <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
-                        <span className="text-xs text-amber-600">Cần cân bằng kho mới có hiệu lực</span>
+                        <span className="text-xs text-warning">Cần cân bằng kho mới có hiệu lực</span>
                       </div>
                     )}
                   </div>
@@ -379,7 +379,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                       {isCancelled && <Badge variant="destructive" className="text-xs">Đã hủy</Badge>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className={cn("text-sm font-medium", isCancelled ? "text-muted-foreground line-through" : "text-orange-600 dark:text-orange-400")}>
+                      <span className={cn("text-sm font-medium", isCancelled ? "text-muted-foreground line-through" : "text-warning")}>
                         {Number(penalty.amount).toLocaleString('vi-VN')}đ
                       </span>
                       <Badge variant={isCancelled ? 'destructive' : penalty.status === 'Đã thanh toán' ? 'default' : 'outline'} className="text-xs">
@@ -403,7 +403,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">Thu: +{totalReceipts.toLocaleString('vi-VN')}đ</span>
                   )}
                   {totalPenalties > 0 && (
-                    <span className="text-orange-600 dark:text-orange-400 font-medium">Phạt: {totalPenalties.toLocaleString('vi-VN')}đ</span>
+                    <span className="text-warning font-medium">Phạt: {totalPenalties.toLocaleString('vi-VN')}đ</span>
                   )}
                 </div>
               </div>

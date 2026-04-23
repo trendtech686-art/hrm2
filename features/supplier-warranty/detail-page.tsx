@@ -105,7 +105,7 @@ function WarrantyStatusStepper({ warranty }: { warranty: SupplierWarranty }) {
             <div className="flex flex-col items-center text-center min-w-[70px] w-20">
               <div className={cn(
                 'flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-xs',
-                isCancelledStep ? 'bg-red-100 border-red-500 text-red-500' :
+                isCancelledStep ? 'bg-destructive/15 border-destructive text-destructive' :
                 isCompleted ? 'bg-primary border-primary text-primary-foreground' :
                 isCurrent ? 'border-primary text-primary' :
                 'border-border bg-muted text-muted-foreground'
@@ -736,11 +736,11 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                 {!isResultConfirmed ? (
                   <Banknote className="h-5 w-5 text-muted-foreground shrink-0" />
                 ) : hasReceipt ? (
-                  <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                  <CheckCircle className="h-5 w-5 text-success shrink-0" />
                 ) : warranty.totalWarrantyCost > 0 ? (
-                  <Banknote className="h-5 w-5 text-amber-500 shrink-0" />
+                  <Banknote className="h-5 w-5 text-warning shrink-0" />
                 ) : (
-                  <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                  <CheckCircle className="h-5 w-5 text-success shrink-0" />
                 )}
                 <CardTitle>
                   {!isResultConfirmed
@@ -782,7 +782,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">SP trả lại (không BH):</span>
-                    <span className="font-medium text-amber-600">
+                    <span className="font-medium text-warning">
                       {warranty.totalReturnedItems > 0 ? `${warranty.totalReturnedItems} sản phẩm` : '0'}
                     </span>
                   </div>
@@ -791,7 +791,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                       <div className="border-t border-border my-1" />
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Đã tạo phiếu thu:</span>
-                        <span className={cn("font-medium", hasReceipt ? "text-green-600" : "text-muted-foreground")}>
+                        <span className={cn("font-medium", hasReceipt ? "text-success" : "text-muted-foreground")}>
                           {hasReceipt ? formatCurrency(activeReceipts.reduce((s, r) => s + r.amount, 0)) : 'Chưa tạo'}
                         </span>
                       </div>
@@ -829,7 +829,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                         onClick={() => setExpandedReceiptId(isExpanded ? null : receipt.systemId)}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setExpandedReceiptId(isExpanded ? null : receipt.systemId) }}
                       >
-                        <Banknote className="h-4 w-4 text-green-500 mr-3 shrink-0" />
+                        <Banknote className="h-4 w-4 text-success mr-3 shrink-0" />
                         <Link
                           href={`/receipts/${receipt.systemId}`}
                           className="font-semibold text-primary hover:underline"
@@ -841,7 +841,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                         <div className="grow text-right text-muted-foreground px-4">
                           {formatDateCustom(new Date(receipt.createdAt), 'dd/MM/yyyy')}
                         </div>
-                        <div className="w-28 text-right font-semibold text-green-600">
+                        <div className="w-28 text-right font-semibold text-success">
                           +{formatCurrency(receipt.amount)}
                         </div>
                         <Button
@@ -1037,8 +1037,8 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
               Xác nhận rằng hàng bảo hành đã được xử lý xong. Phiếu sẽ chuyển sang trạng thái <strong>Hoàn thành</strong>.
             </p>
             {warranty.totalWarrantyCost > 0 && !hasReceipt && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm space-y-1">
-                <p className="font-medium text-amber-700 dark:text-amber-400">Chưa tạo phiếu thu</p>
+              <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm space-y-1">
+                <p className="font-medium text-warning-foreground">Chưa tạo phiếu thu</p>
                 <p className="text-xs text-muted-foreground">
                   Tổng tiền NCC trừ: {formatCurrency(warranty.totalWarrantyCost)}. Bạn có thể tạo phiếu thu trước hoặc sau khi hoàn thành.
                 </p>

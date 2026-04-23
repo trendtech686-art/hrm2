@@ -51,13 +51,14 @@ export const WARRANTY_STATUS_LABELS: Record<WarrantyStatus, string> = {
   CANCELLED: 'Đã hủy',
 };
 
+// Dùng design tokens (success/warning/info/destructive) thay palette thô để đồng bộ theme.
 export const WARRANTY_STATUS_COLORS: Record<WarrantyStatus, string> = {
-  RECEIVED: 'bg-yellow-100 text-yellow-800',
-  PROCESSING: 'bg-blue-100 text-blue-800',
-  WAITING_PARTS: 'bg-orange-100 text-orange-800',
-  COMPLETED: 'bg-green-100 text-green-800',
+  RECEIVED: 'bg-warning/15 text-warning-foreground',
+  PROCESSING: 'bg-info/15 text-info-foreground',
+  WAITING_PARTS: 'bg-warning/25 text-warning-foreground',
+  COMPLETED: 'bg-success/15 text-success-foreground',
   RETURNED: 'bg-muted text-muted-foreground',
-  CANCELLED: 'bg-red-100 text-red-800 line-through',
+  CANCELLED: 'bg-destructive/15 text-destructive line-through',
 };
 
 // ====================================
@@ -70,9 +71,9 @@ export const WARRANTY_SETTLEMENT_STATUS_LABELS: Record<WarrantySettlementStatus,
 };
 
 export const WARRANTY_SETTLEMENT_STATUS_COLORS: Record<WarrantySettlementStatus, string> = {
-  pending: 'bg-red-100 text-red-800',
-  partial: 'bg-orange-100 text-orange-800',
-  completed: 'bg-green-100 text-green-800',
+  pending: 'bg-destructive/15 text-destructive',
+  partial: 'bg-warning/15 text-warning-foreground',
+  completed: 'bg-success/15 text-success-foreground',
 };
 
 // ====================================

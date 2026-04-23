@@ -330,7 +330,7 @@ export function ComplaintStatisticsPage() {
                   <span className="text-sm font-medium">{item.label}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">{item.count}</span>
-                    <Badge className="bg-blue-500">{item.percentage.toFixed(1)}%</Badge>
+                    <Badge className="bg-info/15 text-info-foreground">{item.percentage.toFixed(1)}%</Badge>
                   </div>
                 </div>
               ))}
@@ -387,7 +387,7 @@ export function ComplaintStatisticsPage() {
               <div className="space-y-3">
                 {stats.byAssignee.slice(0, 5).map((assignee, index) => (
                   <div key={assignee.assigneeId} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-info/15 flex items-center justify-center font-bold text-info-foreground">
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">

@@ -396,13 +396,13 @@ export function EntityActivityTable({
   // Get action icon and color
   const getActionStyle = (action: string) => {
     const styles: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bgColor: string }> = {
-      created: { icon: Plus, color: 'text-green-600', bgColor: 'bg-green-100' },
-      updated: { icon: Pencil, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-      deleted: { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-100' },
+      created: { icon: Plus, color: 'text-success', bgColor: 'bg-success/15' },
+      updated: { icon: Pencil, color: 'text-info', bgColor: 'bg-info/15' },
+      deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
       status_changed: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100' },
       restored: { icon: RotateCcw, color: 'text-teal-600', bgColor: 'bg-teal-100' },
       document_uploaded: { icon: Upload, color: 'text-teal-600', bgColor: 'bg-teal-100' },
-      document_deleted: { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-100' },
+      document_deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
     }
     return styles[action] || { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' }
   }
@@ -422,13 +422,13 @@ export function EntityActivityTable({
   
   const getActionBadgeColor = (action: string) => {
     const colors: Record<string, string> = {
-      created: 'bg-green-100 text-green-700 border-green-200',
-      updated: 'bg-blue-100 text-blue-700 border-blue-200',
-      deleted: 'bg-red-100 text-red-700 border-red-200',
+      created: 'bg-success/10 text-success-foreground border-success/30',
+      updated: 'bg-info/10 text-info-foreground border-info/30',
+      deleted: 'bg-destructive/10 text-destructive border-destructive/30',
       status_changed: 'bg-purple-100 text-purple-700 border-purple-200',
       restored: 'bg-teal-100 text-teal-700 border-teal-200',
       document_uploaded: 'bg-teal-100 text-teal-700 border-teal-200',
-      document_deleted: 'bg-red-100 text-red-700 border-red-200',
+      document_deleted: 'bg-destructive/10 text-destructive border-destructive/30',
     }
     return colors[action] || 'bg-muted text-muted-foreground border-border'
   }
@@ -451,10 +451,10 @@ export function EntityActivityTable({
           <div key={field} className="border rounded-lg p-3 bg-muted/30 overflow-hidden">
             <div className="font-medium text-sm mb-2">{mergedFieldLabels[field] || field}</div>
             <div className="flex flex-col gap-2 text-sm">
-              <span className="px-2 py-1 bg-red-100 text-red-700 rounded line-through break-all whitespace-pre-wrap">
+              <span className="px-2 py-1 bg-destructive/10 text-destructive rounded line-through break-all whitespace-pre-wrap">
                 {formatValue(change.from, field)}
               </span>
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded break-all whitespace-pre-wrap">
+              <span className="px-2 py-1 bg-success/10 text-success-foreground rounded break-all whitespace-pre-wrap">
                 {formatValue(change.to, field)}
               </span>
             </div>

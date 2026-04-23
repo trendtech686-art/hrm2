@@ -58,10 +58,10 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
 
   const getResolutionBadge = React.useCallback((resolution: string) => {
     const variants: Record<string, string> = {
-      return: 'bg-green-100 text-green-800',
-      replace: 'bg-blue-100 text-blue-800',
-      deduct: 'bg-orange-100 text-orange-800',
-      out_of_stock: 'bg-red-100 text-red-800',
+      return: 'bg-success/15 text-success-foreground',
+      replace: 'bg-info/15 text-info-foreground',
+      deduct: 'bg-warning/25 text-warning-foreground',
+      out_of_stock: 'bg-destructive/15 text-destructive',
     };
     return variants[resolution] || 'bg-muted text-foreground';
   }, []);
@@ -202,7 +202,7 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 <Separator />
                 <div className="space-y-1">
                   {product.issueDescription && String(product.issueDescription).trim() && (
-                    <p className="text-xs text-orange-600 font-medium leading-snug">
+                    <p className="text-xs text-warning font-medium leading-snug">
                       <span className="text-muted-foreground">Vấn đề:</span> {product.issueDescription}
                     </p>
                   )}
@@ -226,18 +226,18 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
 
             {/* Bù trừ */}
             {product.resolution === 'out_of_stock' && (
-              <div className="flex justify-between items-center bg-red-50 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
-                <span className="text-xs font-medium text-red-700">Bù trừ:</span>
-                <span className="font-bold text-sm text-red-600">
+              <div className="flex justify-between items-center bg-destructive/10 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
+                <span className="text-xs font-medium text-destructive">Bù trừ:</span>
+                <span className="font-bold text-sm text-destructive">
                   {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                 </span>
               </div>
             )}
 
             {product.resolution === 'deduct' && product.deductionAmount && (
-              <div className="flex justify-between items-center bg-orange-50 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
-                <span className="text-xs font-medium text-orange-700">Trừ tiền:</span>
-                <span className="font-bold text-sm text-orange-600">
+              <div className="flex justify-between items-center bg-warning/10 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
+                <span className="text-xs font-medium text-warning-foreground">Trừ tiền:</span>
+                <span className="font-bold text-sm text-warning">
                   {new Intl.NumberFormat('vi-VN').format(product.deductionAmount)} đ
                 </span>
               </div>
@@ -405,7 +405,7 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                     {RESOLUTION_LABELS[product.resolution]}
                   </Badge>
                   {product.resolution === 'deduct' && product.deductionAmount && (
-                    <p className="text-xs text-red-600 mt-1 font-medium">
+                    <p className="text-xs text-destructive mt-1 font-medium">
                       Trừ: {new Intl.NumberFormat('vi-VN').format(product.deductionAmount)} đ
                     </p>
                   )}
@@ -416,7 +416,7 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                   <div className="space-y-0.5 sm:space-y-1">
                     {/* Vấn đề */}
                     {product.issueDescription && String(product.issueDescription).trim() && (
-                      <p className="text-xs text-orange-600 font-medium leading-snug">
+                      <p className="text-xs text-warning font-medium leading-snug">
                         Vấn đề: {product.issueDescription}
                       </p>
                     )}
@@ -442,7 +442,7 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 {/* Bù trừ - Only show for out_of_stock */}
                 <TableCell className="text-right font-medium">
                   {product.resolution === 'out_of_stock' ? (
-                    <span className="text-red-600">
+                    <span className="text-destructive">
                       {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))}
                     </span>
                   ) : (

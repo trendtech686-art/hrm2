@@ -84,13 +84,13 @@ export function TimeTracker({
         <div className="flex items-center gap-2">
           <Clock className={cn(
             "h-4 w-4",
-            isRunning ? "text-green-600 animate-pulse" : "text-muted-foreground"
+            isRunning ? "text-success animate-pulse" : "text-muted-foreground"
           )} />
           <span className="text-sm font-semibold">Thời gian</span>
         </div>
         {isRunning && (
-          <div className="flex items-center gap-1.5 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
-            <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse" />
+          <div className="flex items-center gap-1.5 text-xs bg-success/10 text-success-foreground px-2 py-1 rounded-full">
+            <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
             Đang đếm
           </div>
         )}
@@ -100,12 +100,12 @@ export function TimeTracker({
       <div className="grid gap-2">
         {/* Response time: assigned → started */}
         {responseSeconds !== null && (
-          <div className="flex items-center justify-between py-1.5 px-3 rounded-md bg-blue-50 dark:bg-blue-950/30">
-            <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-md bg-info/10">
+            <div className="flex items-center gap-2 text-xs text-info-foreground">
               <Zap className="h-3.5 w-3.5" />
               <span>Phản hồi</span>
             </div>
-            <span className="text-xs font-medium tabular-nums text-blue-800 dark:text-blue-200">
+            <span className="text-xs font-medium tabular-nums text-info-foreground">
               {formatDuration(responseSeconds)}
             </span>
           </div>
@@ -114,11 +114,11 @@ export function TimeTracker({
         {/* Working time: started → now/completed */}
         <div className={cn(
           "flex items-center justify-between py-1.5 px-3 rounded-md",
-          isRunning ? "bg-green-50 dark:bg-green-950/30" : "bg-muted/50"
+          isRunning ? "bg-success/10" : "bg-muted/50"
         )}>
           <div className={cn(
             "flex items-center gap-2 text-xs",
-            isRunning ? "text-green-700 dark:text-green-300" : "text-muted-foreground"
+            isRunning ? "text-success-foreground" : "text-muted-foreground"
           )}>
             <Timer className="h-3.5 w-3.5" />
             <span>Thực hiện</span>
@@ -126,7 +126,7 @@ export function TimeTracker({
           <div className="text-right">
             <span className={cn(
               "text-sm font-bold tabular-nums",
-              isRunning && "text-green-700 dark:text-green-200",
+              isRunning && "text-success-foreground",
               isOverEstimate && "text-destructive"
             )}>
               {formatTime(workingSeconds)}

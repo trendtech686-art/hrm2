@@ -50,7 +50,7 @@ function MetadataDisplay({ showMetadata, metadata }: { showMetadata: boolean; me
       {hasOldNew && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {metadata.oldValue != null && (
-            <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">
+            <span className="px-2 py-0.5 bg-destructive/10 text-destructive rounded">
               {String(metadata.oldValue)}
             </span>
           )}
@@ -58,7 +58,7 @@ function MetadataDisplay({ showMetadata, metadata }: { showMetadata: boolean; me
             <ArrowRight className="h-3 w-3" />
           )}
           {metadata.newValue != null && (
-            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
+            <span className="px-2 py-0.5 bg-success/10 text-success-foreground rounded">
               {String(metadata.newValue)}
             </span>
           )}
@@ -226,27 +226,27 @@ export function ActivityHistory({
   // Get action icon and color
   const getActionStyle = (action: string) => {
     const styles: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bgColor: string }> = {
-      created: { icon: Plus, color: 'text-green-600', bgColor: 'bg-green-100' },
-      updated: { icon: Edit, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-      deleted: { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-100' },
+      created: { icon: Plus, color: 'text-success', bgColor: 'bg-success/15' },
+      updated: { icon: Edit, color: 'text-info', bgColor: 'bg-info/15' },
+      deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
       status_changed: { icon: CheckCircle2, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-      assigned: { icon: User, color: 'text-orange-600', bgColor: 'bg-orange-100' },
+      assigned: { icon: User, color: 'text-warning', bgColor: 'bg-warning/25' },
       product_added: { icon: Package, color: 'text-teal-600', bgColor: 'bg-teal-100' },
-      product_updated: { icon: Package, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-      product_removed: { icon: Package, color: 'text-red-600', bgColor: 'bg-red-100' },
-      payment_made: { icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-100' },
+      product_updated: { icon: Package, color: 'text-info', bgColor: 'bg-info/15' },
+      product_removed: { icon: Package, color: 'text-destructive', bgColor: 'bg-destructive/15' },
+      payment_made: { icon: DollarSign, color: 'text-success', bgColor: 'bg-success/15' },
       comment_added: { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
       attachment_added: { icon: FileText, color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
       
       // Complaint-specific actions
-      verified: { icon: CheckCircle2, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-      'verified-correct': { icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-100' },
-      'verified-incorrect': { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
-      investigated: { icon: AlertCircle, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-      resolved: { icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-100' },
-      rejected: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
-      cancelled: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
-      ended: { icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-100' },
+      verified: { icon: CheckCircle2, color: 'text-info', bgColor: 'bg-info/15' },
+      'verified-correct': { icon: CheckCircle2, color: 'text-success', bgColor: 'bg-success/15' },
+      'verified-incorrect': { icon: XCircle, color: 'text-destructive', bgColor: 'bg-destructive/15' },
+      investigated: { icon: AlertCircle, color: 'text-info', bgColor: 'bg-info/15' },
+      resolved: { icon: CheckCircle2, color: 'text-success', bgColor: 'bg-success/15' },
+      rejected: { icon: XCircle, color: 'text-destructive', bgColor: 'bg-destructive/15' },
+      cancelled: { icon: XCircle, color: 'text-destructive', bgColor: 'bg-destructive/15' },
+      ended: { icon: CheckCircle2, color: 'text-success', bgColor: 'bg-success/15' },
       reopened: { icon: History, color: 'text-purple-600', bgColor: 'bg-purple-100' },
       commented: { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
       
