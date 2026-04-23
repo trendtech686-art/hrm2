@@ -182,22 +182,6 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
     [handlers.handleCancelRequest, handlers.handlePrint, handlers.handlePayment, handlers.handleReceiveGoods, branches]
   );
 
-  // Server-side: data already filtered/sorted by API
-  const displayData = isMobile ? purchaseOrders.slice(0, filters.mobileLoadedCount) : purchaseOrders;
-
-  // Mobile infinite scroll
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const handleScroll = () => {
-      const scrollPercent = ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight) * 100;
-      if (scrollPercent > 80 && filters.mobileLoadedCount < purchaseOrders.length) {
-        filters.setMobileLoadedCount(prev => Math.min(prev + 20, purchaseOrders.length));
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, filters.mobileLoadedCount, purchaseOrders.length, filters]);
-
   // Bulk actions
   const bulkActions = [
     { label: 'In đơn nhập hàng', onSelect: handlers.handleBulkPrint },
@@ -246,7 +230,7 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
       <div className={cn(isFetching && !isLoadingPOs && 'opacity-70 transition-opacity')}>
       <ResponsiveDataTable
         columns={columns}
-        data={displayData}
+        data={purchaseOrders}
         renderMobileCard={(po) => <PurchaseOrderCard purchaseOrder={po} onCancel={handlers.handleCancelRequest} onPrint={handlers.handlePrint} onPayment={handlers.handlePayment} onReceiveGoods={handlers.handleReceiveGoods} onClick={handleRowClick} />}
         pageCount={pageCount}
         pagination={filters.pagination}
@@ -273,26 +257,13 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
       />
       </div>
 
-      {isMobile && (
-        <div className="py-6 text-center">
-          {filters.mobileLoadedCount < purchaseOrders.length ? (
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="text-sm">Đang tải thêm...</span>
-            </div>
-          ) : purchaseOrders.length > 20 ? (
-            <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {purchaseOrders.length} kết quả</p>
-          ) : null}
-        </div>
-      )}
-
       {/* Dialogs */}
       <POCancelDialog state={handlers.cancelDialogState} onOpenChange={(open) => !open && handlers.closeCancelDialog()} onConfirm={handlers.handleConfirmCancel} onClose={handlers.closeCancelDialog} />
       <POBulkPayDialog open={handlers.isBulkPayAlertOpen} onOpenChange={handlers.setIsBulkPayAlertOpen} numSelected={handlers.numSelected} onConfirm={handlers.confirmBulkPay} />
       <POReceiveDialog state={handlers.receiveDialogState} branches={branches} pendingQueueLength={0} isSubmitting={handlers.isSubmittingReceive} hasValidQuantity={hasValidReceiveQty} onClose={handlers.closeReceiveDialog} onFieldChange={handlers.handleReceiveFieldChange} onBranchChange={handlers.handleReceiveBranchChange} onQuantityChange={handlers.handleReceiveQuantityChange} onSubmit={handlers.handleSubmitReceiveDialog} />
       <SimplePrintOptionsDialog open={handlers.isPrintDialogOpen} onOpenChange={handlers.closePrintDialog} onConfirm={handlers.handlePrintConfirm} selectedCount={handlers.pendingPrintPOs.length} title="In đơn nhập hàng" />
       <PurchaseOrderImportDialog open={importExport.showImportDialog} onOpenChange={importExport.setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={purchaseOrders} onImport={handleImport} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
-      <PurchaseOrderExportDialog open={importExport.showExportDialog} onOpenChange={importExport.setShowExportDialog} allData={purchaseOrders} filteredData={purchaseOrders} currentPageData={displayData} selectedData={handlers.selectedOrders} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
+      <PurchaseOrderExportDialog open={importExport.showExportDialog} onOpenChange={importExport.setShowExportDialog} allData={purchaseOrders} filteredData={purchaseOrders} currentPageData={purchaseOrders} selectedData={handlers.selectedOrders} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
       <SapoPurchaseOrderImportDialog open={isSapoImportOpen} onOpenChange={setIsSapoImportOpen} existingData={purchaseOrders} onImport={handleImport} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
       {isMobile && canCreate && <FAB onClick={() => router.push('/purchase-orders/new')} />}
     </div>

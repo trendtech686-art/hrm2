@@ -154,7 +154,7 @@ export function PriceAdjustmentListPage() {
   const columns = React.useMemo(() => getColumns(router.push, handleSinglePrint), [router, handleSinglePrint]);
 
   const headerActions = React.useMemo(() => [
-    canCreate && <Button key="add" className="h-9" onClick={() => router.push('/price-adjustments/new')}>
+    canCreate && <Button key="add" onClick={() => router.push('/price-adjustments/new')}>
       <Plus className="mr-2 h-4 w-4" />Tạo phiếu
     </Button>
   ], [router, canCreate]);
@@ -365,6 +365,7 @@ export function PriceAdjustmentListPage() {
           pinnedColumns={pinnedColumns} 
           setPinnedColumns={setPinnedColumns} 
           onRowClick={handleRowClick} 
+          mobileInfiniteScroll
         />
       </div>
       <AlertDialog open={!!confirmDialogState} onOpenChange={o => { if (!o && !isConfirmLoading) setConfirmDialogState(null); }}>

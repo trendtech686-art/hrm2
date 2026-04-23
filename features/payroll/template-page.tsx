@@ -31,7 +31,6 @@ import {
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { useAllPayrollTemplates, usePayrollTemplateMutations, usePayrollTemplateExtended, usePayrollTemplateFinder } from './hooks/use-payroll';
 import { useEmployeeSettings } from '../settings/employees/hooks/use-employee-settings';
 import { getTemplateColumns } from './template-columns';
@@ -58,7 +57,6 @@ export function PayrollTemplatePage() {
     () => employeeSettings?.salaryComponents ?? [],
     [employeeSettings?.salaryComponents]
   );
-  const { isMobile } = useBreakpoint();
   const { can } = useAuth();
   const canCreate = can('create_payroll');
   const canApprove = can('approve_payroll');
@@ -89,9 +87,6 @@ export function PayrollTemplatePage() {
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
 
-  // Mobile infinite scroll
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-
   // Simple search for templates
   const filteredData = React.useMemo(() => {
     let result = simpleSearch(templates as unknown as Record<string, unknown>[], searchQuery.trim(), { keys: ['id', 'name', 'description'] }) as unknown as PayrollTemplate[];
@@ -108,9 +103,8 @@ export function PayrollTemplatePage() {
     return result;
   }, [templates, searchQuery, isDefaultFilter]);
 
-  // Reset mobile count when filters change
+  // Reset pagination when filters change
   React.useEffect(() => {
-    setMobileLoadedCount(20);
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [searchQuery, isDefaultFilter.size]);
 
@@ -276,22 +270,6 @@ export function PayrollTemplatePage() {
     setColumnOrder(columns.map((c) => c.id).filter(Boolean) as string[]);
   }, [columns]);
 
-  // Mobile scroll listener
-  React.useEffect(() => {
-    if (!isMobile) return;
-
-    const handleScroll = () => {
-      const scrollPosition = window.innerHeight + window.scrollY;
-      const threshold = document.body.offsetHeight * 0.8;
-      if (scrollPosition >= threshold && mobileLoadedCount < filteredData.length) {
-        setMobileLoadedCount((prev) => Math.min(prev + 20, filteredData.length));
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, mobileLoadedCount, filteredData.length]);
-
   // Pagination
   const pageCount = Math.ceil(filteredData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => {
@@ -299,8 +277,6 @@ export function PayrollTemplatePage() {
     const end = start + pagination.pageSize;
     return filteredData.slice(start, end);
   }, [filteredData, pagination.pageIndex, pagination.pageSize]);
-
-  const displayData = isMobile ? filteredData.slice(0, mobileLoadedCount) : paginatedData;
 
   // Selected rows count
   const selectedCount = Object.values(rowSelection).filter(Boolean).length;
@@ -311,7 +287,6 @@ export function PayrollTemplatePage() {
       canApprove && <Button
         key="reset"
         variant="outline"
-        className="h-9"
         size="sm"
         onClick={() => setIsResetDialogOpen(true)}
       >
@@ -320,7 +295,6 @@ export function PayrollTemplatePage() {
       </Button>,
       canCreate && <Button
         key="new"
-        className="h-9"
         size="sm"
         onClick={handleOpenCreateDialog}
       >
@@ -379,7 +353,7 @@ export function PayrollTemplatePage() {
             placeholder="Tìm theo tên, mã mẫu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 pl-9 pr-9"
+            className="pl-9 pr-9"
           />
           {searchQuery && (
             <Button
@@ -406,7 +380,7 @@ export function PayrollTemplatePage() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 px-2"
+              className="px-2"
               onClick={() => {
                 setSearchQuery('');
                 setIsDefaultFilter(new Set());
@@ -428,8 +402,9 @@ export function PayrollTemplatePage() {
 
       <ResponsiveDataTable<PayrollTemplate>
         columns={columns}
-        data={displayData}
+        data={paginatedData}
         renderMobileCard={renderMobileCard}
+        mobileInfiniteScroll
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         columnVisibility={columnVisibility}
@@ -450,19 +425,6 @@ export function PayrollTemplatePage() {
         emptyDescription={searchQuery || isDefaultFilter.size > 0 ? 'Thử thay đổi từ khóa hoặc bộ lọc.' : "Nhấn 'Thêm mẫu' để tạo cấu hình đầu tiên."}
       />
 
-      {/* Mobile loading indicator */}
-      {isMobile && (
-        <div className="py-6 text-center">
-          {mobileLoadedCount < filteredData.length ? (
-            <p className="text-sm text-muted-foreground">Đang tải thêm...</p>
-          ) : filteredData.length > 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Đã hiển thị tất cả {filteredData.length} mẫu
-            </p>
-          ) : null}
-        </div>
-      )}
-
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent mobileFullScreen className="max-w-2xl">
@@ -477,7 +439,6 @@ export function PayrollTemplatePage() {
               <Label htmlFor="template-name">Tên mẫu</Label>
               <Input
                 id="template-name"
-                className="h-9"
                 required
                 value={formState.name}
                 onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
@@ -559,10 +520,10 @@ export function PayrollTemplatePage() {
             </label>
 
             <DialogFooter className="flex flex-row items-center justify-between gap-2">
-              <Button type="button" variant="outline" className="h-9" onClick={resetDialog}>
+              <Button type="button" variant="outline" onClick={resetDialog}>
                 Hủy
               </Button>
-              <Button type="submit" className="h-9">
+              <Button type="submit">
                 {editingTemplateId ? 'Lưu thay đổi' : 'Tạo mẫu'}
               </Button>
             </DialogFooter>

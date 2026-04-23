@@ -96,7 +96,6 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   const canEditSettings = can('edit_settings');
   const router = useRouter();
   const { isMobile } = useBreakpoint();
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('suppliers');
@@ -117,8 +116,8 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   }, [setPagination]);
 
   const headerActions = React.useMemo(() => [
-    canDelete && <Button key="trash" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
-    canCreate && <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhà cung cấp</Button>
+    canDelete && <Button key="trash" variant="outline" size="sm" className="gap-2" onClick={() => router.push('/suppliers/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
+    canCreate && <Button key="add" size="sm" className="gap-2" onClick={() => router.push('/suppliers/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhà cung cấp</Button>
   ], [router, deletedCount, canCreate, canDelete]);
 
   usePageHeader({
@@ -185,20 +184,6 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     // Toast handled by onDeleteSuccess callback
   };
 
-  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, sorting]);
-
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const handleScroll = () => {
-      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight * 0.8) {
-        setMobileLoadedCount(prev => prev < suppliers.length ? Math.min(prev + 20, suppliers.length) : prev);
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, suppliers.length]);
-
-  const displayData = React.useMemo(() => isMobile ? suppliers.slice(0, mobileLoadedCount) : suppliers, [isMobile, suppliers, mobileLoadedCount]);
   const bulkActions = [
     { label: "Đang giao dịch", onSelect: () => handleBulkStatusChange('Đang Giao Dịch') },
     { label: "Tạm ngừng", onSelect: () => handleBulkStatusChange('Ngừng Giao Dịch') },
@@ -291,19 +276,11 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       <div className={cn((isFilterPending || (isFetching && !isLoadingSuppliers)) && 'opacity-60 transition-opacity')}>
-      <ResponsiveDataTable columns={columns} data={displayData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} onRowHover={handleRowHover} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoadingSuppliers}
+      <ResponsiveDataTable columns={columns} data={suppliers} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} onRowHover={handleRowHover} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoadingSuppliers}
         renderMobileCard={(supplier) => <SupplierCard supplier={supplier} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} navigate={router.push} />}
+        mobileInfiniteScroll
       />
       </div>
-      {isMobile && mobileLoadedCount < suppliers.length && (
-        <div className="text-center py-4">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-          <p className="text-sm text-muted-foreground mt-2">Đang tải thêm...</p>
-        </div>
-      )}
-      {isMobile && mobileLoadedCount >= suppliers.length && suppliers.length > 20 && (
-        <div className="text-center py-4"><p className="text-sm text-muted-foreground">Đã hiển thị tất cả {suppliers.length} kết quả</p></div>
-      )}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -340,7 +340,6 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintOrders, setPendingPrintOrders] = React.useState<Order[]>([]);
   const [initialPrintTemplateType, setInitialPrintTemplateType] = React.useState<OrderPrintTemplateType>('order');
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   const defaultColumnVisibility = React.useMemo(() => { const cols = getColumns(() => {}, null as unknown as ReturnType<typeof useRouter>); const init: Record<string, boolean> = {}; cols.forEach(c => { if (c.id) init[c.id] = true; }); return init; }, []);
   const [columnVisibility, setColumnVisibility, isVisibilityLoaded] = useColumnVisibility('orders', defaultColumnVisibility);
@@ -349,7 +348,6 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
 
   React.useEffect(() => { const status = searchParams?.get('status'); if (status) setStatusFilter(new Set([status])); }, [searchParams]);
 
-  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, statusFilter]);
   React.useEffect(() => { if (!isCancelAlertOpen) { setCancelReason(''); setRestockItems(true); } }, [isCancelAlertOpen]);
 
   const handleCancelRequest = React.useCallback((systemId: string) => { setIdToCancel(systemId as SystemId); setIsCancelAlertOpen(true); }, []);
@@ -380,11 +378,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     setIsCancelAlertOpen(false); setIdToCancel(null);
   };
 
-  // Server-side pagination: data is already filtered, sorted, paginated by API
-  const displayData = isMobile ? orders.slice(0, mobileLoadedCount) : orders;
   const allSelectedRows = React.useMemo(() => orders.filter(o => rowSelection[o.systemId]), [orders, rowSelection]);
-
-  React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < orders.length) setMobileLoadedCount(p => Math.min(p + 20, orders.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, orders.length]);
 
   const handleRowHover = React.useCallback((row: Order) => {
     queryClient.prefetchQuery({
@@ -447,7 +441,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
 
   const handleImport = useOrderImportHandler({ authEmployeeSystemId: authEmployee?.systemId });
 
-  const headerActions = React.useMemo(() => [canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>].filter(Boolean), [router, canCreate]);
+  const headerActions = React.useMemo(() => [canCreate && <Button key="add" size="sm" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: 'Danh sách đơn hàng', breadcrumb: [{ label: 'Trang chủ', href: '/' }, { label: 'Đơn hàng', href: '/orders', isCurrent: true }], showBackButton: false, actions: headerActions });
 
   const handlePullRefresh = React.useCallback(async () => {
@@ -513,7 +507,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
           <DataTableDateFilter value={dateRange} onChange={(v) => startFilterTransition(() => setDateRange(v))} title="Ngày đặt" />
           <div className="flex flex-wrap items-center gap-2">
             <Select value={employeeFilter} onValueChange={(v) => startFilterTransition(() => setEmployeeFilter(v))}>
-            <SelectTrigger className="h-9 w-45">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="NV phụ trách" />
             </SelectTrigger>
             <SelectContent>
@@ -526,7 +520,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
             </SelectContent>
           </Select>
           {(dateRange || employeeFilter || activeCard || statusFilter.size > 0) && (
-            <Button variant="ghost" size="sm" className="h-9 text-muted-foreground" onClick={() => {
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => {
               startFilterTransition(() => {
                 setDateRange(undefined);
                 setEmployeeFilter('');
@@ -541,8 +535,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
         </div>
         <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       </div>
-      <div className={cn("pb-4", (isFilterPending || (isFetching && !isLoadingOrders)) && "opacity-60 transition-opacity")}><ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={o => <OrderCard order={o} onCancel={handleCancelRequest} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} emptyTitle="Không có đơn hàng" emptyDescription="Tạo đơn hàng đầu tiên" isLoading={isLoadingOrders} /></div>
-      {isMobile && <div className="py-6 text-center">{mobileLoadedCount < orders.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải...</span></div> : orders.length > 20 ? <p className="text-sm text-muted-foreground">Đã hiển thị {orders.length} kết quả</p> : null}</div>}
+      <div className={cn("pb-4", (isFilterPending || (isFetching && !isLoadingOrders)) && "opacity-60 transition-opacity")}><ResponsiveDataTable columns={columns} data={orders} renderMobileCard={o => <OrderCard order={o} onCancel={handleCancelRequest} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} emptyTitle="Không có đơn hàng" emptyDescription="Tạo đơn hàng đầu tiên" isLoading={isLoadingOrders} mobileInfiniteScroll /></div>
       <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy đơn hàng?</AlertDialogTitle><AlertDialogDescription className="space-y-4 text-left"><div className="space-y-2 text-sm"><p>Thao tác sẽ cập nhật trạng thái đơn thành "Đã hủy".</p></div><div className="space-y-2"><Label htmlFor="cancel-reason" className="text-sm font-semibold">Lý do hủy (bắt buộc)</Label><Textarea id="cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="Nhập lý do hủy..." rows={3} /></div><div className="flex items-start gap-3 rounded-md border border-border p-3"><Checkbox id="restock" checked={restockItems} onCheckedChange={c => setRestockItems(c === true)} /><div><Label htmlFor="restock" className="text-sm font-medium">Hoàn kho {pendingCancelQuantity} SP</Label><p className="text-xs text-muted-foreground">Bỏ chọn nếu tự xử lý tồn kho</p></div></div></AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Thoát</AlertDialogCancel><AlertDialogAction onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <PrintOptionsDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={pendingPrintOrders.length} initialTemplateType={initialPrintTemplateType} />
       <OrderImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} existingData={orders} onImport={handleImport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : undefined} storeContext={storeContext} />

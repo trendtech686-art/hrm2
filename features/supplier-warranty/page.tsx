@@ -9,7 +9,6 @@ import { ResponsiveDataTable } from '@/components/data-table/responsive-data-tab
 import { PageFilters } from '@/components/layout/page-filters'
 import { Button } from '@/components/ui/button'
 import { usePageHeader } from '@/contexts/page-header-context'
-import { useBreakpoint } from '@/contexts/breakpoint-context'
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings'
 import { Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
@@ -32,7 +31,6 @@ const WARRANTY_STATUSES = [
 
 export function SupplierWarrantyPage() {
   const router = useRouter()
-  const { isMobile } = useBreakpoint()
   const { can } = useAuth()
   const { data: suppliers = [] } = useAllSuppliers()
 
@@ -45,7 +43,6 @@ export function SupplierWarrantyPage() {
   const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({})
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true })
   const [pagination, setPagination] = usePaginationWithGlobalDefault()
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20)
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const { cancel, remove } = useSupplierWarrantyMutations()
 
@@ -61,10 +58,6 @@ export function SupplierWarrantyPage() {
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }))
   }, [advancedFilters, setPagination])
-
-  React.useEffect(() => {
-    setMobileLoadedCount(20)
-  }, [searchQuery, advancedFilters, sorting])
 
   // Server-side query
   const { data: queryData, isLoading } = useSupplierWarranties({
@@ -167,23 +160,6 @@ export function SupplierWarrantyPage() {
     router.push(`/supplier-warranties/${row.systemId}`)
   }, [router])
 
-  // Mobile infinite scroll
-  React.useEffect(() => {
-    if (!isMobile) return
-    const handleScroll = () => {
-      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight * 0.8) {
-        setMobileLoadedCount(prev => prev < items.length ? Math.min(prev + 20, items.length) : prev)
-      }
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [isMobile, items.length])
-
-  const displayData = React.useMemo(
-    () => isMobile ? items.slice(0, mobileLoadedCount) : items,
-    [isMobile, items, mobileLoadedCount],
-  )
-
   return (
     <div className="space-y-4">
       <PageFilters
@@ -205,7 +181,7 @@ export function SupplierWarrantyPage() {
 
       <ResponsiveDataTable
         columns={columns}
-        data={displayData}
+        data={items}
         pageCount={pageCount}
         pagination={pagination}
         setPagination={setPagination}
@@ -220,14 +196,8 @@ export function SupplierWarrantyPage() {
         allSelectedRows={allSelectedRows}
         emptyTitle="Không có phiếu BH NCC"
         emptyDescription="Chưa có phiếu bảo hành nhà cung cấp nào"
+        mobileInfiniteScroll
       />
-
-      {isMobile && mobileLoadedCount < items.length && (
-        <div className="text-center py-4">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-          <p className="text-sm text-muted-foreground mt-2">Đang tải thêm...</p>
-        </div>
-      )}
     </div>
   )
 }

@@ -646,7 +646,6 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         onClick={() => setViewMode(viewMode === 'kanban' ? 'table' : 'kanban')}
         variant="outline"
         size="sm"
-        className="h-9"
       >
         {viewMode === 'kanban' ? (
           <>
@@ -665,7 +664,6 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         key="new"
         onClick={() => router.push('/warranty/new')}
         size="sm"
-        className="h-9"
       >
         <Plus className="h-4 w-4 mr-2" />
         Tạo phiếu mới
@@ -775,6 +773,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
             isLoading={isLoadingWarranties}
             onRowClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
             getRowStyle={getRowStyle}
+            mobileInfiniteScroll
           />
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4">

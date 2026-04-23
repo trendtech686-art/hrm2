@@ -353,24 +353,3 @@ export function useCustomerColumnState() {
     setPinnedColumns,
   };
 }
-
-/**
- * Hook for mobile-specific state
- */
-export function useCustomerMobileState() {
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-
-  const loadMore = React.useCallback(() => {
-    setMobileLoadedCount((prev) => prev + 20);
-  }, []);
-
-  const resetMobileCount = React.useCallback(() => {
-    setMobileLoadedCount(20);
-  }, []);
-
-  return {
-    mobileLoadedCount,
-    loadMore,
-    resetMobileCount,
-  };
-}

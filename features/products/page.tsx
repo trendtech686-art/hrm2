@@ -191,8 +191,8 @@ export function ProductsPage({ initialStats }: ProductsPageProps = {}) {
   const [tableState, setTableState] = useUrlTableState(defaultTableState);
 
   const headerActions = React.useMemo(() => [
-    canDelete && <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/products/trash')}><Package className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
-    canCreate && <DropdownMenu key="add-menu"><DropdownMenuTrigger asChild><Button size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Thêm sản phẩm</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => router.push('/products/new')}><Package className="mr-2 h-4 w-4" />Thêm sản phẩm đơn</DropdownMenuItem><DropdownMenuItem onClick={() => router.push('/products/new?type=combo')}><Layers className="mr-2 h-4 w-4" />Thêm Combo</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+    canDelete && <Button key="trash" variant="outline" size="sm" onClick={() => router.push('/products/trash')}><Package className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
+    canCreate && <DropdownMenu key="add-menu"><DropdownMenuTrigger asChild><Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />Thêm sản phẩm</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => router.push('/products/new')}><Package className="mr-2 h-4 w-4" />Thêm sản phẩm đơn</DropdownMenuItem><DropdownMenuItem onClick={() => router.push('/products/new?type=combo')}><Layers className="mr-2 h-4 w-4" />Thêm Combo</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
   ], [deletedCount, router, canDelete, canCreate]);
   usePageHeader({ title: 'Danh sách sản phẩm', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Sản phẩm', href: '/products', isCurrent: true }], actions: headerActions, showBackButton: false });
 

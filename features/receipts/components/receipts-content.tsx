@@ -17,7 +17,6 @@ import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useAllCashAccounts } from "../../cashbook/hooks/use-all-cash-accounts";
 import type { Receipt } from '@/lib/types/prisma-extended';
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Printer, FileSpreadsheet, Download, Settings, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -54,7 +53,6 @@ import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { formatCurrency, formatNumber } from "@/lib/format-utils"
 import { cn } from '@/lib/utils'
 
-import { mobileBleedCardClass } from '@/components/layout/page-section';
 // Dynamic imports for import/export dialogs
 const ReceiptImportDialog = dynamic(
   () => import('./receipt-import-export-dialogs').then(mod => ({ default: mod.ReceiptImportDialog })),
@@ -372,30 +370,6 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     },
   ], [handleBulkPrint]);
 
-  // Mobile infinite scroll
-  React.useEffect(() => {
-    if (!isMobile) return;
-
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const clientHeight = window.innerHeight;
-      const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
-
-      if (scrollPercentage > 0.8 && filters.mobileLoadedCount < filteredData.length) {
-        filters.setMobileLoadedCount(prev => Math.min(prev + 20, filteredData.length));
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, filters.mobileLoadedCount, filteredData.length, filters]);
-
-  // Reset mobile loaded count when filters change
-  React.useEffect(() => {
-    filters.setMobileLoadedCount(20);
-  }, [filters.debouncedGlobalFilter, filters.branchFilter, filters.statusFilter, filters.typeFilter, filters.customerFilter, filters.dateRange, filters]);
-
   const pageCount = serverTotalPages;
 
   return (
@@ -458,7 +432,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
         rightFilters={
           <>
             <Select value={filters.branchFilter} onValueChange={filters.setBranchFilter}>
-              <SelectTrigger className="h-9 w-37.5">
+              <SelectTrigger className="w-37.5">
                 <SelectValue placeholder="Chi nhánh" />
               </SelectTrigger>
               <SelectContent>
@@ -497,77 +471,42 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
       />
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
-      {/* Mobile View - Cards */}
-      {isMobile ? (
-        <div className={cn('space-y-2 flex-1 overflow-y-auto', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
-          {filteredData.length === 0 && !isLoading ? (
-            <Card className={mobileBleedCardClass}>
-              <CardContent className="p-8 text-center text-muted-foreground">
-                Không tìm thấy phiếu thu nào
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {filteredData.slice(0, filters.mobileLoadedCount).map(receipt => (
-                <MobileReceiptCard 
-                  key={receipt.systemId} 
-                  receipt={receipt}
-                  onCancel={handleCancel}
-                  navigate={navigateTo}
-                  handleRowClick={handleRowClick}
-                />
-              ))}
-              {filters.mobileLoadedCount < filteredData.length && (
-                <Card className={mobileBleedCardClass}>
-                  <CardContent className="p-4 text-center text-muted-foreground">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      <span>Đang tải thêm...</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </>
+      <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
+        <ResponsiveDataTable
+          columns={columns}
+          data={filteredData}
+          pageCount={pageCount}
+          pagination={filters.pagination}
+          setPagination={filters.setPagination}
+          rowCount={serverTotal}
+          isLoading={isLoading}
+          rowSelection={filters.rowSelection}
+          setRowSelection={filters.setRowSelection}
+          onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
+          sorting={filters.sorting}
+          setSorting={filters.setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
+          allSelectedRows={allSelectedRows}
+          bulkActions={bulkActions}
+          expanded={{}}
+          setExpanded={() => {}}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={filters.columnOrder}
+          setColumnOrder={filters.setColumnOrder}
+          pinnedColumns={filters.pinnedColumns}
+          setPinnedColumns={filters.setPinnedColumns}
+          onRowClick={handleRowClick}
+          renderMobileCard={(receipt) => (
+            <MobileReceiptCard
+              receipt={receipt}
+              onCancel={handleCancel}
+              navigate={navigateTo}
+              handleRowClick={handleRowClick}
+            />
           )}
-        </div>
-      ) : (
-        /* Desktop View - Table */
-        <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
-          <ResponsiveDataTable
-            columns={columns}
-            data={filteredData}
-            pageCount={pageCount}
-            pagination={filters.pagination}
-            setPagination={filters.setPagination}
-            rowCount={serverTotal}
-            isLoading={isLoading}
-            rowSelection={filters.rowSelection}
-            setRowSelection={filters.setRowSelection}
-            onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
-            sorting={filters.sorting}
-            setSorting={filters.setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
-            allSelectedRows={allSelectedRows}
-            bulkActions={bulkActions}
-            expanded={{}}
-            setExpanded={() => {}}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={filters.columnOrder}
-            setColumnOrder={filters.setColumnOrder}
-            pinnedColumns={filters.pinnedColumns}
-            setPinnedColumns={filters.setPinnedColumns}
-            onRowClick={handleRowClick}
-            renderMobileCard={(receipt) => (
-              <MobileReceiptCard 
-                receipt={receipt}
-                onCancel={handleCancel}
-                navigate={navigateTo}
-                handleRowClick={handleRowClick}
-              />
-            )}
-          />
-        </div>
-      )}
+          mobileInfiniteScroll
+        />
+      </div>
 
       {/* Alert Dialogs */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>

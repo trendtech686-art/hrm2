@@ -11,18 +11,31 @@ import { cn } from "../../lib/utils"
  *
  * Pattern chuẩn shadcn: `<div class="relative w-full overflow-x-auto"><table/></div>`.
  */
-const Table = React.forwardRef<
-  HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-x-auto [scrollbar-width:thin]">
-    <table
-      ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
-      {...props}
-    />
-  </div>
-))
+type TableProps = React.HTMLAttributes<HTMLTableElement> & {
+  /**
+   * Additional classes for the inner scroll container (the `<div>` wrapping the `<table>`).
+   * Pass `"!overflow-visible"` when the parent already handles horizontal scrolling (e.g. inside
+   * ResponsiveDataTable with StickyScrollbar) to prevent a double scrollbar.
+   */
+  containerClassName?: string
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, containerClassName, ...props }, ref) => (
+    <div
+      className={cn(
+        "relative w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+        containerClassName,
+      )}
+    >
+      <table
+        ref={ref}
+        className={cn("w-full caption-bottom text-sm", className)}
+        {...props}
+      />
+    </div>
+  ),
+)
 Table.displayName = "Table"
 
 const TableHeader = React.forwardRef<

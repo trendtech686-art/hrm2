@@ -21,14 +21,12 @@ const ShipmentExportDialog = dynamic(() => import("./components/shipments-import
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { StatsBar } from '../../components/shared/stats-bar';
-import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Truck, MoreHorizontal, Printer, FileText, Download, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { getDeliveryStatusLabel } from '../../lib/constants/order-status-labels';
 import { TouchButton } from '../../components/mobile/touch-button';
 import { MobileCard, MobileCardBody, MobileCardHeader } from '../../components/mobile/mobile-card';
@@ -94,7 +92,6 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('shipments', defaultColumnVisibility);
   const [columnOrder, setColumnOrder] = useColumnOrder('shipments');
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('shipments');
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
   // Debounce search
@@ -264,23 +261,6 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
 
   const allSelectedRows = React.useMemo(() => shipments.filter(s => rowSelection[s.systemId]), [shipments, rowSelection]);
 
-  // Mobile infinite scroll
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const clientHeight = window.innerHeight;
-      if (scrollTop + clientHeight >= scrollHeight * 0.8 && mobileLoadedCount < shipments.length) {
-        setMobileLoadedCount(prev => Math.min(prev + 20, shipments.length));
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, mobileLoadedCount, shipments.length]);
-
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, branchFilter, statusFilter, partnerFilter]);
-
   const handleRowClick = (row: ShipmentView) => router.push('/shipments/' + row.systemId);
 
   const MobileShipmentCard = ({ shipment }: { shipment: ShipmentView }) => {
@@ -389,66 +369,34 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
-      {isMobile ? (
-        <div className={cn('space-y-3 px-1 pb-4', isFetching && !isLoadingShipments && 'opacity-70 transition-opacity')}>
-          {shipments.length === 0 ? (
-            <Card className={mobileBleedCardClass}>
-              <CardContent className='py-12 text-center'>
-                <p className='text-muted-foreground'>Không tìm thấy vận đơn</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {shipments.slice(0, mobileLoadedCount).map(s => <MobileShipmentCard key={s.systemId} shipment={s} />)}
-              {mobileLoadedCount < shipments.length && (
-                <Card className='border-dashed'>
-                  <CardContent className='py-6 text-center'>
-                    <div className='flex items-center justify-center gap-2'>
-                      <div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' />
-                      <span className='text-sm text-muted-foreground'>Đang tải thêm...</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              {mobileLoadedCount >= shipments.length && shipments.length > 20 && (
-                <Card className='border-dashed'>
-                  <CardContent className='py-4 text-center'>
-                    <span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {shipments.length} vận đơn</span>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
-        </div>
-      ) : (
-        <div className={cn('w-full py-4', isFetching && !isLoadingShipments && 'opacity-70 transition-opacity')}>
-          <ResponsiveDataTable
-            columns={columns}
-            data={shipments}
-            renderMobileCard={s => <MobileShipmentCard shipment={s} />}
-            pageCount={pageCount}
-            pagination={pagination}
-            setPagination={setPagination}
-            rowCount={totalRows}
-            rowSelection={rowSelection}
-            setRowSelection={setRowSelection}
-            allSelectedRows={allSelectedRows}
-            bulkActions={bulkActions}
-            expanded={expanded}
-            setExpanded={setExpanded}
-            sorting={sorting}
-            setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={columnOrder}
-            setColumnOrder={setColumnOrder}
-            pinnedColumns={pinnedColumns}
-            setPinnedColumns={setPinnedColumns}
-            onRowClick={handleRowClick}
-            isLoading={isLoadingShipments}
-          />
-        </div>
-      )}
+      <div className={cn('w-full py-4', isFetching && !isLoadingShipments && 'opacity-70 transition-opacity')}>
+        <ResponsiveDataTable
+          columns={columns}
+          data={shipments}
+          renderMobileCard={s => <MobileShipmentCard shipment={s} />}
+          pageCount={pageCount}
+          pagination={pagination}
+          setPagination={setPagination}
+          rowCount={totalRows}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          allSelectedRows={allSelectedRows}
+          bulkActions={bulkActions}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          sorting={sorting}
+          setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          pinnedColumns={pinnedColumns}
+          setPinnedColumns={setPinnedColumns}
+          onRowClick={handleRowClick}
+          isLoading={isLoadingShipments}
+          mobileInfiniteScroll
+        />
+      </div>
 
       {printDialogOpen && (
         <SimplePrintOptionsDialog

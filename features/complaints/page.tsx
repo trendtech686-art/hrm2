@@ -88,7 +88,6 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [confirmDialog, setConfirmDialog] = React.useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: '', description: '', onConfirm: () => {} });
 
   // ✅ DB-persisted column layout
@@ -102,7 +101,7 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
     const od = checkOverdue(c);
     if (cardColors.enableOverdueColor && (od.isOverdueResponse || od.isOverdueResolve)) return parseColorClass(cardColors.overdueColor);
     if (cardColors.enablePriorityColors && c.priority) { const pc = cardColors.priorityColors[c.priority]; if (pc) return parseColorClass(pc); }
-    if (cardColors.enableStatusColors) { const sc = cardColors.statusColors[c.status]; if (sc) return parseColorClass(sc); }
+    if (cardColors.enableStatusColors) { const sc = cardColors.statusColors[c.status as keyof typeof cardColors.statusColors]; if (sc) return parseColorClass(sc); }
     return {};
   }, [cardColors]);
 
@@ -222,13 +221,9 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
   React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; if (Object.keys(columnVisibility).length === 0) setColumnVisibility(buildDefaultVisibility()); if (columnOrder.length === 0) setColumnOrder(buildDefaultOrder()); }, []);
 
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => [{ label: "Trang chủ", href: ROUTES.ROOT }, { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS, isCurrent: true }], []);
-  const actions = React.useMemo(() => [canCreate && <Button key="create" onClick={() => router.push("/complaints/new")} className="h-9"><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại</Button>].filter(Boolean), [router, canCreate]);
+  const actions = React.useMemo(() => [canCreate && <Button key="create" onClick={() => router.push("/complaints/new")}><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: "Quản lý Khiếu nại", breadcrumb, showBackButton: false, actions });
 
-  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, advancedFilters]);
-  React.useEffect(() => { if (!isMobile) return; const h = () => { const sp = window.scrollY + window.innerHeight; const dh = document.documentElement.scrollHeight; if (sp >= dh * 0.8) setMobileLoadedCount(p => Math.min(p + 20, complaints.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, complaints.length]);
-
-  const displayData = isMobile ? complaints.slice(0, mobileLoadedCount) : complaints;
   const allSelectedRows = React.useMemo(() => Object.keys(rowSelection).filter(k => rowSelection[k]).map(id => complaints.find(c => c.systemId === id)).filter(Boolean) as Complaint[], [rowSelection, complaints]);
 
 
@@ -256,21 +251,21 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
       />
 
       <div className="flex items-center justify-end gap-2 mb-3">
-        {canEditSettings && <Button variant="outline" size="sm" className="h-9" onClick={() => router.push("/settings/complaints")}>
+        {canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push("/settings/complaints")}>
           <Settings className="h-4 w-4 mr-2" />Cài đặt
         </Button>}
         <DataTableColumnCustomizer<Complaint> columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
       </div>
       
       <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm theo đơn hàng, khách hàng, SĐT...">
-        {hasActiveFilters && <Button variant="ghost" size="sm" onClick={handleClearFilters} className="h-9"><X className="h-4 w-4 mr-1" />Xóa lọc</Button>}
+        {hasActiveFilters && <Button variant="ghost" size="sm" onClick={handleClearFilters}><X className="h-4 w-4 mr-1" />Xóa lọc</Button>}
         <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
       <div className={cn(isComplaintsFetching && !isLoadingComplaints && 'opacity-70 transition-opacity')}>
       <ResponsiveDataTable 
-        data={displayData} 
+        data={complaints} 
         columns={columns} 
         rowSelection={rowSelection} 
         setRowSelection={setRowSelection} 
@@ -292,13 +287,13 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
         getRowStyle={getRowStyle} 
         bulkActions={bulkActions} 
         renderMobileCard={c => <ComplaintCard key={c.systemId} complaint={c} onClick={() => handleComplaintClick(c)} employees={employees} />} 
+        mobileInfiniteScroll
       />
       </div>
 
-      {isMobile && <div className="py-6 text-center">{mobileLoadedCount < complaints.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div><span className="text-sm">Đang tải thêm...</span></div> : complaints.length > 0 ? <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {complaints.length} khiếu nại</p> : null}</div>}
-      {complaints.length === 0 && !isLoadingComplaints && <div className="flex flex-col items-center justify-center py-12 text-center"><AlertCircle className="h-12 w-12 text-muted-foreground mb-4" /><h3 className="text-h4 font-semibold mb-2">Chưa có khiếu nại nào</h3><p className="text-muted-foreground mb-4">{hasActiveFilters ? "Không tìm thấy khiếu nại phù hợp" : "Bắt đầu bằng cách tạo khiếu nại mới"}</p>{!hasActiveFilters && <Button onClick={() => router.push("/complaints/new")} className="h-9"><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại đầu tiên</Button>}</div>}
+      {complaints.length === 0 && !isLoadingComplaints && <div className="flex flex-col items-center justify-center py-12 text-center"><AlertCircle className="h-12 w-12 text-muted-foreground mb-4" /><h3 className="text-h4 font-semibold mb-2">Chưa có khiếu nại nào</h3><p className="text-muted-foreground mb-4">{hasActiveFilters ? "Không tìm thấy khiếu nại phù hợp" : "Bắt đầu bằng cách tạo khiếu nại mới"}</p>{!hasActiveFilters && <Button onClick={() => router.push("/complaints/new")}><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại đầu tiên</Button>}</div>}
 
-      <Dialog open={confirmDialog.open} onOpenChange={o => setConfirmDialog(p => ({ ...p, open: o }))}><DialogContent><DialogHeader><DialogTitle>{confirmDialog.title}</DialogTitle><DialogDescription>{confirmDialog.description}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" className="h-9" onClick={() => setConfirmDialog(p => ({ ...p, open: false }))}>Hủy</Button><Button className="h-9" onClick={confirmDialog.onConfirm}>Xác nhận</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={confirmDialog.open} onOpenChange={o => setConfirmDialog(p => ({ ...p, open: o }))}><DialogContent><DialogHeader><DialogTitle>{confirmDialog.title}</DialogTitle><DialogDescription>{confirmDialog.description}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setConfirmDialog(p => ({ ...p, open: false }))}>Hủy</Button><Button onClick={confirmDialog.onConfirm}>Xác nhận</Button></DialogFooter></DialogContent></Dialog>
       {isMobile && canCreate && <FAB onClick={() => router.push('/complaints/new')} />}
     </ListPageShell>
   );

@@ -34,7 +34,6 @@ export function useReceiptFilters() {
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
   
@@ -63,8 +62,6 @@ export function useReceiptFilters() {
     debouncedGlobalFilter,
     pagination,
     setPagination,
-    mobileLoadedCount,
-    setMobileLoadedCount,
     columnOrder,
     setColumnOrder,
     pinnedColumns,

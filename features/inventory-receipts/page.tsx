@@ -111,7 +111,6 @@ export function InventoryReceiptsPage() {
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintReceipts, setPendingPrintReceipts] = React.useState<InventoryReceipt[]>([]);
 
@@ -124,8 +123,8 @@ export function InventoryReceiptsPage() {
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('inventory-receipts', { visibility: defaultColumnVisibility, pinned: ['select', 'actions'] });
 
   const headerActions = React.useMemo(() => [
-    <Button key="po" variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}>Đơn mua hàng</Button>,
-    canEdit && <Button key="new" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>Tạo phiếu nhập</Button>,
+    <Button key="po" variant="outline" size="sm" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}>Đơn mua hàng</Button>,
+    canEdit && <Button key="new" size="sm" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>Tạo phiếu nhập</Button>,
   ].filter(Boolean), [router, canEdit]);
 
   usePageHeader({ title: 'Danh sách phiếu nhập kho', breadcrumb: [{ label: 'Trang chủ', href: ROUTES.DASHBOARD }, { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: true }], showBackButton: false, actions: headerActions });
@@ -159,20 +158,6 @@ export function InventoryReceiptsPage() {
   // Supplier options from useAllSuppliers
   const supplierOptions = React.useMemo(() => suppliers.map(s => ({ value: s.systemId, label: s.name })).sort((a, b) => a.label.localeCompare(b.label)), [suppliers]);
 
-  // Mobile infinite scroll
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, supplierFilter, branchFilter, dateRange]);
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const h = () => {
-      if ((window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight * 0.8 && mobileLoadedCount < receipts.length)
-        setMobileLoadedCount(p => Math.min(p + 20, receipts.length));
-    };
-    window.addEventListener('scroll', h, { passive: true });
-    return () => window.removeEventListener('scroll', h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, mobileLoadedCount]);
-
-  const displayData = isMobile ? receipts.slice(0, mobileLoadedCount) : receipts;
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
   const MobileReceiptCard = ({ receipt }: { receipt: InventoryReceipt }) => {
@@ -226,36 +211,20 @@ export function InventoryReceiptsPage() {
       {!isMobile && <PageToolbar leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>} />}
 
       <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm theo mã phiếu, NCC...">
-        <Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger className="h-9 w-full sm:w-50"><SelectValue placeholder="Nhà cung cấp" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả NCC</SelectItem>{supplierOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>
-        <Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="h-9 w-full sm:w-50"><SelectValue placeholder="Chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branchOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>
+        <Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger className="w-full sm:w-50"><SelectValue placeholder="Nhà cung cấp" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả NCC</SelectItem>{supplierOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>
+        <Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-50"><SelectValue placeholder="Chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branchOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>
         <DataTableDateFilter value={dateRange} onChange={setDateRange} title="Ngày nhập" />
       </PageFilters>
 
-      {isMobile ? (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {receipts.length === 0 && !isLoading ? <div className="p-8 text-center text-muted-foreground">Không tìm thấy phiếu</div>
-              : displayData.map(r => <MobileReceiptCard key={r.systemId} receipt={r} />)}
-          </div>
-          {receipts.length > 0 && (
-            <div className="py-6 text-center">
-              {mobileLoadedCount < receipts.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải...</span></div>
-                : receipts.length > 20 ? <p className="text-sm text-muted-foreground">Đã hiển thị {receipts.length} phiếu</p> : null}
-            </div>
-          )}
-        </div>
-      ) : (
-        <ResponsiveDataTable columns={columns} data={receipts} renderMobileCard={r => <MobileReceiptCard receipt={r} />} onRowClick={handleRowClick}
-          pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection}
-          allSelectedRows={selectedRows} bulkActions={bulkActions} showBulkDeleteButton={false}
-          expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoading} />
-      )}
+      <ResponsiveDataTable columns={columns} data={receipts} renderMobileCard={r => <MobileReceiptCard receipt={r} />} onRowClick={handleRowClick}
+        pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection}
+        allSelectedRows={selectedRows} bulkActions={bulkActions} showBulkDeleteButton={false}
+        expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility}
+        columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoading} mobileInfiniteScroll />
 
       <SimplePrintOptionsDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={pendingPrintReceipts.length} title="In phiếu nhập kho" />
       {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}
-      {exportDialogOpen && <InventoryReceiptExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={allReceipts} filteredData={allReceipts} currentPageData={receipts} selectedData={selectedRows}
-        currentUser={currentUserInfo} />}
+      {exportDialogOpen && <InventoryReceiptExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={allReceipts} filteredData={allReceipts} currentPageData={receipts} selectedData={selectedRows} currentUser={currentUserInfo} />}
     </div>
   );
 }

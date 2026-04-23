@@ -88,7 +88,6 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [viewMode, setViewMode] = React.useState<'list' | 'kanban'>('list');
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
@@ -133,7 +132,6 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const colInitRef = React.useRef(false);
 
   React.useEffect(() => { restoreTimer(); }, [restoreTimer]);
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, advancedFilters]);
   React.useEffect(() => {
     if (colInitRef.current || !columns.length) return;
     const defVisible = ['id', 'title', 'assigneeName', 'assignerName', 'priority', 'status', 'progress', 'startDate', 'dueDate', 'estimatedHours', 'actualHours'];
@@ -161,12 +159,6 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
     return d;
   }, [tasks, advancedFilters, activeQuickFilters, quickFilters]);
 
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const onScroll = () => { if ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < filteredData.length) setMobileLoadedCount(p => Math.min(p + 20, filteredData.length)); };
-    window.addEventListener('scroll', onScroll); return () => window.removeEventListener('scroll', onScroll);
-  }, [isMobile, mobileLoadedCount, filteredData.length]);
-
   const sortedData = React.useMemo(() => {
     const d = [...filteredData];
     if (!sorting.id) return d;
@@ -176,7 +168,6 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
 
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
-  const displayData = isMobile ? filteredData.slice(0, mobileLoadedCount) : paginatedData;
   const allSelectedRows = React.useMemo(() => tasks.filter(t => rowSelection[t.systemId]), [tasks, rowSelection]);
   const handleRowClick = (row: Task) => router.push(`/tasks/${row.systemId}`);
   const handleToggleQuickFilter = React.useCallback((id: string) => setActiveQuickFilters(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]), []);
@@ -192,8 +183,8 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
 
   const actions = React.useMemo(() => {
     const btns = [<Tabs key={`vt-${viewMode}`} value={viewMode} onValueChange={v => setViewMode(v as 'list' | 'kanban')} className="h-9"><MobileTabsList><MobileTabsTrigger value="list"><Table className="mr-2 h-4 w-4" />Danh sách</MobileTabsTrigger><MobileTabsTrigger value="kanban"><LayoutGrid className="mr-2 h-4 w-4" />Kanban</MobileTabsTrigger></MobileTabsList></Tabs>];
-    if (can('approve_tasks')) { btns.push(<Button key="t" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>, <Button key="d" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/dashboard')}><BarChart3 className="mr-2 h-4 w-4" />Dashboard</Button>); }
-    if (can('create_tasks')) { btns.push(<Button key="n" onClick={() => router.push('/tasks/new')} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo công việc mới</Button>); }
+    if (can('approve_tasks')) { btns.push(<Button key="t" variant="outline" size="sm" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>, <Button key="d" variant="outline" size="sm" onClick={() => router.push('/tasks/dashboard')}><BarChart3 className="mr-2 h-4 w-4" />Dashboard</Button>); }
+    if (can('create_tasks')) { btns.push(<Button key="n" onClick={() => router.push('/tasks/new')} size="sm"><PlusCircle className="mr-2 h-4 w-4" />Tạo công việc mới</Button>); }
     return btns;
   }, [viewMode, router, can]);
 
@@ -223,9 +214,8 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
       {viewMode === 'kanban' && <TaskKanbanView tasks={filteredData} onTaskClick={handleRowClick} employees={employees} onTaskUpdate={update} />}
       {viewMode === 'list' && (<>
         <div className={cn(isTasksFetching && 'opacity-70 transition-opacity')}>
-        <ResponsiveDataTable columns={columns} data={displayData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} bulkActions={bulkActions} renderMobileCard={task => <TaskCard task={task} onDelete={id => { setIdToDelete(id); setIsAlertOpen(true); }} />} />
+        <ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} bulkActions={bulkActions} renderMobileCard={task => <TaskCard task={task} onDelete={id => { setIdToDelete(id); setIsAlertOpen(true); }} />} mobileInfiniteScroll />
         </div>
-        {isMobile && mobileLoadedCount < filteredData.length && <div className="flex justify-center py-4"><span className="text-sm text-muted-foreground">Hiển thị {mobileLoadedCount} / {filteredData.length} • Cuộn xuống để xem thêm</span></div>}
       </>)}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{idToDelete ? "Xóa công việc?" : `Xóa ${allSelectedRows.length} công việc?`}</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={removeMutation.isPending}>{removeMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Xóa'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       {isMobile && can('create_tasks') && <FAB onClick={() => router.push('/tasks/new')} />}

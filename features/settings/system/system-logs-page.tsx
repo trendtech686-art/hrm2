@@ -648,6 +648,7 @@ export function SystemLogsPage() {
             setPinnedColumns={setPinnedColumns}
             renderMobileCard={renderMobileCard}
             onRowClick={handleRowClick}
+            mobileInfiniteScroll
             emptyTitle="Chưa có hoạt động"
             emptyDescription={
               searchTerm || entityFilter !== 'all' || actionTypeFilter !== 'all'

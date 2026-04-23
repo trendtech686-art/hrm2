@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
-import { Plus, Printer, Download, Settings, Loader2 } from "lucide-react";
+import { Plus, Printer, Download, Settings } from "lucide-react";
 import { ROUTES } from '../../lib/router';
 import { cn } from '@/lib/utils';
 import { usePurchaseReturns, usePurchaseReturnStats } from "./hooks/use-purchase-returns";
@@ -123,7 +123,6 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
   const [pendingPrintReturns, setPendingPrintReturns] = React.useState<PurchaseReturn[]>([]);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   // Column visibility (persisted to DB)
   const defaultColumnVisibility = React.useMemo(() => {
@@ -141,7 +140,7 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
   }, [branches, print]);
 
   const headerActions = React.useMemo(() => [
-    canCreate && <Button key="create" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}><Plus className="mr-2 h-4 w-4" />Tạo phiếu trả hàng</Button>
+    canCreate && <Button key="create" size="sm" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}><Plus className="mr-2 h-4 w-4" />Tạo phiếu trả hàng</Button>
   ].filter(Boolean), [router, canCreate]);
 
   usePageHeader({
@@ -174,20 +173,6 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
     setRowSelection({}); setPendingPrintReturns([]);
   }, [pendingPrintReturns, branches, printMultiple]);
 
-  // Mobile infinite scroll
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, supplierFilter, branchFilter, dateRange]);
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const handleScroll = () => {
-      const { scrollY, innerHeight } = window, { scrollHeight } = document.documentElement;
-      if (scrollY + innerHeight >= scrollHeight * 0.8 && mobileLoadedCount < purchaseReturns.length) setMobileLoadedCount(prev => Math.min(prev + 20, purchaseReturns.length));
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, mobileLoadedCount]);
-
-  const displayData = isMobile ? purchaseReturns.slice(0, mobileLoadedCount) : purchaseReturns;
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
   return (
@@ -206,11 +191,11 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
 
       <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm theo mã phiếu, NCC, đơn hàng...">
         <Select value={branchFilter} onValueChange={setBranchFilter}>
-          <SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-45"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="h-9 w-full sm:w-50"><SelectValue placeholder="Nhà cung cấp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-50"><SelectValue placeholder="Nhà cung cấp" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Tất cả NCC</SelectItem></SelectContent>
         </Select>
         <DataTableDateFilter value={dateRange} onChange={setDateRange} title="Ngày trả hàng" />
@@ -218,28 +203,13 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
-      {isMobile ? (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {purchaseReturns.length === 0 && !isLoading ? <div className="p-8 text-center text-muted-foreground">Không tìm thấy phiếu trả hàng nào.</div>
-              : displayData.map(pr => <MobileReturnCard key={pr.systemId} purchaseReturn={pr} onClick={handleRowClick} />)}
-          </div>
-          {purchaseReturns.length > 0 && (
-            <div className="py-6 text-center">
-              {mobileLoadedCount < purchaseReturns.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải thêm...</span></div>
-                : purchaseReturns.length > 20 && <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {purchaseReturns.length} phiếu trả hàng</p>}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className={cn(isFetching && !isLoading && 'opacity-70 transition-opacity')}>
-        <ResponsiveDataTable columns={columns} data={purchaseReturns} renderMobileCard={row => <MobileReturnCard purchaseReturn={row} onClick={handleRowClick} />} onRowClick={handleRowClick}
-          pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection}
-          allSelectedRows={selectedRows} bulkActions={[{ label: "In phiếu trả", icon: Printer, onSelect: handleBulkPrint }]} showBulkDeleteButton={false}
-          expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoading} />
-        </div>
-      )}
+      <div className={cn(isFetching && !isLoading && 'opacity-70 transition-opacity')}>
+      <ResponsiveDataTable columns={columns} data={purchaseReturns} renderMobileCard={row => <MobileReturnCard purchaseReturn={row} onClick={handleRowClick} />} onRowClick={handleRowClick}
+        pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection}
+        allSelectedRows={selectedRows} bulkActions={[{ label: "In phiếu trả", icon: Printer, onSelect: handleBulkPrint }]} showBulkDeleteButton={false}
+        expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility}
+        columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoading} mobileInfiniteScroll />
+      </div>
 
       <SimplePrintOptionsDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={pendingPrintReturns.length} title="In phiếu trả NCC" />
       {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}

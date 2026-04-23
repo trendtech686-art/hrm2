@@ -971,7 +971,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
             onScroll={() => syncScroll('header')}
             className="sticky top-28 z-15 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            <Table ref={headerTableRef} style={Object.keys(columnSizing).length > 0 ? { tableLayout: 'fixed' } : undefined}>
+            <Table ref={headerTableRef} containerClassName="!overflow-visible" style={Object.keys(columnSizing).length > 0 ? { tableLayout: 'fixed' } : undefined}>
               <TableHeader className="bg-muted">
                 {numSelected > 0 && (
                   <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted border-b border-border shadow-md">
@@ -1049,7 +1049,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
             onScroll={() => syncScroll('body')}
             className="rounded-b-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            <Table ref={bodyTableRef} style={Object.keys(columnSizing).length > 0 ? { tableLayout: 'fixed' } : undefined}>
+            <Table ref={bodyTableRef} containerClassName="!overflow-visible" style={Object.keys(columnSizing).length > 0 ? { tableLayout: 'fixed' } : undefined}>
               <TableBody>
                 {data.map((row, rowIndex) => (
                   <React.Fragment key={`${row.systemId}-${rowIndex}`}>
@@ -1167,7 +1167,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
           ref={tableContainerRef}
           className="rounded-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
-          <Table ref={fallbackTableRef}>
+          <Table ref={fallbackTableRef} containerClassName="!overflow-visible">
             <TableHeader className="bg-muted shadow-sm">
               {renderHeaderRow(true)}
             </TableHeader>

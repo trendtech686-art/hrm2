@@ -59,7 +59,6 @@ export function LeavesPage() {
   const batchMutation = useBatchLeaveMutation();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('leaves');
@@ -158,19 +157,6 @@ export function LeavesPage() {
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
   }, [columns, columnVisibility, setColumnVisibility, setColumnOrder]);
 
-  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, advancedFilters]);
-
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const handleScroll = () => {
-      const scrollPercentage = ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight) * 100;
-      if (scrollPercentage > 80 && mobileLoadedCount < leaveRequests.length) setMobileLoadedCount(prev => Math.min(prev + 20, leaveRequests.length));
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, mobileLoadedCount, leaveRequests.length]);
-
-  const displayData = isMobile ? leaveRequests.slice(0, mobileLoadedCount) : leaveRequests;
   const allSelectedRows = React.useMemo(() => leaveRequests.filter(lr => rowSelection[lr.systemId]), [leaveRequests, rowSelection]);
   const handleRowClick = React.useCallback((row: LeaveRequest) => {
     router.push(`/leaves/${row.systemId}`);
@@ -268,7 +254,7 @@ export function LeavesPage() {
     { label: 'Xuất Excel đã chọn', icon: Download, onSelect: (selectedRows: LeaveRequest[]) => toast.success(`Xuất ${selectedRows.length} đơn nghỉ phép`) }
   ], [handleBulkApprove, handleBulkReject]);
 
-  const headerActions = React.useMemo(() => [canCreate && <Button key="add" onClick={() => router.push('/leaves/create')} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn nghỉ phép</Button>].filter(Boolean), [canCreate, router]);
+  const headerActions = React.useMemo(() => [canCreate && <Button key="add" onClick={() => router.push('/leaves/create')} size="sm"><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn nghỉ phép</Button>].filter(Boolean), [canCreate, router]);
   usePageHeader({ actions: headerActions });
 
   const renderMobileCard = React.useCallback((leave: LeaveRequest) => {
@@ -335,15 +321,8 @@ export function LeavesPage() {
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       <div className={cn(isFetching && 'opacity-60 pointer-events-none transition-opacity')}>
-      <ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} onRowHover={handleRowHover} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} emptyTitle="Không có đơn nghỉ phép" emptyDescription="Tạo đơn nghỉ phép đầu tiên để bắt đầu" isLoading={isLoadingLeaves} />
+      <ResponsiveDataTable columns={columns} data={leaveRequests} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} onRowHover={handleRowHover} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} emptyTitle="Không có đơn nghỉ phép" emptyDescription="Tạo đơn nghỉ phép đầu tiên để bắt đầu" isLoading={isLoadingLeaves} mobileInfiniteScroll />
       </div>
-      {isMobile && (
-        <div className="py-6 text-center">
-          {mobileLoadedCount < leaveRequests.length ? (
-            <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải thêm...</span></div>
-          ) : leaveRequests.length > 20 ? (<p className="text-sm text-muted-foreground">Đã hiển thị tất cả {leaveRequests.length} kết quả</p>) : null}
-        </div>
-      )}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Xóa đơn nghỉ phép?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>

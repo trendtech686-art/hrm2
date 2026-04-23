@@ -28,7 +28,6 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
 import { useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
 import { PageToolbar } from "@/components/layout/page-toolbar";
@@ -97,7 +96,6 @@ export function BrandsPage() {
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
@@ -207,9 +205,6 @@ export function BrandsPage() {
 
   const allSelectedRows = React.useMemo(() => activeBrands.filter(b => rowSelection[b.systemId]), [activeBrands, rowSelection]);
 
-  React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.pageYOffset + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(p => Math.min(p + 20, sortedData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, sortedData.length]);
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, advancedFilters]);
-
   // Advanced filter configs
   const filterConfigs: FilterConfig[] = React.useMemo(() => [
     { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: [{ value: 'active', label: 'Hoạt động' }, { value: 'inactive', label: 'Tạm tắt' }] },
@@ -230,8 +225,8 @@ export function BrandsPage() {
   const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
 
   const headerActions = React.useMemo(() => [
-    canDelete && <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/brands/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
-    canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/brands/new')}><Plus className="mr-2 h-4 w-4" />Thêm thương hiệu</Button>
+    canDelete && <Button key="trash" variant="outline" size="sm" onClick={() => router.push('/brands/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
+    canCreate && <Button key="add" size="sm" onClick={() => router.push('/brands/new')}><Plus className="mr-2 h-4 w-4" />Thêm thương hiệu</Button>
   ].filter(Boolean), [router, canCreate, canDelete]);
   usePageHeader({ actions: headerActions, showBackButton: false });
 
@@ -250,17 +245,7 @@ export function BrandsPage() {
         />
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
-      {isMobile ? (
-        <div className="space-y-2 flex-1 overflow-y-auto">
-          {sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy thương hiệu</CardContent></Card> : <>
-            {sortedData.slice(0, mobileLoadedCount).map(b => <MobileBrandCard key={b.systemId} brand={b as unknown as Brand} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick as (brand: Brand) => void} />)}
-            {mobileLoadedCount < sortedData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải...</span></div></CardContent></Card>}
-            {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <Card><CardContent className="p-4 text-center text-muted-foreground text-sm">Đã hiển thị {sortedData.length} thương hiệu</CardContent></Card>}
-          </>}
-        </div>
-      ) : (
-        <div className={cn('w-full py-4', (isFetching || isFilterPending) && 'opacity-60 pointer-events-none transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData as unknown as ({ systemId: string } & Brand)[]} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows as unknown as ({ systemId: string } & Brand)[]} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick as (row: { systemId: string } & Brand) => void} onRowHover={handleRowHover} renderMobileCard={(b: { systemId: string } & Brand) => <MobileBrandCard brand={b as unknown as Brand} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick as (brand: Brand) => void} />} /></div>
-      )}
+      <div className={cn('w-full py-4', (isFetching || isFilterPending) && 'opacity-60 pointer-events-none transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData as unknown as ({ systemId: string } & Brand)[]} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows as unknown as ({ systemId: string } & Brand)[]} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick as (row: { systemId: string } & Brand) => void} onRowHover={handleRowHover} renderMobileCard={(b: { systemId: string } & Brand) => <MobileBrandCard brand={b as unknown as Brand} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick as (brand: Brand) => void} />} mobileInfiniteScroll /></div>
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa thương hiệu?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Chuyển {Object.keys(rowSelection).length} thương hiệu vào thùng rác?</AlertDialogTitle><AlertDialogDescription>Bạn có thể khôi phục lại từ thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Chuyển vào thùng rác</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <PkgxBrandLinkDialog open={pkgxLinkDialogOpen} onOpenChange={setPkgxLinkDialogOpen} brand={brandToLink} onSuccess={() => {}} />

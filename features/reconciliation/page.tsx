@@ -145,7 +145,7 @@ export function ReconciliationPage() {
       canCreate && <Button
         key="create-sheet"
         size="sm"
-        className="h-9 px-4"
+        className="px-4"
         onClick={() => router.push('/reconciliation/create')}
       >
         <FilePlus className="mr-2 h-4 w-4" />
@@ -154,7 +154,7 @@ export function ReconciliationPage() {
       draftSelectedCount > 0 && <Button
         key="confirm"
         size="sm"
-        className="h-9 px-4"
+        className="px-4"
         onClick={() => setConfirmDialogOpen(true)}
       >
         <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -245,6 +245,7 @@ export function ReconciliationPage() {
         setExpanded={() => {}}
         isLoading={isLoading}
         onRowClick={handleRowClick}
+        mobileInfiniteScroll
         renderMobileCard={(sheet) => (
           <MobileCard onClick={() => handleRowClick(sheet)}>
             <MobileCardHeader className="items-start justify-between">

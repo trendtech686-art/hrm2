@@ -114,7 +114,7 @@ export function CostAdjustmentListPage() {
 
   const columns = React.useMemo(() => getColumns(router.push, handleSinglePrint), [router, handleSinglePrint]);
 
-  const headerActions = React.useMemo(() => [canCreate && <Button key="add" className="h-9" onClick={() => router.push('/cost-adjustments/new')}><Plus className="mr-2 h-4 w-4" />Tạo phiếu</Button>].filter(Boolean), [router, canCreate]);
+  const headerActions = React.useMemo(() => [canCreate && <Button key="add" onClick={() => router.push('/cost-adjustments/new')}><Plus className="mr-2 h-4 w-4" />Tạo phiếu</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: 'Danh sách điều chỉnh giá vốn', breadcrumb: [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Điều chỉnh giá vốn', href: '/cost-adjustments', isCurrent: true }], actions: headerActions, showBackButton: false });
 
   const buildDefaultVisibility = React.useCallback(() => { const def = new Set(['id', 'referenceCode', 'createdDate', 'status', 'itemCount', 'totalOldValue', 'totalNewValue', 'difference', 'createdByName', 'reason']); const v: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; v[c.id] = c.id === 'select' || c.id === 'actions' || def.has(c.id); }); return v; }, [columns]);

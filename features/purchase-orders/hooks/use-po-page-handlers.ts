@@ -287,14 +287,6 @@ export function usePurchaseOrdersFilters() {
   const [dateRange, setDateRange] = React.useState<{ from?: string; to?: string } | null>(null);
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
 
-  // Mobile infinite scroll state
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-
-  // Reset mobile loaded count when filters change
-  React.useEffect(() => {
-    setMobileLoadedCount(20);
-  }, [globalFilter, branchFilter, statusFilter, paymentStatusFilter, supplierFilter, dateRange]);
-
   return {
     sorting,
     setSorting,
@@ -312,8 +304,6 @@ export function usePurchaseOrdersFilters() {
     setDateRange,
     pagination,
     setPagination,
-    mobileLoadedCount,
-    setMobileLoadedCount,
   };
 }
 

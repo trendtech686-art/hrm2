@@ -17,7 +17,6 @@ import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import type { Payment, PaymentStatus } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ResponsiveDataTable, type BulkAction } from '@/components/data-table/responsive-data-table';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Minus, ReceiptText, Printer, FileSpreadsheet, Download, Settings, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -72,7 +71,6 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('payments', {});
   const [columnOrder, setColumnOrder] = useColumnOrder('payments');
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('payments', ['select', 'id']);
@@ -128,8 +126,8 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
 
   // Header actions
   usePageHeader({ title: 'Danh sách phiếu chi', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Phiếu chi', href: '/payments', isCurrent: true }], showBackButton: false, actions: [
-    <Button key="cashbook" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}><ReceiptText className="h-4 w-4" />Nhật ký quỹ</Button>,
-    canCreate && <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Tạo phiếu chi</Button>
+    <Button key="cashbook" variant="outline" size="sm" className="gap-2" onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}><ReceiptText className="h-4 w-4" />Nhật ký quỹ</Button>,
+    canCreate && <Button key="add" size="sm" className="gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Tạo phiếu chi</Button>
   ] });
 
   // Handlers
@@ -231,10 +229,6 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
     return { success: added + updated, failed: errors.length, inserted: added, updated, skipped, errors };
   }, [allPayments, createMutation, updateMutation]);
 
-  // Mobile scroll
-  React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.pageYOffset + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < filteredData.length) setMobileLoadedCount(p => Math.min(p + 20, filteredData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, filteredData.length]);
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedFilter, branchFilter, statusFilter, typeFilter, customerFilter, dateRange]);
-
   const pageCount = serverTotalPages;
 
   return (
@@ -255,7 +249,7 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
         <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
-      {isMobile ? <div className={cn('space-y-2 flex-1 overflow-y-auto', isFetching && !isLoading && 'opacity-70 transition-opacity')}>{filteredData.length === 0 && !isLoading ? <Card><CardContent className="p-0"><div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center text-sm text-muted-foreground">Không tìm thấy phiếu chi nào</div></CardContent></Card> : <>{filteredData.slice(0, mobileLoadedCount).map(p => <MobilePaymentCard key={p.systemId} payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />)}{mobileLoadedCount < filteredData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải thêm...</span></div></CardContent></Card>}</>}</div> : <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}><ResponsiveDataTable columns={columns} data={filteredData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={serverTotal} isLoading={isLoading} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={p => <MobilePaymentCard payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />} /></div>}
+      <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}><ResponsiveDataTable columns={columns} data={filteredData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={serverTotal} isLoading={isLoading} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={p => <MobilePaymentCard payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />} mobileInfiniteScroll /></div>
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy phiếu chi?</AlertDialogTitle><AlertDialogDescription>Phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isCancelling} onClick={confirmCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy phiếu'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle><AlertDialogDescription>Các phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isCancelling} onClick={confirmBulkCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy tất cả'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu chi" />

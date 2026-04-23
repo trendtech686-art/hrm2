@@ -171,7 +171,7 @@ export function PayrollListPage({ initialStats }: PayrollListPageProps = {}) {
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    canCreate && <Button key="run" className="h-9" size="sm" onClick={() => router.push(ROUTES.PAYROLL.RUN)}>
+    canCreate && <Button key="run" size="sm" onClick={() => router.push(ROUTES.PAYROLL.RUN)}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Chạy bảng lương
     </Button>,
@@ -265,6 +265,7 @@ export function PayrollListPage({ initialStats }: PayrollListPageProps = {}) {
           emptyTitle="Chưa có bảng lương nào"
           emptyDescription="Bắt đầu chạy bảng lương để tạo batch mới"
           isLoading={isLoadingPayroll}
+          mobileInfiniteScroll
         />
       </div>
       </div>

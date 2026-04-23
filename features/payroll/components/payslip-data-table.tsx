@@ -8,8 +8,8 @@ import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '.
 import { DataTableExportDialog } from '../../../components/data-table/data-table-export-dialog';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Input } from '../../../components/ui/input';
-import { useBreakpoint } from '../../../contexts/breakpoint-context';
 import { getPayslipColumns, type PayslipRow, type PayslipActions } from './payslip-columns';
 import { PayslipDetailDialog } from './payslip-detail-dialog';
 import { cn } from '../../../lib/utils';
@@ -45,7 +45,7 @@ const formatCurrency = (value?: number) =>
 
 function PayslipCard({ row, actions, isLocked: _isLocked }: { row: PayslipRow; actions?: PayslipActions; isLocked?: boolean }) {
   return (
-    <Card className="mb-3">
+    <Card className={cn(mobileBleedCardClass, 'mb-3')}>
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-3">
           <div>
@@ -117,7 +117,6 @@ export function PayslipDataTable({
   className,
 }: PayslipDataTableProps) {
   const router = useRouter();
-  const { isMobile } = useBreakpoint();
 
   // Detail dialog state
   const [selectedPayslip, setSelectedPayslip] = React.useState<PayslipRow | null>(null);
@@ -145,9 +144,6 @@ export function PayslipDataTable({
 
   // Search filter
   const [searchQuery, setSearchQuery] = React.useState('');
-
-  // Mobile infinite scroll
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   // Set default visibility - 12+ cột để có sticky scrollbar
   React.useEffect(() => {
@@ -180,29 +176,6 @@ export function PayslipDataTable({
     setColumnOrder(columns.map((c) => c.id).filter(Boolean) as string[]);
   }, [columns]);
 
-  // Reset mobile count when data changes
-  React.useEffect(() => {
-    setMobileLoadedCount(20);
-  }, [data.length]);
-
-  // Mobile infinite scroll
-  React.useEffect(() => {
-    if (!isMobile) return;
-
-    const handleScroll = () => {
-      const scrollHeight = document.documentElement.scrollHeight;
-      const scrollTop = document.documentElement.scrollTop;
-      const clientHeight = document.documentElement.clientHeight;
-
-      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
-        setMobileLoadedCount((prev) => Math.min(prev + 20, data.length));
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, data.length]);
-
   // Filter data by search query
   const filteredData = React.useMemo(() => {
     if (!searchQuery.trim()) return data;
@@ -224,9 +197,6 @@ export function PayslipDataTable({
     const end = start + pagination.pageSize;
     return filteredData.slice(start, end);
   }, [filteredData, pagination.pageIndex, pagination.pageSize]);
-
-  // Display data based on device
-  const displayData = isMobile ? filteredData.slice(0, mobileLoadedCount) : paginatedData;
 
   // Get selected rows
   const allSelectedRows = React.useMemo(
@@ -402,9 +372,10 @@ export function PayslipDataTable({
       {/* Table */}
       <ResponsiveDataTable
         columns={columns}
-        data={displayData}
+        data={paginatedData}
         isLoading={isLoading}
         renderMobileCard={(row, _index) => renderMobileCard(row)}
+        mobileInfiniteScroll
         // Selection
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
@@ -443,21 +414,6 @@ export function PayslipDataTable({
         onEdit={actions?.onEdit ? handleEditFromDetail : undefined}
         onPrint={actions?.onPrint ? handlePrintFromDetail : undefined}
       />
-
-      {/* Mobile loading indicator */}
-      {isMobile && (
-        <div className="py-4 text-center">
-          {mobileLoadedCount < data.length ? (
-            <span className="text-sm text-muted-foreground">
-              Đang tải... ({mobileLoadedCount}/{data.length})
-            </span>
-          ) : data.length > 0 ? (
-            <span className="text-sm text-muted-foreground">
-              Đã hiển thị tất cả {data.length} phiếu lương
-            </span>
-          ) : null}
-        </div>
-      )}
     </div>
   );
 }

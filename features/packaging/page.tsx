@@ -21,7 +21,7 @@ import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '.
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
-import { Card, CardContent, CardTitle } from '../../components/ui/card';
+import { CardTitle } from '../../components/ui/card';
 import { MobileCard } from '@/components/mobile/mobile-card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -68,7 +68,6 @@ export function PackagingPage() {
     const { findById: findBranchById } = useBranchFinder();
     const { findById: findCustomerById } = useCustomerFinder();
     const {  employee: authEmployee, can } = useAuth();
-  const canCreate = can('create_packaging');
   const canEdit = can('edit_packaging');
   const canEditSettings = can('edit_settings');
     // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
@@ -83,15 +82,15 @@ export function PackagingPage() {
     const { data: allEmployees } = useAllEmployees({ enabled: assignDialogOpen });
     const [globalFilter, setGlobalFilter] = React.useState(''), [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 }), [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-    const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+    const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
     const defaultColumnVisibility = React.useMemo(() => {
         const cols = getColumns(() => {}, () => {}, () => {}), initial: Record<string, boolean> = {};
         cols.forEach(c => { if (c.id) initial[c.id] = true; });
         return initial;
     }, []);
     const [columnVisibility, setColumnVisibility] = useColumnVisibility('packaging', defaultColumnVisibility);
-    const [columnOrder, setColumnOrder] = useColumnOrder('packaging'), [pinnedColumns, setPinnedColumns] = usePinnedColumns('packaging'), [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-    const mobileScrollRef = React.useRef<HTMLDivElement>(null), columnOrderInitialized = React.useRef(false);
+    const [columnOrder, setColumnOrder] = useColumnOrder('packaging'), [pinnedColumns, setPinnedColumns] = usePinnedColumns('packaging');
+    const columnOrderInitialized = React.useRef(false);
 
     // Advanced filter panel
     const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('packaging');
@@ -253,18 +252,6 @@ export function PackagingPage() {
       ...(canEdit ? [{ label: 'Gán NV đóng gói', icon: UserPlus, onSelect: handleBulkAssign }] : []),
     ], [handleBulkPrint, handleBulkAssign, canEdit]);
 
-    React.useEffect(() => {
-        if (!isMobile) return;
-        const handleScroll = () => {
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop, scrollHeight = document.documentElement.scrollHeight, clientHeight = window.innerHeight;
-            if (scrollTop + clientHeight >= scrollHeight * 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(prev => Math.min(prev + 20, sortedData.length));
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [isMobile, mobileLoadedCount, sortedData.length]);
-    
-    React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, advancedFilters]);
-
     const handleRowClick = (row: PackagingSlip) => router.push('/packaging/' + row.systemId);
     const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' => ({ 'Đã đóng gói': 'default' as const, 'Chờ đóng gói': 'secondary' as const, 'Hủy đóng gói': 'destructive' as const })[status] || 'secondary';
 
@@ -317,19 +304,9 @@ export function PackagingPage() {
                 />
             </PageFilters>
             <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
-            {isMobile ? (
-                <div ref={mobileScrollRef} className='space-y-3 pb-4'>
-                    {sortedData.length === 0 ? <div className='flex flex-col items-center justify-center py-16 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu đóng gói</p></div> : (<>
-                        {sortedData.slice(0, mobileLoadedCount).map(packaging => <MobilePackagingCard key={packaging.systemId} packaging={packaging} />)}
-                        {mobileLoadedCount < sortedData.length && <div className='flex items-center justify-center gap-2 py-6'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div>}
-                        {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <div className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu đóng gói</span></div>}
-                    </>)}
-                </div>
-            ) : (
-                <div className='w-full py-4'>
-                    <ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={(packaging) => <MobilePackagingCard packaging={packaging} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} />
-                </div>
-            )}
+            <div className='w-full py-4'>
+                <ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={(packaging) => <MobilePackagingCard packaging={packaging} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} mobileInfiniteScroll />
+            </div>
 
             <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu đóng gói" />
             <CancelDialog isOpen={!!cancelDialogState} onOpenChange={(open) => !open && setCancelDialogState(null)} onConfirm={handleConfirmCancel} />

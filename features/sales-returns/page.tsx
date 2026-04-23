@@ -22,7 +22,6 @@ import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '.
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
-import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
@@ -59,16 +58,14 @@ export function SalesReturnsPage() {
   const canEditSettings = can('edit_settings');
     const { print, printMultiple } = usePrint();
     const isMobile = !useMediaQuery('(min-width: 768px)');
-    const mobileScrollRef = React.useRef<HTMLDivElement>(null);
 
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false), [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<SalesReturn[]>([]);
     const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
-    const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+    const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
 
     const [columnOrder, setColumnOrder] = useColumnOrder('sales-returns'), [pinnedColumns, setPinnedColumns] = usePinnedColumns('sales-returns', ['id']);
-    const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
     // Advanced filter panel
     const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('sales-returns');
@@ -138,7 +135,7 @@ export function SalesReturnsPage() {
 
     const handleCreateReturn = React.useCallback(() => router.push(ROUTES.SALES.ORDERS), [router]);
     const headerActions = React.useMemo(() => [
-        canCreate && <Button key="create" size="sm" className="h-9 px-4" onClick={handleCreateReturn}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu trả</Button>
+        canCreate && <Button key="create" size="sm" className="px-4" onClick={handleCreateReturn}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu trả</Button>
     ].filter(Boolean), [handleCreateReturn, canCreate]);
 
     usePageHeader(React.useMemo(() => ({
@@ -189,20 +186,6 @@ export function SalesReturnsPage() {
       setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     }, [columns, setColumnOrder]);
 
-
-
-    React.useEffect(() => {
-        if (!isMobile) return;
-        const handleScroll = () => {
-            const { scrollTop, scrollHeight } = document.documentElement;
-            if ((window.pageYOffset || scrollTop) + window.innerHeight >= scrollHeight * 0.8 && mobileLoadedCount < returns.length)
-                setMobileLoadedCount(prev => Math.min(prev + 20, returns.length));
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [isMobile, mobileLoadedCount, returns.length]);
-
-    React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, advancedFilters]);
 
 
     const handleRowClick = (row: SalesReturn) => router.push('/sales-returns/' + row.systemId);
@@ -289,21 +272,9 @@ export function SalesReturnsPage() {
                 />
             </PageFilters>
             <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
-            {isMobile ? (
-                <div ref={mobileScrollRef} className='space-y-3 pb-4'>
-                    {returns.length === 0 ? (
-                        <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu trả hàng</p></CardContent></Card>
-                    ) : (<>
-                        {returns.slice(0, mobileLoadedCount).map(salesReturn => <MobileSalesReturnCard key={salesReturn.systemId} salesReturn={salesReturn} />)}
-                        {mobileLoadedCount < returns.length && <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>}
-                        {mobileLoadedCount >= returns.length && returns.length > 20 && <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {returns.length} phiếu trả hàng</span></CardContent></Card>}
-                    </>)}
-                </div>
-            ) : (
-                <div className={cn('w-full py-4', isFetching && 'opacity-60 pointer-events-none transition-opacity')}>
-                    <ResponsiveDataTable columns={columns} data={returns} renderMobileCard={(salesReturn) => <MobileSalesReturnCard salesReturn={salesReturn} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalCount} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} />
-                </div>
-            )}
+            <div className={cn('w-full py-4', isFetching && 'opacity-60 pointer-events-none transition-opacity')}>
+                <ResponsiveDataTable columns={columns} data={returns} renderMobileCard={(salesReturn) => <MobileSalesReturnCard salesReturn={salesReturn} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalCount} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} mobileInfiniteScroll />
+            </div>
             <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu trả hàng" />
             {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}
             {exportDialogOpen && <SalesReturnExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={activeExportReturns} filteredData={activeExportReturns} currentPageData={returns} selectedData={allSelectedRows} currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }} />}

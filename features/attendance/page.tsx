@@ -23,6 +23,7 @@ import type { SystemId } from '@/lib/id-types';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { Card, CardContent } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { MobileCard } from '@/components/mobile/mobile-card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -59,11 +60,11 @@ function MonthYearPicker({ value, onChange }: { value: Date; onChange: (date: Da
   const displayText = formatDateCustom(value, 'MM/yyyy');
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="icon" className="h-9 w-10" onClick={() => { const prev = subtractMonths(value, 1); if (prev) onChange(prev); }}>
+      <Button variant="outline" size="icon" className="w-10" onClick={() => { const prev = subtractMonths(value, 1); if (prev) onChange(prev); }}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
       <div className="font-semibold text-sm w-24 text-center">{displayText}</div>
-      <Button variant="outline" size="icon" className="h-9 w-10" onClick={() => { const next = addMonths(value, 1); if (next) onChange(next); }}>
+      <Button variant="outline" size="icon" className="w-10" onClick={() => { const next = addMonths(value, 1); if (next) onChange(next); }}>
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
@@ -466,25 +467,6 @@ export function AttendancePage() {
   const paginatedData = sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize);
   const allSelectedRows = React.useMemo(() => attendanceData.filter(a => rowSelection[a.systemId]), [attendanceData, rowSelection]);
 
-  // Mobile: progressive loading
-  const MOBILE_PAGE_SIZE = 20;
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(MOBILE_PAGE_SIZE);
-  const mobileData = sortedData.slice(0, mobileLoadedCount);
-  // Infinite scroll for mobile
-  const mobileListRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const el = mobileListRef.current?.parentElement;
-    if (!el) return;
-    const handleScroll = () => {
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
-        setMobileLoadedCount(prev => Math.min(prev + MOBILE_PAGE_SIZE, sortedData.length));
-      }
-    };
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [isMobile, sortedData.length]);
-
   // Mobile employee card renderer
   const renderMobileEmployeeCard = React.useCallback((row: AttendanceDataRow) => {
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -554,19 +536,19 @@ export function AttendancePage() {
       <StatisticsDashboard data={filteredData} currentDate={currentDate} />
 
       {/* Toolbar */}
-      <Card className="shrink-0">
+      <Card className={cn(mobileBleedCardClass, 'shrink-0')}>
         <CardContent className="p-4">
           {isMobile ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <MonthYearPicker value={currentDate} onChange={setCurrentDate} />
                 <div className="flex items-center gap-1">
-                  <Button variant={isLocked ? 'default' : 'outline'} size="icon" className="h-9 w-9" onClick={handleToggleLock}>
+                  <Button variant={isLocked ? 'default' : 'outline'} size="icon" className="w-9" onClick={handleToggleLock}>
                     {isLocked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-9 w-9"><MoreHorizontal className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="icon" className="w-9"><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</DropdownMenuItem>
@@ -598,7 +580,7 @@ export function AttendancePage() {
               <div className="flex flex-wrap items-center gap-2">
                 <MonthYearPicker value={currentDate} onChange={setCurrentDate} />
                 <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                  <SelectTrigger className="h-9 w-full sm:w-45">
+                  <SelectTrigger className="w-full sm:w-45">
                     <SelectValue placeholder="Tất cả phòng ban" />
                   </SelectTrigger>
                   <SelectContent>
@@ -608,15 +590,15 @@ export function AttendancePage() {
                 </Select>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Tìm nhân viên..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="h-9 w-50 pl-8" />
+                  <Input placeholder="Tìm nhân viên..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="w-50 pl-8" />
                 </div>
               </div>
               <div className="flex items-center justify-end gap-2">
-                {canEditSettings && <Button variant="outline" size="sm" className="h-9" onClick={() => router.push('/settings/employees')}><Settings className="mr-2 h-4 w-4" />Cài đặt</Button>}
-                <Button variant="outline" size="sm" className="h-9" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</Button>
-                <Button variant="outline" size="sm" className="h-9" disabled={isLocked} onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Nhập file</Button>
-                <Button variant="outline" size="sm" className="h-9" onClick={handleExport}><Download className="mr-2 h-4 w-4" />Xuất file</Button>
-                <Button variant={isLocked ? 'default' : 'outline'} size="sm" className="h-9" onClick={handleToggleLock}>{isLocked ? <LockOpen className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}{isLocked ? 'Mở khóa' : 'Khóa'}</Button>
+                {canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/employees')}><Settings className="mr-2 h-4 w-4" />Cài đặt</Button>}
+                <Button variant="outline" size="sm" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</Button>
+                <Button variant="outline" size="sm" disabled={isLocked} onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Nhập file</Button>
+                <Button variant="outline" size="sm" onClick={handleExport}><Download className="mr-2 h-4 w-4" />Xuất file</Button>
+                <Button variant={isLocked ? 'default' : 'outline'} size="sm" onClick={handleToggleLock}>{isLocked ? <LockOpen className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}{isLocked ? 'Mở khóa' : 'Khóa'}</Button>
                 <DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
               </div>
             </div>
@@ -626,28 +608,7 @@ export function AttendancePage() {
 
       {/* Data display */}
       <div className={cn((isFetching) && 'opacity-60 pointer-events-none transition-opacity')}>
-      {isMobile ? (
-        <div ref={mobileListRef} className="space-y-3 pb-20">
-          {mobileData.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">Không có dữ liệu chấm công</div>
-          ) : (
-            <>
-              {mobileData.map(row => renderMobileEmployeeCard(row))}
-              {mobileLoadedCount < sortedData.length ? (
-                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  <span className="text-sm">Đang tải...</span>
-                </div>
-              ) : sortedData.length > MOBILE_PAGE_SIZE ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Đã hiển thị {sortedData.length} nhân viên</p>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : (
-        <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} />
-      )}
-
+        <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} renderMobileCard={renderMobileEmployeeCard} mobileInfiniteScroll />
       </div>
 
       <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={currentDate} isSaving={updateAttendance.isPending} />

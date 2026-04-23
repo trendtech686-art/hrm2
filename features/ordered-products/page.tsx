@@ -6,7 +6,6 @@ import { getColumns } from './columns'
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table'
 import { PageFilters } from '@/components/layout/page-filters'
 import { usePageHeader } from '@/contexts/page-header-context'
-import { useBreakpoint } from '@/contexts/breakpoint-context'
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings'
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel'
 import { useFilterPresets } from '@/hooks/use-filter-presets'
@@ -23,7 +22,6 @@ const PO_STATUSES = [
 ]
 
 export function OrderedProductsPage() {
-  const { isMobile } = useBreakpoint()
   const { data: suppliers = [] } = useAllSuppliers()
 
   // Filter state
@@ -31,7 +29,6 @@ export function OrderedProductsPage() {
   const [debouncedSearch, setDebouncedSearch] = React.useState('')
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'orderDate', desc: true })
   const [pagination, setPagination] = usePaginationWithGlobalDefault()
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20)
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('ordered-products')
@@ -62,11 +59,6 @@ export function OrderedProductsPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchQuery, setPagination])
-
-  // Reset page when filter changes
-  React.useEffect(() => {
-    setMobileLoadedCount(20)
-  }, [searchQuery, advancedFilters, sorting])
 
   // Server-side query
   const { data: queryData, isLoading } = useOrderedProducts(React.useMemo(() => {
@@ -101,23 +93,6 @@ export function OrderedProductsPage() {
 
   const columns = React.useMemo(() => getColumns(), [])
 
-  // Mobile infinite scroll
-  React.useEffect(() => {
-    if (!isMobile) return
-    const handleScroll = () => {
-      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight * 0.8) {
-        setMobileLoadedCount(prev => prev < items.length ? Math.min(prev + 20, items.length) : prev)
-      }
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [isMobile, items.length])
-
-  const displayData = React.useMemo(
-    () => isMobile ? items.slice(0, mobileLoadedCount) : items,
-    [isMobile, items, mobileLoadedCount],
-  )
-
   return (
     <div className="space-y-4">
       <PageFilters
@@ -139,7 +114,7 @@ export function OrderedProductsPage() {
 
       <ResponsiveDataTable
         columns={columns}
-        data={displayData}
+        data={items}
         pageCount={pageCount}
         pagination={pagination}
         setPagination={setPagination}
@@ -149,14 +124,8 @@ export function OrderedProductsPage() {
         isLoading={isLoading}
         emptyTitle="Không có hàng đặt"
         emptyDescription="Chưa có sản phẩm nào được đặt từ nhà cung cấp"
+        mobileInfiniteScroll
       />
-
-      {isMobile && mobileLoadedCount < items.length && (
-        <div className="text-center py-4">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-          <p className="text-sm text-muted-foreground mt-2">Đang tải thêm...</p>
-        </div>
-      )}
     </div>
   )
 }

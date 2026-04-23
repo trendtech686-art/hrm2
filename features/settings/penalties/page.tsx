@@ -83,7 +83,7 @@ export function PenaltiesPage() {
   const totalRows = paginationInfo?.total || 0;
   const pageCount = paginationInfo?.totalPages || 0;
 
-  usePageHeader({ actions: React.useMemo(() => [canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>].filter(Boolean), [router, canCreate]) })
+  usePageHeader({ actions: React.useMemo(() => [canCreate && <Button key="add" size="sm" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>].filter(Boolean), [router, canCreate]) })
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t) }, [globalFilter])
   // Reset page when filters change
   React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })) }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter])
@@ -159,12 +159,12 @@ export function PenaltiesPage() {
     <ListPageShell>
       {!isMobile && <PageToolbar leftActions={<><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={penalties} filteredData={penalties} pageData={penalties} config={exportConfig} /></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
       <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu phạt (mã, tên NV, lý do)...">
-        <Select value={employeeFilter} onValueChange={setEmployeeFilter}><SelectTrigger className="w-full sm:w-45 h-9"><SelectValue placeholder="Tất cả nhân viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả nhân viên</SelectItem>{employeeOptions.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent></Select>
+        <Select value={employeeFilter} onValueChange={setEmployeeFilter}><SelectTrigger className="w-full sm:w-45"><SelectValue placeholder="Tất cả nhân viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả nhân viên</SelectItem>{employeeOptions.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent></Select>
         <DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />
         <DataTableFacetedFilter title="Phân loại" options={categoryOptions} selectedValues={categoryFilter} onSelectedValuesChange={setCategoryFilter} />
       </PageFilters>
       <div className="w-full py-4">
-        <ResponsiveDataTable columns={columns} data={penalties} renderMobileCard={p => <MobilePenaltyCard penalty={p} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} isLoading={isLoadingPenalties} emptyTitle="Chưa có phiếu phạt" emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm" />
+        <ResponsiveDataTable columns={columns} data={penalties} renderMobileCard={p => <MobilePenaltyCard penalty={p} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} isLoading={isLoadingPenalties} emptyTitle="Chưa có phiếu phạt" emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm" mobileInfiniteScroll />
       </div>
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu phạt" />
     </ListPageShell>
