@@ -147,7 +147,7 @@ function TreeNode({
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+          <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100">
             {/* Add Child Button - allow up to 5 levels (0-4) */}
             {level < 4 && (
               <Button

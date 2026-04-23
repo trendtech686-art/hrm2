@@ -581,7 +581,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
                                   onError={() => handleImageError(`${action.id}-${i}`)}
                                 />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                  <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  <ExternalLink className="h-4 w-4 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                                 </div>
                               </button>
                             ))}
@@ -1049,7 +1049,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
                           onError={() => handleImageError(imageId)}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ExternalLink className="h-5 w-5 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                         </div>
                       </button>
                     );
@@ -1094,7 +1094,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
                         onError={() => handleImageError(imageId)}
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ExternalLink className="h-5 w-5 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                       </div>
                     </button>
                   );

@@ -68,7 +68,7 @@ export function InventoryReceiptDetailView({ receipt }: InventoryReceiptDetailVi
                           height={40}
                           className="w-full h-full object-cover transition-all group-hover/imagePreview:brightness-75"
                         />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/imagePreview:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/imagePreview:opacity-100 transition-opacity">
                           <Eye className="w-4 h-4 text-white drop-shadow-md" />
                         </div>
                       </button>
@@ -132,7 +132,7 @@ export function InventoryReceiptDetailView({ receipt }: InventoryReceiptDetailVi
                           height={48}
                           className="w-full h-full object-cover transition-all group-hover/imagePreview:brightness-75"
                         />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/imagePreview:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/imagePreview:opacity-100 transition-opacity">
                           <Eye className="w-4 h-4 text-white drop-shadow-md" />
                         </div>
                       </button>

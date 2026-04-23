@@ -50,7 +50,7 @@ export function WardList({ wards, onEdit, onDelete }: WardListProps) {
                 <span className="font-medium text-sm">{ward.name}</span>
                 <span className="text-xs text-muted-foreground font-mono">{ward.id}</span>
               </div>
-              <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex items-center justify-end gap-2 md:opacity-0 transition-opacity md:group-hover:opacity-100">
                 <Button
                   variant="ghost"
                   size="icon"

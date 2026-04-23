@@ -121,7 +121,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
                   className="w-full h-full object-cover transition-all group-hover/img:brightness-75"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
+                <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/img:opacity-100 transition-opacity">
                   <Eye className="w-4 h-4 text-white drop-shadow-md" />
                 </div>
               </div>
@@ -260,7 +260,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
           size="icon"
           onClick={onRemove}
           disabled={disabled}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          className="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
         >
           <Trash2 className="h-4 w-4 text-destructive" />
         </Button>

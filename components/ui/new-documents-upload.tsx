@@ -708,7 +708,7 @@ export function NewDocumentsUpload({
                       )}
                       
                       {/* Overlay buttons - chỉ hiện khi hover */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 md:opacity-0 md:group-hover:opacity-100">
                         <Button
                           type="button"
                           variant="ghost"
@@ -735,7 +735,7 @@ export function NewDocumentsUpload({
                       <FileIcon className="h-8 w-8 text-muted-foreground" />
                       
                       {/* Overlay buttons for non-image files */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 md:opacity-0 md:group-hover:opacity-100">
                         <Button
                           type="button"
                           variant="ghost"

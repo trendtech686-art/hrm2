@@ -146,7 +146,7 @@ function SortableSubtask<T>({
       {/* Drag Handle */}
       {!readonly && (
         <button
-          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5"
+          className="cursor-grab active:cursor-grabbing md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 pt-0.5"
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
@@ -228,7 +228,7 @@ function SortableSubtask<T>({
               <Button
                 size="sm"
                 variant="ghost"
-                className={`${compact ? 'h-6 w-6 p-0' : 'h-7 w-7 p-0'} opacity-0 group-hover:opacity-100 transition-opacity`}
+                className={`${compact ? 'h-6 w-6 p-0' : 'h-7 w-7 p-0'} md:opacity-0 md:group-hover:opacity-100 transition-opacity`}
                 onClick={(e) => {
                   e.stopPropagation();
                   navigator.clipboard.writeText(subtask.title);
@@ -261,7 +261,7 @@ function SortableSubtask<T>({
 
       {/* Actions */}
       {!readonly && !isEditing && (
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
           {!isNested && onAddNested && (
             <Button
               size="sm"

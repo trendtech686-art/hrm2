@@ -746,7 +746,7 @@ export function CustomerDetailPage() {
       <div className="w-full h-full">
         <div className="space-y-6">
           {/* Stats Summary - Always from stats API */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-md:-mx-4 max-md:px-4">
             {/* Tổng chi tiêu */}
             <Card
               role="button"

@@ -88,7 +88,7 @@ export function InlineEditableCell({
       }}
     >
       <span className="truncate">{value || '-'}</span>
-      <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
+      <Pencil className="h-3.5 w-3.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
     </div>
   );
 }
@@ -176,7 +176,7 @@ export function InlineEditableNumberCell({
       }}
     >
       <span className="text-sm">{displayValue}</span>
-      <Pencil className="h-3.5 w-3.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
+      <Pencil className="h-3.5 w-3.5 ml-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
     </div>
   );
 }

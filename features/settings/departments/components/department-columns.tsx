@@ -43,7 +43,7 @@ export const CopyableDetailField = ({ label, value }: { label: string; value?: s
       <dd className="col-span-2 text-sm font-medium flex items-center justify-between">
         <span className="truncate">{value || '-'}</span>
         {value && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity" aria-label="Sao chép" onClick={handleCopy}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 md:opacity-0 md:group-hover/item:opacity-100 transition-opacity" aria-label="Sao chép" onClick={handleCopy}>
             {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
           </Button>
         )}

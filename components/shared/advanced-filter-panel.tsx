@@ -326,7 +326,7 @@ export function AdvancedFilterPanel({
                       <Button
                         variant="destructive"
                         size="icon"
-                        className="h-5 w-5 absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-5 w-5 absolute -top-2 -right-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDeletePreset(preset.id);
@@ -1036,7 +1036,7 @@ export function PresetTabs({ presets, activePresetId, onSelect, onDelete }: Pres
           {onDelete && (
             <button
               type="button"
-              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(preset.id);

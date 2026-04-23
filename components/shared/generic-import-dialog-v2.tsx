@@ -158,7 +158,7 @@ const EditableCell = React.memo(function EditableCell({
           <span className="block truncate flex-1">
             {cellValue || <span className="text-muted-foreground italic">—</span>}
           </span>
-          <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Pencil className="h-3 w-3 shrink-0 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
         </button>
       </PopoverTrigger>
       <PopoverContent 

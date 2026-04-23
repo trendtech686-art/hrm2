@@ -130,7 +130,7 @@ const ProductThumbnailCell = ({
                     height={size === 'md' ? 48 : 36} 
                 />
                 {onPreview && (
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
                     </div>
                 )}
@@ -1296,7 +1296,7 @@ export function ComplaintFormPage() {
                                       className="w-full h-full object-cover transition-all group-hover/img:brightness-75"
                                       loading="lazy"
                                     />
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                    <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/img:opacity-100 transition-opacity">
                                       <Eye className="w-3 h-3 text-white drop-shadow-md" />
                                     </div>
                                   </div>

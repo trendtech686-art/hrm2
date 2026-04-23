@@ -269,7 +269,7 @@ export function NotificationCenter() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-6 w-6 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteMutation.mutate(notification.id);

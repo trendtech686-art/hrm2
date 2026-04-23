@@ -366,7 +366,7 @@ export const getColumns = (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    className="h-5 w-5 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       onEdit();

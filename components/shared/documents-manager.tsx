@@ -590,7 +590,7 @@ function FileCard({
           <FileIcon className="h-12 w-12 text-muted-foreground" />
         )}
         
-        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+        <div className="absolute inset-0 bg-black/50 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
           {onPreview && (
             <Button variant="secondary" size="icon" className="h-8 w-8" onClick={onPreview}>
               <Eye className="h-4 w-4" />

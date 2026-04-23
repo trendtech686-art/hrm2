@@ -74,7 +74,7 @@ const ComboChildImage = ({
                     className="w-full h-full object-cover transition-all group-hover:brightness-75"
                     loading="lazy"
                 />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <Eye className="w-4 h-4 text-white drop-shadow-md" />
                 </div>
             </div>
@@ -300,7 +300,7 @@ const LineItemRow = React.memo(({
                                 className="w-full h-full object-cover transition-all group-hover:brightness-75"
                                 loading="lazy"
                             />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                 <Eye className="w-4 h-4 text-white drop-shadow-md" />
                             </div>
                         </div>
@@ -343,7 +343,7 @@ const LineItemRow = React.memo(({
                                             <button
                                                 type="button"
                                                 onClick={() => onEditNote(index)}
-                                                className="opacity-0 group-hover/info:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
+                                                className="md:opacity-0 md:group-hover/info:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
                                             >
                                                 <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                                             </button>
@@ -356,7 +356,7 @@ const LineItemRow = React.memo(({
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => onEditNote(index)}
-                                            className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground ml-1 opacity-0 group-hover/info:opacity-100 transition-opacity"
+                                            className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground ml-1 md:opacity-0 md:group-hover/info:opacity-100 transition-opacity"
                                         >
                                             Thêm ghi chú
                                         </Button>
@@ -660,7 +660,7 @@ const LineItemMobileCard = React.memo(({
                             className="w-full h-full object-cover transition-all group-hover:brightness-75"
                             loading="lazy"
                         />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                             <Eye className="w-4 h-4 text-white drop-shadow-md" />
                         </div>
                     </div>

@@ -86,7 +86,7 @@ export function EvidenceThumbnailGrid({
                   fill
                   unoptimized
                 />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/50 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Eye className="h-5 w-5 text-white" />
                 </div>
               </div>

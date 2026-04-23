@@ -66,7 +66,7 @@ export const ProductThumbnailCell = ({
           height={40}
         />
         {onPreview && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+          <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">
             <Eye className="w-4 h-4 text-white drop-shadow-md" />
           </div>
         )}
@@ -214,7 +214,7 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
                     <button
                       type="button"
                       onClick={() => handleOpenReturnNoteDialog(index)}
-                      className="opacity-0 group-hover/info:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                      className="md:opacity-0 md:group-hover/info:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                     >
                       <Pencil className="h-3 w-3" />
                     </button>
@@ -225,7 +225,7 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
                     variant="link"
                     size="sm"
                     onClick={() => handleOpenReturnNoteDialog(index)}
-                    className="opacity-0 group-hover/info:opacity-100 transition-opacity h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                    className="md:opacity-0 md:group-hover/info:opacity-100 transition-opacity h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
                   >
                     Thêm ghi chú
                   </Button>

@@ -440,20 +440,20 @@ export function InventoryCheckDetailPage() {
   return (
     <DetailPageShell gap="md">
       {/* Dashboard Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className={mobileBleedCardClass}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-md:-mx-4 max-md:px-4">
+        <Card>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold">{check.items.length}</div>
             <p className="text-xs text-muted-foreground">Tổng sản phẩm</p>
           </CardContent>
         </Card>
-        <Card className={mobileBleedCardClass}>
+        <Card>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold text-green-600">{stats.matched}</div>
             <p className="text-xs text-muted-foreground">Khớp</p>
           </CardContent>
         </Card>
-        <Card className={mobileBleedCardClass}>
+        <Card>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold text-red-600">{stats.different}</div>
             <p className="text-xs text-muted-foreground">Lệch</p>
@@ -464,7 +464,7 @@ export function InventoryCheckDetailPage() {
             )}
           </CardContent>
         </Card>
-        <Card className={mobileBleedCardClass}>
+        <Card>
           <CardContent className="pt-6">
             <div className={`text-h2 font-bold ${
               totalDifference > 0 ? 'text-orange-600' : 
@@ -589,7 +589,7 @@ export function InventoryCheckDetailPage() {
                             width={48} 
                             height={40} 
                           />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                          <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">
                             <Eye className="w-4 h-4 text-white drop-shadow-md" />
                           </div>
                         </div>

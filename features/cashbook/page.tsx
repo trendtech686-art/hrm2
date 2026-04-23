@@ -221,26 +221,26 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
 
   return (
     <div className="space-y-4 flex flex-col h-full">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className={mobileBleedCardClass}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-md:-mx-4 max-md:px-4">
+        <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Số dư đầu kỳ</p>
             <p className="text-xl font-semibold">{formatCurrency(openingBalance)}</p>
           </CardContent>
         </Card>
-        <Card className={mobileBleedCardClass}>
+        <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng thu</p>
             <p className="text-xl font-semibold text-green-600">{formatCurrency(totalReceipts)}</p>
           </CardContent>
         </Card>
-        <Card className={mobileBleedCardClass}>
+        <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng chi</p>
             <p className="text-xl font-semibold text-red-600">{formatCurrency(totalPayments)}</p>
           </CardContent>
         </Card>
-        <Card className={mobileBleedCardClass}>
+        <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tồn cuối kỳ</p>
             <p className="text-xl font-semibold">{formatCurrency(closingBalance)}</p>
@@ -248,7 +248,7 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
         </Card>
       </div>
       {accountBalances && accountBalances.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 max-md:-mx-4 max-md:px-4">
           {accountBalances.map(acc => (
             <Card key={acc.systemId} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setAccountFilter(acc.systemId)}>
               <CardContent className="p-3">

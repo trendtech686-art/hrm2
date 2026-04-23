@@ -869,8 +869,8 @@ export function ProductDetailPage() {
                       rootMargin="400px"
                       skeletonClassName="rounded-none"
                     />
-                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <Eye className="h-6 w-6 text-white opacity-0 hover:opacity-100 drop-shadow-lg" />
+                    <div className="absolute inset-0 bg-black/0 md:hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <Eye className="h-6 w-6 text-white drop-shadow-lg md:opacity-0 md:hover:opacity-100" />
                     </div>
                   </div>
                 ) : (

@@ -36,7 +36,7 @@ export const ProvinceItem = React.memo(function ProvinceItem({
         <span className="text-sm font-medium leading-none">{province.name}</span>
         <span className="text-xs text-muted-foreground">Mã: {province.id}</span>
       </div>
-      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex items-center gap-1 md:opacity-0 transition-opacity md:group-hover:opacity-100">
         <Button
           variant="ghost"
           size="icon"

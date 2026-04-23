@@ -22,6 +22,7 @@ import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { Card, CardContent, CardTitle } from '../../components/ui/card';
+import { MobileCard } from '@/components/mobile/mobile-card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
@@ -268,34 +269,32 @@ export function PackagingPage() {
     const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' => ({ 'Đã đóng gói': 'default' as const, 'Chờ đóng gói': 'secondary' as const, 'Hủy đóng gói': 'destructive' as const })[status] || 'secondary';
 
     const MobilePackagingCard = ({ packaging }: { packaging: PackagingSlip }) => (
-        <Card className='hover:shadow-md transition-shadow cursor-pointer' onClick={() => handleRowClick(packaging)}>
-            <CardContent className='p-4'>
-                <div className='flex items-center justify-between mb-2'>
-                    <div className='flex items-center gap-2 flex-1 min-w-0'>
-                        <Avatar className='h-8 w-8 shrink-0 bg-primary/10'><AvatarFallback className='text-xs text-primary'><Inbox className='h-4 w-4' /></AvatarFallback></Avatar>
-                        <div className='flex items-center gap-1.5 min-w-0 flex-1'>
-                            <CardTitle className='font-semibold text-sm truncate'>{packaging.id}</CardTitle>
-                            <span className='text-xs text-muted-foreground font-mono'>{packaging.orderId}</span>
-                        </div>
+        <MobileCard onClick={() => handleRowClick(packaging)}>
+            <div className='flex items-center justify-between mb-2'>
+                <div className='flex items-center gap-2 flex-1 min-w-0'>
+                    <Avatar className='h-8 w-8 shrink-0 bg-primary/10'><AvatarFallback className='text-xs text-primary'><Inbox className='h-4 w-4' /></AvatarFallback></Avatar>
+                    <div className='flex items-center gap-1.5 min-w-0 flex-1'>
+                        <CardTitle className='font-semibold text-sm truncate'>{packaging.id}</CardTitle>
+                        <span className='text-xs text-muted-foreground font-mono'>{packaging.orderId}</span>
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push('/packaging/' + packaging.systemId); }}>Xem chi tiết</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSinglePackaging(packaging.systemId); }}>In Phiếu Đóng Gói</DropdownMenuItem>
-                            {packaging.status === 'Chờ đóng gói' && (<><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleConfirm(packaging.orderSystemId, packaging.systemId); }}>Xác nhận đóng gói</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCancelRequest(packaging.orderSystemId, packaging.systemId); }}>Hủy yêu cầu</DropdownMenuItem></>)}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
-                <div className='text-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{packaging.customerName}</span></div>
-                <div className='border-t mb-3' />
-                <div className='space-y-2'>
-                    <div className='flex items-center text-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(packaging.requestDate)}</span></div>
-                    {packaging.assignedEmployeeName && <div className='flex items-center text-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{packaging.assignedEmployeeName}</span></div>}
-                    <div className='flex items-center justify-between text-xs pt-1'><span className='text-muted-foreground'>{packaging.branchName}</span><Badge variant={getStatusVariant(packaging.status)} className='text-xs'>{packaging.status}</Badge></div>
-                </div>
-            </CardContent>
-        </Card>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
+                    <DropdownMenuContent align='end'>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push('/packaging/' + packaging.systemId); }}>Xem chi tiết</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSinglePackaging(packaging.systemId); }}>In Phiếu Đóng Gói</DropdownMenuItem>
+                        {packaging.status === 'Chờ đóng gói' && (<><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleConfirm(packaging.orderSystemId, packaging.systemId); }}>Xác nhận đóng gói</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCancelRequest(packaging.orderSystemId, packaging.systemId); }}>Hủy yêu cầu</DropdownMenuItem></>)}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <div className='text-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{packaging.customerName}</span></div>
+            <div className='border-t mb-3' />
+            <div className='space-y-2'>
+                <div className='flex items-center text-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(packaging.requestDate)}</span></div>
+                {packaging.assignedEmployeeName && <div className='flex items-center text-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{packaging.assignedEmployeeName}</span></div>}
+                <div className='flex items-center justify-between text-xs pt-1'><span className='text-muted-foreground'>{packaging.branchName}</span><Badge variant={getStatusVariant(packaging.status)} className='text-xs'>{packaging.status}</Badge></div>
+            </div>
+        </MobileCard>
     );
 
     return (
@@ -319,11 +318,11 @@ export function PackagingPage() {
             </PageFilters>
             <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
             {isMobile ? (
-                <div ref={mobileScrollRef} className='space-y-3 px-1 pb-4'>
-                    {sortedData.length === 0 ? <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu đóng gói</p></CardContent></Card> : (<>
+                <div ref={mobileScrollRef} className='space-y-3 pb-4'>
+                    {sortedData.length === 0 ? <div className='flex flex-col items-center justify-center py-16 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu đóng gói</p></div> : (<>
                         {sortedData.slice(0, mobileLoadedCount).map(packaging => <MobilePackagingCard key={packaging.systemId} packaging={packaging} />)}
-                        {mobileLoadedCount < sortedData.length && <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>}
-                        {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu đóng gói</span></CardContent></Card>}
+                        {mobileLoadedCount < sortedData.length && <div className='flex items-center justify-center gap-2 py-6'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div>}
+                        {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <div className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu đóng gói</span></div>}
                     </>)}
                 </div>
             ) : (
