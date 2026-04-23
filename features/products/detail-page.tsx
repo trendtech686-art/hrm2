@@ -4,6 +4,8 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { useProduct, useProductMutations } from './hooks/use-products';
 import { useAllProducts } from './hooks/use-all-products';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -126,6 +128,7 @@ const getTypeLabel = (type?: string) => {
 export function ProductDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   
   // ✅ React Query hooks - fetch product first
   const { data: productFromQuery, isLoading } = useProduct(systemId);
@@ -517,7 +520,7 @@ export function ProductDetailPage() {
     const pkgxActions = product.pkgxId ? [
       <DropdownMenu key="pkgx-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <RefreshCw className="mr-2 h-4 w-4" />
             Cập nhật PKGX
             <ChevronDown className="ml-2 h-4 w-4" />
@@ -618,7 +621,6 @@ export function ProductDetailPage() {
         key="pkgx-publish"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => handleConfirm(
           'Đăng lên PKGX',
           `Bạn có chắc muốn đăng sản phẩm "${product.name}" lên PKGX?`,
@@ -635,7 +637,6 @@ export function ProductDetailPage() {
         key="edit"
         variant="default"
         size="sm"
-        className="h-9"
         onClick={() => router.push(`/products/${product.systemId}/edit`)}
       >
         <Edit className="mr-2 h-4 w-4" />
@@ -645,7 +646,6 @@ export function ProductDetailPage() {
         key="print"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={handlePrintLabel}
       >
         <Printer className="mr-2 h-4 w-4" />
@@ -656,7 +656,7 @@ export function ProductDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Chuyển vào thùng rác
@@ -720,7 +720,7 @@ export function ProductDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -847,7 +847,7 @@ export function ProductDetailPage() {
         <div className="text-center">
           <h2 className="text-h2">Không tìm thấy sản phẩm</h2>
           <p className="text-muted-foreground mt-2">Sản phẩm bạn đang tìm kiếm không tồn tại.</p>
-          <Button onClick={() => router.push('/products')} className="mt-4 h-9">
+          <Button onClick={() => router.push('/products')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>
@@ -859,7 +859,18 @@ export function ProductDetailPage() {
   const salesPolicies = pricingPolicies.filter(p => p.type === 'Bán hàng');
   const totalInventory = Object.values(product.inventoryByBranch || {}).reduce<number>((sum, qty) => sum + Number(qty || 0), 0);
 
+  const handlePullRefresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['product', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['products'] }),
+      queryClient.invalidateQueries({ queryKey: ['stock-history'] }),
+      queryClient.invalidateQueries({ queryKey: ['inventory-receipts'] }),
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
+    ]);
+  };
+
   return (
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
     <DetailPageShell gap="lg">
         {/* Header Summary Card with Image and Basic Info */}
         <Card className={mobileBleedCardClass}>
@@ -1570,5 +1581,6 @@ export function ProductDetailPage() {
           </AlertDialogContent>
         </AlertDialog>
     </DetailPageShell>
+    </PullToRefresh>
   );
 }

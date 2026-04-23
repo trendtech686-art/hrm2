@@ -149,7 +149,6 @@ export function LeaveDetailPage() {
         <Button
           key="approve"
           size="sm"
-          className="h-9"
           onClick={handleApprove}
           disabled={mutations.approve.isPending}
         >
@@ -162,7 +161,6 @@ export function LeaveDetailPage() {
           key="reject"
           size="sm"
           variant="destructive"
-          className="h-9"
           onClick={() => setRejectDialogOpen(true)}
           disabled={mutations.reject.isPending}
         >
@@ -178,7 +176,6 @@ export function LeaveDetailPage() {
           key="edit"
           size="sm"
           variant="outline"
-          className="h-9"
           onClick={() => router.push(`/leaves/${systemId}/edit`)}
         >
           <Edit className="mr-2 h-4 w-4" />
@@ -193,7 +190,6 @@ export function LeaveDetailPage() {
           key="cancel"
           size="sm"
           variant="outline"
-          className="h-9"
           onClick={handleCancel}
           disabled={mutations.cancel.isPending}
         >
@@ -216,7 +212,7 @@ export function LeaveDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

@@ -430,7 +430,7 @@ export function WarrantyFormPage() {
       variant="outline"
       onClick={() => router.push('/warranty')}
       size="sm"
-      className="hidden md:inline-flex h-9"
+      className="hidden md:inline-flex"
     >
       <ArrowLeft className="h-4 w-4 mr-2" />
       Quay lại
@@ -441,7 +441,7 @@ export function WarrantyFormPage() {
       onClick={handleSubmitClick}
       disabled={isReadOnly || formState.isSubmitting}
       size="sm"
-      className="hidden md:inline-flex h-9"
+      className="hidden md:inline-flex"
     >
       {formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
     </Button>,

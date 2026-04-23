@@ -351,7 +351,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                         </Link>
                                         {selectedCustomer.tags && selectedCustomer.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1">
-                                                {selectedCustomer.tags.slice(0, 3).map((tag, idx) => (
+                                                {selectedCustomer.tags.slice(0, 3).map((tag: string, idx: number) => (
                                                     <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0">{tag}</Badge>
                                                 ))}
                                             </div>

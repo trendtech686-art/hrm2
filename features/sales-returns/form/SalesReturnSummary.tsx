@@ -223,7 +223,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                 }}
                 value={field.value}
               >
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,7 +246,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
             name={`refunds.${index}.accountSystemId`}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -279,7 +279,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
             type="button"
             size="icon"
             variant="ghost"
-            className="h-9 w-10"
+            className="w-10"
             onClick={() => {
               const currentRefunds = getValues('refunds') || [];
               setValue(
@@ -338,7 +338,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                 }}
                 value={field.value}
               >
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -361,7 +361,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
             name={`payments.${index}.accountSystemId`}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -394,7 +394,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
             type="button"
             size="icon"
             variant="ghost"
-            className="h-9 w-10"
+            className="w-10"
             onClick={() => {
               const currentPayments = getValues('payments') || [];
               setValue(
@@ -535,7 +535,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                         value={field.value || 'fixed'}
                         onValueChange={field.onChange}
                       >
-                        <SelectTrigger className="h-9 w-16">
+                        <SelectTrigger className="w-16">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

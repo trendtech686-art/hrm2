@@ -3,6 +3,8 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { formatDate as formatDateUtil, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
@@ -138,6 +140,7 @@ const _renderCustomerStatusBadge = (status?: Customer["status"]) => {
 export function CustomerDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   
   // React Query hooks
   const { data: customer, isLoading } = useCustomer(systemId);
@@ -467,19 +470,19 @@ export function CustomerDetailPage() {
     const actions: React.ReactNode[] = [];
     if (isAdmin || can('edit_customers')) {
       actions.push(
-        <Button key="receipt" variant="outline" size="sm" className="h-9" onClick={() => setReceiptDialogOpen(true)}>
+        <Button key="receipt" variant="outline" size="sm" onClick={() => setReceiptDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Tạo phiếu thu
         </Button>,
-        <Button key="payment" variant="outline" size="sm" className="h-9" onClick={() => setPaymentDialogOpen(true)}>
+        <Button key="payment" variant="outline" size="sm" onClick={() => setPaymentDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Tạo phiếu chi
         </Button>,
-        <Button key="delete" variant="outline" size="sm" className="h-9 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)}>
+        <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)}>
           <Trash2 className="mr-2 h-4 w-4" />
           Chuyển vào thùng rác
         </Button>,
-        <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/customers/${systemId}/edit`)}>
+        <Button key="edit" size="sm" onClick={() => router.push(`/customers/${systemId}/edit`)}>
           <Edit className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </Button>
@@ -493,7 +496,7 @@ export function CustomerDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -666,10 +669,23 @@ export function CustomerDetailPage() {
     );
   }
 
-  // DEBUG: Check if values are calculated
-  // 
+  const handlePullRefresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['customer', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customers'] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-stats', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-orders', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-products', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-sales-returns', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-warranties', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-complaints', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-debt', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
+    ]);
+  };
+
   return (
-    <>
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -1402,6 +1418,6 @@ export function CustomerDetailPage() {
         <EntityActivityTable entityType="customer" entityId={customer.systemId} />
       </div>
     </div>
-    </>
+    </PullToRefresh>
   );
 }

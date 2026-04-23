@@ -170,7 +170,6 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
         key="print"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={handlePrint}
       >
         <Printer className="mr-2 h-4 w-4" />
@@ -183,7 +182,6 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
         <Button
           key="edit"
           size="sm"
-          className="h-9"
           onClick={() => router.push(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }))}
         >
           <Edit className="mr-2 h-4 w-4" />
@@ -195,7 +193,6 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
           key="cancel"
           variant="destructive"
           size="sm"
-          className="h-9"
           onClick={() => {
             // TODO: Implement cancel confirmation
           }}
@@ -230,7 +227,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -279,7 +276,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
       <Card className={mobileBleedCardClass}>
         <CardContent className="p-8 text-center text-muted-foreground space-y-3">
           <p>Không tìm thấy phiếu chi</p>
-          <Button className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
+          <Button onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>

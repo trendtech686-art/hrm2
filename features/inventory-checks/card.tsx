@@ -46,12 +46,12 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
 
       <div className="mt-3 flex items-center gap-2">
         {onEdit && (
-          <Button variant="outline" className="h-9" onClick={() => onEdit(item)}>
+          <Button variant="outline" onClick={() => onEdit(item)}>
             Sửa
           </Button>
         )}
         {onBalance && status === 'draft' && (
-          <Button className="h-9" onClick={() => onBalance(item)}>
+          <Button onClick={() => onBalance(item)}>
             Cân bằng
           </Button>
         )}

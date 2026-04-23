@@ -278,7 +278,7 @@ export function OrderSummary({
                             name={`payments.${index}.method`} 
                             render={({ field }) => ( 
                               <Select onValueChange={field.onChange} value={field.value} disabled={disabled}>
-                                <SelectTrigger className="h-9 text-xs">
+                                <SelectTrigger className="text-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

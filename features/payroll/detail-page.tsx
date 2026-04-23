@@ -525,7 +525,7 @@ export function PayrollDetailPage() {
     // === TRẠNG THÁI NHÁP (draft) ===
     if (batch.status === 'draft') {
       actions.push(
-        <Button key="review" size="sm" className="h-9" onClick={() => openApprovalDialog('review')} disabled={updateStatus.isPending}>
+        <Button key="review" size="sm" onClick={() => openApprovalDialog('review')} disabled={updateStatus.isPending}>
           {updateStatus.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
           {updateStatus.isPending ? 'Đang xử lý...' : 'Đánh dấu đã duyệt'}
         </Button>
@@ -535,7 +535,7 @@ export function PayrollDetailPage() {
     // === TRẠNG THÁI ĐÃ DUYỆT (reviewed) ===
     if (batch.status === 'reviewed') {
       actions.push(
-        <Button key="lock" size="sm" className="h-9" onClick={() => openApprovalDialog('lock')} disabled={updateStatus.isPending}>
+        <Button key="lock" size="sm" onClick={() => openApprovalDialog('lock')} disabled={updateStatus.isPending}>
           {updateStatus.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
           {updateStatus.isPending ? 'Đang xử lý...' : 'Khóa bảng lương'}
         </Button>
@@ -546,7 +546,7 @@ export function PayrollDetailPage() {
     // Create payment button (only when locked and no linked payments)
     if (isLocked && linkedPayments.length === 0) {
       actions.push(
-        <Button key="create-payment" size="sm" className="h-9" onClick={() => setIsCreatePaymentOpen(true)}>
+        <Button key="create-payment" size="sm" onClick={() => setIsCreatePaymentOpen(true)}>
           <Banknote className="h-4 w-4 mr-2" />
           Tạo phiếu chi
         </Button>
@@ -556,7 +556,7 @@ export function PayrollDetailPage() {
     // Unlock button
     if (isLocked) {
       actions.push(
-        <Button key="unlock" size="sm" className="h-9" variant="outline" disabled={updateStatus.isPending} onClick={() => {
+        <Button key="unlock" size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => {
           if (!batch) return;
           updateStatus.mutate(
             { systemId: batch.systemId, data: { status: 'reviewed', note: 'Mở khóa bảng lương' } },
@@ -577,7 +577,7 @@ export function PayrollDetailPage() {
     
     // Print button
     actions.push(
-      <Button key="print" variant="outline" size="sm" className="h-9" onClick={handlePrint}>
+      <Button key="print" variant="outline" size="sm" onClick={handlePrint}>
         <Printer className="h-4 w-4 mr-2" />
         In
       </Button>
@@ -585,7 +585,7 @@ export function PayrollDetailPage() {
     
     // Run new button
     actions.push(
-      <Button key="run-new" variant="outline" size="sm" className="h-9" onClick={handleRunNew}>
+      <Button key="run-new" variant="outline" size="sm" onClick={handleRunNew}>
         Chạy kỳ mới
       </Button>
     );
@@ -1010,7 +1010,7 @@ export function PayrollDetailPage() {
       <div className="flex h-72 flex-col items-center justify-center text-center">
         <p className="text-lg font-semibold">Không tìm thấy bảng lương.</p>
         <p className="text-sm text-muted-foreground">Vui lòng kiểm tra lại đường dẫn hoặc quay về danh sách.</p>
-        <Button className="mt-4 h-9" onClick={handleBack}>
+        <Button className="mt-4" onClick={handleBack}>
           Về danh sách
         </Button>
       </div>

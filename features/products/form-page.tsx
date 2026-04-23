@@ -60,7 +60,7 @@ export function ProductFormPage() {
       key="cancel"
       variant="outline"
       size="sm"
-      className="hidden md:inline-flex h-9"
+      className="hidden md:inline-flex"
       onClick={handleCancel}
     >
       Hủy
@@ -69,7 +69,7 @@ export function ProductFormPage() {
       key="submit"
       type="button"
       size="sm"
-      className="hidden md:inline-flex h-9"
+      className="hidden md:inline-flex"
       disabled={isBusy}
       onClick={handleSubmitClick}
     >

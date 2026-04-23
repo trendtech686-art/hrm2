@@ -368,7 +368,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
     <div className="flex items-center gap-2">
       <Button 
         variant="outline" 
-        className="h-9"
         onClick={() => router.push('/price-adjustments')}
         disabled={isSubmitting}
       >
@@ -377,7 +376,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
       </Button>
       <Button 
         type="button"
-        className="h-9"
         disabled={isSubmitting || fields.length === 0 || !watchPricingPolicyId}
         onClick={handleSubmitClick}
       >
@@ -430,7 +428,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
                   value={watchPricingPolicyId} 
                   onValueChange={(value) => form.setValue('pricingPolicyId', value)}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn bảng giá..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -451,7 +449,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
                 <Input 
                   {...form.register('customId')}
                   placeholder={nextId}
-                  className="h-9"
                 />
                 {customIdError ? (
                   <p className="text-sm text-destructive">{customIdError}</p>
@@ -467,7 +464,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
                 <Input 
                   {...form.register('referenceCode')}
                   placeholder="Mã tham chiếu (nếu có)..."
-                  className="h-9"
                 />
               </div>
               
@@ -476,7 +472,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
                 <Input 
                   value={currentEmployee?.fullName || user?.name || 'Không xác định'}
                   disabled
-                  className="h-9 bg-muted"
+                  className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
                   {formatDateTimeForDisplay(new Date())}
@@ -489,7 +485,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
               <Input 
                 {...form.register('reason')}
                 placeholder="Ví dụ: Điều chỉnh giá theo thị trường, Khuyến mãi mùa hè..."
-                className="h-9"
               />
             </div>
 

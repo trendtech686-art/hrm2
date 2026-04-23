@@ -39,7 +39,7 @@ export function TaxSelector({ value, onChange, disabled }: TaxSelectorProps) {
 
   return (
     <Select value={value} onValueChange={handleChange} disabled={disabled}>
-      <SelectTrigger className="w-full h-9">
+      <SelectTrigger className="w-full">
         <SelectValue placeholder="Chọn thuế" />
       </SelectTrigger>
       <SelectContent>

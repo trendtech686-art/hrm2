@@ -243,7 +243,7 @@ const LineItemRow = React.memo(({
             return { stock: 0, isValid: true };
         }
         
-        const stock = product.inventoryByBranch[branchSystemId] || 0;
+        const stock = product.inventoryByBranch[branchSystemId as SystemId] || 0;
         return { stock, isValid: true };
     }, [branchSystemId, product, productsMap]);
 
@@ -416,7 +416,7 @@ const LineItemRow = React.memo(({
                             name={`${fieldName}.${index}.discountType`}
                             render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value} disabled={disabled}>
-                                    <SelectTrigger className="h-9 w-17.5">
+                                    <SelectTrigger className="w-17.5">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -638,7 +638,7 @@ const LineItemMobileCard = React.memo(({
             return { stock: available, isValid: true };
         }
         if (!product.inventoryByBranch) return { stock: 0, isValid: true };
-        const stock = product.inventoryByBranch[branchSystemId] || 0;
+        const stock = product.inventoryByBranch[branchSystemId as SystemId] || 0;
         return { stock, isValid: true };
     }, [branchSystemId, product, productsMap]);
 

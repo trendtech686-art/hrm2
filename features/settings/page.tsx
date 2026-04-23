@@ -29,6 +29,8 @@ import {
   Shield,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Badge } from '../../components/ui/badge';
 import { SettingsActionButton } from '../../components/settings/SettingsActionButton';
 import { MobileSearchBar } from '../../components/mobile/mobile-search-bar';
@@ -405,8 +407,8 @@ export function SettingsPage() {
 
         {/* No Results */}
         {filteredSettings.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
+          <Card className={cn(mobileBleedCardClass, 'border-dashed')}>
+            <CardContent className="flex min-h-[240px] flex-col items-center justify-center py-12">
               <Settings2 className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-h4 font-semibold mb-2">Không tìm thấy cài đặt</h3>
               <p className="text-sm text-muted-foreground text-center max-w-sm">

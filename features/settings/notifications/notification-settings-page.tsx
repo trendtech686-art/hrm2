@@ -342,15 +342,15 @@ function TaskNotificationTab({ isActive, onRegisterActions }: { isActive: boolea
             <SettingsFormGrid className="pt-4">
               <div className="space-y-2">
                 <Label htmlFor="task-rem1">Nhắc nhở lần 1 (giờ)</Label>
-                <Input id="task-rem1" type="number" className="h-9" min="1" value={reminders.firstReminderHours} onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)} />
+                <Input id="task-rem1" type="number" min="1" value={reminders.firstReminderHours} onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="task-rem2">Nhắc nhở lần 2 (giờ)</Label>
-                <Input id="task-rem2" type="number" className="h-9" min="1" value={reminders.secondReminderHours} onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)} />
+                <Input id="task-rem2" type="number" min="1" value={reminders.secondReminderHours} onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="task-esc">Báo động leo thang (giờ)</Label>
-                <Input id="task-esc" type="number" className="h-9" min="1" value={reminders.escalationHours} onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)} />
+                <Input id="task-esc" type="number" min="1" value={reminders.escalationHours} onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)} />
               </div>
             </SettingsFormGrid>
           )}
@@ -453,15 +453,15 @@ function ComplaintNotificationTab({ isActive, onRegisterActions }: { isActive: b
             <SettingsFormGrid className="pt-4">
               <div className="space-y-2">
                 <Label htmlFor="comp-rem1">Nhắc nhở lần 1 (giờ)</Label>
-                <Input id="comp-rem1" type="number" className="h-9" min="1" value={reminders.firstReminderHours} onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)} />
+                <Input id="comp-rem1" type="number" min="1" value={reminders.firstReminderHours} onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="comp-rem2">Nhắc nhở lần 2 (giờ)</Label>
-                <Input id="comp-rem2" type="number" className="h-9" min="1" value={reminders.secondReminderHours} onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)} />
+                <Input id="comp-rem2" type="number" min="1" value={reminders.secondReminderHours} onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="comp-esc">Báo động leo thang (giờ)</Label>
-                <Input id="comp-esc" type="number" className="h-9" min="1" value={reminders.escalationHours} onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)} />
+                <Input id="comp-esc" type="number" min="1" value={reminders.escalationHours} onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)} />
               </div>
             </SettingsFormGrid>
           )}
@@ -744,7 +744,7 @@ function WarehouseNotificationTab({ isActive, onRegisterActions }: { isActive: b
               <Input
                 id="wh-stock-threshold"
                 type="number"
-                className="h-9 max-w-50"
+                className="max-w-50"
                 min="1"
                 value={settings.lowStockThreshold}
                 onChange={(e) => setSettings(prev => ({ ...prev, lowStockThreshold: parseInt(e.target.value) || 1 }))}

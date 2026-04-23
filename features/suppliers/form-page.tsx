@@ -103,10 +103,10 @@ export function SupplierFormPage() {
     backPath: ROUTES.PROCUREMENT.SUPPLIERS,
     breadcrumb,
     actions: [
-      <Button key="cancel" variant="outline" className="h-9 gap-2" onClick={handleCancel}>
+      <Button key="cancel" variant="outline" className="gap-2" onClick={handleCancel}>
         Hủy
       </Button>,
-      <Button key="save" type="button" className="h-9 gap-2" onClick={handleSaveClick} disabled={isLoadingSupplier || isBusy}>
+      <Button key="save" type="button" className="gap-2" onClick={handleSaveClick} disabled={isLoadingSupplier || isBusy}>
         {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
         {isBusy ? 'Đang lưu...' : 'Lưu'}
       </Button>

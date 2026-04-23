@@ -85,7 +85,6 @@ export function KanbanColumn({
           placeholder="Tìm kiếm..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-9"
         />
       </div>
 

@@ -29,7 +29,7 @@ export function CustomersTrashPage() {
     ],
     showBackButton: false,
     actions: [
-      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/customers')}>
+      <Button key="back" variant="outline" size="sm" onClick={() => router.push('/customers')}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Quay lại
       </Button>,

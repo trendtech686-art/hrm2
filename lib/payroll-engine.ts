@@ -201,7 +201,7 @@ function safeEvaluateFormula(formula: string, context: FormulaContext): number {
     const contextKeys = Object.keys(safeContext);
     const contextValues = Object.values(safeContext);
 
-    // eslint-disable-next-line no-new-func
+     
     const fn = new Function(...contextKeys, `"use strict"; return (${formula});`);
     const result = fn(...contextValues);
 

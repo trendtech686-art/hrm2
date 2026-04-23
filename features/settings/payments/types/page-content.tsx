@@ -182,8 +182,8 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
           </DialogHeader>
           <PaymentTypeForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
-            <Button type="button" variant="outline" className="h-9" onClick={() => setIsFormOpen(false)}>Đóng</Button>
-            <Button type="submit" form="payment-type-form" className="h-9" disabled={create.isPending || update.isPending}>
+            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Đóng</Button>
+            <Button type="submit" form="payment-type-form" disabled={create.isPending || update.isPending}>
               {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Lưu
             </Button>

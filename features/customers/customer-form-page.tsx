@@ -84,8 +84,8 @@ export function CustomerFormPage() {
   }, []);
 
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" size="sm" className="hidden md:inline-flex h-9" onClick={handleCancel} disabled={isBusy}>Hủy</Button>,
-    <Button key="save" type="button" size="sm" className="hidden md:inline-flex h-9" onClick={handleSaveClick} disabled={isBusy}>
+    <Button key="cancel" type="button" variant="outline" size="sm" className="hidden md:inline-flex" onClick={handleCancel} disabled={isBusy}>Hủy</Button>,
+    <Button key="save" type="button" size="sm" className="hidden md:inline-flex" onClick={handleSaveClick} disabled={isBusy}>
       {isBusy ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -75,7 +75,7 @@ function SocialLinkRow({
         onValueChange={(val) => setValue(`socialLinks.${index}.type`, val)} 
         value={typeValue || 'Khác'}
       >
-        <SelectTrigger className="h-9 w-32 shrink-0">
+        <SelectTrigger className="w-32 shrink-0">
           <SelectValue placeholder="Loại" />
         </SelectTrigger>
         <SelectContent>
@@ -93,7 +93,7 @@ function SocialLinkRow({
         </SelectContent>
       </Select>
       <Input 
-        className="h-9 flex-1" 
+        className="flex-1" 
         placeholder="Link hoặc username" 
         {...register(`socialLinks.${index}.value`)}
       />
@@ -101,7 +101,7 @@ function SocialLinkRow({
         type="button"
         variant="ghost"
         size="icon"
-        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+        className="w-9 shrink-0 text-muted-foreground hover:text-destructive"
         onClick={onRemove}
       >
         <X className="h-4 w-4" />
@@ -148,7 +148,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Tên công ty / HKD <span className="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="Công ty TNHH ABC" {...field} value={field.value as string || ''} />
+                <Input placeholder="Công ty TNHH ABC" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -161,7 +161,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Mã số thuế</FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="0123456789" {...field} value={field.value as string || ''} maxLength={13} />
+                <Input placeholder="0123456789" {...field} value={field.value as string || ''} maxLength={13} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -174,7 +174,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Người đại diện</FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
+                <Input placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -187,7 +187,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Chức vụ</FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="Giám đốc" {...field} value={field.value as string || ''} />
+                <Input placeholder="Giám đốc" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -200,7 +200,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Ngân hàng</FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="Vietcombank" {...field} value={field.value as string || ''} />
+                <Input placeholder="Vietcombank" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -213,7 +213,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Số tài khoản</FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="1234567890" {...field} value={field.value as string || ''} />
+                <Input placeholder="1234567890" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -226,7 +226,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Số điện thoại</FormLabel>
               <FormControl>
-                <Input className="h-9" placeholder="0901234567" {...field} value={field.value as string || ''} />
+                <Input placeholder="0901234567" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -239,7 +239,7 @@ function BusinessProfileRow({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input className="h-9" type="email" placeholder="company@gmail.com" {...field} value={field.value as string || ''} />
+                <Input type="email" placeholder="company@gmail.com" {...field} value={field.value as string || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -887,7 +887,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                   <FormItem>
                     <FormLabel>Mã khách hàng</FormLabel>
                     <FormControl>
-                      <Input className="h-9" placeholder="Để trống sẽ tự động sinh mã" {...field} value={field.value as string || ''} />
+                      <Input placeholder="Để trống sẽ tự động sinh mã" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -901,7 +901,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                   <FormItem>
                     <FormLabel>Tên khách hàng <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
-                      <Input className="h-9" placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
+                      <Input placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -916,7 +916,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                     <FormLabel>Số điện thoại</FormLabel>
                     <FormControl>
                       <Input 
-                        className="h-9"
                         placeholder="09xxxxxxxx" 
                         {...field} 
                         value={field.value as string || ''} 
@@ -1331,7 +1330,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                     <FormLabel>Cho phép công nợ</FormLabel>
                     <Select onValueChange={(val) => field.onChange(val === 'true')} value={field.value?.toString()}>
                       <FormControl>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger>
                           <SelectValue placeholder="Chọn..." />
                         </SelectTrigger>
                       </FormControl>
@@ -1450,7 +1449,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                   <FormItem>
                     <FormLabel>Chiến dịch</FormLabel>
                     <FormControl>
-                      <Input className="h-9" placeholder="Tên chiến dịch" {...field} value={field.value as string || ''} />
+                      <Input placeholder="Tên chiến dịch" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

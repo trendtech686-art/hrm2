@@ -231,7 +231,7 @@ export function SalesReturnDetailPage() {
             key="print"
             variant="outline"
             size="sm"
-            className="h-9 px-4"
+            className="px-4"
             onClick={handlePrint}
         >
             <Printer className="mr-2 h-4 w-4" />

@@ -599,7 +599,6 @@ export function ComplaintDetailPage() {
         key="templates"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => { setTemplatesLoaded(true); setTemplateDialogOpen(true); }}
       >
         Mẫu phản hồi
@@ -608,7 +607,6 @@ export function ComplaintDetailPage() {
         key="copy"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => router.push(`/complaints/new?copyFrom=${complaint.systemId}`)}
       >
         <Copy className="mr-2 h-4 w-4" />
@@ -627,7 +625,6 @@ export function ComplaintDetailPage() {
       <ShareButton
         key="share"
         size="sm"
-        className="h-9"
         title={`Khiếu nại ${complaint.id ?? complaint.systemId}`}
         text={`Khiếu nại ${complaint.id ?? complaint.systemId}`}
       />
@@ -640,7 +637,7 @@ export function ComplaintDetailPage() {
           key="cancel"
           variant="outline"
           size="sm"
-          className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50"
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
           onClick={handleCancelComplaint}
         >
           Hủy khiếu nại
@@ -655,7 +652,6 @@ export function ComplaintDetailPage() {
           key="edit"
           variant="default"
           size="sm"
-          className="h-9"
           onClick={() => router.push(`/complaints/${systemId}/edit`)}
         >
           Sửa
@@ -670,7 +666,6 @@ export function ComplaintDetailPage() {
           key="end"
           variant="default"
           size="sm"
-          className="h-9"
           onClick={handleEndComplaint}
         >
           Kết thúc
@@ -685,7 +680,6 @@ export function ComplaintDetailPage() {
           key="reopen"
           variant="default"
           size="sm"
-          className="h-9"
           onClick={handleReopenComplaint}
         >
           Mở lại
@@ -725,7 +719,7 @@ export function ComplaintDetailPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <h3 className="text-h4 font-semibold mb-2">Không tìm thấy khiếu nại</h3>
-          <Button className="h-9" onClick={() => router.push("/complaints")}>
+          <Button onClick={() => router.push("/complaints")}>
             Quay lại danh sách
           </Button>
         </div>
@@ -749,14 +743,14 @@ export function ComplaintDetailPage() {
           <CardContent>
             <div className="flex gap-3">
               <Button
-                className="flex-1 h-9"
+                className="flex-1"
                 variant="default"
                 onClick={handleVerifyCorrectClick}
               >
                 Khiếu nại Đúng
               </Button>
               <Button
-                className="flex-1 h-9"
+                className="flex-1"
                 variant="outline"
                 onClick={handleVerifyIncorrect}
               >

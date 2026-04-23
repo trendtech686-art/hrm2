@@ -104,7 +104,7 @@ const wardDistrictMap = new Map<string, WardDistrictMapping>();
  */
 export function loadWardDistrictMapping(data?: ReadonlyArray<WardDistrictDataInput>) {
   wardDistrictMap.clear();
-  const dataToLoad = data || WARD_DISTRICT_DATA;
+  const dataToLoad: ReadonlyArray<WardDistrictDataInput> = data || WARD_DISTRICT_DATA;
   dataToLoad.forEach(item => {
     const provinceId = asBusinessId(
       typeof item.provinceId === 'number'

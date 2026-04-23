@@ -59,7 +59,7 @@ export function OrderInfoCard({
 
   return (
     <Card className={cn(mobileBleedCardClass, "h-full flex flex-col")}>
-      <CardHeader className="flex-shrink-0">
+      <CardHeader className="shrink-0">
         <CardTitle>Thông tin đơn</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 flex-1 overflow-y-auto">

@@ -234,12 +234,12 @@ export function PriceAdjustmentDetailPage() {
     
     return (
       <div className="flex items-center gap-2">
-        <Button variant="outline" className="h-9" onClick={handlePrint}>
+        <Button variant="outline" onClick={handlePrint}>
           <Printer className="mr-2 h-4 w-4" />
           In phiếu
         </Button>
         
-        <Button variant="outline" className="h-9" onClick={handleCopy}>
+        <Button variant="outline" onClick={handleCopy}>
           <Copy className="mr-2 h-4 w-4" />
           Sao chép
         </Button>
@@ -248,7 +248,6 @@ export function PriceAdjustmentDetailPage() {
           <>
             <Button 
               variant="outline" 
-              className="h-9"
               onClick={() => router.push(`/price-adjustments/${systemId}/edit`)}
             >
               <Pencil className="mr-2 h-4 w-4" />
@@ -256,7 +255,6 @@ export function PriceAdjustmentDetailPage() {
             </Button>
             <Button 
               variant="default" 
-              className="h-9"
               onClick={() => setConfirmDialogOpen(true)}
             >
               <CheckCircle className="mr-2 h-4 w-4" />
@@ -264,7 +262,6 @@ export function PriceAdjustmentDetailPage() {
             </Button>
             <Button 
               variant="destructive" 
-              className="h-9"
               onClick={() => setCancelDialogOpen(true)}
             >
               <XCircle className="mr-2 h-4 w-4" />
@@ -282,7 +279,7 @@ export function PriceAdjustmentDetailPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -749,10 +746,10 @@ export function PriceAdjustmentDetailPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
               Đóng
             </Button>
-            <Button variant="destructive" className="h-9" onClick={handleCancel} disabled={cancel.isPending}>
+            <Button variant="destructive" onClick={handleCancel} disabled={cancel.isPending}>
               {cancel.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Hủy phiếu
             </Button>

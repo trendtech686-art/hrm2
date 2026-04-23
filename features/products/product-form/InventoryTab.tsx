@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
@@ -34,7 +35,7 @@ export function InventoryTab({ storageLocationOptions, branches = [], isEditMode
     <>
       {/* Card 1: Initial Inventory - Only show when creating NEW product (not combo) */}
       {!isEditMode && !isComboProduct && branches.length > 0 && (
-        <Card>
+        <Card className={mobileBleedCardClass}>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-green-600" />
@@ -85,7 +86,7 @@ export function InventoryTab({ storageLocationOptions, branches = [], isEditMode
       )}
 
       {/* Card 2: Inventory Settings */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Quản lý kho</CardTitle>
         </CardHeader>

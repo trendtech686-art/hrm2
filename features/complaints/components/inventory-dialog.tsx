@@ -175,7 +175,7 @@ export function InventoryDialog({
                           <td className="p-3">
                             <Input
                               type="number"
-                              className="h-9 text-center font-medium"
+                              className="text-center font-medium"
                               value={adjustQty}
                               onChange={(e) => {
                                 const value = Number(e.target.value) || 0;

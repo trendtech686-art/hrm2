@@ -358,7 +358,7 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                                 type="button" 
                                 variant="destructive" 
                                 onClick={() => handleDeleteRequest(editingTax.systemId)}
-                                className="sm:mr-auto h-9"
+                                className="sm:mr-auto"
                                 disabled={remove.isPending}
                             >
                                 {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -366,10 +366,10 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                             </Button>
                         )}
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="h-9">
+                            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                                 Thoát
                             </Button>
-                            <Button type="submit" form="tax-form" className="h-9" disabled={create.isPending || update.isPending}>
+                            <Button type="submit" form="tax-form" disabled={create.isPending || update.isPending}>
                                 {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Xác nhận
                             </Button>

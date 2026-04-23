@@ -65,7 +65,7 @@ export function ChartControls({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-9 w-10" 
+          className="w-10" 
           onClick={handleZoomOut}
           title="Thu nhỏ (Scroll xuống)"
         >
@@ -75,7 +75,7 @@ export function ChartControls({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-9 w-10" 
+          className="w-10" 
           onClick={handleFitView}
           title="Khung hình vừa"
         >
@@ -85,7 +85,7 @@ export function ChartControls({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-9 w-10" 
+          className="w-10" 
           onClick={handleZoomIn}
           title="Phóng to (Scroll lên)"
         >
@@ -99,7 +99,7 @@ export function ChartControls({
         <Button 
           variant={isLocked ? "secondary" : "default"} 
           size="sm"
-          className="h-9 px-3"
+          className="px-3"
           onClick={onLockToggle}
           title={isLocked ? 'Mở khóa để chỉnh sửa' : 'Khóa để xem'}
         >
@@ -114,7 +114,7 @@ export function ChartControls({
         <Button 
           variant="ghost" 
           size="sm"
-          className="h-9 px-3"
+          className="px-3"
           onClick={onAutoLayout}
           title="Tự động sắp xếp lại"
           disabled={isLocked}
@@ -126,7 +126,7 @@ export function ChartControls({
         <Button 
           variant="ghost" 
           size="sm"
-          className="h-9 px-3"
+          className="px-3"
           onClick={onSaveLayout}
           title="Lưu vị trí hiện tại"
           disabled={isLocked}
@@ -138,7 +138,7 @@ export function ChartControls({
         <Button 
           variant="ghost" 
           size="sm"
-          className="h-9 px-3"
+          className="px-3"
           onClick={handleToggleDirection}
           title={`Chuyển sang ${layoutDirection === 'TB' ? 'ngang' : 'dọc'}`}
         >

@@ -29,7 +29,6 @@ export function CategoriesTrashPage() {
       key="back"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={handleNavigateBack}
     >
       Danh sách danh mục
@@ -37,7 +36,6 @@ export function CategoriesTrashPage() {
     <Button
       key="create"
       size="sm"
-      className="h-9"
       onClick={handleCreateCategory}
     >
       Thêm danh mục

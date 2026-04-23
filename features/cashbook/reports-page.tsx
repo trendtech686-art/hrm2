@@ -176,7 +176,7 @@ export function CashbookReportsPage() {
       key="cashbook"
       variant="outline"
       size="sm"
-      className="h-9 gap-2"
+      className="gap-2"
       onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}
     >
       <FileText className="mr-2 h-4 w-4" />
@@ -185,7 +185,7 @@ export function CashbookReportsPage() {
     <Button
       key="receipt"
       size="sm"
-      className="h-9 gap-2"
+      className="gap-2"
       onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}
     >
       <DollarSign className="mr-2 h-4 w-4" />
@@ -195,7 +195,7 @@ export function CashbookReportsPage() {
       key="payment"
       variant="outline"
       size="sm"
-      className="h-9 gap-2"
+      className="gap-2"
       onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}
     >
       <CreditCard className="mr-2 h-4 w-4" />

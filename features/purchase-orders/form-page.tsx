@@ -812,7 +812,7 @@ export function PurchaseOrderFormPage() {
       variant="outline" 
       onClick={handleExit} 
       size="sm" 
-      className="hidden lg:inline-flex h-9"
+      className="hidden lg:inline-flex"
       disabled={isSaving}
     >
       Thoát
@@ -823,7 +823,7 @@ export function PurchaseOrderFormPage() {
       variant="outline" 
       onClick={handleSaveWithoutReceive} 
       size="sm" 
-      className="hidden lg:inline-flex h-9"
+      className="hidden lg:inline-flex"
       disabled={isSaving}
     >
       {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Tạo & chưa nhập"}
@@ -833,7 +833,7 @@ export function PurchaseOrderFormPage() {
       type="button" 
       onClick={handleSaveWithReceive} 
       size="sm" 
-      className="hidden lg:inline-flex h-9"
+      className="hidden lg:inline-flex"
       disabled={isSaving}
     >
       {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Tạo & nhập hàng"}

@@ -78,7 +78,7 @@ export function SalesManagementSettings({ isActive, onRegisterActions }: SalesMa
                     <div>
                         <Label htmlFor="print-copies" className="font-semibold">In nhiều liên hoá đơn</Label>
                         <Select value={settings.printCopies} onValueChange={(value) => updateSetting('printCopies', value as SalesManagementSettingsValues['printCopies'])}>
-                            <SelectTrigger id="print-copies" className="mt-2 h-9">
+                            <SelectTrigger id="print-copies" className="mt-2">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

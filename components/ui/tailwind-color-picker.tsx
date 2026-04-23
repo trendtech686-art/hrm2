@@ -117,7 +117,7 @@ export function TailwindColorPicker({ value, onChange, label, placeholder }: Tai
         
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-10 h-9 p-0">
+            <Button variant="outline" className="w-10 p-0">
               <div
                 className="w-6 h-6 rounded border"
                 style={{

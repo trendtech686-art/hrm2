@@ -190,7 +190,7 @@ export function EmployeeDocumentsTab({
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Tìm kiếm tài liệu..."
-            className="w-full pl-8 h-9"
+            className="w-full pl-8"
             value={documentSearch}
             onChange={(e) => setDocumentSearch(e.target.value)}
           />

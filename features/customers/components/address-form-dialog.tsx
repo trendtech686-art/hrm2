@@ -558,7 +558,6 @@ export function AddressFormDialog({
               Địa chỉ *
             </Label>
             <Input
-              className="h-9"
               id="street"
               placeholder="Số nhà, tên đường..."
               value={formData.street}
@@ -666,7 +665,6 @@ export function AddressFormDialog({
                 Người liên hệ
               </Label>
               <Input
-                className="h-9"
                 id="contactName"
                 placeholder="Tên người liên hệ"
                 value={formData.contactName}
@@ -678,7 +676,6 @@ export function AddressFormDialog({
                 Số điện thoại
               </Label>
               <Input
-                className="h-9"
                 id="contactPhone"
                 placeholder="Số điện thoại liên hệ"
                 value={formData.contactPhone}
@@ -692,7 +689,6 @@ export function AddressFormDialog({
               Ghi chú
             </Label>
             <Input
-              className="h-9"
               id="notes"
               placeholder="Ghi chú thêm về địa chỉ này..."
               value={formData.notes}

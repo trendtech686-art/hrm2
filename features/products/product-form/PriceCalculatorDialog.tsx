@@ -173,7 +173,7 @@ export function PriceCalculatorDialog({
             <div>
               <Label className="text-sm font-medium">Thuế VAT</Label>
               <Select value={taxSystemId} onValueChange={setTaxSystemId}>
-                <SelectTrigger className="mt-1 h-9">
+                <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Chọn VAT" />
                 </SelectTrigger>
                 <SelectContent>
@@ -190,7 +190,6 @@ export function PriceCalculatorDialog({
               <div className="mt-1 flex items-center gap-1.5">
                 <Input
                   type="number"
-                  className="h-9"
                   value={retailMarkup}
                   onChange={(e) => setRetailMarkup(Number(e.target.value) || 0)}
                   step={0.1}
@@ -208,7 +207,6 @@ export function PriceCalculatorDialog({
               <div className="mt-1 flex items-center gap-1.5">
                 <Input
                   type="number"
-                  className="h-9"
                   value={margin1}
                   onChange={(e) => setMargin1(Number(e.target.value) || 0)}
                   step={1}
@@ -222,7 +220,6 @@ export function PriceCalculatorDialog({
               <div className="mt-1 flex items-center gap-1.5">
                 <Input
                   type="number"
-                  className="h-9"
                   value={margin2}
                   onChange={(e) => setMargin2(Number(e.target.value) || 0)}
                   step={1}

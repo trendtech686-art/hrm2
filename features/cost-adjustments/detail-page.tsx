@@ -217,7 +217,7 @@ export function CostAdjustmentDetailPage() {
     
     return (
       <div className="flex items-center gap-2">
-        <Button variant="outline" className="h-9" onClick={handlePrint}>
+        <Button variant="outline" onClick={handlePrint}>
           <Printer className="mr-2 h-4 w-4" />
           In phiếu
         </Button>
@@ -226,7 +226,6 @@ export function CostAdjustmentDetailPage() {
           <>
             <Button 
               variant="default" 
-              className="h-9"
               onClick={() => setConfirmDialogOpen(true)}
             >
               <CheckCircle className="mr-2 h-4 w-4" />
@@ -234,7 +233,6 @@ export function CostAdjustmentDetailPage() {
             </Button>
             <Button 
               variant="destructive" 
-              className="h-9"
               onClick={() => setCancelDialogOpen(true)}
             >
               <XCircle className="mr-2 h-4 w-4" />
@@ -251,7 +249,7 @@ export function CostAdjustmentDetailPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -642,10 +640,10 @@ export function CostAdjustmentDetailPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
               Đóng
             </Button>
-            <Button variant="destructive" className="h-9" onClick={handleCancel}>
+            <Button variant="destructive" onClick={handleCancel}>
               Hủy phiếu
             </Button>
           </DialogFooter>

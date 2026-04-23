@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 
 import { usePurchaseOrder } from '../purchase-orders/hooks/use-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
@@ -555,7 +556,7 @@ export function PurchaseReturnForOrderPage() {
               </Card>
 
               {/* Refund section */}
-              <Card className="mt-6">
+              <Card className={cn(mobileBleedCardClass, 'mt-6')}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-muted-foreground" />

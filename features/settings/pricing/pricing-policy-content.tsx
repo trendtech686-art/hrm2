@@ -222,16 +222,16 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
                                 type="button" 
                                 variant="destructive" 
                                 onClick={() => handleDeleteRequest(editingPolicy.systemId)}
-                                className="sm:mr-auto h-9"
+                                className="sm:mr-auto"
                             >
                                 Xóa
                             </Button>
                         )}
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="h-9">
+                            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                                 Thoát
                             </Button>
-                            <Button type="submit" form="pricing-policy-form" className="h-9">
+                            <Button type="submit" form="pricing-policy-form">
                                 Xác nhận
                             </Button>
                         </div>

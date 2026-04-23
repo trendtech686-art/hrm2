@@ -2,7 +2,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar, MessageSquare, Image, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
-import type { Task } from '../types';
+import type { Task, TaskPriorityVi } from '../types';
+import { normalizeTaskPriority } from '../types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -19,7 +20,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
   const isPendingApproval = task.approvalStatus === 'pending';
   const isRejected = task.approvalStatus === 'rejected';
   
-  const priorityColors = {
+  const priorityColors: Record<TaskPriorityVi, string> = {
     'Thấp': 'bg-blue-100 text-blue-800',
     'Trung bình': 'bg-yellow-100 text-yellow-800',
     'Cao': 'bg-orange-100 text-orange-800',
@@ -69,7 +70,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
               </h3>
               <Badge 
                 variant="outline" 
-                className={priorityColors[task.priority]}
+                className={priorityColors[normalizeTaskPriority(task.priority)]}
               >
                 {task.priority}
               </Badge>

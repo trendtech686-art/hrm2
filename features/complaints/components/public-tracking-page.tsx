@@ -31,6 +31,8 @@ import {
   complaintResolutionLabels,
   type ComplaintImage,
   type ComplaintStatus,
+  type ComplaintType,
+  type ComplaintVerification,
   type ComplaintResolution,
 } from '../types';
 import { usePublicComplaintTracking, addPublicComment, type PublicCompensationItem } from '../hooks/use-public-tracking';
@@ -77,7 +79,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
       ended: 100,
       cancelled: 0,
     };
-    return progressMap[complaint.status] || 0;
+    return progressMap[complaint.status as ComplaintStatus] || 0;
   }, [complaint]);
   
   // Memoize compensation data for easier access
@@ -256,15 +258,15 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
         )}
         
         {/* Status Card với progress */}
-        <Card className="border-l-4" style={{ borderLeftColor: complaintStatusColors[complaint.status] || '#6b7280' }}>
+        <Card className="border-l-4" style={{ borderLeftColor: complaintStatusColors[complaint.status as ComplaintStatus] || '#6b7280' }}>
           <CardContent className="p-4 sm:p-6">
             <div className="space-y-4 sm:space-y-6">
               {/* Status Header */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <StatusIcon className="h-5 w-5 shrink-0" style={{ color: complaintStatusColors[complaint.status] || '#6b7280' }} />
-                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{complaintStatusLabels[complaint.status] || complaint.status}</h2>
+                    <StatusIcon className="h-5 w-5 shrink-0" style={{ color: complaintStatusColors[complaint.status as ComplaintStatus] || '#6b7280' }} />
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{complaintStatusLabels[complaint.status as ComplaintStatus] || complaint.status}</h2>
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     Khiếu nại #{complaint.id} • Tạo lúc {formatDateTimeForDisplay(complaint.createdAt)}
@@ -319,11 +321,11 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground shrink-0">Loại khiếu nại:</span>
-                <span className="font-medium text-right">{complaintTypeLabels[complaint.type] || complaint.type}</span>
+                <span className="font-medium text-right">{complaintTypeLabels[complaint.type as ComplaintType] || complaint.type}</span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground shrink-0">Trạng thái xác minh:</span>
-                <span className="font-medium text-right">{complaintVerificationLabels[complaint.verification] || complaint.verification}</span>
+                <span className="font-medium text-right">{complaintVerificationLabels[complaint.verification as ComplaintVerification] || complaint.verification}</span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground shrink-0">Ngày tạo:</span>
@@ -644,7 +646,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
                             <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden border bg-muted">
                               <Image
                                 src={item.productImage}
-                                alt={item.productName}
+                                alt={item.productName || ''}
                                 fill
                                 sizes="48px"
                                 unoptimized
@@ -774,7 +776,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
                                   <div className="relative h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
                                     <Image
                                       src={item.productImage}
-                                      alt={item.productName}
+                                      alt={item.productName || ''}
                                       fill
                                       sizes="40px"
                                       unoptimized
@@ -1026,7 +1028,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
                 {complaint.images
                   .filter(img => img.type === 'initial')
                   .map((image: ComplaintImage, idx: number) => {
-                    const allCustomerImages = complaint.images.filter(img => img.type === 'initial').map(img => img.url);
+                    const allCustomerImages = complaint.images!.filter(img => img.type === 'initial').map(img => img.url);
                     const imageId = `customer-${image.id}`;
                     
                     return (
@@ -1175,7 +1177,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
         {settings.allowCustomerComments && (
           <Comments
             entityType="complaint"
-            entityId={complaint.systemId}
+            entityId={complaint.systemId || ''}
             comments={comments.map(c => ({
               id: c.systemId,
               content: c.contentText || c.content,

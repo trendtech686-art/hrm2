@@ -4,6 +4,9 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
+import { PullToRefresh } from '@/components/shared/pull-to-refresh';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 import { formatDate, getMonthsDiff } from '@/lib/date-utils';
 import { useEmployee } from '../hooks/use-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
@@ -144,6 +147,8 @@ const TabLoadingSkeleton = () => (
 export function EmployeeDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { isMobile } = useBreakpoint();
   const { data: employeeFromQuery, isLoading } = useEmployee(systemId);
   const { data: branches } = useAllBranches();
   const { employee: authEmployee, can, isAdmin } = useAuth();
@@ -219,14 +224,14 @@ export function EmployeeDetailPage() {
     // Actions for detail page
     const headerActions = React.useMemo(() => {
         const actions: React.ReactNode[] = [
-            <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees')}>
+            <Button key="back" variant="outline" size="sm" onClick={() => router.push('/employees')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại
             </Button>
         ];
         if (isAdmin || can('edit_employees')) {
             actions.push(
-                <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/employees/${systemId}/edit`)}>
+                <Button key="edit" size="sm" onClick={() => router.push(`/employees/${systemId}/edit`)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Chỉnh sửa
                 </Button>
@@ -319,7 +324,22 @@ export function EmployeeDetailPage() {
     return `${months} tháng`;
   };
 
+  const handlePullRefresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['employee', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['employees'] }),
+      queryClient.invalidateQueries({ queryKey: ['task-stats', systemId] }),
+      queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+      queryClient.invalidateQueries({ queryKey: ['payroll'] }),
+      queryClient.invalidateQueries({ queryKey: ['leaves'] }),
+      queryClient.invalidateQueries({ queryKey: ['penalties'] }),
+      queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
+    ]);
+  };
+
   return (
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
     <DetailPageShell className="w-full h-full">
       <div className="space-y-6">
         {/* Profile Card */}
@@ -610,5 +630,6 @@ export function EmployeeDetailPage() {
 
       </div>
     </DetailPageShell>
+    </PullToRefresh>
   );
 }

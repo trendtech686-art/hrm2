@@ -93,7 +93,7 @@ export function PriceSelector({
           placeholder="Nhập giá..."
         />
         <Select value="preset" onValueChange={() => setMode("preset")}>
-          <SelectTrigger className="w-30 h-9">
+          <SelectTrigger className="w-30">
             <SelectValue placeholder="Tùy chỉnh" />
           </SelectTrigger>
           <SelectContent>
@@ -106,7 +106,7 @@ export function PriceSelector({
 
   return (
     <Select value={value.toString()} onValueChange={handlePresetChange}>
-      <SelectTrigger className={`${className} h-9`}>
+      <SelectTrigger className={className}>
         <SelectValue placeholder="Chọn giá">
           {formatCurrency(value)}
         </SelectValue>

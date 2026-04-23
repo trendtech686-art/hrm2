@@ -283,7 +283,7 @@ export function AdvancedFilterPanel({
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 relative">
+        <Button variant="outline" size="sm" className="relative">
           <Filter className="h-4 w-4" />
           <span className="ml-2">{triggerLabel}</span>
           {showActiveCount && activeFilterCount > 0 && (
@@ -351,7 +351,7 @@ export function AdvancedFilterPanel({
                 placeholder="Tìm kiếm bộ lọc..."
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
-                className="h-9 pl-9"
+                className="pl-9"
               />
             </div>
           )}
@@ -605,14 +605,13 @@ function FilterInput({
           placeholder={filter.placeholder}
           value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
-          className="h-9"
         />
       );
 
     case 'select':
       return (
         <Select value={(value as string) || ''} onValueChange={onChange}>
-          <SelectTrigger className="h-9">
+          <SelectTrigger>
             <SelectValue placeholder={filter.placeholder || 'Chọn...'} />
           </SelectTrigger>
           <SelectContent>
@@ -683,7 +682,7 @@ function FilterInput({
             <Button
               variant="outline"
               className={cn(
-                'w-full h-9 justify-start text-left font-normal',
+                'w-full justify-start text-left font-normal',
                 !value && 'text-muted-foreground'
               )}
             >
@@ -715,14 +714,12 @@ function FilterInput({
             placeholder="Từ"
             value={numRange.min || ''}
             onChange={(e) => onChange({ ...numRange, min: e.target.value })}
-            className="h-9"
           />
           <Input
             type="number"
             placeholder="Đến"
             value={numRange.max || ''}
             onChange={(e) => onChange({ ...numRange, max: e.target.value })}
-            className="h-9"
           />
         </div>
       );
@@ -883,7 +880,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ value, onChange }:
           <Button
             variant="outline"
             className={cn(
-              'w-full h-9 justify-between text-left font-normal',
+              'w-full justify-between text-left font-normal',
               !displayLabel && 'text-muted-foreground'
             )}
           >
@@ -920,7 +917,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ value, onChange }:
         <div className="flex gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="flex-1 h-9 justify-start text-left font-normal text-xs">
+              <Button variant="outline" className="flex-1 justify-start text-left font-normal text-xs">
                 <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
                 {dateRange.from ? format(new Date(dateRange.from), 'dd/MM/yyyy') : 'Từ ngày'}
               </Button>
@@ -936,7 +933,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ value, onChange }:
           </Popover>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="flex-1 h-9 justify-start text-left font-normal text-xs">
+              <Button variant="outline" className="flex-1 justify-start text-left font-normal text-xs">
                 <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
                 {dateRange.to ? format(new Date(dateRange.to), 'dd/MM/yyyy') : 'Đến ngày'}
               </Button>

@@ -153,7 +153,7 @@ export function VirtualizedCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal h-9"
+          className="w-full justify-between font-normal"
           disabled={disabled}
         >
           <span className="truncate">{value ? value.label : placeholder}</span>

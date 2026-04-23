@@ -869,7 +869,6 @@ export function PayrollRunPage() {
         key="templates"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => router.push(ROUTES.PAYROLL.TEMPLATES)}
       >
         Quản lý mẫu
@@ -878,7 +877,6 @@ export function PayrollRunPage() {
         key="cancel"
         variant="ghost"
         size="sm"
-        className="h-9"
         onClick={() => router.push(ROUTES.PAYROLL.LIST)}
       >
         Thoát
@@ -934,7 +932,6 @@ export function PayrollRunPage() {
                   placeholder="VD: Lương Tháng 11/2025"
                   value={formState.title}
                   onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-                  className="h-9"
                 />
               </div>
               <div className="space-y-2">
@@ -982,7 +979,7 @@ export function PayrollRunPage() {
                     }))
                   }
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn template" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1034,7 +1031,7 @@ export function PayrollRunPage() {
                 placeholder="Tìm theo tên hoặc mã"
                 value={searchKeyword}
                 onChange={(event) => setSearchKeyword(event.target.value)}
-                className="h-9 md:w-64"
+                className="md:w-64"
               />
             </div>
 
@@ -1152,7 +1149,7 @@ export function PayrollRunPage() {
                           setPreviewSearchKeyword(e.target.value);
                           setPreviewPagination((prev) => ({ ...prev, pageIndex: 0 }));
                         }}
-                        className="h-9 md:w-64"
+                        className="md:w-64"
                       />
                       <ResponsiveDataTable<PreviewTableRow>
                         data={paginatedPreview}
@@ -1214,15 +1211,15 @@ export function PayrollRunPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <Button variant="outline" className="h-9" disabled={currentStep === 0} onClick={goPrev}>
+        <Button variant="outline" disabled={currentStep === 0} onClick={goPrev}>
           Quay lại
         </Button>
         {currentStep < 2 ? (
-          <Button className="h-9" onClick={goNext} disabled={(currentStep === 0 && !canProceedStep1) || (currentStep === 1 && !canProceedStep2)}>
+          <Button onClick={goNext} disabled={(currentStep === 0 && !canProceedStep1) || (currentStep === 1 && !canProceedStep2)}>
             Tiếp tục
           </Button>
         ) : (
-          <Button className="h-9" disabled={!canCreateBatch} onClick={handleCreateBatch}>
+          <Button disabled={!canCreateBatch} onClick={handleCreateBatch}>
             Tạo bảng lương
           </Button>
         )}

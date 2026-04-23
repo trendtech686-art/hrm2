@@ -73,7 +73,7 @@ export function ChartSearch({
 
         {/* Department filter */}
         <Select value={departmentFilter} onValueChange={onDepartmentFilterChange}>
-          <SelectTrigger className="w-[200px] shadow-md h-9">
+          <SelectTrigger className="w-[200px] shadow-md">
             <SelectValue placeholder="Lọc phòng ban..." />
           </SelectTrigger>
           <SelectContent>

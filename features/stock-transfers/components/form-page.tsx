@@ -141,7 +141,7 @@ export function StockTransferFormPage() {
   const hasInvalidItems = React.useMemo(() => {
     return items.some(item => {
       const product = findProductById(asSystemId(item.productSystemId));
-      const fromBranchStock = product?.inventoryByBranch?.[fromBranchId] || 0;
+      const fromBranchStock = product?.inventoryByBranch?.[asSystemId(fromBranchId)] || 0;
       return item.quantity > fromBranchStock || fromBranchStock <= 0;
     });
   }, [items, fromBranchId, findProductById]);
@@ -163,7 +163,6 @@ export function StockTransferFormPage() {
       <Button 
         type="button" 
         variant="outline" 
-        className="h-9"
         onClick={() => router.push(ROUTES.INVENTORY.STOCK_TRANSFERS)}
         disabled={isSubmitting}
       >
@@ -172,7 +171,6 @@ export function StockTransferFormPage() {
       </Button>
         <Button 
         type="button" 
-        className="h-9"
         disabled={fields.length === 0 || isSubmitting || !!customIdError || hasInvalidItems}
         onClick={() => {
           const formEl = document.getElementById('stock-transfer-form') as HTMLFormElement | null;
@@ -225,8 +223,8 @@ export function StockTransferFormPage() {
     const currentItems = form.getValues('items');
     const updatedItems = currentItems.map(item => {
       const product = findProductById(asSystemId(item.productSystemId));
-      const fromBranchStock = product?.inventoryByBranch?.[fromBranchId] || 0;
-      const toBranchStock = toBranchId ? (product?.inventoryByBranch?.[toBranchId] || 0) : 0;
+      const fromBranchStock = product?.inventoryByBranch?.[asSystemId(fromBranchId)] || 0;
+      const toBranchStock = toBranchId ? (product?.inventoryByBranch?.[asSystemId(toBranchId)] || 0) : 0;
       return { ...item, fromBranchStock, toBranchStock };
     });
     
@@ -248,8 +246,8 @@ export function StockTransferFormPage() {
       return;
     }
 
-    const fromBranchStock = product.inventoryByBranch?.[fromBranchId] || 0;
-    const toBranchStock = toBranchId ? (product.inventoryByBranch?.[toBranchId] || 0) : 0;
+    const fromBranchStock = product.inventoryByBranch?.[asSystemId(fromBranchId)] || 0;
+    const toBranchStock = toBranchId ? (product.inventoryByBranch?.[asSystemId(toBranchId)] || 0) : 0;
     const unitPrice = product.costPrice || 0;
 
     // Cảnh báo nếu sản phẩm hết hàng
@@ -279,7 +277,7 @@ export function StockTransferFormPage() {
     // Validate quantities
     const invalidItems = data.items.filter(item => {
       const product = findProductById(asSystemId(item.productSystemId));
-      const fromBranchStock = product?.inventoryByBranch?.[data.fromBranchSystemId] || 0;
+      const fromBranchStock = product?.inventoryByBranch?.[asSystemId(data.fromBranchSystemId)] || 0;
       return item.quantity > fromBranchStock;
     });
 
@@ -365,7 +363,6 @@ export function StockTransferFormPage() {
                   <Input 
                     {...form.register('customId')}
                     placeholder={nextTransferId}
-                    className="h-9"
                   />
                   {customIdError ? (
                     <p className="text-xs text-destructive">{customIdError}</p>
@@ -381,7 +378,6 @@ export function StockTransferFormPage() {
                   <Input 
                     {...form.register('referenceCode')}
                     placeholder="Nhập mã tham chiếu (nếu có)..."
-                    className="h-9"
                   />
                   <p className="text-xs text-muted-foreground">Mã từ hệ thống khác hoặc mã nội bộ</p>
                 </div>
@@ -401,7 +397,7 @@ export function StockTransferFormPage() {
                       }
                     }}
                   >
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn chi nhánh chuyển" />
                     </SelectTrigger>
                     <SelectContent>
@@ -433,7 +429,7 @@ export function StockTransferFormPage() {
                       }
                     }}
                   >
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn chi nhánh nhận" />
                     </SelectTrigger>
                     <SelectContent>
@@ -516,7 +512,7 @@ export function StockTransferFormPage() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="h-9 shrink-0" 
+                  className="shrink-0" 
                   onClick={() => setIsProductDialogOpen(true)} 
                   disabled={!fromBranchId}
                 >
@@ -653,7 +649,7 @@ export function StockTransferFormPage() {
                                   min={1}
                                   max={fromBefore > 0 ? fromBefore : 1}
                                   {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
-                                  className={`h-9 w-full text-center ${fromAfter < 0 ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                                  className={`w-full text-center ${fromAfter < 0 ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                                 />
                                 {fromAfter < 0 && (
                                   <p className="text-xs text-red-600 text-center">Vượt tồn kho!</p>
@@ -687,7 +683,7 @@ export function StockTransferFormPage() {
                               <Input
                                 {...form.register(`items.${index}.note`)}
                                 placeholder="Ghi chú..."
-                                className="h-9 w-full"
+                                className="w-full"
                               />
                             </TableCell>
                             <TableCell>

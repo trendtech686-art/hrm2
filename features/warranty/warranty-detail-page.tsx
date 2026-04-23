@@ -257,7 +257,6 @@ export function WarrantyDetailPage() {
           type="button"
           size="sm"
           variant="outline"
-          className="h-9"
           onClick={() => setTemplateDialogOpen(true)}
         >
           <MessageSquare className="h-4 w-4 mr-2" />
@@ -277,7 +276,7 @@ export function WarrantyDetailPage() {
             key="reopen" 
             size="sm" 
             variant="outline"
-            className="h-9 text-green-600 hover:text-green-700"
+            className="text-green-600 hover:text-green-700"
             onClick={() => setShowReopenDialog(true)}
           >
             Mở lại
@@ -293,7 +292,6 @@ export function WarrantyDetailPage() {
             key="complete-info"
             size="sm"
             variant="default"
-            className="h-9"
             onClick={() => {
               // Navigate to update page (history will be logged on actual save)
               router.push(`/warranty/${systemId}/update`);
@@ -306,7 +304,7 @@ export function WarrantyDetailPage() {
       }
       if (ticket?.status === 'PROCESSING') {
         actionButtons.push(
-          <Button key="to-completed" size="sm" variant="outline" className="h-9" onClick={async () => {
+          <Button key="to-completed" size="sm" variant="outline" onClick={async () => {
             const result = await handleStatusChange('COMPLETED');
             if (result === 'needs-images') {
               setShowUploadProcessedImagesDialog(true);
@@ -322,7 +320,6 @@ export function WarrantyDetailPage() {
             key="to-returned" 
             size="sm" 
             variant="outline" 
-            className="h-9"
             onClick={openReturnDialog}
           >
             {ticket?.status === 'RETURNED' ? 'Cập nhật trả hàng' : 'Đã trả hàng cho khách'}
@@ -336,7 +333,7 @@ export function WarrantyDetailPage() {
             key="complete" 
             size="sm" 
             variant="default"
-            className="h-9 bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700"
             onClick={handleCompleteTicket}
             disabled={isCompletingTicket}
           >
@@ -352,7 +349,7 @@ export function WarrantyDetailPage() {
             key="reopen-from-completed" 
             size="sm" 
             variant="outline"
-            className="h-9 text-blue-600 hover:text-blue-700"
+            className="text-blue-600 hover:text-blue-700"
             onClick={() => setShowReopenReturnedDialog(true)}
           >
             Mở lại
@@ -369,7 +366,6 @@ export function WarrantyDetailPage() {
           type="button"
           size="sm"
           variant="outline"
-          className="h-9"
           onClick={() => {
             // Navigate directly to edit page without logging history
             // (history logging will happen when user saves changes)
@@ -390,7 +386,7 @@ export function WarrantyDetailPage() {
           type="button"
           size="sm"
           variant="outline"
-          className="h-9 text-destructive hover:text-destructive"
+          className="text-destructive hover:text-destructive"
           onClick={() => setShowCancelDialog(true)}
         >
           <XCircle className="h-4 w-4 mr-2" />

@@ -99,7 +99,6 @@ export function TaskFormPage() {
       type="button"
       variant="outline" 
       size="sm"
-      className="h-9"
       onClick={handleCancel}
     >
       Hủy
@@ -109,7 +108,6 @@ export function TaskFormPage() {
       type="submit"
       form="task-form"
       size="sm"
-      className="h-9"
       disabled={createMutation.isPending || updateMutation.isPending}
     >
       {(createMutation.isPending || updateMutation.isPending) ? (
@@ -221,7 +219,7 @@ export function TaskFormPage() {
     return (
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold">Không tìm thấy công việc</h2>
-        <Button onClick={() => router.push('/tasks')} className="h-9 mt-4">
+        <Button onClick={() => router.push('/tasks')} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay về danh sách
         </Button>
@@ -244,7 +242,6 @@ export function TaskFormPage() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-9"
                 onClick={() => setShowTemplates(!showTemplates)}
               >
                 {showTemplates ? 'Ẩn' : 'Hiện'} mẫu
@@ -291,7 +288,6 @@ export function TaskFormPage() {
                 <Label htmlFor="id">Mã công việc (tùy chọn)</Label>
                 <Input
                   id="id"
-                  className="h-9"
                   value={formData.id}
                   onChange={(e) => setFormData({ ...formData, id: e.target.value.toUpperCase() })}
                   placeholder="Để trống = tự động (CVNB-000001, CVNB-000002...)"
@@ -307,7 +303,6 @@ export function TaskFormPage() {
               <Label htmlFor="title">Tiêu đề công việc *</Label>
               <Input
                 id="title"
-                className="h-9"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="Nhập tiêu đề công việc"
@@ -381,7 +376,7 @@ export function TaskFormPage() {
             <div>
               <Label htmlFor="priority">Độ ưu tiên</Label>
               <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v as TaskPriority })}>
-                <SelectTrigger id="priority" className="h-9">
+                <SelectTrigger id="priority">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -398,7 +393,7 @@ export function TaskFormPage() {
               <div>
                 <Label htmlFor="type">Loại công việc</Label>
                 <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                  <SelectTrigger id="type" className="h-9">
+                  <SelectTrigger id="type">
                     <SelectValue placeholder="Chọn loại công việc" />
                   </SelectTrigger>
                   <SelectContent>

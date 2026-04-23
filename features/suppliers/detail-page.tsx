@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { formatDate } from '@/lib/date-utils';
 import { useSupplier } from './hooks/use-suppliers';
 import { useSupplierStats } from './hooks/use-supplier-stats';
@@ -187,6 +189,7 @@ const productsReturnedColumns: ColumnDef<ProductReturned>[] = [
 export function SupplierDetailPage() {
     const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: supplier, isLoading: isLoadingSupplier } = useSupplier(systemIdParam);
   const { data: supplierStats } = useSupplierStats(systemIdParam);
   const { employee: authEmployee, can, isAdmin } = useAuth();
@@ -348,7 +351,7 @@ export function SupplierDetailPage() {
                     <Button
                         key="receipt"
                         variant="outline"
-                        className="h-9 gap-2"
+                        className="gap-2"
                         onClick={() => setReceiptDialogOpen(true)}
                     >
                             <Plus className="mr-2 h-4 w-4" />
@@ -357,7 +360,7 @@ export function SupplierDetailPage() {
                     <Button
                         key="payment"
                         variant="outline"
-                        className="h-9 gap-2"
+                        className="gap-2"
                         onClick={() => setPaymentDialogOpen(true)}
                     >
                             <Plus className="mr-2 h-4 w-4" />
@@ -365,7 +368,7 @@ export function SupplierDetailPage() {
                     </Button>,
                     <Button
                         key="edit"
-                        className="h-9 gap-2"
+                        className="gap-2"
                         onClick={() => supplierSystemId && router.push(`/suppliers/${supplierSystemId}/edit`)}
                         disabled={!supplierSystemId}
                     >
@@ -382,7 +385,7 @@ export function SupplierDetailPage() {
             return [
                 <DropdownMenu key="mobile-actions">
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-9">
+                        <Button variant="outline" size="sm">
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -459,8 +462,21 @@ export function SupplierDetailPage() {
     );
   }
 
+  const handlePullRefresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['supplier', systemIdParam] }),
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+      queryClient.invalidateQueries({ queryKey: ['supplier-stats', systemIdParam] }),
+      queryClient.invalidateQueries({ queryKey: ['supplier-purchase-orders', systemIdParam] }),
+      queryClient.invalidateQueries({ queryKey: ['supplier-purchase-returns', systemIdParam] }),
+      queryClient.invalidateQueries({ queryKey: ['supplier-debt', systemIdParam] }),
+      queryClient.invalidateQueries({ queryKey: ['supplier-warranty', systemIdParam] }),
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
+    ]);
+  };
+
   return (
-    <>
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
       {/* Receipt Create Dialog */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
         <DialogContent mobileFullScreen className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -765,7 +781,7 @@ export function SupplierDetailPage() {
         {/* Activity History */}
         <EntityActivityTable entityType="supplier" entityId={systemIdParam} />
     </div>
-    </>
+    </PullToRefresh>
   );
 }
 

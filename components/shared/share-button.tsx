@@ -95,7 +95,7 @@ export function ShareButton({
       variant={variant}
       onClick={handleShare}
       disabled={disabled}
-      className={cn("h-9", className)}
+      className={className}
       aria-label={isIcon ? label : undefined}
     >
       <Icon className={cn("h-4 w-4", !isIcon && "mr-1.5")} />

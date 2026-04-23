@@ -22,7 +22,7 @@ const ColorInputWithPicker = ({ label, value, onChange }: { label: string, value
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
                         onFocus={() => setOpen(true)}
-                        className="pl-8 text-sm font-mono h-9"
+                        className="pl-8 text-sm font-mono"
                         placeholder="e.g., oklch(0.2 0 0)"
                     />
                     <PopoverTrigger asChild>
@@ -138,21 +138,21 @@ export function CustomThemeForm({ config, onConfigChange, fontSize, onFontSizeCh
                         <div>
                             <Label>Font Sans</Label>
                             <Select value={config['--font-sans']} onValueChange={v => handleConfigValueChange('--font-sans', v)}>
-                                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>{fontOptions.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div>
                             <Label>Font Serif</Label>
                             <Select value={config['--font-serif']} onValueChange={v => handleConfigValueChange('--font-serif', v)}>
-                                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>{fontOptions.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div>
                             <Label>Font Mono</Label>
                             <Select value={config['--font-mono']} onValueChange={v => handleConfigValueChange('--font-mono', v)}>
-                                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>{fontOptions.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>

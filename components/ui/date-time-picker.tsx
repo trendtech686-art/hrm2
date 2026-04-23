@@ -94,7 +94,6 @@ export function DateTimePicker({ id, value, onChange, placeholder, className, di
           className={cn(
             "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground",
-            "h-9",
             className
           )}
           disabled={disabled}

@@ -158,7 +158,6 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
         key="back"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => router.push(ROUTES.FINANCE.RECEIPTS)}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -172,7 +171,6 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
           key="print"
           variant="outline"
           size="sm"
-          className="h-9"
           onClick={handlePrint}
         >
           <Printer className="mr-2 h-4 w-4" />
@@ -186,7 +184,6 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
         <Button
           key="edit"
           size="sm"
-          className="h-9"
           onClick={() => router.push(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }))}
         >
           <Edit className="mr-2 h-4 w-4" />
@@ -217,7 +214,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

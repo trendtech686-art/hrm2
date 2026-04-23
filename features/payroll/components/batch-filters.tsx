@@ -63,7 +63,7 @@ export function PayrollBatchFilters({ value, onChange, onClear }: PayrollBatchFi
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="payroll-search"
-              className="h-9 pl-9"
+              className="pl-9"
               placeholder="Tìm theo mã hoặc tiêu đề"
               value={value.keyword}
               onChange={handleKeywordChange}
@@ -73,7 +73,7 @@ export function PayrollBatchFilters({ value, onChange, onClear }: PayrollBatchFi
         <div className="space-y-2">
           <Label>Trạng thái</Label>
           <Select value={value.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="h-9">
+            <SelectTrigger>
               <SelectValue placeholder="Chọn trạng thái" />
             </SelectTrigger>
             <SelectContent>
@@ -90,14 +90,13 @@ export function PayrollBatchFilters({ value, onChange, onClear }: PayrollBatchFi
           <Input
             id="payroll-month"
             type="month"
-            className="h-9"
             value={value.monthKey ?? ''}
             onChange={handleMonthChange}
           />
         </div>
       </div>
       <div className="mt-4 flex items-center justify-end gap-2">
-        <Button variant="ghost" className="h-9" onClick={handleClear}>
+        <Button variant="ghost" onClick={handleClear}>
           <X className="mr-2 h-4 w-4" />
           Xóa lọc
         </Button>

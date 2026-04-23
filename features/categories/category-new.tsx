@@ -177,11 +177,11 @@ export function CategoryNewPage() {
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push('/categories')}>
+    <Button key="cancel" variant="outline" size="sm" onClick={() => router.push('/categories')}>
       <X className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={isCreating}>
+    <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={isCreating}>
       {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
       {isCreating ? 'Đang lưu...' : 'Lưu'}
     </Button>

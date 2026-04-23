@@ -81,7 +81,7 @@ export function SalesChannelForm({ initialData, onSubmit }: FormProps) {
                   {...field}
                   value={field.value ?? ''}
                   placeholder="Để trống để hệ thống tự sinh"
-                  className="h-9 uppercase"
+                  className="uppercase"
                   onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                 />
               </FormControl>
@@ -97,7 +97,7 @@ export function SalesChannelForm({ initialData, onSubmit }: FormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tên nguồn bán hàng <span className="text-destructive">*</span></FormLabel>
-              <FormControl><Input {...field} value={field.value ?? ''} placeholder="Nhập tên nguồn bán hàng" className="h-9" /></FormControl>
+              <FormControl><Input {...field} value={field.value ?? ''} placeholder="Nhập tên nguồn bán hàng" /></FormControl>
               <FormMessage />
             </FormItem>
           )}

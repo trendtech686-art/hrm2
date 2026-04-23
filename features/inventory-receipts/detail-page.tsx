@@ -143,7 +143,6 @@ export function InventoryReceiptDetailPage() {
       <Button
         key="print"
         size="sm"
-        className="h-9"
         onClick={handlePrint}
       >
         <Printer className="mr-2 h-4 w-4" />
@@ -193,7 +192,7 @@ export function InventoryReceiptDetailPage() {
       <Card className={mobileBleedCardClass}>
         <CardContent className="py-10 text-center space-y-4">
           <p className="text-h3 font-semibold">Không tìm thấy phiếu nhập kho.</p>
-          <Button className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
+          <Button onClick={() => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại danh sách
           </Button>

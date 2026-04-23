@@ -387,11 +387,11 @@ export function CategoryDetailPage() {
   const headerActions = React.useMemo(() => {
     if (isEditMode) {
       return [
-        <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push(`/categories/${systemId}`)}>
+        <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/categories/${systemId}`)}>
           <X className="mr-2 h-4 w-4" />
           Hủy
         </Button>,
-        <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating}>
+        <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating}>
           {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           {isUpdating ? 'Đang lưu...' : 'Lưu'}
         </Button>
@@ -399,7 +399,7 @@ export function CategoryDetailPage() {
     }
     
     const actions = [
-      <Button key="delete" variant="outline" size="sm" className="h-9 text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
+      <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
         <Trash2 className="mr-2 h-4 w-4" />
         Xóa
       </Button>,
@@ -417,7 +417,7 @@ export function CategoryDetailPage() {
         actions.unshift(
           <DropdownMenu key="pkgx-sync">
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
+              <Button variant="outline" size="sm">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Cập nhật PKGX
                 <ChevronDown className="ml-2 h-4 w-4" />
@@ -483,7 +483,7 @@ export function CategoryDetailPage() {
     
     if (isAdmin || can('edit_products')) {
       actions.push(
-        <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
+        <Button key="edit" size="sm" onClick={handleSwitchToEdit}>
           <Pencil className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </Button>

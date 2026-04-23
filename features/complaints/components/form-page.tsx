@@ -596,7 +596,6 @@ export function ComplaintFormPage() {
       key="cancel"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={() => router.push(ROUTES.INTERNAL.COMPLAINTS)}
       disabled={isSubmitting}
     >
@@ -605,7 +604,6 @@ export function ComplaintFormPage() {
     <Button
       key="submit"
       size="sm"
-      className="h-9"
       onClick={() => {
         const form = document.querySelector('form[data-complaint-form]') as HTMLFormElement;
         if (form) form.requestSubmit();
@@ -915,7 +913,6 @@ export function ComplaintFormPage() {
               <Input
                 id="id"
                 placeholder="Để trống để tự động tạo mã"
-                className="h-9"
                 disabled={canOnlyEditNote}
                 {...register("id")}
               />
@@ -1565,7 +1562,7 @@ export function ComplaintFormPage() {
                   value={watch("type")}
                   onValueChange={(value) => setValue("type", value as ComplaintType)}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn loại khiếu nại" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1588,7 +1585,7 @@ export function ComplaintFormPage() {
                   value={watch("priority")}
                   onValueChange={(value) => setValue("priority", value as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL")}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

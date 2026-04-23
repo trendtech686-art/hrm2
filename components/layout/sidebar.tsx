@@ -272,7 +272,7 @@ export function Sidebar() {
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-10 rounded-lg"
+                                    className="w-10 rounded-lg"
                                     asChild
                                 >
                                     <Link href="/profile">

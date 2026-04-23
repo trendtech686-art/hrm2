@@ -32,7 +32,7 @@ export function EmployeeTrashPage() {
     ],
     showBackButton: false,
     actions: [
-      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees')}>
+      <Button key="back" variant="outline" size="sm" onClick={() => router.push('/employees')}>
         Quay lại danh sách
       </Button>,
     ],

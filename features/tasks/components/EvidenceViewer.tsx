@@ -114,7 +114,7 @@ export function EvidenceViewer({ evidence, open, onClose }: EvidenceViewerProps)
                 type="button"
                 variant="secondary"
                 size="icon"
-                className="absolute top-3 right-3 h-9 w-9 rounded-full bg-background/80 hover:bg-background"
+                className="absolute top-3 right-3 w-9 rounded-full bg-background/80 hover:bg-background"
                 onClick={() => setSelectedImage(null)}
                 aria-label="Đóng"
               >

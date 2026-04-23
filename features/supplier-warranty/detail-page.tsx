@@ -465,7 +465,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Edit (DRAFT, APPROVED)
     if (['DRAFT', 'APPROVED'].includes(warranty.status) && can('edit_supplier_warranty')) {
       actions.push(
-        <Button key="edit" size="sm" variant="outline" className="h-9" onClick={() => router.push(`/supplier-warranties/${systemId}/edit`)}>
+        <Button key="edit" size="sm" variant="outline" onClick={() => router.push(`/supplier-warranties/${systemId}/edit`)}>
           <Pencil className="mr-1.5 h-3.5 w-3.5" /> Sửa
         </Button>
       )
@@ -473,7 +473,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Approve (DRAFT → APPROVED)
     if (warranty.status === 'DRAFT' && can('confirm_supplier_warranty')) {
       actions.push(
-        <Button key="approve" size="sm" className="h-9" onClick={handleApprove} disabled={approve.isPending}>
+        <Button key="approve" size="sm" onClick={handleApprove} disabled={approve.isPending}>
           {approve.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" />} Duyệt
         </Button>
       )
@@ -481,7 +481,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Pack (APPROVED → PACKED)
     if (warranty.status === 'APPROVED' && can('edit_supplier_warranty')) {
       actions.push(
-        <Button key="pack" size="sm" className="h-9" onClick={handlePack} disabled={pack.isPending}>
+        <Button key="pack" size="sm" onClick={handlePack} disabled={pack.isPending}>
           {pack.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Package className="mr-1.5 h-3.5 w-3.5" />}
           Đóng gói
         </Button>
@@ -491,7 +491,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Confirm (DELIVERED/SENT → CONFIRMED)
     if (['DELIVERED', 'SENT'].includes(warranty.status) && can('confirm_supplier_warranty')) {
       actions.push(
-        <Button key="confirm" size="sm" className="h-9" onClick={() => router.push(`/supplier-warranties/${systemId}/confirm`)}>
+        <Button key="confirm" size="sm" onClick={() => router.push(`/supplier-warranties/${systemId}/confirm`)}>
           <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Xác nhận từ NCC
         </Button>
       )
@@ -499,7 +499,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Complete (CONFIRMED → COMPLETED)
     if (warranty.status === 'CONFIRMED' && can('confirm_supplier_warranty')) {
       actions.push(
-        <Button key="complete" size="sm" className="h-9" onClick={() => setShowCompleteDialog(true)}>
+        <Button key="complete" size="sm" onClick={() => setShowCompleteDialog(true)}>
           <PackageCheck className="mr-1.5 h-3.5 w-3.5" /> Hoàn thành
         </Button>
       )
@@ -507,7 +507,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Cancel (DRAFT, APPROVED, PACKED)
     if (['DRAFT', 'APPROVED', 'PACKED'].includes(warranty.status) && can('edit_supplier_warranty')) {
       actions.push(
-        <Button key="cancel" size="sm" variant="outline" className="h-9 text-destructive" onClick={handleCancel}>
+        <Button key="cancel" size="sm" variant="outline" className="text-destructive" onClick={handleCancel}>
           <X className="mr-1.5 h-3.5 w-3.5" /> Hủy
         </Button>
       )
@@ -515,7 +515,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     // Delete (DRAFT only)
     if (warranty.status === 'DRAFT' && can('delete_supplier_warranty')) {
       actions.push(
-        <Button key="delete" size="sm" variant="destructive" className="h-9" onClick={handleDelete}>
+        <Button key="delete" size="sm" variant="destructive" onClick={handleDelete}>
           <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Xóa
         </Button>
       )
@@ -529,7 +529,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     return [
       <DropdownMenuUI key="mobile-actions">
         <DropdownMenuTriggerUI asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTriggerUI>

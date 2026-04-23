@@ -42,11 +42,11 @@ export function EmployeeFormPage() {
   }, [router]);
 
   const actions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" onClick={handleCancel} size="sm" className="h-9">
+    <Button key="cancel" type="button" variant="outline" onClick={handleCancel} size="sm">
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" type="button" size="sm" className="h-9" disabled={isBusy} onClick={() => {
+    <Button key="save" type="button" size="sm" disabled={isBusy} onClick={() => {
       const form = document.getElementById('employee-form') as HTMLFormElement | null;
       form?.requestSubmit();
     }}>

@@ -193,7 +193,6 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
       <Button
         variant="ghost"
         size="sm"
-        className="h-9"
         onClick={(e) => {
           e.stopPropagation();
           onPrint(row);

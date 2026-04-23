@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { PlusCircle, X, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -84,7 +85,7 @@ export function BasicInfoTab({
   return (
     <>
       {/* Card 1: Thông tin cơ bản */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <CardTitle size="lg">Thông tin cơ bản</CardTitle>
         </CardHeader>
@@ -99,7 +100,6 @@ export function BasicInfoTab({
                   <FormLabel>Mã SKU *</FormLabel>
                   <FormControl>
                     <Input
-                      className="h-9"
                       {...field}
                       value={field.value || ''}
                       placeholder="SP000001"
@@ -116,7 +116,7 @@ export function BasicInfoTab({
                 <FormItem className="sm:col-span-1 md:col-span-2">
                   <FormLabel>Tên sản phẩm *</FormLabel>
                   <FormControl>
-                    <Input className="h-9" {...field} value={field.value || ''} placeholder="Nhập tên sản phẩm" />
+                    <Input {...field} value={field.value || ''} placeholder="Nhập tên sản phẩm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -153,7 +153,7 @@ export function BasicInfoTab({
                 <FormItem>
                   <FormLabel>Mã vạch</FormLabel>
                   <FormControl>
-                    <Input className="h-9" {...field} value={field.value || ''} placeholder="Nhập mã vạch" />
+                    <Input {...field} value={field.value || ''} placeholder="Nhập mã vạch" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -170,7 +170,7 @@ export function BasicInfoTab({
                   <FormLabel>Trạng thái</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger>
                         <SelectValue placeholder="Chọn trạng thái" />
                       </SelectTrigger>
                     </FormControl>
@@ -193,7 +193,6 @@ export function BasicInfoTab({
                   <FormLabel>Thời hạn bảo hành (tháng)</FormLabel>
                   <FormControl>
                     <Input
-                      className="h-9"
                       type="number"
                       min={0}
                       {...field}
@@ -321,7 +320,6 @@ export function BasicInfoTab({
             </label>
             <div className="flex gap-2">
               <Input
-                className="h-9"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -332,7 +330,7 @@ export function BasicInfoTab({
                 }}
                 placeholder="Nhập tag và Enter"
               />
-              <Button type="button" variant="outline" className="h-9" onClick={handleAddTag}>
+              <Button type="button" variant="outline" onClick={handleAddTag}>
                 <PlusCircle className="h-4 w-4" />
               </Button>
             </div>
@@ -376,7 +374,7 @@ export function BasicInfoTab({
       </Card>
 
       {/* Card: Cài đặt hiển thị website */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <CardTitle size="lg">Cài đặt hiển thị website</CardTitle>
         </CardHeader>
@@ -536,7 +534,7 @@ export function BasicInfoTab({
       )}
 
       {/* Card 3: Giá mua & Giá vốn */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle size="lg">Giá mua &amp; Giá vốn</CardTitle>
@@ -627,7 +625,7 @@ export function BasicInfoTab({
       </Card>
 
       {/* Card 4: Bảng giá bán theo chính sách */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle size="lg">Bảng giá bán theo chính sách</CardTitle>

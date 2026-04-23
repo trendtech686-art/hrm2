@@ -188,10 +188,10 @@ export function SupplierWarrantyConfirmPage({ systemId }: SupplierWarrantyConfir
 
   // Page header with actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" size="sm" variant="outline" className="h-9" onClick={() => router.push(`/supplier-warranties/${systemId}`)}>
+    <Button key="cancel" size="sm" variant="outline" onClick={() => router.push(`/supplier-warranties/${systemId}`)}>
       <X className="mr-1.5 h-3.5 w-3.5" /> Hủy
     </Button>,
-    <Button key="confirm" size="sm" className="h-9" onClick={handleConfirm} disabled={confirm.isPending || confirmItems.length === 0}>
+    <Button key="confirm" size="sm" onClick={handleConfirm} disabled={confirm.isPending || confirmItems.length === 0}>
       {confirm.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
       Xác nhận kết quả
     </Button>,
@@ -327,7 +327,7 @@ export function SupplierWarrantyConfirmPage({ systemId }: SupplierWarrantyConfir
                         value={ci?.warrantyResult || ''}
                         onValueChange={v => updateConfirmItem(index, 'warrantyResult', v)}
                       >
-                        <SelectTrigger className="h-9 w-36">
+                        <SelectTrigger className="w-36">
                           <SelectValue placeholder="Chọn kết quả..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -343,7 +343,7 @@ export function SupplierWarrantyConfirmPage({ systemId }: SupplierWarrantyConfir
                           type="number"
                           min={0}
                           max={item.sentQuantity}
-                          className="h-9 text-center w-20 mx-auto"
+                          className="text-center w-20 mx-auto"
                           value={ci?.approvedQuantity ?? 0}
                           onChange={e => updateConfirmItem(index, 'approvedQuantity', Math.min(parseInt(e.target.value) || 0, item.sentQuantity))}
                         />

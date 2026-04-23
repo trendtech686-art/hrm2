@@ -345,13 +345,12 @@ export function ActivityHistory({
               placeholder="Tìm kiếm..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9"
             />
 
             {/* Filter by action */}
             {filterableActions && (
               <Select value={filterAction} onValueChange={setFilterAction}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Loại hành động" />
                 </SelectTrigger>
@@ -369,7 +368,7 @@ export function ActivityHistory({
             {/* Filter by user */}
             {filterableUsers && (
               <Select value={filterUser} onValueChange={setFilterUser}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <User className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Người thực hiện" />
                 </SelectTrigger>

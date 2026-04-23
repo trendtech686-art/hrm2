@@ -6,7 +6,8 @@ import type { EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { EventContentArg } from '@fullcalendar/core';
 import { useTasks, useTaskMutations } from '../hooks/use-tasks';
-import type { Task, TaskPriority } from '../types';
+import type { Task, TaskPriority, TaskPriorityVi } from '../types';
+import { normalizeTaskPriority } from '../types';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
@@ -60,20 +61,20 @@ export function TaskCalendarView() {
   }, []);
 
   const getPriorityColor = (priority: TaskPriority): string => {
-    const colors = {
+    const colors: Record<TaskPriorityVi, string> = {
       'Thấp': '#6B7280',        // gray
       'Trung bình': '#3B82F6',  // blue
       'Cao': '#F59E0B',         // orange
       'Khẩn cấp': '#EF4444',    // red
     };
-    return colors[priority];
+    return colors[normalizeTaskPriority(priority)];
   };
 
   const getStatusColor = (status: Task['status']): string => {
-    const colors = {
+    const colors: Record<Task['status'], string> = {
       'Chưa bắt đầu': '#9CA3AF',
       'Đang thực hiện': '#F59E0B',
-      'Đang chờ': '#8B5CF6',
+      'Chờ duyệt': '#8B5CF6',
       'Hoàn thành': '#10B981',
       'Đã hủy': '#6B7280',
     };

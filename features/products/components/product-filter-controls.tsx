@@ -61,7 +61,7 @@ export function ProductFilterControls({
       />
 
       <Select value={tableState.statusFilter} onValueChange={onStatusFilterChange}>
-        <SelectTrigger className="w-full sm:w-45 h-9">
+        <SelectTrigger className="w-full sm:w-45">
           <SelectValue placeholder="Tất cả trạng thái" />
         </SelectTrigger>
         <SelectContent>
@@ -73,7 +73,7 @@ export function ProductFilterControls({
       </Select>
 
       <Select value={tableState.typeFilter} onValueChange={onTypeFilterChange}>
-        <SelectTrigger className="w-full sm:w-45 h-9">
+        <SelectTrigger className="w-full sm:w-45">
           <SelectValue placeholder="Loại sản phẩm" />
         </SelectTrigger>
         <SelectContent>
@@ -99,7 +99,7 @@ export function ProductFilterControls({
       </div>
 
       <Select value={tableState.comboFilter} onValueChange={onComboFilterChange}>
-        <SelectTrigger className="w-full sm:w-45 h-9">
+        <SelectTrigger className="w-full sm:w-45">
           <SelectValue placeholder="Sản phẩm combo" />
         </SelectTrigger>
         <SelectContent>
@@ -110,7 +110,7 @@ export function ProductFilterControls({
       </Select>
 
       <Select value={tableState.stockLevelFilter} onValueChange={onStockLevelFilterChange}>
-        <SelectTrigger className="w-full sm:w-45 h-9">
+        <SelectTrigger className="w-full sm:w-45">
           <SelectValue placeholder="Mức tồn kho" />
         </SelectTrigger>
         <SelectContent>
@@ -123,7 +123,7 @@ export function ProductFilterControls({
       </Select>
 
       <Select value={tableState.pkgxFilter} onValueChange={onPkgxFilterChange}>
-        <SelectTrigger className="w-full sm:w-45 h-9">
+        <SelectTrigger className="w-full sm:w-45">
           <SelectValue placeholder="Trạng thái PKGX" />
         </SelectTrigger>
         <SelectContent>

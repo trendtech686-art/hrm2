@@ -54,7 +54,7 @@ export function DateTimePicker24h({ value, onChange, placeholder, id }: DateTime
           id={id}
           variant="outline"
           className={cn(
-            "w-full justify-start text-left font-normal h-9",
+            "w-full justify-start text-left font-normal",
             !value && "text-muted-foreground"
           )}
         >

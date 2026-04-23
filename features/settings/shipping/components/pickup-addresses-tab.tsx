@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { MapPin, Loader2, RefreshCw, Check, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -152,7 +153,7 @@ export function PickupAddressesTab({
               tel: w.pick_tel || w.tel || w.phone || '',
             };
           })
-          .filter((w): w is PartnerWarehouse => w !== null); // Remove null entries
+          .filter((w: PartnerWarehouse | null): w is PartnerWarehouse => w !== null); // Remove null entries
         
         setPartnerWarehouses(warehouses);
       } else {
@@ -281,7 +282,7 @@ export function PickupAddressesTab({
         </div>
 
         {partnerWarehouses.length === 0 ? (
-          <Card className="p-8">
+          <Card className={cn(mobileBleedCardClass, 'p-8')}>
             <div className="text-center text-muted-foreground">
               <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>Không tìm thấy kho nào từ GHTK</p>
@@ -292,7 +293,7 @@ export function PickupAddressesTab({
             </div>
           </Card>
         ) : (
-          <Card>
+          <Card className={mobileBleedCardClass}>
             <CardContent className="p-0">
               {/* Bulk actions bar */}
               {selectedBranchIds.size > 0 && (
@@ -535,7 +536,7 @@ export function PickupAddressesTab({
             {/* Note Section */}
             <div className="border-t bg-amber-50 p-4">
               <div className="flex gap-2">
-                <div className="flex-shrink-0 mt-0.5">
+                <div className="shrink-0 mt-0.5">
                   <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>

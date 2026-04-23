@@ -85,7 +85,7 @@ export function getAllAncestors(
   let currentNodeId: string | undefined = nodeId;
 
   while (currentNodeId && parentIdMap.has(currentNodeId)) {
-    const parentId = parentIdMap.get(currentNodeId)!;
+    const parentId: string = parentIdMap.get(currentNodeId)!;
     if (parentId === 'root') break;
     ancestors.add(parentId);
     currentNodeId = parentId;

@@ -109,7 +109,6 @@ export function KanbanColumn({
           placeholder="Tìm kiếm..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-9"
         />
       </div>
 
@@ -145,7 +144,7 @@ export function KanbanColumn({
               const priority = complaint.priority;
               cardColorClass = colorSettings.priorityColors[priority] || "";
             } else if (colorSettings.enableStatusColors) {
-              cardColorClass = colorSettings.statusColors[complaint.status] || "";
+              cardColorClass = colorSettings.statusColors[complaint.status as keyof typeof colorSettings.statusColors] || "";
             }
             
             return (

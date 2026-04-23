@@ -102,14 +102,14 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
     <Form {...form}>
       <form id="penalty-form" onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
         <FormField control={control} name="id" render={({ field }) => (
-            <FormItem><FormLabel>Mã Phiếu phạt</FormLabel><FormControl><Input className="h-9 uppercase" {...field} value={field.value ?? ''} placeholder="Để trống để tự động tạo" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Mã Phiếu phạt</FormLabel><FormControl><Input className="uppercase" {...field} value={field.value ?? ''} placeholder="Để trống để tự động tạo" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
         )} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={control} name="employeeSystemId" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Nhân viên bị phạt</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                        <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger></FormControl>
                         <SelectContent>{employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)}</SelectContent>
                     </Select>
                 </FormItem>
@@ -118,7 +118,7 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
                 <FormItem>
                     <FormLabel>Người lập phiếu</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                        <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Chọn người lập" /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn người lập" /></SelectTrigger></FormControl>
                         <SelectContent>{employees.map(e => <SelectItem key={e.systemId} value={e.fullName}>{e.fullName}</SelectItem>)}</SelectContent>
                     </Select>
                 </FormItem>
@@ -129,7 +129,7 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
           <FormItem>
               <FormLabel>Loại phạt</FormLabel>
               <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                  <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Chọn loại phạt" /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn loại phạt" /></SelectTrigger></FormControl>
                   <SelectContent>
                     {Object.entries(groupedPenaltyTypes).map(([category, types]) => (
                       <React.Fragment key={category}>
@@ -169,7 +169,7 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
                 <FormItem>
                     <FormLabel>Trạng thái</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                        <FormControl><SelectTrigger className="h-9"><SelectValue /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                             <SelectItem value="Chưa thanh toán">Chưa thanh toán</SelectItem>
                             <SelectItem value="Đã thanh toán">Đã thanh toán</SelectItem>

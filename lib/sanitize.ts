@@ -18,7 +18,7 @@ let _DOMPurify: DOMPurifyLike | null = null;
 function getDOMPurify(): DOMPurifyLike | null {
   if (isServer) return null;
   if (!_DOMPurify) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const mod = require('dompurify');
     _DOMPurify = (mod.default ?? mod) as DOMPurifyLike;
   }

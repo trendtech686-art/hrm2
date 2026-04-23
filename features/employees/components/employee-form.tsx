@@ -45,7 +45,8 @@ import {
 import { VirtualizedCombobox, type ComboboxOption } from "@/components/ui/virtualized-combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section';
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEmployeeSettings } from "@/features/settings/employees/hooks/use-employee-settings";
@@ -1385,7 +1386,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           <TabsContent value="account" className="mt-6">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal mb-4">Thông tin đăng nhập</h3>
             
-            <Card className="mb-6">
+            <Card className={cn(mobileBleedCardClass, 'mb-6')}>
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label>Email đăng nhập</Label>
@@ -1480,7 +1481,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               </CardContent>
             </Card>
 
-            <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
+            <Card className={cn(mobileBleedCardClass, 'border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 max-md:border-blue-200')}>
               <CardContent className="pt-6">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">

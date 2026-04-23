@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
-import { MobileTabsList, MobileTabsTrigger } from '@/components/layout/page-section'
+import { MobileTabsList, MobileTabsTrigger, mobileBleedCardClass } from '@/components/layout/page-section'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import {
@@ -156,7 +156,7 @@ export default function NotificationsPage() {
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i}>
+            <Card key={i} className={mobileBleedCardClass}>
               <CardContent className="p-3">
                 <div className="flex gap-3 animate-pulse">
                   <Skeleton className="h-9 w-9 rounded-full shrink-0" />
@@ -171,8 +171,8 @@ export default function NotificationsPage() {
           ))}
         </div>
       ) : notifications.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+        <Card className={mobileBleedCardClass}>
+          <CardContent className="flex min-h-[240px] flex-col items-center justify-center py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-3">
               <Bell className="h-6 w-6 text-muted-foreground" />
             </div>
@@ -181,7 +181,7 @@ export default function NotificationsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden">
+        <Card className={cn(mobileBleedCardClass, 'overflow-hidden')}>
           <div className="divide-y divide-border">
             {notifications.map((n) => (
               <button
@@ -190,7 +190,7 @@ export default function NotificationsPage() {
                 className={cn(
                   'flex gap-3 px-4 py-3 w-full text-left transition-colors touch-manipulation',
                   n.link && 'cursor-pointer hover:bg-muted/50 active:bg-muted/70',
-                  !n.isRead && 'bg-primary/[0.03]',
+                  !n.isRead && 'bg-primary/3',
                 )}
                 onClick={() => handleClick(n)}
               >

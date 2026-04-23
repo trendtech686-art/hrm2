@@ -38,7 +38,6 @@ export const TemplateDialog: React.FC<Props> = ({ open, onOpenChange, templates 
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-9"
                     onClick={() => {
                       navigator.clipboard.writeText(template.content);
                       showNotification('success', 'Đã copy nội dung');

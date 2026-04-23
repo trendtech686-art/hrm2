@@ -240,7 +240,6 @@ export function InventoryCheckDetailPage() {
         key="duplicate"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={handleDuplicate}
         title="Sao chép phiếu kiểm kê"
       >
@@ -251,7 +250,6 @@ export function InventoryCheckDetailPage() {
         key="print"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={handlePrint}
       >
         <Printer className="mr-2 h-4 w-4" />
@@ -265,7 +263,6 @@ export function InventoryCheckDetailPage() {
           key="edit"
           variant="outline"
           size="sm"
-          className="h-9"
           onClick={() => router.push(`/inventory-checks/${check.systemId}/edit`)}
         >
           <Pencil className="mr-2 h-4 w-4" />
@@ -279,7 +276,6 @@ export function InventoryCheckDetailPage() {
         <Button
           key="balance"
           size="sm"
-          className="h-9"
           onClick={() => setShowBalanceDialog(true)}
         >
           <Check className="mr-2 h-4 w-4" />
@@ -291,7 +287,6 @@ export function InventoryCheckDetailPage() {
           key="cancel"
           variant="destructive"
           size="sm"
-          className="h-9"
           onClick={handleCancel}
         >
           <XCircle className="mr-2 h-4 w-4" />
@@ -338,7 +333,7 @@ export function InventoryCheckDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

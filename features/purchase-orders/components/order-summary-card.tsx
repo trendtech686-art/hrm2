@@ -332,7 +332,7 @@ export function OrderSummaryCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => handleRemoveShippingFee(fee.id)}
-                  className="h-9 w-9 p-0"
+                  className="w-9 p-0"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -381,7 +381,7 @@ export function OrderSummaryCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => handleRemoveOtherFee(fee.id)}
-                  className="h-9 w-9 p-0"
+                  className="w-9 p-0"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -457,7 +457,7 @@ export function OrderSummaryCard({
                               handlePaymentMethodChange(payment.id, value)
                             }
                           >
-                            <SelectTrigger className="h-9 text-xs">
+                            <SelectTrigger className="text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

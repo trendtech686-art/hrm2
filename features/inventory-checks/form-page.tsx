@@ -287,7 +287,7 @@ export function InventoryCheckFormPage() {
     
     if (branchSystemId) {
       // If branch selected, get branch-specific inventory using systemId
-      return product.inventoryByBranch?.[branchSystemId] || 0;
+      return product.inventoryByBranch?.[branchSystemId as import('@/lib/id-types').SystemId] || 0;
     }
     
     // If no branch selected, get TOTAL inventory across all branches
@@ -636,23 +636,23 @@ export function InventoryCheckFormPage() {
     if (isEditMode) {
       // Actions cho chế độ sửa
       return [
-        <Button key="cancel" variant="outline" onClick={() => router.push('/inventory-checks')} className="h-9">
+        <Button key="cancel" variant="outline" onClick={() => router.push('/inventory-checks')}>
           Hủy
         </Button>,
-        <Button key="save" onClick={() => handleSaveDraftRef.current()} className="h-9">
+        <Button key="save" onClick={() => handleSaveDraftRef.current()}>
           Lưu thay đổi
         </Button>
       ];
     } else {
       // Actions cho chế độ thêm mới
       return [
-        <Button key="cancel" variant="outline" onClick={() => router.push('/inventory-checks')} className="h-9">
+        <Button key="cancel" variant="outline" onClick={() => router.push('/inventory-checks')}>
           Hủy
         </Button>,
-        <Button key="save" variant="outline" onClick={() => handleSaveDraftRef.current()} className="h-9">
+        <Button key="save" variant="outline" onClick={() => handleSaveDraftRef.current()}>
           Tạo phiếu kiểm
         </Button>,
-        <Button key="balance" onClick={() => handleBalanceRef.current()} className="h-9">
+        <Button key="balance" onClick={() => handleBalanceRef.current()}>
           Cân bằng kho
         </Button>
       ];
@@ -734,7 +734,7 @@ export function InventoryCheckFormPage() {
                   value={customId}
                   onChange={(e) => setCustomId(e.target.value)}
                   disabled={isEditMode}
-                  className={isEditMode ? 'bg-muted h-9' : 'h-9'}
+                  className={isEditMode ? 'bg-muted' : ''}
                 />
               </div>
 
@@ -747,7 +747,7 @@ export function InventoryCheckFormPage() {
                   }}
                   disabled={isEditMode}
                 >
-                  <SelectTrigger id="branch" className={isEditMode ? 'bg-muted h-9' : 'h-9'}>
+                  <SelectTrigger id="branch" className={isEditMode ? 'bg-muted' : ''}>
                     <SelectValue placeholder="Chọn chi nhánh" />
                   </SelectTrigger>
                   <SelectContent>
@@ -766,7 +766,7 @@ export function InventoryCheckFormPage() {
                   id="employee"
                   disabled
                   value={currentUserName || 'Đang tải...'}
-                  className="bg-muted h-9"
+                  className="bg-muted"
                 />
               </div>
             </div>
@@ -798,7 +798,6 @@ export function InventoryCheckFormPage() {
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleAddTag}
-                className="h-9"
               />
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -865,7 +864,7 @@ export function InventoryCheckFormPage() {
               <Button 
                 onClick={() => setShowProductSelector(true)}
                 variant="outline"
-                className="h-9 shrink-0"
+                className="shrink-0"
               >
                 Chọn nhiều
               </Button>
@@ -1016,7 +1015,7 @@ export function InventoryCheckFormPage() {
                                   onValueChange={(value) => handleUpdateReason(originalIndex, value as DifferenceReason)}
                                   disabled={isEditMode}
                                 >
-                                  <SelectTrigger className="h-9">
+                                  <SelectTrigger>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>

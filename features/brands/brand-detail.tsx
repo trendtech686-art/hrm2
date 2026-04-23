@@ -362,11 +362,11 @@ export function BrandDetailPage() {
   const headerActions = React.useMemo((): React.ReactNode[] => {
     if (isEditMode) {
       return [
-        <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push(`/brands/${systemId}`)}>
+        <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/brands/${systemId}`)}>
           <X className="mr-2 h-4 w-4" />
           Hủy
         </Button>,
-        <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={update.isPending}>
+        <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={update.isPending}>
           {update.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           {update.isPending ? 'Đang lưu...' : 'Lưu'}
         </Button>
@@ -374,7 +374,7 @@ export function BrandDetailPage() {
     }
     
     const actions = [
-      <Button key="delete" variant="outline" size="sm" className="h-9 text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
+      <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
         <Trash2 className="mr-2 h-4 w-4" />
         Xóa
       </Button>,
@@ -388,7 +388,7 @@ export function BrandDetailPage() {
         actions.unshift(
           <DropdownMenu key="pkgx-sync">
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
+              <Button variant="outline" size="sm">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Cập nhật PKGX
                 <ChevronDown className="ml-2 h-4 w-4" />
@@ -454,7 +454,7 @@ export function BrandDetailPage() {
     
     if (isAdmin || can('edit_products')) {
       actions.push(
-        <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
+        <Button key="edit" size="sm" onClick={handleSwitchToEdit}>
           <Pencil className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </Button>
@@ -473,7 +473,7 @@ export function BrandDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

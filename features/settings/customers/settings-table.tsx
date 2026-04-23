@@ -70,7 +70,7 @@ export function SettingsTable<T extends BaseSetting>({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-9 w-9 p-0">
+                      <Button variant="ghost" className="w-9 p-0">
                         <span className="sr-only">Mở menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

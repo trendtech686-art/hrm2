@@ -276,7 +276,7 @@ export function PayrollTemplatesSettingsContent() {
             placeholder="Tìm theo tên, mã mẫu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 pl-9 pr-9"
+            className="pl-9 pr-9"
           />
           {searchQuery && (
             <Button

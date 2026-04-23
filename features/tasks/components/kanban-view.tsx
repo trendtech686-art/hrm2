@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
 import { Clock, AlertCircle, Play, FileCheck, CheckCircle2, XCircle, GripVertical } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority } from '../types';
+import { normalizeTaskPriority } from '../types';
 import { toast } from 'sonner';
 
 const taskStatusColumns: TaskStatus[] = [
@@ -95,7 +96,7 @@ function DraggableTaskCard({
     
     // Priority 2: Priority colors (if enabled)
     if (colorSettings.enablePriorityColors) {
-      return colorSettings.priorityColors[task.priority];
+      return colorSettings.priorityColors[normalizeTaskPriority(task.priority)];
     }
     
     // Priority 3: Status colors (if enabled)
@@ -277,7 +278,6 @@ function KanbanColumn({
           placeholder="Tìm kiếm..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-9"
         />
       </div>
 

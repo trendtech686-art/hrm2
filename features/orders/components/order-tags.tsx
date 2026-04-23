@@ -50,7 +50,6 @@ export function OrderTags({ disabled = false }: OrderTagsProps) {
           onKeyDown={handleAddTag}
           placeholder="Nhập tag và nhấn Enter để thêm"
           disabled={disabled}
-          className="h-9"
         />
         
         {tags.length > 0 && (

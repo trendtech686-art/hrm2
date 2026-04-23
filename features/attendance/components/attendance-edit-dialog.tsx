@@ -159,7 +159,7 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                                     <FormLabel>Trạng thái</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl>
-                                            <SelectTrigger className="h-9">
+                                            <SelectTrigger>
                                                 <SelectValue placeholder="Chọn trạng thái" />
                                             </SelectTrigger>
                                         </FormControl>
@@ -270,10 +270,10 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                         />
 
                         <DialogFooter className="gap-2">
-                            <Button type="button" variant="outline" onClick={handleClose} className="h-9">
+                            <Button type="button" variant="outline" onClick={handleClose}>
                                 Hủy
                             </Button>
-                            <Button type="submit" className="h-9" disabled={isSaving}>
+                            <Button type="submit" disabled={isSaving}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                                 {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
                             </Button>

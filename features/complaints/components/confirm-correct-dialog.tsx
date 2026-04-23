@@ -154,7 +154,7 @@ export function ConfirmCorrectDialog({
                           <td className="p-3">
                             <Input
                               type="number"
-                              className="h-9 text-center font-medium"
+                              className="text-center font-medium"
                               value={confirmedQty}
                               onChange={(e) => {
                                 const value = Number(e.target.value) || 0;
@@ -201,10 +201,10 @@ export function ConfirmCorrectDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" className="h-9" onClick={handleClose} disabled={isSubmitting}>
+          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Hủy
           </Button>
-          <Button className="h-9" onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : "Xác nhận"}
           </Button>
         </DialogFooter>

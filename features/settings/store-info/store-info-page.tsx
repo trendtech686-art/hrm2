@@ -524,7 +524,7 @@ export function StoreInfoPage() {
                             </section>
 
                             <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-                                <Button type="submit" className="h-9" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                                <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
                                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Lưu thông tin
                                 </Button>
@@ -541,7 +541,7 @@ export function StoreInfoPage() {
                             <CardTitle>Quản lý Chi nhánh</CardTitle>
                             <CardDescription>Danh sách các chi nhánh và điểm kinh doanh của bạn.</CardDescription>
                         </div>
-                        <Button size="sm" onClick={handleAddNew} className="h-9"><PlusCircle className="mr-2 h-4 w-4" /> Thêm chi nhánh</Button>
+                        <Button size="sm" onClick={handleAddNew}><PlusCircle className="mr-2 h-4 w-4" /> Thêm chi nhánh</Button>
                     </div>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

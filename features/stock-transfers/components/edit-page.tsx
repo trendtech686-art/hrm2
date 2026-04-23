@@ -161,7 +161,6 @@ export function StockTransferEditPage() {
       <Button 
         type="button" 
         variant="outline" 
-        className="h-9"
         onClick={() => router.push(`/stock-transfers/${systemId}`)}
         disabled={isSubmitting}
       >
@@ -171,7 +170,6 @@ export function StockTransferEditPage() {
       <Button 
         type="submit" 
         form={canFullEdit ? 'full-edit-form' : 'limited-edit-form'}
-        className="h-9"
         disabled={isSubmitting || (canFullEdit && fields.length === 0)}
       >
         <Save className="mr-2 h-4 w-4" />
@@ -216,8 +214,8 @@ export function StockTransferEditPage() {
     const currentItems = fullEditForm.getValues('items');
     const updatedItems = currentItems.map(item => {
       const product = findProductById(asSystemId(item.productSystemId));
-      const fromBranchStock = product?.inventoryByBranch?.[fromBranchId] || 0;
-      const toBranchStock = toBranchId ? (product?.inventoryByBranch?.[toBranchId] || 0) : 0;
+      const fromBranchStock = product?.inventoryByBranch?.[asSystemId(fromBranchId)] || 0;
+      const toBranchStock = toBranchId ? (product?.inventoryByBranch?.[asSystemId(toBranchId)] || 0) : 0;
       return { ...item, fromBranchStock, toBranchStock };
     });
     
@@ -233,8 +231,8 @@ export function StockTransferEditPage() {
         return;
       }
 
-      const fromBranchStock = product.inventoryByBranch?.[fromBranchId] || 0;
-      const toBranchStock = toBranchId ? (product.inventoryByBranch?.[toBranchId] || 0) : 0;
+      const fromBranchStock = product.inventoryByBranch?.[asSystemId(fromBranchId)] || 0;
+      const toBranchStock = toBranchId ? (product.inventoryByBranch?.[asSystemId(toBranchId)] || 0) : 0;
       const unitPrice = product.costPrice || 0;
       
       append({
@@ -261,7 +259,7 @@ export function StockTransferEditPage() {
     // Validate quantities
     const invalidItems = data.items.filter(item => {
       const product = findProductById(asSystemId(item.productSystemId));
-      const fromBranchStock = product?.inventoryByBranch?.[data.fromBranchSystemId] || 0;
+      const fromBranchStock = product?.inventoryByBranch?.[asSystemId(data.fromBranchSystemId)] || 0;
       return item.quantity > fromBranchStock;
     });
 
@@ -394,7 +392,7 @@ export function StockTransferEditPage() {
                   <Input 
                     value={transfer.id} 
                     disabled 
-                    className="h-9 bg-muted"
+                    className="bg-muted"
                   />
                 </div>
 
@@ -403,7 +401,6 @@ export function StockTransferEditPage() {
                   <Input 
                     {...limitedEditForm.register('referenceCode')}
                     placeholder="Nhập mã tham chiếu (nếu có)..."
-                    className="h-9"
                   />
                 </div>
               </div>
@@ -414,7 +411,7 @@ export function StockTransferEditPage() {
                   <Input 
                     value={transfer.fromBranchName} 
                     disabled 
-                    className="h-9 bg-muted"
+                    className="bg-muted"
                   />
                 </div>
 
@@ -423,7 +420,7 @@ export function StockTransferEditPage() {
                   <Input 
                     value={transfer.toBranchName} 
                     disabled 
-                    className="h-9 bg-muted"
+                    className="bg-muted"
                   />
                 </div>
               </div>
@@ -577,7 +574,7 @@ export function StockTransferEditPage() {
                 <Input 
                   value={transfer.id} 
                   disabled 
-                  className="h-9 bg-muted"
+                  className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">Mã phiếu không thể thay đổi</p>
               </div>
@@ -587,7 +584,6 @@ export function StockTransferEditPage() {
                 <Input 
                   {...fullEditForm.register('referenceCode')}
                   placeholder="Nhập mã tham chiếu (nếu có)..."
-                  className="h-9"
                 />
               </div>
             </div>
@@ -602,7 +598,7 @@ export function StockTransferEditPage() {
                     fullEditForm.setValue('items', []); // Clear items when branch changes
                   }}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn chi nhánh chuyển" />
                   </SelectTrigger>
                   <SelectContent>
@@ -628,7 +624,7 @@ export function StockTransferEditPage() {
                   value={toBranchId}
                   onValueChange={(value) => fullEditForm.setValue('toBranchSystemId', value)}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn chi nhánh nhận" />
                   </SelectTrigger>
                   <SelectContent>
@@ -758,7 +754,7 @@ export function StockTransferEditPage() {
                               min={1}
                               max={field.fromBranchStock || 999}
                               {...fullEditForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
-                              className="h-9 w-full text-center"
+                              className="w-full text-center"
                             />
                           </TableCell>
                           <TableCell className="text-center">
@@ -781,7 +777,7 @@ export function StockTransferEditPage() {
                             <Input
                               {...fullEditForm.register(`items.${index}.note`)}
                               placeholder="Ghi chú..."
-                              className="h-9 w-full"
+                              className="w-full"
                             />
                           </TableCell>
                           <TableCell>

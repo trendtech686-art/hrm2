@@ -210,7 +210,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: Lea
         <FormField control={control} name="id" render={({ field }) => (
             <FormItem>
                 <FormLabel>Mã đơn</FormLabel>
-                <FormControl><Input {...field} className="h-9" /></FormControl>
+                <FormControl><Input {...field} /></FormControl>
                 <FormMessage />
             </FormItem>
         )} />
@@ -234,7 +234,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: Lea
           <FormItem>
             <FormLabel>Loại phép</FormLabel>
             <Select onValueChange={(value) => field.onChange(value)} value={field.value}>
-                <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Chọn loại phép" /></SelectTrigger></FormControl>
+                <FormControl><SelectTrigger><SelectValue placeholder="Chọn loại phép" /></SelectTrigger></FormControl>
                 <SelectContent>
                   {leaveTypeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
@@ -283,8 +283,8 @@ export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: Lea
          )} />
 
         <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel} className="h-9">Hủy</Button>
-            <Button type="submit" className="h-9" disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={onCancel}>Hủy</Button>
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isSubmitting ? 'Đang lưu...' : 'Lưu'}
             </Button>

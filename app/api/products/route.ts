@@ -358,7 +358,7 @@ export const POST = apiHandler(async (request, { session }) => {
       
       // Create ProductPrice for each mapped price type
       for (const mapping of priceMappings) {
-        const priceValue = body.pkgxPrices[mapping.priceType];
+        const priceValue = body.pkgxPrices[mapping.priceType as keyof typeof body.pkgxPrices];
         if (priceValue !== undefined && priceValue !== null && mapping.pricingPolicyId) {
           // Verify that the PricingPolicy exists before creating ProductPrice
           const policyExists = await prisma.pricingPolicy.findUnique({

@@ -29,7 +29,6 @@ export function BrandsTrashPage() {
       key="back"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={handleNavigateBack}
     >
       Danh sách thương hiệu
@@ -37,7 +36,6 @@ export function BrandsTrashPage() {
     <Button
       key="create"
       size="sm"
-      className="h-9"
       onClick={handleCreateBrand}
     >
       Thêm thương hiệu

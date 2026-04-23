@@ -71,7 +71,7 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
             <FormItem>
               <FormLabel>Tên <span className="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ''} className="h-9" />
+                <Input {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -83,7 +83,7 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
                 <Input
                   {...field}
                   value={field.value ?? ''}
-                  className="h-9 uppercase"
+                  className="uppercase"
                   onChange={(event) => field.onChange(event.target.value.toUpperCase())}
                 />
               </FormControl>

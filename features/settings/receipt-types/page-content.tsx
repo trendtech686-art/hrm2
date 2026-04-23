@@ -193,8 +193,8 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
           </DialogHeader>
           <ReceiptTypeForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
-            <Button type="button" variant="outline" className="h-9" onClick={() => setIsFormOpen(false)}>Đóng</Button>
-            <Button type="submit" form="receipt-type-form" className="h-9" disabled={create.isPending || update.isPending}>
+            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Đóng</Button>
+            <Button type="submit" form="receipt-type-form" disabled={create.isPending || update.isPending}>
               {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Lưu
             </Button>

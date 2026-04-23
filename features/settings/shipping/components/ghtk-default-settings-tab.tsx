@@ -94,7 +94,7 @@ export const GHTKDefaultSettingsTab = forwardRef<GHTKDefaultSettingsTabRef, GHTK
           <div className="space-y-2">
             <Label className="text-sm">Địa chỉ trả hàng</Label>
             <Select value={String(useReturnAddress)} onValueChange={(v) => setUseReturnAddress(Number(v) as 0 | 1)}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -110,7 +110,7 @@ export const GHTKDefaultSettingsTab = forwardRef<GHTKDefaultSettingsTabRef, GHTK
           <div className="space-y-2">
             <Label className="text-sm">Ca lấy hàng</Label>
             <Select value={pickWorkShift} onValueChange={(v) => setPickWorkShift(v as 'none' | '1' | '2')}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -124,7 +124,7 @@ export const GHTKDefaultSettingsTab = forwardRef<GHTKDefaultSettingsTabRef, GHTK
           <div className="space-y-2">
             <Label className="text-sm">Ca giao hàng</Label>
             <Select value={deliverWorkShift} onValueChange={(v) => setDeliverWorkShift(v as 'none' | '1' | '2')}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

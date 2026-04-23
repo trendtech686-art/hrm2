@@ -5,6 +5,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Product } from '../types';
+import type { SystemId } from '@/lib/id-types';
 import { updateProduct, uploadImageSmart, processHtmlImagesForPkgx, createProduct as createPkgxProduct } from '@/lib/pkgx/api-service';
 import { usePkgxMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { useImageStore } from '../image-store';
@@ -255,7 +256,7 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
           totalInventory = Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
         } else {
           // Use specific branch inventory
-          totalInventory = product.inventoryByBranch[defaultBranchId] || 0;
+          totalInventory = product.inventoryByBranch[defaultBranchId as SystemId] || 0;
         }
       }
       
@@ -859,7 +860,7 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
         if (!defaultBranchId || defaultBranchId === 'all') {
           inventoryForPkgx = Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
         } else {
-          inventoryForPkgx = product.inventoryByBranch[defaultBranchId] || 0;
+          inventoryForPkgx = product.inventoryByBranch[defaultBranchId as SystemId] || 0;
         }
       }
       
@@ -1112,7 +1113,7 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
       if (!defaultBranchId || defaultBranchId === 'all') {
         totalInventory = Object.values(fullProduct.inventoryByBranch).reduce((s, q) => s + (q || 0), 0);
       } else {
-        totalInventory = fullProduct.inventoryByBranch[defaultBranchId] || 0;
+        totalInventory = fullProduct.inventoryByBranch[defaultBranchId as SystemId] || 0;
       }
     }
     const seo = fullProduct.seoPkgx;

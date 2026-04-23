@@ -155,7 +155,6 @@ export function PurchaseReturnDetailPage() {
       key="back"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
@@ -164,7 +163,6 @@ export function PurchaseReturnDetailPage() {
     <Button
       key="print"
       size="sm"
-      className="h-9"
       onClick={handlePrint}
     >
       <Printer className="mr-2 h-4 w-4" />
@@ -204,7 +202,7 @@ export function PurchaseReturnDetailPage() {
     return (
       <div className="text-center p-8">
         <h2 className="text-h2 font-bold">Không tìm thấy phiếu trả hàng</h2>
-        <Button onClick={() => router.back()} className="mt-4 h-9">
+        <Button onClick={() => router.back()} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
         </Button>
       </div>
@@ -521,8 +519,8 @@ export function PurchaseReturnDetailPage() {
           </div>
         </ScrollArea>
         <DialogFooter>
-          <Button variant="outline" className="h-9" onClick={() => setIsPrintPreviewOpen(false)}>Đóng</Button>
-          <Button className="h-9" onClick={handleConfirmPrint} disabled={!purchaseReturn}>In ngay</Button>
+          <Button variant="outline" onClick={() => setIsPrintPreviewOpen(false)}>Đóng</Button>
+          <Button onClick={handleConfirmPrint} disabled={!purchaseReturn}>In ngay</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

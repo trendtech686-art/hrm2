@@ -84,7 +84,7 @@ export const createEmployeeColumns = (
       const employee = info.row.original;
       const initials = employee.fullName
         ?.split(' ')
-        .map(n => n[0])
+        .map((n: string) => n[0])
         .join('')
         .toUpperCase()
         .slice(0, 2) || '??';

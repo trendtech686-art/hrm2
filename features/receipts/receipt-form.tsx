@@ -418,7 +418,6 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
                 <FormLabel>Mã phiếu thu</FormLabel>
                 <FormControl>
                   <Input
-                    className="h-9"
                     placeholder="Để trống = tự động"
                     disabled={isEditing}
                     {...field}
@@ -443,7 +442,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
                         variant="outline"
                         disabled={isEditing}
                         className={cn(
-                          "h-9 w-full pl-3 text-left font-normal",
+                          "w-full pl-3 text-left font-normal",
                           !field.value && "text-muted-foreground"
                         )}
                       >
@@ -480,7 +479,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
                 <FormLabel>Chi nhánh *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                   <FormControl>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn chi nhánh" />
                     </SelectTrigger>
                   </FormControl>
@@ -535,7 +534,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
                 <FormLabel>Tài khoản nhận *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                   <FormControl>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn tài khoản" />
                     </SelectTrigger>
                   </FormControl>
@@ -618,7 +617,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none">Thanh toán theo</label>
               <Select value={orderPaymentTiming} onValueChange={(v) => setOrderPaymentTiming(v as 'order_first' | 'payment_first')} disabled={isEditing}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn phương thức" />
                 </SelectTrigger>
                 <SelectContent>

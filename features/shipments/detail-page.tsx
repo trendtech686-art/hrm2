@@ -297,7 +297,7 @@ export function ShipmentDetailPage() {
                 <Button
                     key="dispatch"
                     size="sm"
-                    className="h-9 gap-2"
+                    className="gap-2"
                     disabled={isDispatching}
                     onClick={handleDispatchAll}
                 >
@@ -313,7 +313,7 @@ export function ShipmentDetailPage() {
                     key="cancel"
                     variant="destructive"
                     size="sm"
-                    className="h-9 gap-2"
+                    className="gap-2"
                     disabled={isCancelling}
                     onClick={() => setCancelDialogOpen(true)}
                 >
@@ -328,7 +328,7 @@ export function ShipmentDetailPage() {
                 key="print"
                 variant="outline"
                 size="sm"
-                className="h-9 gap-2"
+                className="gap-2"
                 onClick={handlePrint}
             >
                 <Printer className="h-4 w-4" />
@@ -342,7 +342,7 @@ export function ShipmentDetailPage() {
                     key="order"
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2"
+                    className="gap-2"
                     onClick={() => router.push(generatePath(ROUTES.SALES.ORDER_VIEW, { systemId: order.systemId }))}
                 >
                     <Package className="h-4 w-4" />
@@ -356,7 +356,7 @@ export function ShipmentDetailPage() {
                 key="help"
                 variant="ghost"
                 size="sm"
-                className="h-9 gap-2"
+                className="gap-2"
                 onClick={() => toast.info('Chức năng đang phát triển')}
             >
                 <LifeBuoy className="h-4 w-4" />
@@ -369,7 +369,7 @@ export function ShipmentDetailPage() {
                 key="back"
                 variant="outline"
                 size="sm"
-                className="h-9 gap-2"
+                className="gap-2"
                 onClick={() => router.push(ROUTES.INTERNAL.SHIPMENTS)}
             >
                 <ArrowLeft className="h-4 w-4" />
@@ -388,7 +388,7 @@ export function ShipmentDetailPage() {
         return [
             <DropdownMenu key="mobile-actions">
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9">
+                    <Button variant="outline" size="sm">
                         <MoreHorizontal className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
@@ -634,7 +634,7 @@ export function ShipmentDetailPage() {
                                     {item.details && (
                                         <p className="text-muted-foreground text-sm mt-1">{item.details}</p>
                                     )}
-                                    {item.reasonCode && (
+                                    {'reasonCode' in item && item.reasonCode && (
                                         <p className="text-xs text-muted-foreground/70 mt-0.5">Mã lý do: {item.reasonCode}</p>
                                     )}
                                 </TimelineItem>

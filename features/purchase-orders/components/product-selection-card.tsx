@@ -502,7 +502,7 @@ export function ProductSelectionCard({
             Chọn nhiều
           </Button>
           <Select value={priceMode} onValueChange={(v: "cost" | "purchase" | "recent") => setPriceMode(v)}>
-            <SelectTrigger className="w-full sm:w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -864,7 +864,7 @@ export function ProductSelectionCard({
                               value={item.discountType}
                               onValueChange={(v: 'percent' | 'fixed') => handleDiscountTypeChange(index, v)}
                             >
-                              <SelectTrigger className="h-9 w-17.5">
+                              <SelectTrigger className="w-17.5">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>

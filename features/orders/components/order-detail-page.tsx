@@ -1055,7 +1055,7 @@ export function OrderDetailPage() {
                     key="cancel-packaging"
                     variant="outline"
                     size="sm"
-                    className="h-9 border-destructive text-destructive hover:bg-destructive/5"
+                    className="border-destructive text-destructive hover:bg-destructive/5"
                     onClick={() => setCancelPackagingState({ packagingSystemId: activePackaging.systemId })}
                 >
                     Hủy đóng gói
@@ -1068,7 +1068,7 @@ export function OrderDetailPage() {
             actions.push(
                 <DropdownMenu key="select-delivery">
                     <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline" className="h-9">
+                        <Button size="sm" variant="outline">
                             Giao hàng <ChevronDown className="ml-2 h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -1086,7 +1086,6 @@ export function OrderDetailPage() {
                 <Button 
                     key="dispatch" 
                     size="sm" 
-                    className="h-9" 
                     onClick={() => handleDispatch(activePackaging.systemId)}
                 >
                     Xác nhận Xuất kho
@@ -1101,7 +1100,7 @@ export function OrderDetailPage() {
                     key="cancel-delivery"
                     variant="outline"
                     size="sm"
-                    className="h-9 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => {
                         if (isNotStockedOut) {
                             handleCancelDeliveryDirectly(activePackaging.systemId);
@@ -1120,7 +1119,7 @@ export function OrderDetailPage() {
             actions.push(
                 <DropdownMenu key="fail-delivery">
                     <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline" className="h-9 border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive">
+                        <Button size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive">
                             Hủy/Thất bại
                         </Button>
                     </DropdownMenuTrigger>
@@ -1144,7 +1143,6 @@ export function OrderDetailPage() {
                 <Button 
                     key="complete-delivery" 
                     size="sm" 
-                    className="h-9" 
                     onClick={() => handleCompleteDelivery(activePackaging.systemId)}
                 >
                     Đã giao hàng
@@ -1158,7 +1156,6 @@ export function OrderDetailPage() {
                     key="return"
                     variant="outline"
                     size="sm"
-                    className="h-9"
                     onClick={() => router.push(`/orders/${order.systemId}/return`)}
                 >
                     Hoàn trả hàng
@@ -1197,7 +1194,7 @@ export function OrderDetailPage() {
                     key="cancel"
                     variant="outline"
                     size="sm"
-                    className="h-9 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => setIsCancelAlertOpen(true)}
                 >
                     Hủy đơn hàng
@@ -1211,7 +1208,6 @@ export function OrderDetailPage() {
                     key="edit"
                     variant="outline"
                     size="sm"
-                    className="h-9"
                     onClick={() => router.push(`/orders/${order.systemId}/edit`)}
                 >
                     Sửa
@@ -1357,7 +1353,7 @@ export function OrderDetailPage() {
         return [
             <DropdownMenu key="mobile-overflow">
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+                    <Button variant="ghost" size="icon" className="shrink-0">
                         <MoreHorizontal className="h-5 w-5" />
                     </Button>
                 </DropdownMenuTrigger>

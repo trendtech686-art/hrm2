@@ -400,7 +400,7 @@ export function ComboSection() {
           <Button 
             type="button" 
             variant="outline" 
-            className="h-9 w-full sm:w-auto shrink-0" 
+            className="w-full sm:w-auto shrink-0" 
             onClick={() => setIsProductSelectionOpen(true)} 
             disabled={fields.length >= MAX_COMBO_ITEMS}
           >

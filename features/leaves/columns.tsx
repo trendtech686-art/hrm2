@@ -176,7 +176,7 @@ export const getColumns = (
         <div className="text-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-9 w-10 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+              <Button variant="ghost" className="w-10 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => navigate(`/leaves/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>

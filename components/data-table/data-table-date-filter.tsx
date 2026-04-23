@@ -193,7 +193,7 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
             <Button
                 variant={isCustomActive ? "secondary" : "outline"}
                 size="sm"
-                className="h-9 w-full justify-center"
+                className="w-full justify-center"
                 onClick={handleCustomClick}
             >
                 Tùy chọn
@@ -208,7 +208,7 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
                                 placeholder="dd/mm/yyyy"
                                 value={fromInput}
                                 onChange={(e) => handleDateInputChange(e, 'from')}
-                                className="pl-8 h-9 text-sm"
+                                className="pl-8 text-sm"
                             />
                         </div>
                         <span className="text-muted-foreground">-</span>
@@ -218,7 +218,7 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
                                 placeholder="dd/mm/yyyy"
                                 value={toInput}
                                 onChange={(e) => handleDateInputChange(e, 'to')}
-                                className="pl-8 h-9 text-sm"
+                                className="pl-8 text-sm"
                             />
                         </div>
                     </div>
@@ -234,7 +234,7 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
                 </div>
             )}
             
-            <Button size="sm" onClick={handleApply} className="w-full h-9">Lọc</Button>
+            <Button size="sm" onClick={handleApply} className="w-full">Lọc</Button>
         </div>
     );
 }
@@ -290,12 +290,12 @@ export function DataTableDateFilter({
             variant="outline"
             size="sm"
             className={cn(
-                "h-9 w-full sm:w-[180px] lg:w-[220px] justify-start text-left font-normal flex items-center",
+                "w-full sm:w-[180px] lg:w-[220px] justify-start text-left font-normal flex items-center",
                 !isFiltered && "text-muted-foreground",
                 isFiltered && "pr-8"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
             <span className="truncate flex-1">{buttonText}</span>
           </Button>
         </DropdownMenuTrigger>
@@ -316,7 +316,7 @@ export function DataTableDateFilter({
             e.stopPropagation();
             onChange(undefined);
           }}
-          className="absolute right-0 top-0 h-9 w-8 p-0 hover:bg-transparent opacity-50 hover:opacity-100"
+          className="absolute right-0 top-0 w-8 p-0 hover:bg-transparent opacity-50 hover:opacity-100"
           aria-label="Xóa bộ lọc"
         >
           <X className="h-4 w-4"/>

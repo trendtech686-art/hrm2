@@ -130,10 +130,10 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
 
   const headerActions = React.useMemo(
     () => [
-      <Button key="cancel" type="button" variant="outline" size="sm" className="h-9" onClick={handleCancel}>
+      <Button key="cancel" type="button" variant="outline" size="sm" onClick={handleCancel}>
         Hủy
       </Button>,
-      <Button key="save" type="submit" form="template-form" size="sm" className="h-9" disabled={createMutation.isPending || updateMutation.isPending}>
+      <Button key="save" type="submit" form="template-form" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
         {(createMutation.isPending || updateMutation.isPending) ? (
           <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</>
         ) : (
@@ -206,7 +206,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
     return (
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold">Không tìm thấy mẫu công việc</h2>
-        <Button onClick={() => router.push('/tasks/templates')} className="h-9 mt-4">
+        <Button onClick={() => router.push('/tasks/templates')} className="mt-4">
           Quay về danh sách
         </Button>
       </div>
@@ -226,7 +226,6 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
               <Label htmlFor="name">Tên mẫu *</Label>
               <Input
                 id="name"
-                className="h-9"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Nhập tên mẫu công việc"
@@ -249,7 +248,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
               <div>
                 <Label htmlFor="category">Danh mục</Label>
                 <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v as TemplateCategory })}>
-                  <SelectTrigger id="category" className="h-9">
+                  <SelectTrigger id="category">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -265,7 +264,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
               <div>
                 <Label htmlFor="priority">Độ ưu tiên mặc định</Label>
                 <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v as TaskPriority })}>
-                  <SelectTrigger id="priority" className="h-9">
+                  <SelectTrigger id="priority">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +283,6 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
                   type="number"
                   min={0}
                   step={0.5}
-                  className="h-9"
                   value={formData.estimatedHours || ''}
                   onChange={(e) => setFormData({ ...formData, estimatedHours: parseFloat(e.target.value) || 0 })}
                   placeholder="0"
@@ -331,7 +329,7 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
                     value={role.role}
                     onValueChange={(v) => updateAssigneeRole(index, 'role', v)}
                   >
-                    <SelectTrigger className="h-9 w-40">
+                    <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -341,12 +339,12 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
                     </SelectContent>
                   </Select>
                   <Input
-                    className="h-9 flex-1"
+                    className="flex-1"
                     value={role.description}
                     onChange={(e) => updateAssigneeRole(index, 'description', e.target.value)}
                     placeholder="Ví dụ: Backend Developer, UX Designer..."
                   />
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => removeAssigneeRole(index)}>
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeAssigneeRole(index)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
@@ -379,14 +377,13 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
                   <GripVertical className="h-4 w-4 text-muted-foreground mt-2.5 shrink-0" />
                   <div className="flex-1 space-y-2">
                     <Input
-                      className="h-9"
                       value={subtask.title}
                       onChange={(e) => updateSubtask(index, 'title', e.target.value)}
                       placeholder="Tiêu đề công việc con"
                     />
                     <div className="flex gap-2">
                       <Input
-                        className="h-9 flex-1"
+                        className="flex-1"
                         value={subtask.description}
                         onChange={(e) => updateSubtask(index, 'description', e.target.value)}
                         placeholder="Mô tả (tùy chọn)"
@@ -395,14 +392,14 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
                         type="number"
                         min={0}
                         step={0.5}
-                        className="h-9 w-24"
+                        className="w-24"
                         value={subtask.estimatedHours || ''}
                         onChange={(e) => updateSubtask(index, 'estimatedHours', parseFloat(e.target.value) || 0)}
                         placeholder="Giờ"
                       />
                     </div>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => removeSubtask(index)}>
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeSubtask(index)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
@@ -434,12 +431,12 @@ export function TemplateFormPage({ systemId }: TemplateFormPageProps) {
                 <div key={index} className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground w-6 text-center">{index + 1}.</span>
                   <Input
-                    className="h-9 flex-1"
+                    className="flex-1"
                     value={item}
                     onChange={(e) => updateChecklistItem(index, e.target.value)}
                     placeholder="Nội dung checklist..."
                   />
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => removeChecklistItem(index)}>
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeChecklistItem(index)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>

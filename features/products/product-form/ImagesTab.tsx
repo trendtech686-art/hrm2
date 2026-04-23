@@ -12,6 +12,7 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { SimpleImageUpload, type UploadedImage } from '@/components/ui/simple-image-upload';
@@ -56,7 +57,7 @@ export function ImagesTab({
   return (
     <>
       {/* Ảnh chính (thumbnail) - chỉ 1 ảnh */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Ảnh chính</CardTitle>
         </CardHeader>
@@ -75,7 +76,7 @@ export function ImagesTab({
       </Card>
 
       {/* Ảnh album (gallery) - nhiều ảnh */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Album ảnh</CardTitle>
         </CardHeader>
@@ -95,7 +96,7 @@ export function ImagesTab({
       </Card>
 
       {/* Video Links */}
-      <Card>
+      <Card className={mobileBleedCardClass}>
         <CardHeader>
           <CardTitle>Video Links</CardTitle>
         </CardHeader>

@@ -82,7 +82,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
 
   // ========== ATTENDANCE ==========
   const attendanceHistory: AttendanceHistoryRow[] = React.useMemo(() => {
-    const lockedMonths = lockedMonthsData?.lockedMonths ?? {};
+    const lockedMonths: Record<string, boolean> = lockedMonthsData ?? {};
     if (!attendanceSummaryData) return [];
     return attendanceSummaryData.map(summary => {
       const [year, month] = summary.monthKey.split('-');
@@ -99,7 +99,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
         locked: Boolean(lockedMonths[summary.monthKey]),
       };
     });
-  }, [employee.systemId, attendanceSummaryData, lockedMonthsData?.lockedMonths]);
+  }, [employee.systemId, attendanceSummaryData, lockedMonthsData]);
 
   const handlePrintSingleAttendance = React.useCallback(async (row: AttendanceHistoryRow) => {
     try {

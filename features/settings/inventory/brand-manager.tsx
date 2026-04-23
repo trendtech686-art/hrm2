@@ -89,7 +89,7 @@ function BrandListItem({
     >
       {/* Logo or Icon */}
       <div className={cn(
-        'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
+        'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
         brand.logo ? 'bg-background border' : 'bg-primary/10'
       )}>
         {brand.logo ? (
@@ -289,7 +289,7 @@ export function BrandManager({
                 placeholder="Tìm thương hiệu..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9"
               />
             </div>
           </div>

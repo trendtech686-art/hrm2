@@ -27,7 +27,6 @@ export function ProductsTrashPage() {
       key="back"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={handleNavigateBack}
     >
       Danh sách sản phẩm
@@ -35,7 +34,6 @@ export function ProductsTrashPage() {
     <Button
       key="create"
       size="sm"
-      className="h-9"
       onClick={handleCreateProduct}
     >
       Thêm sản phẩm

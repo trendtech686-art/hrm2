@@ -54,7 +54,7 @@ export function PageFilters({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
-              className={cn("h-9 w-full", searchSuffix && "pr-10")}
+              className={cn("w-full", searchSuffix && "pr-10")}
             />
             {searchSuffix && (
               <div className="absolute right-0 top-0 h-full flex items-center pr-1">
@@ -89,7 +89,7 @@ export function PageFilters({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
-              className={cn("h-9 w-full", searchSuffix && "pr-10")}
+              className={cn("w-full", searchSuffix && "pr-10")}
             />
             {searchSuffix && (
               <div className="absolute right-0 top-0 h-full flex items-center pr-1">

@@ -33,6 +33,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import type { Task } from '@/lib/types/prisma-extended';
 import type { TaskPriority, TaskStatus } from '../types';
+import { normalizeTaskPriority } from '../types';
 import { useBreakpoint } from '@/contexts/breakpoint-context';
 import {
   DropdownMenu,
@@ -44,7 +45,7 @@ import {
 // Helper functions - defined outside component to avoid hoisting issues
 const getPriorityVariant = (priority: TaskPriority): "default" | "secondary" | "warning" | "destructive" => {
   const map = { 'Thấp': 'secondary', 'Trung bình': 'default', 'Cao': 'warning', 'Khẩn cấp': 'destructive' } as const;
-  return map[priority];
+  return map[normalizeTaskPriority(priority)];
 };
 
 const getStatusVariant = (status: TaskStatus): "default" | "secondary" | "warning" | "success" | "outline" => {
@@ -216,7 +217,7 @@ export function TaskDetailPage() {
     // "Bắt đầu" button for assignees when task is not started
     if (isAssignee && task.status === 'Chưa bắt đầu') {
       actionButtons.push(
-        <Button key="start" size="sm" className="h-9" onClick={handleStartTask}>
+        <Button key="start" size="sm" onClick={handleStartTask}>
           <Play className="mr-2 h-4 w-4" />
           Bắt đầu
         </Button>
@@ -229,7 +230,7 @@ export function TaskDetailPage() {
         <Button 
           key="approve-reject" 
           size="sm" 
-          className="h-9 bg-yellow-600 hover:bg-yellow-700" 
+          className="bg-yellow-600 hover:bg-yellow-700" 
           onClick={() => setShowApprovalDialog(true)}
         >
           <CheckCircle className="mr-2 h-4 w-4" />
@@ -241,7 +242,7 @@ export function TaskDetailPage() {
     // Only show edit/delete for admin or task owner
     if (canEdit) {
       actionButtons.push(
-        <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/tasks/${task.systemId}/edit`)}>
+        <Button key="edit" size="sm" onClick={() => router.push(`/tasks/${task.systemId}/edit`)}>
           <Edit className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </Button>
@@ -250,7 +251,7 @@ export function TaskDetailPage() {
     
     if (isAdmin) {
       actionButtons.push(
-        <Button key="delete" size="sm" variant="destructive" className="h-9" onClick={() => setIsDeleteDialogOpen(true)}>
+        <Button key="delete" size="sm" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
           <Trash2 className="mr-2 h-4 w-4" />
           Xóa
         </Button>
@@ -279,7 +280,7 @@ export function TaskDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -335,7 +336,7 @@ export function TaskDetailPage() {
     // Check all required conditions
     if (!task?.priority || !task?.startDate) return null;
     
-    const slaConfig = slaSettings[task.priority];
+    const slaConfig = slaSettings[normalizeTaskPriority(task.priority)];
     if (!slaConfig) return null;
     
     // Safely parse startDate - validate before calling getTime()
@@ -478,14 +479,14 @@ export function TaskDetailPage() {
                     <p className="text-xs text-muted-foreground mb-1.5">Thời gian phản hồi</p>
                     <SlaTimer
                       startTime={task.startDate}
-                      targetMinutes={slaSettings[task.priority!].responseTime}
+                      targetMinutes={slaSettings[normalizeTaskPriority(task.priority!)].responseTime}
                     />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1.5">Thời gian hoàn thành</p>
                     <SlaTimer
                       startTime={task.startDate}
-                      targetMinutes={slaSettings[task.priority!].completeTime * 60}
+                      targetMinutes={slaSettings[normalizeTaskPriority(task.priority!)].completeTime * 60}
                     />
                   </div>
                 </div>

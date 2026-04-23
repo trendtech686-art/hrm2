@@ -333,7 +333,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     loadShippingConfigAsync().then(config => {
       setPartnerConfig(config);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
+   
   }, []);
   
   // State for editable package info

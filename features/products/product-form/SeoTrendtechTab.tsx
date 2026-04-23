@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +15,7 @@ export function SeoTrendtechTab() {
   const form = useFormContext<ProductFormCompleteValues>();
 
   return (
-    <Card>
+    <Card className={mobileBleedCardClass}>
       <CardHeader>
         <div className="flex items-center gap-2">
           <Globe className="h-5 w-5" style={{ color: '#3b82f6' }} />

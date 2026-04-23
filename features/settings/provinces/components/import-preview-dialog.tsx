@@ -93,14 +93,12 @@ export function ImportPreviewDialog({
         <DialogFooter>
           <Button
             variant="outline"
-            className="h-9"
             onClick={onCancel}
             disabled={isImporting}
           >
             Hủy
           </Button>
           <Button
-            className="h-9"
             onClick={onConfirm}
             disabled={isImporting}
           >

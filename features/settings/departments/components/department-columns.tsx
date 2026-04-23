@@ -289,7 +289,7 @@ export const UnassignedColumn = React.memo(function UnassignedColumn({
           <Search className="absolute left-2.5 top-5.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Tìm nhân viên..."
-            className="h-9 w-full pl-8"
+            className="w-full pl-8"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />

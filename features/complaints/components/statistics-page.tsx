@@ -126,7 +126,6 @@ export function ComplaintStatisticsPage() {
       key="export"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={() => window.print?.()}
     >
       <BarChart3 className="h-4 w-4 mr-2" />
@@ -136,7 +135,6 @@ export function ComplaintStatisticsPage() {
       key="back"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={() => router.push(ROUTES.INTERNAL.COMPLAINTS)}
     >
       <ArrowLeft className="h-4 w-4 mr-2" />

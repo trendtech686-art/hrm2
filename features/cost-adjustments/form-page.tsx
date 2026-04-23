@@ -266,18 +266,16 @@ export function CostAdjustmentFormPage() {
   
   const headerActions = React.useMemo(() => (
     <div className="flex items-center gap-2">
-      <Button 
-        variant="outline" 
-        className="h-9"
+      <Button
+        variant="outline"
         onClick={() => router.push('/cost-adjustments')}
         disabled={isSubmitting}
       >
         <X className="mr-2 h-4 w-4" />
         Hủy
       </Button>
-      <Button 
+      <Button
         type="button"
-        className="h-9"
         disabled={isSubmitting || fields.length === 0}
         onClick={handleSubmitClick}
       >
@@ -319,7 +317,6 @@ export function CostAdjustmentFormPage() {
                 <Input 
                   {...form.register('customId')}
                   placeholder={nextId}
-                  className="h-9"
                 />
                 {customIdError ? (
                   <p className="text-sm text-destructive">{customIdError}</p>
@@ -335,7 +332,6 @@ export function CostAdjustmentFormPage() {
                 <Input 
                   {...form.register('referenceCode')}
                   placeholder="Nhập mã tham chiếu (nếu có)..."
-                  className="h-9"
                 />
                 <p className="text-xs text-muted-foreground">
                   Mã từ hệ thống khác hoặc mã nội bộ
@@ -347,7 +343,7 @@ export function CostAdjustmentFormPage() {
                 <Input 
                   value={currentEmployee?.fullName || user?.name || 'Không xác định'}
                   disabled
-                  className="h-9 bg-muted"
+                  className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
                   {formatDateTimeForDisplay(new Date())}
@@ -360,7 +356,6 @@ export function CostAdjustmentFormPage() {
               <Input 
                 {...form.register('reason')}
                 placeholder="Ví dụ: Cập nhật giá theo đơn nhập mới, Điều chỉnh giá theo thị trường..."
-                className="h-9"
               />
             </div>
 

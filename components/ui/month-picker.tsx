@@ -139,7 +139,6 @@ export function MonthPicker({
           className={cn(
             "w-full justify-start text-left font-normal",
             !value && "text-muted-foreground",
-            "h-9",
             className
           )}
           disabled={disabled}
@@ -191,7 +190,7 @@ export function MonthPicker({
                 variant={isSelected ? "default" : "ghost"}
                 size="sm"
                 className={cn(
-                  "h-9 text-sm",
+                  "text-sm",
                   isCurrent && !isSelected && "border border-primary text-primary"
                 )}
                 onClick={() => handleMonthSelect(month)}

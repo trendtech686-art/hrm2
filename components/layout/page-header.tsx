@@ -33,7 +33,7 @@ export function PageHeader() {
           variant="ghost"
           size="sm"
           asChild
-          className="h-9 gap-2 text-muted-foreground"
+          className="gap-2 text-muted-foreground"
         >
           <a href={docLink.href} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4" />
@@ -70,7 +70,7 @@ export function PageHeader() {
                 variant="ghost"
                 size="icon"
                 onClick={onBack}
-                className="h-9 w-9 shrink-0"
+                className="w-9 shrink-0"
                 aria-label="Quay lại"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -114,7 +114,7 @@ export function PageHeader() {
                   variant="ghost"
                   size="icon"
                   onClick={onBack}
-                  className="h-9 w-9 shrink-0"
+                  className="w-9 shrink-0"
                   aria-label="Quay lại"
                 >
                   <ArrowLeft className="h-5 w-5" />

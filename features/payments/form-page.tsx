@@ -61,7 +61,7 @@ export function PaymentFormPage({ systemId, initialOptions }: PaymentFormPagePro
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
+    <Button key="cancel" type="button" variant="outline" size="sm" onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
@@ -69,7 +69,6 @@ export function PaymentFormPage({ systemId, initialOptions }: PaymentFormPagePro
       key="save" 
       type="button"
       size="sm" 
-      className="h-9"
       disabled={isSaving}
       onClick={handleSaveClick}
     >

@@ -30,7 +30,7 @@ export function WikiDetailPage() {
       { label: article?.title ?? 'Chi tiết', href: `/wiki/${article?.systemId ?? ''}`, isCurrent: true },
     ],
     actions: (isAdmin || can('edit_wiki')) ? [
-      <Button key="edit" className="h-9 gap-2" onClick={() => router.push(`/wiki/${article?.systemId}/edit`)}>
+      <Button key="edit" className="gap-2" onClick={() => router.push(`/wiki/${article?.systemId}/edit`)}>
         <Edit className="mr-2 h-4 w-4" />
         Chỉnh sửa
       </Button>

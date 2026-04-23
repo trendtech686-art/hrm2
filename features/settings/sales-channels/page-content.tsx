@@ -139,8 +139,8 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
           </DialogHeader>
           <SalesChannelForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="h-9">Thoát</Button>
-            <Button type="submit" form="sales-channel-form" className="h-9" disabled={create.isPending || update.isPending}>
+            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Thoát</Button>
+            <Button type="submit" form="sales-channel-form" disabled={create.isPending || update.isPending}>
               {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingItem ? 'Lưu' : 'Thêm'}
             </Button>

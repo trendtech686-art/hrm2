@@ -73,7 +73,6 @@ export function ReceiptFormPage({ systemId, initialOptions }: ReceiptFormPagePro
       type="button"
       variant="outline"
       size="sm"
-      className="h-9"
       onClick={() => router.push(ROUTES.FINANCE.RECEIPTS)}
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
@@ -83,7 +82,6 @@ export function ReceiptFormPage({ systemId, initialOptions }: ReceiptFormPagePro
       key="save"
       type="button"
       size="sm"
-      className="h-9"
       disabled={isSaving}
       onClick={handleSaveClick}
     >

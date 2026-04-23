@@ -9,10 +9,10 @@ export const COST_ADJUSTMENT_PREVIEW_DATA: Record<string, string> = {
   '{store_logo}': SHARED_PREVIEW_DATA['{store_logo}'],
   '{store_name}': SHARED_PREVIEW_DATA['{store_name}'],
   '{store_address}': SHARED_PREVIEW_DATA['{store_address}'],
-  '{store_phone}': SHARED_PREVIEW_DATA['{store_phone}'] || '0909 123 456',
+  '{store_phone}': SHARED_PREVIEW_DATA['{store_phone_number}'] || '0909 123 456',
   '{account_name}': SHARED_PREVIEW_DATA['{account_name}'],
-  '{print_date}': SHARED_PREVIEW_DATA['{print_date}'],
-  '{print_time}': SHARED_PREVIEW_DATA['{print_time}'],
+  '{print_date}': '15/01/2025',
+  '{print_time}': '14:30',
 
   // === THÔNG TIN PHIẾU ===
   '{adjustment_code}': 'DCGV000012',

@@ -55,7 +55,8 @@ import { toast } from 'sonner';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { useDirtyState } from '@/hooks/use-dirty-state';
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import type { TaskPriority } from '../../tasks/types';
+import type { TaskPriority, TaskPriorityVi } from '../../tasks/types';
+import { normalizeTaskPriority } from '../../tasks/types';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
@@ -158,17 +159,18 @@ export function TasksSettingsPage() {
 
   const handleSLAChange = (priority: TaskPriority, field: 'responseTime' | 'completeTime', value: string) => {
     const numValue = parseInt(value) || 0;
+    const normalized = normalizeTaskPriority(priority);
     setSLA(prev => ({
       ...prev,
-      [priority]: {
-        ...prev[priority],
+      [normalized]: {
+        ...prev[normalized],
         [field]: numValue,
       }
     }));
   };
 
   const handleSaveSLA = () => {
-    const priorities: TaskPriority[] = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'];
+    const priorities: TaskPriorityVi[] = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'];
     const errors: string[] = [];
 
     priorities.forEach(priority => {
@@ -683,8 +685,7 @@ export function TasksSettingsPage() {
                       <Input
                         id={`sla-${key}-response`}
                         type="number"
-                        className="h-9"
-                        value={sla[key]?.responseTime ?? 0}
+                        value={sla[normalizeTaskPriority(key)]?.responseTime ?? 0}
                         onChange={(e) => handleSLAChange(key, 'responseTime', e.target.value)}
                         min="0"
                       />
@@ -694,8 +695,7 @@ export function TasksSettingsPage() {
                       <Input
                         id={`sla-${key}-complete`}
                         type="number"
-                        className="h-9"
-                        value={sla[key]?.completeTime ?? 0}
+                        value={sla[normalizeTaskPriority(key)]?.completeTime ?? 0}
                         onChange={(e) => handleSLAChange(key, 'completeTime', e.target.value)}
                         min="0"
                       />
@@ -753,7 +753,6 @@ export function TasksSettingsPage() {
                 <Label htmlFor="type-name">Tên loại công việc *</Label>
                 <Input
                   id="type-name"
-                  className="h-9"
                   value={editingType.name}
                   onChange={(e) => setEditingType({ ...editingType, name: e.target.value })}
                   placeholder="VD: Phát triển"
@@ -843,7 +842,6 @@ export function TasksSettingsPage() {
                     <Input
                       id="max-images"
                       type="number"
-                      className="h-9"
                       value={evidence.maxImages}
                       onChange={(e) => handleEvidenceChange('maxImages', parseInt(e.target.value) || 1)}
                       min="1"
@@ -857,7 +855,6 @@ export function TasksSettingsPage() {
                     <Input
                       id="max-size"
                       type="number"
-                      className="h-9"
                       value={evidence.imageMaxSizeMB}
                       onChange={(e) => handleEvidenceChange('imageMaxSizeMB', parseInt(e.target.value) || 1)}
                       min="1"
@@ -871,7 +868,6 @@ export function TasksSettingsPage() {
                     <Input
                       id="min-note"
                       type="number"
-                      className="h-9"
                       value={evidence.minNoteLength}
                       onChange={(e) => handleEvidenceChange('minNoteLength', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1084,7 +1080,6 @@ export function TasksSettingsPage() {
                   <Label htmlFor="template-name">Tên mẫu *</Label>
                   <Input
                     id="template-name"
-                    className="h-9"
                     value={editingTemplate.name}
                     onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
                     placeholder="VD: Bug Fix"
@@ -1100,7 +1095,7 @@ export function TasksSettingsPage() {
                       category: value as TaskTemplate['category']
                     })}
                   >
-                    <SelectTrigger id="template-category" className="h-9">
+                    <SelectTrigger id="template-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1117,7 +1112,6 @@ export function TasksSettingsPage() {
                   <Label htmlFor="template-title">Tiêu đề mẫu *</Label>
                   <Input
                     id="template-title"
-                    className="h-9"
                     value={editingTemplate.title}
                     onChange={(e) => setEditingTemplate({ ...editingTemplate, title: e.target.value })}
                     placeholder="VD: Sửa lỗi: [Tên lỗi]"
@@ -1139,7 +1133,6 @@ export function TasksSettingsPage() {
                   <Input
                     id="template-hours"
                     type="number"
-                    className="h-9"
                     value={editingTemplate.estimatedHours}
                     onChange={(e) => setEditingTemplate({ 
                       ...editingTemplate, 

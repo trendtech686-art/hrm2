@@ -400,7 +400,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
               <FormItem>
                 <FormLabel>Mã phiếu chi</FormLabel>
                 <FormControl>
-                  <Input className="h-9" placeholder="Để trống = tự động" disabled={isEditing} {...field} />
+                  <Input placeholder="Để trống = tự động" disabled={isEditing} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -421,7 +421,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
                         variant="outline"
                         disabled={isEditing}
                         className={cn(
-                          "h-9 w-full pl-3 text-left font-normal",
+                          "w-full pl-3 text-left font-normal",
                           !field.value && "text-muted-foreground"
                         )}
                       >
@@ -458,7 +458,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
                 <FormLabel>Chi nhánh *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                   <FormControl>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn chi nhánh" />
                     </SelectTrigger>
                   </FormControl>
@@ -517,7 +517,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
                 <FormLabel>Tài khoản chi *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                   <FormControl>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn tài khoản" />
                     </SelectTrigger>
                   </FormControl>
@@ -604,7 +604,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none">Thanh toán theo</label>
               <Select value={orderPaymentTiming} onValueChange={(v) => setOrderPaymentTiming(v as 'order_first' | 'payment_first')} disabled={isEditing}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn phương thức" />
                 </SelectTrigger>
                 <SelectContent>

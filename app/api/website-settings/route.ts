@@ -83,8 +83,11 @@ export async function POST(request: Request) {
   if (!session) return apiError('Unauthorized', 401);
 
   try {
-    const { type, data } = await request.json()
-    
+    const { type, data } = (await request.json()) as {
+      type?: WebsiteSettingType
+      data?: unknown
+    }
+
     if (!type || !SETTING_KEYS[type]) {
       return apiError('Invalid type parameter', 400)
     }

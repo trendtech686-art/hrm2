@@ -113,7 +113,7 @@ export function StorageLocationFormDialog({
                       {...field} 
                       value={field.value ?? ''} 
                       placeholder="VD: KHO-A" 
-                      className="h-9 uppercase"
+                      className="uppercase"
                       onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                     />
                   </FormControl>
@@ -132,7 +132,7 @@ export function StorageLocationFormDialog({
                 <FormItem>
                   <FormLabel>Tên điểm lưu kho <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder="VD: Kho A" className="h-9" />
+                    <Input {...field} value={field.value ?? ''} placeholder="VD: Kho A" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

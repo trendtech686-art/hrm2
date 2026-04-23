@@ -325,17 +325,22 @@ export function Comments<
                 {/* Attachments */}
                 {comment.attachments && comment.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {comment.attachments.map((file) => (
-                      <a
-                        key={file.id}
-                        href={file.url}
-                        target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md hover:bg-muted/80 transition-colors text-sm"
-                      >
-                        <FileText className="h-4 w-4" />
-                        {file.name}
-                      </a>
-                    ))}
+                    {comment.attachments.map((raw, idx) => {
+                      const file = typeof raw === 'string'
+                        ? { id: raw, url: raw, name: raw.split('/').pop() || raw, type: '' }
+                        : raw;
+                      return (
+                        <a
+                          key={file.id || idx}
+                          href={file.url}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md hover:bg-muted/80 transition-colors text-sm"
+                        >
+                          <FileText className="h-4 w-4" />
+                          {file.name}
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
 

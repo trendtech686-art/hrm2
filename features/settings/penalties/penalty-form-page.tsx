@@ -33,7 +33,6 @@ export function PenaltyFormPage() {
       type="button"
       variant="outline" 
       size="sm"
-      className="h-9"
       onClick={handleCancel}
     >
       Hủy
@@ -42,7 +41,6 @@ export function PenaltyFormPage() {
       key="save" 
       type="submit"
       size="sm"
-      className="h-9"
       form="penalty-form"
     >
       Lưu

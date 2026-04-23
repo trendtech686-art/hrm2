@@ -626,7 +626,7 @@ export function PurchaseOrderDetailPage() {
     const leftButtons: React.ReactNode[] = [];
 
     leftButtons.push(
-      <Button key="print" variant="outline" size="sm" onClick={handlePrint} className="h-9">
+      <Button key="print" variant="outline" size="sm" onClick={handlePrint}>
         <Printer className="mr-2 h-4 w-4" />
         In đơn
       </Button>
@@ -637,7 +637,7 @@ export function PurchaseOrderDetailPage() {
 
     if (!isTerminalStatus && canBeFinished) {
       actionButtons.push(
-        <Button key="finish" size="sm" onClick={() => finishOrder(purchaseOrder.systemId, currentUserSystemId, currentUserName)} className="h-9">
+        <Button key="finish" size="sm" onClick={() => finishOrder(purchaseOrder.systemId, currentUserSystemId, currentUserName)}>
           Hoàn tất
         </Button>
       );
@@ -645,7 +645,7 @@ export function PurchaseOrderDetailPage() {
 
     if (canEdit) {
       actionButtons.push(
-        <Button key="edit" variant="outline" size="sm" onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/edit`)} className="h-9">
+        <Button key="edit" variant="outline" size="sm" onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/edit`)}>
           <Edit className="mr-2 h-4 w-4" />
           Sửa
         </Button>
@@ -654,7 +654,7 @@ export function PurchaseOrderDetailPage() {
 
     if (canReturn) {
       actionButtons.push(
-        <Button key="return" variant="outline" size="sm" onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/return`)} className="h-9">
+        <Button key="return" variant="outline" size="sm" onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/return`)}>
           <Undo2 className="mr-2 h-4 w-4" />
           Hoàn trả
         </Button>
@@ -663,7 +663,7 @@ export function PurchaseOrderDetailPage() {
 
     if (canCancel) {
       actionButtons.push(
-        <Button key="cancel" variant="destructive" size="sm" onClick={() => handleCancelRequest(purchaseOrder)} className="h-9">
+        <Button key="cancel" variant="destructive" size="sm" onClick={() => handleCancelRequest(purchaseOrder)}>
           <Trash2 className="mr-2 h-4 w-4" />
           Hủy đơn
         </Button>
@@ -681,7 +681,7 @@ export function PurchaseOrderDetailPage() {
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9">
+          <Button variant="outline" size="sm">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

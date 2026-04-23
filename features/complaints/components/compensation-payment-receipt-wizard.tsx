@@ -598,7 +598,7 @@ export function CompensationPaymentReceiptWizard({
                 <div className="space-y-1.5">
                   <Label>Người chịu chi phí phát sinh</Label>
                   <Select value={costBearer} onValueChange={(value) => setCostBearer(value as CostBearer)}>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="Chọn người chịu chi phí" />
                     </SelectTrigger>
                     <SelectContent>
@@ -617,7 +617,7 @@ export function CompensationPaymentReceiptWizard({
               <div className="space-y-1.5">
                 <Label htmlFor="payment-method">Hình thức thanh toán</Label>
                 <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn hình thức" />
                   </SelectTrigger>
                   <SelectContent>
@@ -634,7 +634,7 @@ export function CompensationPaymentReceiptWizard({
               <div className="space-y-1.5">
                 <Label htmlFor="account">Tài khoản quỹ</Label>
                 <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn tài khoản" />
                   </SelectTrigger>
                   <SelectContent>
@@ -658,7 +658,7 @@ export function CompensationPaymentReceiptWizard({
                   value={responsibleEmployeeId || complaint.assignedTo || ""} 
                   onValueChange={setResponsibleEmployeeId}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger>
                     <SelectValue placeholder="Chọn nhân viên" />
                   </SelectTrigger>
                   <SelectContent>
@@ -679,7 +679,7 @@ export function CompensationPaymentReceiptWizard({
                 value={selectedPenaltyTypeId || "none"} 
                 onValueChange={(val) => setSelectedPenaltyTypeId(val === "none" ? "" : val)}
               >
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn loại lỗi phạt (không bắt buộc)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -808,10 +808,10 @@ export function CompensationPaymentReceiptWizard({
 
         {/* Footer */}
         <DialogFooter>
-          <Button variant="outline" className="h-9" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose}>
             Hủy
           </Button>
-          <Button className="h-9" onClick={handleConfirmStep} disabled={!isValid}>
+          <Button onClick={handleConfirmStep} disabled={!isValid}>
             Xác nhận
           </Button>
         </DialogFooter>

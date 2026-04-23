@@ -279,7 +279,6 @@ export function PurchaseReturnFormPage() {
           key="list"
           variant="outline"
           size="sm"
-          className="h-9"
           onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
         >
           Danh sách phiếu trả
@@ -292,7 +291,6 @@ export function PurchaseReturnFormPage() {
         key="cancel"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => router.back()}
       >
         Hủy
@@ -300,7 +298,6 @@ export function PurchaseReturnFormPage() {
       <Button
         key="submit"
         size="sm"
-        className="h-9"
         type="submit"
         form="purchase-return-form"
         disabled={create.isPending}
@@ -337,7 +334,7 @@ export function PurchaseReturnFormPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => router.back()}>
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Quay lại
           </Button>
@@ -369,7 +366,7 @@ export function PurchaseReturnFormPage() {
                 {returnablePOs.map(rpo => (
                     <Card 
                       key={rpo.systemId} 
-                      className="cursor-pointer hover:border-primary transition-colors"
+                      className={cn(mobileBleedCardClass, 'cursor-pointer hover:border-primary transition-colors')}
                       onClick={() => router.push(`/purchase-orders/${rpo.systemId}/return`)}
                     >
                       <CardContent className="p-4">
@@ -381,7 +378,7 @@ export function PurchaseReturnFormPage() {
                               Đã nhập: {rpo.totalReceived} sản phẩm từ {rpo.receiptCount} phiếu
                             </p>
                           </div>
-                          <Button variant="outline" size="sm" className="h-9">
+                          <Button variant="outline" size="sm">
                             Chọn
                           </Button>
                         </div>
@@ -417,7 +414,7 @@ export function PurchaseReturnFormPage() {
             ID: {systemIdParam || purchaseOrderIdFromQuery || 'Chưa có'}
           </p>
         </div>
-        <Button onClick={() => router.back()} variant="outline" className="h-9">
+        <Button onClick={() => router.back()} variant="outline">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại
         </Button>
@@ -436,7 +433,7 @@ export function PurchaseReturnFormPage() {
             {!branch && 'Không tìm thấy chi nhánh.'}
           </p>
         </div>
-        <Button onClick={() => router.back()} variant="outline" className="h-9">
+        <Button onClick={() => router.back()} variant="outline">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại
         </Button>
@@ -523,12 +520,12 @@ export function PurchaseReturnFormPage() {
     <Form {...form}>
       <form id="purchase-return-form" onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="flex items-center justify-between mb-4 lg:hidden">
-            <Button variant="ghost" type="button" onClick={() => router.back()} className="h-9 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" type="button" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Đơn nhập hàng {po.id}
             </Button>
             <div className="flex items-center gap-2">
-                <Button type="submit" variant="default" className="h-9" disabled={create.isPending}>
+                <Button type="submit" variant="default" disabled={create.isPending}>
                   {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Xác nhận hoàn trả
                 </Button>
@@ -613,7 +610,7 @@ export function PurchaseReturnFormPage() {
                                                   <Input
                                                     {...noteField}
                                                     placeholder="Ghi chú (VD: Hàng lỗi, sai màu...)"
-                                                    className="mt-2 h-9 text-xs"
+                                                    className="mt-2 text-xs"
                                                     value={noteField.value || ''}
                                                   />
                                                 )}
@@ -688,7 +685,7 @@ export function PurchaseReturnFormPage() {
                                 <FormItem>
                                     <FormLabel>Hình thức nhận tiền</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value as string}>
-                                        <FormControl><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="text-sm"><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             <SelectItem value="Tiền mặt">Tiền mặt</SelectItem>
                                             <SelectItem value="Chuyển khoản">Chuyển khoản</SelectItem>
@@ -700,7 +697,7 @@ export function PurchaseReturnFormPage() {
                                 <FormItem>
                                     <FormLabel>Tài khoản quỹ nhận tiền</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value as string}>
-                                        <FormControl><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="text-sm"><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {accounts.map(acc => <SelectItem key={acc.systemId} value={acc.systemId}>{acc.name}</SelectItem>)}
                                         </SelectContent>
@@ -725,7 +722,7 @@ export function PurchaseReturnFormPage() {
                             <Input 
                               {...field} 
                               placeholder="VD: TH000001"
-                              className="font-mono h-9 text-sm"
+                              className="font-mono text-sm"
                             />
                           </FormControl>
                           <FormDescription className="text-xs">

@@ -51,12 +51,12 @@ export function WikiFormPage() {
     <Button
       key="cancel"
       variant="outline"
-      className="h-9 gap-2"
+      className="gap-2"
       onClick={() => router.push(article ? `/wiki/${article.systemId}` : '/wiki')}
     >
       Hủy
     </Button>,
-    <Button key="save" type="submit" form="wiki-form" className="h-9 gap-2">
+    <Button key="save" type="submit" form="wiki-form" className="gap-2">
       Lưu
     </Button>
   ]), [article, router]);

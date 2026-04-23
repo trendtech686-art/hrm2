@@ -156,7 +156,6 @@ export function POReceiveDialog({
               <Label>Mã phiếu nhập</Label>
               <Input
                 placeholder="Ví dụ: PNK000123"
-                className="h-9"
                 value={state.documentCode}
                 onChange={(e) => onFieldChange('documentCode', e.target.value)}
               />
@@ -165,7 +164,6 @@ export function POReceiveDialog({
               <Label>Ngày nhận hàng</Label>
               <Input
                 type="datetime-local"
-                className="h-9"
                 value={state.receivedDate}
                 onChange={(e) => onFieldChange('receivedDate', e.target.value)}
               />
@@ -173,7 +171,7 @@ export function POReceiveDialog({
             <div className="space-y-2">
               <Label>Chi nhánh nhận</Label>
               <Select value={state.targetBranchSystemId || undefined} onValueChange={onBranchChange}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn chi nhánh" />
                 </SelectTrigger>
                 <SelectContent>
@@ -189,7 +187,6 @@ export function POReceiveDialog({
               <Label>Kho nhận</Label>
               <Input
                 placeholder="Kho chính, Kho lẻ..."
-                className="h-9"
                 value={state.warehouseName}
                 onChange={(e) => onFieldChange('warehouseName', e.target.value)}
               />
@@ -229,7 +226,6 @@ export function POReceiveDialog({
                         type="number"
                         min={0}
                         max={item.remainingQuantity}
-                        className="h-9"
                         value={item.receiveQuantity}
                         onChange={(e) => onQuantityChange(item.productSystemId, Number(e.target.value))}
                       />
@@ -244,12 +240,11 @@ export function POReceiveDialog({
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" className="h-9" onClick={onClose} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Hủy
           </Button>
           <Button
             type="button"
-            className="h-9"
             onClick={onSubmit}
             disabled={isSubmitting || !hasValidQuantity || !state.targetBranchSystemId}
           >

@@ -81,8 +81,8 @@ function CancelPackagingDialog({
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" className="h-9" onClick={() => onOpenChange(false)}>Thoát</Button>
-          <Button variant="destructive" className="h-9" onClick={handleConfirm}>Xác nhận Hủy</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Thoát</Button>
+          <Button variant="destructive" onClick={handleConfirm}>Xác nhận Hủy</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -240,7 +240,6 @@ export function PackagingDetailPage() {
           <Button
             key="confirm"
             size="sm"
-            className="h-9"
             disabled={isConfirming}
             onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId)}
           >
@@ -252,7 +251,6 @@ export function PackagingDetailPage() {
             key="cancel"
             variant="destructive"
             size="sm"
-            className="h-9"
             disabled={isCancelling}
             onClick={() => setIsCancelDialogOpen(true)}
           >
@@ -266,7 +264,6 @@ export function PackagingDetailPage() {
           key="print"
           variant="outline"
           size="sm"
-          className="h-9"
           onClick={handlePrint}
         >
           <Printer className="mr-2 h-4 w-4" />
@@ -280,7 +277,6 @@ export function PackagingDetailPage() {
         key="back"
         variant="outline"
         size="sm"
-        className="h-9"
         onClick={() => router.push('/packaging')}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -325,7 +321,7 @@ export function PackagingDetailPage() {
           <h2 className="text-h3 font-bold text-destructive">Lỗi tải phiếu đóng gói</h2>
           <p className="text-muted-foreground mt-2">{error?.message || 'Không thể tải dữ liệu'}</p>
           <p className="text-muted-foreground text-sm">Mã: {systemId}</p>
-          <Button onClick={() => router.push('/packaging')} className="mt-4 h-9">
+          <Button onClick={() => router.push('/packaging')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>
@@ -340,7 +336,7 @@ export function PackagingDetailPage() {
         <div className="text-center">
           <h2 className="text-h3 font-bold">Không tìm thấy phiếu đóng gói</h2>
           <p className="text-muted-foreground mt-2">Mã: {systemId}</p>
-          <Button onClick={() => router.push('/packaging')} className="mt-4 h-9">
+          <Button onClick={() => router.push('/packaging')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>

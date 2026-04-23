@@ -214,11 +214,11 @@ export function StockTransferDetailPage() {
       <div className="flex items-center gap-2">
         {status === 'pending' && (
           <>
-            <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
+            <Button variant="destructive" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
               Hủy
             </Button>
-            <Button className="h-9" onClick={() => setConfirmTransferOpen(true)}>
+            <Button onClick={() => setConfirmTransferOpen(true)}>
               <Truck className="mr-2 h-4 w-4" />
               Chuyển hàng khỏi kho
             </Button>
@@ -227,24 +227,24 @@ export function StockTransferDetailPage() {
         
         {(status === 'transferring' || status === 'in_transit') && (
           <>
-            <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
+            <Button variant="destructive" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
               Hủy
             </Button>
-            <Button className="h-9" onClick={() => setConfirmReceiveOpen(true)}>
+            <Button onClick={() => setConfirmReceiveOpen(true)}>
               <CheckCircle className="mr-2 h-4 w-4" />
               Nhận hàng vào kho
             </Button>
           </>
         )}
 
-        <Button variant="outline" className="h-9" onClick={handlePrint}>
+        <Button variant="outline" onClick={handlePrint}>
           <Printer className="mr-2 h-4 w-4" />
           In phiếu
         </Button>
         
         {canEdit && (
-          <Button variant="outline" className="h-9" onClick={() => router.push(`/stock-transfers/${transferData.systemId}/edit`)}>
+          <Button variant="outline" onClick={() => router.push(`/stock-transfers/${transferData.systemId}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
             Sửa
           </Button>
@@ -780,10 +780,10 @@ export function StockTransferDetailPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" className="h-9" onClick={() => setConfirmReceiveOpen(false)}>
+            <Button variant="outline" onClick={() => setConfirmReceiveOpen(false)}>
               Hủy
             </Button>
-            <Button className="h-9" onClick={handleConfirmReceive}>
+            <Button onClick={handleConfirmReceive}>
               Xác nhận nhận hàng
             </Button>
           </DialogFooter>
@@ -814,10 +814,10 @@ export function StockTransferDetailPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
               Đóng
             </Button>
-            <Button variant="destructive" className="h-9" onClick={handleCancel}>
+            <Button variant="destructive" onClick={handleCancel}>
               Xác nhận hủy
             </Button>
           </DialogFooter>

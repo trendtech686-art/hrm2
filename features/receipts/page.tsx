@@ -33,7 +33,6 @@ export function ReceiptsPage({ initialStats }: ReceiptsPageProps = {}) {
     canCreate && <Button
       key="add"
       size="sm"
-      className="h-9"
       onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}
     >
       <Plus className="mr-2 h-4 w-4" />

@@ -402,7 +402,7 @@ export function SalesReturnFormPage() {
             variant="outline"
             type="button"
             size="sm"
-            className="hidden md:inline-flex h-9 px-4"
+            className="hidden md:inline-flex px-4"
             onClick={() => router.push(backDestination)}
         >
             Thoát
@@ -412,7 +412,7 @@ export function SalesReturnFormPage() {
             type="submit"
             form="sales-return-form"
             size="sm"
-            className="hidden md:inline-flex h-9 px-4"
+            className="hidden md:inline-flex px-4"
             disabled={isSubmitting}
             onClick={handleSubmitClick}
         >
@@ -1159,7 +1159,7 @@ export function SalesReturnFormPage() {
                             <Button 
                                 type="button" 
                                 variant="outline" 
-                                className="h-9 shrink-0"
+                                className="shrink-0"
                                 onClick={() => setIsProductSelectionOpen(true)} 
                                 disabled={isFullyReadOnly}
                             >
@@ -1170,7 +1170,7 @@ export function SalesReturnFormPage() {
                                 onValueChange={setSelectedPricingPolicy}
                                 disabled={isFullyReadOnly}
                             >
-                                <SelectTrigger className="w-45 h-9 shrink-0">
+                                <SelectTrigger className="w-45 shrink-0">
                                     <SelectValue placeholder="Chọn bảng giá" />
                                 </SelectTrigger>
                                 <SelectContent>

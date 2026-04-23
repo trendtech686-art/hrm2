@@ -98,7 +98,7 @@ export function CreateReconciliationSheetPage() {
     if (!option) return
     const shipment = option.metadata as AvailableShipment
     addShipment(shipment)
-  }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  },  
   [])
 
   // Header
@@ -323,7 +323,7 @@ export function CreateReconciliationSheetPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 shrink-0"
+                className="shrink-0"
                 onClick={() => setIsSelectionOpen(true)}
                 disabled={!carrier}
               >

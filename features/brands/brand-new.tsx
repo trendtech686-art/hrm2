@@ -165,11 +165,11 @@ export function BrandNewPage() {
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push('/brands')}>
+    <Button key="cancel" variant="outline" size="sm" onClick={() => router.push('/brands')}>
       <X className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={create.isPending}>
+    <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={create.isPending}>
       {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
       {create.isPending ? 'Đang tạo...' : 'Tạo mới'}
     </Button>

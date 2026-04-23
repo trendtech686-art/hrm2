@@ -128,7 +128,7 @@ export function EvidenceThumbnailGrid({
             <Button 
               variant="outline" 
               size="sm" 
-              className="w-full h-9"
+              className="w-full"
               onClick={onViewFullEvidence}
             >
               <Eye className="mr-2 h-4 w-4" />

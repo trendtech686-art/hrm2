@@ -8,12 +8,17 @@ import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";
 
-// Stub function for settlement status calculation
-const calculateSettlementStatus = (totalSettlement: number, totalPaid: number, shippingFee: number) => {
+import type { WarrantySettlementStatus } from '../../lib/types/prisma-extended';
+
+const calculateSettlementStatus = (
+  totalSettlement: number,
+  totalPaid: number,
+  shippingFee: number,
+): WarrantySettlementStatus => {
   const remaining = totalSettlement + shippingFee - totalPaid;
-  if (remaining <= 0) return 'fully_paid';
-  if (totalPaid > 0) return 'partially_paid';
-  return 'unpaid';
+  if (remaining <= 0) return 'completed';
+  if (totalPaid > 0) return 'partial';
+  return 'pending';
 };
 import type { ColumnDef } from '../../components/data-table/types';
 import { Button } from "../../components/ui/button";

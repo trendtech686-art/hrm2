@@ -118,7 +118,6 @@ export function PenaltyDetailPage() {
         key="back" 
         variant="outline" 
         size="sm"
-        className="h-9"
         onClick={() => router.push('/penalties')}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -132,7 +131,6 @@ export function PenaltyDetailPage() {
           key="print" 
           variant="outline"
           size="sm"
-          className="h-9"
           onClick={handlePrint}
         >
           <Printer className="mr-2 h-4 w-4" />
@@ -146,7 +144,6 @@ export function PenaltyDetailPage() {
         <Button 
           key="edit" 
           size="sm"
-          className="h-9"
           onClick={() => router.push(`/penalties/${systemId}/edit`)}
         >
           <Edit className="mr-2 h-4 w-4" />

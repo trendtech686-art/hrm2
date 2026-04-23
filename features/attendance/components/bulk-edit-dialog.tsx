@@ -122,7 +122,7 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
           <div className="space-y-2 text-sm">
             {Object.entries(groupedByEmployee).map(([systemId, info]) => (
               <div key={systemId} className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                 <div>
                   <span className="font-medium">{info.name}</span>
                   <span className="text-muted-foreground ml-1">({info.code})</span>
@@ -147,7 +147,7 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
                   <FormLabel>Trạng thái</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger>
                         <SelectValue placeholder="Chọn trạng thái" />
                       </SelectTrigger>
                     </FormControl>
@@ -220,10 +220,10 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
             )}
 
             <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={handleClose} className="h-9">
+              <Button type="button" variant="outline" onClick={handleClose}>
                 Hủy
               </Button>
-              <Button type="submit" className="h-9">
+              <Button type="submit">
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Áp dụng cho {selectedCells.length} ô
               </Button>

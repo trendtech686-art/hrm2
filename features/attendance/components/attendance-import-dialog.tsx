@@ -472,8 +472,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                     })),
                 }),
             });
-        } catch (logError) {
-            logError('[Attendance Import] Failed to log import', logError);
+        } catch (err) {
+            logError('[Attendance Import] Failed to log import', err);
         }
         
         onOpenChange(false);

@@ -13,7 +13,7 @@ export const SettingsActionButton = React.forwardRef<HTMLButtonElement, ButtonPr
         ref={ref}
         size={size ?? 'sm'}
         debounceMs={debounceMs}
-        className={cn('h-9 px-4 font-medium gap-2', className)}
+        className={cn('px-4 font-medium gap-2', className)}
         {...props}
       >
         {children}

@@ -52,7 +52,7 @@ export function WikiPage() {
   const { isMobile } = useBreakpoint();
   
   const headerActions = React.useMemo(() => ([
-    canCreate && <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push('/wiki/new')}>
+    canCreate && <Button key="add" size="sm" className="gap-2" onClick={() => router.push('/wiki/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm bài viết
     </Button>
@@ -97,7 +97,7 @@ export function WikiPage() {
           />
         </div>
         {!isMobile && (
-          <Button size="sm" className="h-9 gap-2" onClick={() => router.push('/wiki/new')}>
+          <Button size="sm" className="gap-2" onClick={() => router.push('/wiki/new')}>
             <PlusCircle className="mr-2 h-4 w-4" /> Tạo bài viết mới
           </Button>
         )}

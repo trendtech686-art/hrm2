@@ -288,7 +288,7 @@ export function DataTableColumnCustomizer<TData>({
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Tìm kiếm cột..."
-                            className="w-full pl-8 h-9"
+                            className="w-full pl-8"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -331,7 +331,7 @@ export function DataTableColumnCustomizer<TData>({
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Tìm kiếm cột..."
-                            className="w-full pl-8 h-9"
+                            className="w-full pl-8"
                             value={visibleSearch}
                             onChange={(e) => setVisibleSearch(e.target.value)}
                         />

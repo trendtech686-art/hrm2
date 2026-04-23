@@ -1489,8 +1489,8 @@ export function OrderFormPage() {
             type="button" 
             variant="outline" 
             onClick={handleExitClick} 
-            size="sm" 
-            className="hidden md:inline-flex h-9"
+            size="sm"
+            className="hidden md:inline-flex"
         >
             Thoát
         </Button>,
@@ -1500,8 +1500,8 @@ export function OrderFormPage() {
             form="order-form"
             disabled={isFullyReadOnly || isSubmitting}
             onClick={isEditing ? handleDraftClick : handleApproveClick}
-            size="sm" 
-            className="hidden md:inline-flex h-9"
+            size="sm"
+            className="hidden md:inline-flex"
         >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Đang xử lý...' : (isEditing ? 'Lưu thay đổi' : 'Tạo đơn và duyệt')}
@@ -1617,10 +1617,10 @@ export function OrderFormPage() {
                                                 }
                                             }}
                                         />
-                                        <Button type="button" variant="outline" className="h-9 shrink-0" onClick={openProductSelection} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
+                                        <Button type="button" variant="outline" className="shrink-0" onClick={openProductSelection} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
                                     </div>
                                     <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId} disabled={isFormDisabled || isMetadataOnlyMode}>
-                                        <SelectTrigger className="h-9 w-full md:w-45"><SelectValue /></SelectTrigger>
+                                        <SelectTrigger className="w-full md:w-45"><SelectValue /></SelectTrigger>
                                         <SelectContent>{salesPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
