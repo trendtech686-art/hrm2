@@ -10,17 +10,27 @@ export function parseColorClass(colorClass: string): React.CSSProperties {
     return {};
   }
   
+  /* eslint-disable hrm-theme/no-raw-palette-class -- chuỗi class từ settings thẻ → backgroundColor */
   const colorMap: Record<string, string> = {
+    'bg-info/10': 'color-mix(in oklch, var(--info) 12%, transparent)',
+    'bg-success/10': 'color-mix(in oklch, var(--success) 12%, transparent)',
+    'bg-warning/10': 'color-mix(in oklch, var(--warning) 14%, transparent)',
+    'bg-warning/15': 'color-mix(in oklch, var(--warning) 18%, transparent)',
+    'bg-warning/20': 'color-mix(in oklch, var(--warning) 24%, transparent)',
+    'bg-destructive/10': 'color-mix(in oklch, var(--destructive) 12%, transparent)',
+    'bg-destructive/15': 'color-mix(in oklch, var(--destructive) 16%, transparent)',
     'bg-yellow-50': '#fefce8',
     'bg-blue-50': '#eff6ff',
     'bg-green-50': '#f0fdf4',
-    'bg-gray-50': '#f9fafb',
+    'bg-gray-50': 'var(--muted)',
     'bg-amber-50': '#fffbeb',
     'bg-orange-50': '#fff7ed',
     'bg-red-50': '#fef2f2',
     'bg-red-100': '#fee2e2',
-    'bg-slate-50': '#f8fafc',
+    'bg-slate-50': 'var(--muted)',
+    'bg-muted': 'var(--muted)',
   };
+  /* eslint-enable hrm-theme/no-raw-palette-class */
   
   const bgClass = colorClass.split(' ').find(c => c.startsWith('bg-'));
   const hexColor = bgClass ? colorMap[bgClass] : null;

@@ -147,7 +147,7 @@ export function POReceiveDialog({
         </DialogHeader>
         <div className="space-y-4">
           {pendingQueueLength > 0 && (
-            <div className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+            <div className="rounded-md border border-info/20 bg-info/10 px-3 py-2 text-sm text-info-foreground">
               Còn {pendingQueueLength} đơn trong hàng đợi sẽ được mở tiếp sau khi lưu phiếu này.
             </div>
           )}

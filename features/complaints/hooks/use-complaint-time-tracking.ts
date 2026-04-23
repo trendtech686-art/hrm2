@@ -257,13 +257,13 @@ export function calculateSLAProgress(elapsedMs: number, slaMs: number): number {
 export function getSLAStatusColor(status: 'on-time' | 'warning' | 'overdue' | 'pending'): string {
   switch (status) {
     case 'on-time':
-      return 'text-green-600 bg-green-50 border-green-200';
+      return 'text-success border-success/30 bg-success/10';
     case 'warning':
-      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      return 'text-warning border-warning/30 bg-warning/10';
     case 'overdue':
-      return 'text-red-600 bg-red-50 border-red-200';
+      return 'text-destructive border-destructive/30 bg-destructive/10';
     case 'pending':
-      return 'text-gray-600 bg-gray-50 border-gray-200';
+      return 'text-muted-foreground border-border bg-muted';
   }
 }
 

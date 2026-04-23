@@ -107,19 +107,19 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
   let borderClass = "border-l-4";
 
   if (cardColors.enableOverdueColor && isOverdue) {
-    cardColorClass = cardColors.overdueColor || "bg-red-50"; // Fallback
-    borderClass += " border-l-red-500";
+    cardColorClass = cardColors.overdueColor || 'bg-destructive/10';
+    borderClass += ' border-l-destructive';
   } else if (cardColors.enableStatusColors) {
-    cardColorClass = cardColors.statusColors[ticket.status] || "";
+    cardColorClass = cardColors.statusColors[ticket.status] || '';
     const statusBorderColors: Record<string, string> = {
-      RECEIVED: "border-l-orange-500",
-      PROCESSING: "border-l-yellow-500",
-      WAITING_PARTS: "border-l-blue-500",
-      COMPLETED: "border-l-green-500",
-      RETURNED: "border-l-gray-500",
-      CANCELLED: "border-l-red-500",
+      RECEIVED: 'border-l-warning',
+      PROCESSING: 'border-l-warning',
+      WAITING_PARTS: 'border-l-info',
+      COMPLETED: 'border-l-success',
+      RETURNED: 'border-l-muted-foreground',
+      CANCELLED: 'border-l-destructive',
     };
-    borderClass += " " + (statusBorderColors[ticket.status] || "border-l-gray-200");
+    borderClass += ' ' + (statusBorderColors[ticket.status] || 'border-l-border');
   }
 
   return (

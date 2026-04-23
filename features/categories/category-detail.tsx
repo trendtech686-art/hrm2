@@ -628,7 +628,7 @@ export function CategoryDetailPage() {
                             id: asBusinessId(category.id)
                           } as unknown as ProductCategory;
                           return hasPkgxMapping(categoryWithBrandedIds) ? (
-                            <Badge variant="default" className="bg-green-500">
+                            <Badge variant="default" className="bg-success text-success-foreground">
                               <span className="mr-1">✓</span>
                               Đã mapping (ID: {getPkgxCatId(categoryWithBrandedIds)})
                             </Badge>
@@ -973,7 +973,7 @@ export function CategoryDetailPage() {
                   {/* Existing thumbnail - show in edit mode with permanent files */}
                   {isEditMode && thumbnailPermanentFiles.length > 0 && (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 text-xs font-medium text-success-foreground bg-success/10 px-2 py-1 rounded">
                         <span>✓</span>
                         <span>Ảnh hiện tại</span>
                       </div>
@@ -988,7 +988,7 @@ export function CategoryDetailPage() {
                   {/* New thumbnail upload */}
                   <div className="space-y-2">
                     {isEditMode && thumbnailPermanentFiles.length > 0 && (
-                      <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 text-xs font-medium text-warning-foreground bg-warning/10 px-2 py-1 rounded">
                         <span>📤</span>
                         <span>Upload ảnh mới để thay thế</span>
                       </div>

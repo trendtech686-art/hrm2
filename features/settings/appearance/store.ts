@@ -18,11 +18,8 @@
  */
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-
-export type Theme = "slate" | "blue" | "green" | "amber" | "rose" | "purple" | "orange" | "teal" | "custom"
-export type Font = "inter" | "poppins" | "roboto" | "source-sans-3"
-export type FontSize = "sm" | "base" | "lg"
-export type ColorMode = "light" | "dark"
+import type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
+export type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
 
 export type CustomThemeConfig = {
     '--background': string;
@@ -223,31 +220,29 @@ export async function loadAppearanceFromDatabase() {
   try {
     const response = await fetch(APPEARANCE_API);
     if (!response.ok) {
-      // Even if no data, mark initialized so first save can persist
-      isInitialized = true;
       return;
     }
-    
+
     const { data } = await response.json();
     if (data) {
-      const prev = useAppearanceStore.getState()
+      const prev = useAppearanceStore.getState();
       const fromApi =
         data.customThemeConfig && typeof data.customThemeConfig === 'object'
           ? (data.customThemeConfig as Record<string, string>)
-          : {}
-      const mergedConfig = { ...defaultCustomTheme, ...fromApi } as CustomThemeConfig
+          : {};
+      const mergedConfig = { ...defaultCustomTheme, ...fromApi } as CustomThemeConfig;
       useAppearanceStore.setState({
         theme: data.theme ?? prev.theme,
         colorMode: data.colorMode ?? prev.colorMode,
         font: data.font ?? prev.font,
         fontSize: data.fontSize ?? prev.fontSize,
         customThemeConfig: mergedConfig,
-      })
+      });
     }
-    // Mark initialized even when no data so later changes can sync
-    isInitialized = true;
   } catch (error) {
     console.warn('Error loading appearance from database:', error);
+  } finally {
+    isInitialized = true;
   }
 }
 

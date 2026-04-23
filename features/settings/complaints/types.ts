@@ -123,19 +123,19 @@ export const defaultPublicTracking: PublicTrackingSettings = {
 
 export const defaultCardColors: CardColorSettings = {
   statusColors: {
-    pending: 'bg-yellow-50 border-yellow-200',
-    investigating: 'bg-blue-50 border-blue-200',
-    resolved: 'bg-green-50 border-green-200',
-    rejected: 'bg-gray-50 border-gray-200',
+    pending: 'bg-warning/10 border-warning/30',
+    investigating: 'bg-info/10 border-info/30',
+    resolved: 'bg-success/10 border-success/30',
+    rejected: 'bg-muted border-border',
   },
   // ✅ Match Prisma ComplaintPriority enum
   priorityColors: {
-    LOW: 'bg-slate-50 border-slate-200',
-    MEDIUM: 'bg-amber-50 border-amber-200',
-    HIGH: 'bg-orange-50 border-orange-300',
-    CRITICAL: 'bg-red-100 border-red-300',
+    LOW: 'bg-muted border-border',
+    MEDIUM: 'bg-warning/10 border-warning/30',
+    HIGH: 'bg-warning/20 border-warning/50',
+    CRITICAL: 'bg-destructive/10 border-destructive/30',
   },
-  overdueColor: 'bg-red-50 border-red-400',
+  overdueColor: 'bg-destructive/15 border-destructive/40',
   enableStatusColors: false,
   enablePriorityColors: true,
   enableOverdueColor: true,

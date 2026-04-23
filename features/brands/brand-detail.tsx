@@ -562,11 +562,11 @@ export function BrandDetailPage() {
               SEO Chung
             </MobileTabsTrigger>
             <MobileTabsTrigger value="seo-pkgx" className="gap-1">
-              <Globe className="h-3 w-3 text-red-500" />
+              <Globe className="h-3 w-3 text-destructive" />
               SEO PKGX
             </MobileTabsTrigger>
             <MobileTabsTrigger value="seo-trendtech" className="gap-1">
-              <Globe className="h-3 w-3 text-blue-500" />
+              <Globe className="h-3 w-3 text-info" />
               SEO Trendtech
             </MobileTabsTrigger>
           </MobileTabsList>
@@ -575,10 +575,10 @@ export function BrandDetailPage() {
           <TabsContent value="general" className="space-y-4 mt-4">
             {/* PKGX Mapping Info Card */}
             {brandMapping && (
-              <Card className={cn("border-blue-200 bg-blue-50/50", mobileBleedCardClass)}>
+              <Card className={cn('border-info/30 bg-info/5', mobileBleedCardClass)}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-blue-600" />
+                    <Globe className="h-4 w-4 text-info" />
                     Thông tin mapping PKGX
                   </CardTitle>
                 </CardHeader>
@@ -618,7 +618,7 @@ export function BrandDetailPage() {
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Trạng thái</p>
                         {brand.isActive !== false ? (
-                          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
+                          <Badge variant="default" className="bg-success/15 text-success-foreground hover:bg-success/15">
                             Hoạt động
                           </Badge>
                         ) : (
@@ -946,7 +946,7 @@ export function BrandDetailPage() {
                   {/* Existing logo - show only in edit mode with permanent files */}
                   {isEditMode && logoPermanentFiles.length > 0 && (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 text-xs font-medium text-success-foreground bg-success/10 px-2 py-1 rounded">
                         <span>✓</span>
                         <span>Logo hiện tại</span>
                       </div>
@@ -961,7 +961,7 @@ export function BrandDetailPage() {
                   {/* New logo upload */}
                   <div className="space-y-2">
                     {isEditMode && logoPermanentFiles.length > 0 && (
-                      <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 text-xs font-medium text-warning-foreground bg-warning/10 px-2 py-1 rounded">
                         <span>📤</span>
                         <span>Upload logo mới để thay thế</span>
                       </div>

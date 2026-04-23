@@ -671,7 +671,7 @@ export function ProductSelectionCard({
                   
                   return (
                     <React.Fragment key={item.product.systemId}>
-                      <TableRow className={`${isCombo ? 'bg-muted/30' : ''} ${hasError ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
+                      <TableRow className={`${isCombo ? 'bg-muted/30' : ''} ${hasError ? 'bg-destructive/10' : ''}`}>
                         <TableCell className="text-center text-muted-foreground">
                           <div className="flex items-center justify-center gap-1">
                             {isCombo && (
@@ -1110,7 +1110,7 @@ export function ProductSelectionCard({
                               </span>
                             )}
                             {item.notes && (
-                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 inline-flex items-center gap-1 max-w-full">
+                              <span className="text-[11px] px-1.5 py-0.5 rounded border border-warning/20 bg-warning/10 text-warning-foreground inline-flex items-center gap-1 max-w-full">
                                 <StickyNote className="h-3 w-3 shrink-0" />
                                 <span className="truncate">{item.notes}</span>
                               </span>

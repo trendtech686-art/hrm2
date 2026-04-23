@@ -20,9 +20,9 @@ export const penaltyStatusLabels: Record<PenaltyStatus, string> = {
 };
 
 export const penaltyStatusColors: Record<PenaltyStatus, string> = {
-  'Chưa thanh toán': 'bg-yellow-500/10 text-yellow-700 border-yellow-200',
-  'Đã thanh toán': 'bg-green-500/10 text-green-700 border-green-200',
-  'Đã hủy': 'bg-gray-500/10 text-gray-700 border-gray-200',
+  'Chưa thanh toán': 'bg-warning/10 text-warning-foreground border-warning/30',
+  'Đã thanh toán': 'bg-success/10 text-success-foreground border-success/30',
+  'Đã hủy': 'bg-muted/80 text-muted-foreground border-border',
 };
 
 export const penaltyCategoryLabels: Record<PenaltyCategory, string> = {
@@ -33,8 +33,8 @@ export const penaltyCategoryLabels: Record<PenaltyCategory, string> = {
 };
 
 export const penaltyCategoryColors: Record<PenaltyCategory, string> = {
-  complaint: 'bg-red-500/10 text-red-700 border-red-200',
-  attendance: 'bg-orange-500/10 text-orange-700 border-orange-200',
-  performance: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  other: 'bg-gray-500/10 text-gray-700 border-gray-200',
+  complaint: 'bg-destructive/10 text-destructive border-destructive/30',
+  attendance: 'bg-warning/10 text-warning-foreground border-warning/30',
+  performance: 'bg-info/10 text-info-foreground border-info/30',
+  other: 'bg-muted/80 text-muted-foreground border-border',
 };

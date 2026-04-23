@@ -102,8 +102,8 @@ export function StockHistoryTab({
                     </TableCell>
                     <TableCell>
                       {isReceipt 
-                        ? <Badge variant="success" className="bg-green-100 text-green-700">Nhập hàng</Badge> 
-                        : <Badge variant="destructive" className="bg-red-100 text-red-700">Xuất trả NCC</Badge>
+                        ? <Badge variant="success" className="bg-success/15 text-success-foreground">Nhập hàng</Badge> 
+                        : <Badge variant="destructive" className="bg-destructive/15 text-destructive">Xuất trả NCC</Badge>
                       }
                     </TableCell>
                     {/* FIX: Use createdAt for actual time, fallback to receivedDate/returnDate */}
@@ -204,8 +204,8 @@ export function StockHistoryTab({
                       </Link>
                       <div className="mt-1">
                         {isReceipt
-                          ? <Badge variant="success" className="bg-green-100 text-green-700">Nhập hàng</Badge>
-                          : <Badge variant="destructive" className="bg-red-100 text-red-700">Xuất trả NCC</Badge>
+                          ? <Badge variant="success" className="bg-success/15 text-success-foreground">Nhập hàng</Badge>
+                          : <Badge variant="destructive" className="bg-destructive/15 text-destructive">Xuất trả NCC</Badge>
                         }
                       </div>
                     </div>

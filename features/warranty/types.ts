@@ -56,7 +56,7 @@ export const WARRANTY_STATUS_COLORS: Record<WarrantyStatus, string> = {
   PROCESSING: 'bg-blue-100 text-blue-800',
   WAITING_PARTS: 'bg-orange-100 text-orange-800',
   COMPLETED: 'bg-green-100 text-green-800',
-  RETURNED: 'bg-gray-100 text-gray-800',
+  RETURNED: 'bg-muted text-muted-foreground',
   CANCELLED: 'bg-red-100 text-red-800 line-through',
 };
 

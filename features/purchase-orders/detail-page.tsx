@@ -1099,12 +1099,12 @@ export function PurchaseOrderDetailPage() {
   const paymentDetails = (
       <div className="grid grid-cols-1 gap-2 bg-muted/50 p-3 sm:p-4 rounded-md text-sm">
           {purchaseOrder.grandTotal === 0 ? (
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+            <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
+              <div className="flex items-center gap-2 text-warning-foreground">
                 <AlertCircle className="h-5 w-5" />
                 <p className="font-medium">Đơn hàng chưa có sản phẩm hoặc tổng tiền bằng 0</p>
               </div>
-              <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+              <p className="mt-2 text-sm text-warning-foreground/90">
                 Vui lòng kiểm tra lại danh sách sản phẩm trong đơn hàng.
               </p>
             </div>

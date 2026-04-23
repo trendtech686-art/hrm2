@@ -135,12 +135,12 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, setPagination]);
 
   // Reset pagination on filter change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [statusFilter, branchFilter, dateRange]);
+  }, [statusFilter, branchFilter, dateRange, setPagination]);
 
   // Server-side query
   const statusValue = statusFilter.size === 1 ? Array.from(statusFilter)[0] : undefined;
@@ -211,8 +211,16 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       return {};
     }
     
-    // Extract Tailwind color from class (e.g., 'bg-yellow-50 border-yellow-200')
+    // Map bg-* (chuỗi từ cài đặt thẻ, kể cả mặc định token) → backgroundColor (bảng list không dùng className thuần)
+    /* eslint-disable hrm-theme/no-raw-palette-class -- chuỗi class legacy/đồng bộ từ settings */
     const colorMap: Record<string, string> = {
+      'bg-info/10': 'color-mix(in oklch, var(--info) 12%, transparent)',
+      'bg-success/10': 'color-mix(in oklch, var(--success) 12%, transparent)',
+      'bg-warning/10': 'color-mix(in oklch, var(--warning) 14%, transparent)',
+      'bg-warning/15': 'color-mix(in oklch, var(--warning) 18%, transparent)',
+      'bg-warning/20': 'color-mix(in oklch, var(--warning) 24%, transparent)',
+      'bg-destructive/10': 'color-mix(in oklch, var(--destructive) 12%, transparent)',
+      'bg-destructive/15': 'color-mix(in oklch, var(--destructive) 16%, transparent)',
       'bg-yellow-50': '#fefce8',
       'bg-blue-50': '#eff6ff',
       'bg-green-50': '#f0fdf4',
@@ -221,8 +229,10 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       'bg-orange-50': '#fff7ed',
       'bg-red-50': '#fef2f2',
       'bg-red-100': '#fee2e2',
-      'bg-slate-50': '#f8fafc',
+      'bg-slate-50': 'var(--muted)',
+      'bg-muted': 'var(--muted)',
     };
+    /* eslint-enable hrm-theme/no-raw-palette-class */
     
     // Find the bg color class
     const bgClass = colorClass.split(' ').find(c => c.startsWith('bg-'));

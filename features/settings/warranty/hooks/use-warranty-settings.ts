@@ -110,12 +110,12 @@ const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
   'reminder-templates': [],
   'cardColors': {
     statusColors: {
-      new: 'bg-blue-50 border-blue-200',
-      pending: 'bg-yellow-50 border-yellow-200',
-      processed: 'bg-green-50 border-green-200',
-      returned: 'bg-gray-50 border-gray-200',
+      new: 'bg-info/10 border-info/30',
+      pending: 'bg-warning/10 border-warning/30',
+      processed: 'bg-success/10 border-success/30',
+      returned: 'bg-muted border-border',
     },
-    overdueColor: 'bg-red-50 border-red-400',
+    overdueColor: 'bg-destructive/15 border-destructive/40',
     enableStatusColors: true,
     enableOverdueColor: true,
   },

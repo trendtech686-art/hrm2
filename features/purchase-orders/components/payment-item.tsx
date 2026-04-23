@@ -63,7 +63,7 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
                       {item.id}
                     </Link>
                     {(isExpense || isRefund) && (
-                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${isRefund ? 'text-blue-600 bg-blue-50' : 'text-orange-600 bg-orange-50'}`}>{categoryLabel}</span>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${isRefund ? 'text-info-foreground bg-info/10' : 'text-warning-foreground bg-warning/10'}`}>{categoryLabel}</span>
                     )}
                 </div>
                 <div className="flex items-center ml-7 md:ml-0 md:grow">

@@ -2116,7 +2116,7 @@ export const WARRANTY_STATUS_COLORS: Record<WarrantyStatus, string> = {
   PROCESSING: 'bg-blue-100 text-blue-800',
   WAITING_PARTS: 'bg-orange-100 text-orange-800',
   COMPLETED: 'bg-green-100 text-green-800',
-  RETURNED: 'bg-gray-100 text-gray-800',
+  RETURNED: 'bg-muted text-muted-foreground',
   CANCELLED: 'bg-red-100 text-red-800 line-through',
 };
 
@@ -2681,7 +2681,7 @@ export const complaintStatusLabels: Record<ComplaintStatus, string> = {
 };
 
 export const complaintStatusColors: Record<ComplaintStatus, string> = {
-  pending: "bg-gray-500/10 text-gray-700 border-gray-200",
+  pending: "bg-muted/80 text-muted-foreground border-border",
   investigating: "bg-blue-500/10 text-blue-700 border-blue-200",
   resolved: "bg-green-500/10 text-green-700 border-green-200",
   cancelled: "bg-red-500/10 text-red-700 border-red-200",
@@ -2705,7 +2705,7 @@ export const complaintVerificationLabels: Record<ComplaintVerification, string> 
 export const complaintVerificationColors: Record<ComplaintVerification, string> = {
   "verified-correct": "bg-red-500/10 text-red-700 border-red-200",
   "verified-incorrect": "bg-green-500/10 text-green-700 border-green-200",
-  "pending-verification": "bg-gray-500/10 text-gray-700 border-gray-200",
+  "pending-verification": "bg-muted/80 text-muted-foreground border-border",
 };
 
 // ✅ Match Prisma ComplaintPriority enum: LOW, MEDIUM, HIGH, CRITICAL
@@ -2717,7 +2717,7 @@ export const complaintPriorityLabels = {
 };
 
 export const complaintPriorityColors = {
-  LOW: "bg-gray-500/10 text-gray-700 border-gray-200",
+  LOW: "bg-muted/80 text-muted-foreground border-border",
   MEDIUM: "bg-blue-500/10 text-blue-700 border-blue-200",
   HIGH: "bg-orange-500/10 text-orange-700 border-orange-200",
   CRITICAL: "bg-red-500/10 text-red-700 border-red-200",
@@ -3038,31 +3038,7 @@ export type PenaltyType = {
   updatedBy?: SystemId;
 };
 
-export const penaltyStatusLabels: Record<PenaltyStatus, string> = {
-  'Chưa thanh toán': 'Chưa thanh toán',
-  'Đã thanh toán': 'Đã thanh toán',
-  'Đã hủy': 'Đã hủy',
-};
-
-export const penaltyStatusColors: Record<PenaltyStatus, string> = {
-  'Chưa thanh toán': 'bg-yellow-500/10 text-yellow-700 border-yellow-200',
-  'Đã thanh toán': 'bg-green-500/10 text-green-700 border-green-200',
-  'Đã hủy': 'bg-gray-500/10 text-gray-700 border-gray-200',
-};
-
-export const penaltyCategoryLabels: Record<PenaltyCategory, string> = {
-  complaint: 'Khiếu nại',
-  attendance: 'Chấm công',
-  performance: 'Hiệu suất',
-  other: 'Khác',
-};
-
-export const penaltyCategoryColors: Record<PenaltyCategory, string> = {
-  complaint: 'bg-red-500/10 text-red-700 border-red-200',
-  attendance: 'bg-orange-500/10 text-orange-700 border-orange-200',
-  performance: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  other: 'bg-gray-500/10 text-gray-700 border-gray-200',
-};
+// Nhãn + màu phạt: dùng `features/settings/penalties/types` (tránh trùng với prisma-extended).
 
 // ============================================
 // INVENTORY SETTINGS
