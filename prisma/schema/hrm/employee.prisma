@@ -5,7 +5,7 @@ model Employee {
   dob                   DateTime?
   placeOfBirth          String?
   gender                Gender           @default(OTHER)
-  phone                 String?
+  phone                 String?          @unique
   personalEmail         String?
   workEmail             String?          @unique
   nationalId            String?

@@ -38,6 +38,8 @@ export interface MeiliProduct {
   id: string // systemId as primary key
   productId: string // Original product ID/SKU
   name: string
+  /** Tên VAT / hóa đơn — đưa vào Meili để query kiểu "wtp 009 sam" */
+  nameVat: string | null
   barcode: string | null
   brandId: string | null
   brandName: string | null
@@ -122,6 +124,7 @@ export async function configureIndexes() {
   await productsIndex.updateSettings({
     searchableAttributes: [
       'name',
+      'nameVat',
       'productId',
       'barcode',
       'brandName',
@@ -144,7 +147,7 @@ export async function configureIndexes() {
     typoTolerance: {
       enabled: true,
       minWordSizeForTypos: {
-        oneTypo: 3,
+        oneTypo: 2,
         twoTypos: 6,
       },
     },
