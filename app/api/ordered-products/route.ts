@@ -12,6 +12,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { parsePagination, apiPaginated } from '@/lib/api-utils'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,15 +57,13 @@ export const GET = apiHandler(async (request) => {
     }
   }
 
-  // Search filter
-  if (search) {
-    where.OR = [
-      { productSku: { contains: search, mode: 'insensitive' } },
-      { productName: { contains: search, mode: 'insensitive' } },
-      { purchaseOrder: { id: { contains: search, mode: 'insensitive' } } },
-      { purchaseOrder: { supplierName: { contains: search, mode: 'insensitive' } } },
-    ]
-  }
+  const searchWhere = buildSearchWhere(search, [
+    'productSku',
+    'productName',
+    'purchaseOrder.id',
+    'purchaseOrder.supplierName',
+  ])
+  if (searchWhere) Object.assign(where, searchWhere)
 
   // Sort configuration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

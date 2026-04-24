@@ -7,6 +7,7 @@ import { generateIdWithPrefix } from '@/lib/id-generator'
 import { logError } from '@/lib/logger'
 import { createBulkNotifications } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for payroll item input
 interface PayrollItemInput {
@@ -50,11 +51,8 @@ export async function GET(request: Request) {
       where.items = { some: { employeeId } }
     }
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.PayrollWhereInput>(search, ['id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     // Build orderBy - handle multiple sort fields
     let orderBy: Prisma.PayrollOrderByWithRelationInput | Prisma.PayrollOrderByWithRelationInput[];

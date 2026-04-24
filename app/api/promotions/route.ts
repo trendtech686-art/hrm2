@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiPaginated, apiError, parsePagination, validateBody } from '@/lib/api-utils'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { z } from 'zod'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 const createPromotionSchema = z.object({
   code: z.string().min(1, 'Bắt buộc nhập mã').transform(v => v.trim().toUpperCase()),
@@ -25,25 +26,18 @@ export const GET = apiHandler(async (req) => {
   const activeOnly = searchParams.get('activeOnly') === 'true'
 
   const where: Record<string, unknown> = {}
-  if (search) {
-    where.OR = [
-      { code: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-    ]
-  }
+  const searchWhere = buildSearchWhere(search, ['code', 'description'])
+  if (searchWhere) Object.assign(where, searchWhere)
   if (activeOnly) {
     where.isActive = true
-    where.OR = [
-      ...(where.OR as Array<Record<string, unknown>> || []),
-    ]
     // Also check date validity
     const now = new Date()
+    const existingAnd = (where.AND as Array<Record<string, unknown>> | undefined) ?? []
     where.AND = [
+      ...existingAnd,
       { OR: [{ startDate: null }, { startDate: { lte: now } }] },
       { OR: [{ endDate: null }, { endDate: { gte: now } }] },
     ]
-    // Check usage limit
-    // Prisma doesn't support comparing two columns directly, filter in code
   }
 
   const [promotions, total] = await Promise.all([

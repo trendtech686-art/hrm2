@@ -6,6 +6,7 @@ import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { invalidateRolePermissionsCache } from '@/lib/rbac/resolve-permissions'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/roles - List all roles
 export async function GET(request: Request) {
@@ -22,12 +23,8 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.RoleSettingWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (all) {
       const roles = await prisma.roleSetting.findMany({

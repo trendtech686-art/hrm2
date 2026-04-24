@@ -7,6 +7,7 @@ import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { getPasswordRules, validatePassword } from '@/lib/password-rules'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/users - List all users
 export async function GET(request: Request) {
@@ -21,12 +22,11 @@ export async function GET(request: Request) {
 
     const where: Prisma.UserWhereInput = {}
 
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { employee: { fullName: { contains: search, mode: 'insensitive' } } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.UserWhereInput>(search, [
+      'email',
+      'employee.fullName',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (role) {
       where.role = role as UserRole

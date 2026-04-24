@@ -4,6 +4,7 @@ import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from
 import { z } from 'zod'
 import { cache, CACHE_TTL } from '@/lib/cache'
 import { logError } from '@/lib/logger'
+import { tokenizeSearch } from '@/lib/search/build-search-where'
 
 // Allow longer execution for large batch syncs (2646+ products)
 export const maxDuration = 120
@@ -79,21 +80,24 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {}
     
-    if (search) {
-      // Search by name, goodsSn, goodsNumber, or id (if numeric)
-      const isNumeric = /^\d+$/.test(search)
-      const orConditions: Record<string, unknown>[] = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { goodsSn: { contains: search, mode: 'insensitive' } },
-        { goodsNumber: { contains: search, mode: 'insensitive' } },
-      ]
-      
-      // If search term is numeric, also search by id
-      if (isNumeric) {
-        orConditions.push({ id: parseInt(search) })
+    const pkgxTokens = tokenizeSearch(search)
+    if (pkgxTokens.length > 0) {
+      const tokenAnd = pkgxTokens.map((token) => {
+        const orConditions: Record<string, unknown>[] = [
+          { name: { contains: token, mode: 'insensitive' } },
+          { goodsSn: { contains: token, mode: 'insensitive' } },
+          { goodsNumber: { contains: token, mode: 'insensitive' } },
+        ]
+        if (/^\d+$/.test(token)) {
+          orConditions.push({ id: parseInt(token) })
+        }
+        return { OR: orConditions }
+      })
+      if (tokenAnd.length === 1) {
+        where.OR = tokenAnd[0].OR
+      } else {
+        where.AND = tokenAnd
       }
-      
-      where.OR = orConditions
     }
     
     if (catId) {

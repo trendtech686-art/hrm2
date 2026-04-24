@@ -26,6 +26,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { syncProductsInventory } from '@/lib/meilisearch-sync'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for purchase return item input
 interface _PurchaseReturnItemInput {
@@ -59,15 +60,12 @@ export const GET = apiHandler(async (request) => {
     // Build AND conditions array for complex queries
     const andConditions: Prisma.PurchaseReturnWhereInput[] = [];
     
-    if (search) {
-      andConditions.push({
-        OR: [
-          { id: { contains: search, mode: 'insensitive' } },
-          { reason: { contains: search, mode: 'insensitive' } },
-          { supplierName: { contains: search, mode: 'insensitive' } },
-        ],
-      });
-    }
+    const searchWhere = buildSearchWhere<Prisma.PurchaseReturnWhereInput>(search, [
+      'id',
+      'reason',
+      'supplierName',
+    ])
+    if (searchWhere) andConditions.push(searchWhere)
 
     if (status) {
       where.status = status as PurchaseReturnStatus;

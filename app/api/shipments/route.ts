@@ -5,6 +5,7 @@ import { createShipmentSchema } from './validation'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/shipments - List all shipments
 export async function GET(request: Request) {
@@ -25,15 +26,14 @@ export async function GET(request: Request) {
 
     const where: Prisma.ShipmentWhereInput = {}
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { trackingNumber: { contains: search, mode: 'insensitive' } },
-        { recipientName: { contains: search, mode: 'insensitive' } },
-        { recipientPhone: { contains: search, mode: 'insensitive' } },
-        { carrier: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.ShipmentWhereInput>(search, [
+      'id',
+      'trackingNumber',
+      'recipientName',
+      'recipientPhone',
+      'carrier',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as ShipmentStatus

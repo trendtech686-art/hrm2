@@ -7,6 +7,7 @@ import { cache, CACHE_TTL } from '@/lib/cache'
 import { apiHandler } from '@/lib/api-handler'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { logError } from '@/lib/logger'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/brands - List all brands
 export const GET = apiHandler(async (request, { session }) => {
@@ -19,12 +20,8 @@ export const GET = apiHandler(async (request, { session }) => {
     isDeleted: false,
   }
 
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { id: { contains: search, mode: 'insensitive' } },
-    ]
-  }
+  const searchWhere = buildSearchWhere<Prisma.BrandWhereInput>(search, ['name', 'id'])
+  if (searchWhere) Object.assign(where, searchWhere)
 
   if (all) {
     const cacheKey = search ? `brands:all:${search}` : 'brands:all'

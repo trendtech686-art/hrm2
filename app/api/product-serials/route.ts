@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, apiPaginated, validateBody, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 const serialSchema = z.object({
   productId: z.string().min(1),
@@ -37,7 +38,8 @@ export const GET = apiHandler(async (req) => {
   if (branchId) where.branchId = branchId
   if (status) where.status = status
   if (orderId) where.orderId = orderId
-  if (search) where.serialNumber = { contains: search, mode: 'insensitive' }
+  const searchWhere = buildSearchWhere(search, ['serialNumber'])
+  if (searchWhere) Object.assign(where, searchWhere)
 
   const [serials, total] = await Promise.all([
     prisma.productSerial.findMany({

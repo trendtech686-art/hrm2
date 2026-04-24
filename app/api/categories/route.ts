@@ -6,6 +6,7 @@ import type { EntityType } from '@/lib/id-system'
 import { cache, CACHE_TTL } from '@/lib/cache'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Helper: compute path + level from parent
 async function computePathAndLevel(name: string, parentId?: string | null) {
@@ -46,12 +47,8 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.CategoryWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     // Return tree structure (root categories with children)
     if (tree) {

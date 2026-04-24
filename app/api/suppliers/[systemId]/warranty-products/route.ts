@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiError, parsePagination, apiPaginated, serializeDecimals } from '@/lib/api-utils'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,19 +30,17 @@ export const GET = apiHandler(async (
     return apiError('Nhà cung cấp không tồn tại', 404)
   }
 
-  // Build where condition
+  const searchCondition = buildSearchWhere(search, [
+    'productId',
+    'productName',
+    'warranty.id',
+  ]) ?? {}
   const where = {
     warranty: {
       supplierSystemId: systemId,
       isDeleted: false,
     },
-    ...(search ? {
-      OR: [
-        { productId: { contains: search, mode: 'insensitive' as const } },
-        { productName: { contains: search, mode: 'insensitive' as const } },
-        { warranty: { id: { contains: search, mode: 'insensitive' as const } } },
-      ],
-    } : {}),
+    ...searchCondition,
   }
 
   const [items, total] = await Promise.all([

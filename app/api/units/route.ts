@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiError, apiSuccess, parsePagination } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/units - list units with optional filters
 export async function GET(request: Request) {
@@ -17,16 +19,12 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'name'
     const sortOrder = (searchParams.get('sortOrder') || 'asc') as 'asc' | 'desc'
 
-    const where: { isActive?: boolean; OR?: { name?: { contains: string; mode: 'insensitive' }; id?: { contains: string; mode: 'insensitive' } }[] } = {}
+    const where: Prisma.UnitWhereInput = {}
     if (isActive !== undefined) {
       where.isActive = isActive
     }
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.UnitWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const [data, total] = await Promise.all([
       prisma.unit.findMany({

@@ -10,6 +10,7 @@ import type { Prisma as PrismaTypes } from '@/generated/prisma/client'
 import { apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { logError } from '@/lib/logger'
+import { buildSearchWhere, tokenizeSearch } from '@/lib/search/build-search-where'
 
 type Decimal = PrismaTypes.Decimal
 
@@ -39,8 +40,8 @@ function buildReceiptWhereSql(params: {
   if (params.accountId) {
     parts.push(Prisma.sql`r."accountSystemId" = ${params.accountId}`)
   }
-  if (params.search?.trim()) {
-    const s = `%${params.search.trim().replace(/([%_])/g, '\\$1')}%`
+  for (const token of tokenizeSearch(params.search)) {
+    const s = `%${token.replace(/([%_])/g, '\\$1')}%`
     parts.push(
       Prisma.sql`(r.id ILIKE ${s} OR COALESCE(r.description, '') ILIKE ${s} OR COALESCE(r."payerName", '') ILIKE ${s})`,
     )
@@ -68,8 +69,8 @@ function buildPaymentWhereSql(params: {
   if (params.accountId) {
     parts.push(Prisma.sql`p."accountSystemId" = ${params.accountId}`)
   }
-  if (params.search?.trim()) {
-    const s = `%${params.search.trim().replace(/([%_])/g, '\\$1')}%`
+  for (const token of tokenizeSearch(params.search)) {
+    const s = `%${token.replace(/([%_])/g, '\\$1')}%`
     parts.push(
       Prisma.sql`(p.id ILIKE ${s} OR COALESCE(p.description, '') ILIKE ${s} OR COALESCE(p."recipientName", '') ILIKE ${s})`,
     )
@@ -137,18 +138,18 @@ export const GET = apiHandler(async (request) => {
       periodReceiptWhere.accountSystemId = accountId
       periodPaymentWhere.accountSystemId = accountId
     }
-    if (search) {
-      periodReceiptWhere.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { payerName: { contains: search, mode: 'insensitive' } },
-      ]
-      periodPaymentWhere.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { recipientName: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const receiptSearch = buildSearchWhere<PrismaTypes.ReceiptWhereInput>(search, [
+      'id',
+      'description',
+      'payerName',
+    ])
+    if (receiptSearch) Object.assign(periodReceiptWhere, receiptSearch)
+    const paymentSearch = buildSearchWhere<PrismaTypes.PaymentWhereInput>(search, [
+      'id',
+      'description',
+      'recipientName',
+    ])
+    if (paymentSearch) Object.assign(periodPaymentWhere, paymentSearch)
 
     const accountWhere: PrismaTypes.CashAccountWhereInput = {}
     if (accountId) accountWhere.systemId = accountId

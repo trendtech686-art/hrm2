@@ -20,6 +20,7 @@ import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for sales return item input
 interface _SalesReturnItemInput {
@@ -52,13 +53,12 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.SalesReturnWhereInput = {};
     
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { reason: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.SalesReturnWhereInput>(search, [
+      'id',
+      'reason',
+      'customerName',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
       where.status = status as SalesReturnStatus;

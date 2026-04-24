@@ -5,6 +5,7 @@ import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { generateNextIds } from '@/lib/id-system'
 import { stockLocationToStorageDto } from '@/lib/stock-location-storage-dto'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 async function getDefaultBranch() {
   return (
@@ -36,14 +37,8 @@ export async function GET(request: Request) {
     if (branchId) {
       andFilters.push({ OR: [{ branchSystemId: branchId }, { branchId }] })
     }
-    if (search) {
-      andFilters.push({
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { id: { contains: search, mode: 'insensitive' } },
-        ],
-      })
-    }
+    const searchWhere = buildSearchWhere<Prisma.StockLocationWhereInput>(search, ['name', 'id'])
+    if (searchWhere) andFilters.push(searchWhere)
     const where: Prisma.StockLocationWhereInput =
       andFilters.length > 0 ? { AND: andFilters } : {}
 

@@ -8,6 +8,7 @@ import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/payments - List all payments (phiếu chi)
 export const GET = apiHandler(async (request, { session }) => {
@@ -39,12 +40,11 @@ export const GET = apiHandler(async (request, { session }) => {
 
     const where: Prisma.PaymentWhereInput = {}
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { suppliers: { name: { contains: search, mode: 'insensitive' } } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.PaymentWhereInput>(search, [
+      'id',
+      'suppliers.name',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
       where.status = status

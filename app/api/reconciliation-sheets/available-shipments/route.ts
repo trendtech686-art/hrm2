@@ -14,6 +14,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, serializeDecimals } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 export const GET = apiHandler(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -44,14 +45,13 @@ export const GET = apiHandler(async (req) => {
     where.carrier = { contains: carrier, mode: 'insensitive' }
   }
 
-  if (search) {
-    where.OR = [
-      { trackingCode: { contains: search, mode: 'insensitive' } },
-      { id: { contains: search, mode: 'insensitive' } },
-      { order: { id: { contains: search, mode: 'insensitive' } } },
-      { order: { customerName: { contains: search, mode: 'insensitive' } } },
-    ]
-  }
+  const searchWhere = buildSearchWhere<Prisma.PackagingWhereInput>(search, [
+    'trackingCode',
+    'id',
+    'order.id',
+    'order.customerName',
+  ])
+  if (searchWhere) Object.assign(where, searchWhere)
 
   const selectFields = {
     systemId: true,

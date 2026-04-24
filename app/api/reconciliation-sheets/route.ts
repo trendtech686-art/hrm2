@@ -13,6 +13,7 @@ import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { createNotification } from '@/lib/notifications'
 import type { Prisma } from '@/generated/prisma/client'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 export const GET = apiHandler(async (req, { session: _session }) => {
   const { searchParams } = new URL(req.url)
@@ -31,13 +32,12 @@ export const GET = apiHandler(async (req, { session: _session }) => {
   if (carrier) {
     where.carrier = carrier
   }
-  if (search) {
-    where.OR = [
-      { id: { contains: search, mode: 'insensitive' } },
-      { carrier: { contains: search, mode: 'insensitive' } },
-      { note: { contains: search, mode: 'insensitive' } },
-    ]
-  }
+  const searchWhere = buildSearchWhere<Prisma.ReconciliationSheetWhereInput>(search, [
+    'id',
+    'carrier',
+    'note',
+  ])
+  if (searchWhere) Object.assign(where, searchWhere)
 
   const [data, total] = await Promise.all([
     prisma.reconciliationSheet.findMany({

@@ -12,6 +12,7 @@ import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for cost adjustment item input
 interface CostAdjustmentItemInput {
@@ -48,12 +49,8 @@ export async function GET(request: NextRequest) {
       where.status = status as CostAdjustmentStatus;
     }
     
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { reason: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.CostAdjustmentWhereInput>(search, ['id', 'reason'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const [data, total] = await Promise.all([
       prisma.costAdjustment.findMany({

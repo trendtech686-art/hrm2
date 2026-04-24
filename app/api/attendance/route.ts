@@ -6,6 +6,7 @@ import { createAttendanceSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/attendance - List attendance records
 export async function GET(request: Request) {
@@ -42,15 +43,13 @@ export async function GET(request: Request) {
       where.status = status as AttendanceStatus
     }
     
-    // Server-side search
-    if (search) {
-      where.employee = {
-        OR: [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { id: { contains: search, mode: 'insensitive' } },
-          { department: { is: { name: { contains: search, mode: 'insensitive' } } } },
-        ],
-      }
+    const employeeSearch = buildSearchWhere<Prisma.EmployeeWhereInput>(search, [
+      'fullName',
+      'id',
+      'department.name',
+    ])
+    if (employeeSearch) {
+      where.employee = employeeSearch
     }
 
     const [records, total] = await Promise.all([

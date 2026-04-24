@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { apiHandler } from '@/lib/api-handler'
 import { NextResponse } from 'next/server'
 import { serializeDecimals } from '@/lib/api-utils'
+import { tokenizeSearch } from '@/lib/search/build-search-where'
 
 /**
  * Products Linked API
@@ -47,27 +48,37 @@ export const GET = apiHandler(async (request, _ctx) => {
       pkgxId: { not: null },
     }
 
-    // Text search - also search in PKGX product data
-    if (search) {
-      // Find PKGX products matching the search
-      const matchingPkgxProducts = await prisma.pkgxProduct.findMany({
-        where: {
+    // Tokenize AND-substring search: mỗi token phải match Product (name/id/barcode)
+    // HOẶC pkgxId nằm trong PKGX product match token đó.
+    const tokens = tokenizeSearch(search)
+    if (tokens.length > 0) {
+      const tokenAndConditions: Prisma.ProductWhereInput[] = []
+      for (const token of tokens) {
+        const matchingPkgxProducts = await prisma.pkgxProduct.findMany({
+          where: {
+            OR: [
+              { goodsSn: { contains: token, mode: 'insensitive' } },
+              { goodsNumber: { contains: token, mode: 'insensitive' } },
+              { name: { contains: token, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true },
+        })
+        const matchingPkgxIds = matchingPkgxProducts.map(p => p.id)
+        tokenAndConditions.push({
           OR: [
-            { goodsSn: { contains: search, mode: 'insensitive' } },
-            { goodsNumber: { contains: search, mode: 'insensitive' } },
-            { name: { contains: search, mode: 'insensitive' } },
+            { name: { contains: token, mode: 'insensitive' } },
+            { id: { contains: token, mode: 'insensitive' } },
+            { barcode: { contains: token } },
+            ...(matchingPkgxIds.length > 0 ? [{ pkgxId: { in: matchingPkgxIds } }] : []),
           ],
-        },
-        select: { id: true },
-      })
-      const matchingPkgxIds = matchingPkgxProducts.map(p => p.id)
-
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search, mode: 'insensitive' } },
-        ...(matchingPkgxIds.length > 0 ? [{ pkgxId: { in: matchingPkgxIds } }] : []),
-      ]
+        })
+      }
+      if (tokenAndConditions.length === 1) {
+        Object.assign(where, tokenAndConditions[0])
+      } else {
+        where.AND = tokenAndConditions
+      }
     }
 
     // Count total

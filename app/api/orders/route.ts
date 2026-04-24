@@ -139,13 +139,12 @@ export async function GET(request: Request) {
 
     const where: Prisma.OrderWhereInput = {}
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { trackingCode: { contains: search } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.OrderWhereInput>(search, [
+      'id',
+      'customerName',
+      { key: 'trackingCode', caseSensitive: true },
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
       where.status = status as OrderStatus
@@ -438,6 +437,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-config-constants'
 import { logError } from '@/lib/logger'
 import { syncSingleOrder } from '@/lib/meilisearch-sync'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 

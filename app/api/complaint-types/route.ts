@@ -5,6 +5,7 @@ import { createComplaintTypeSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/complaint-types - List all complaint types
 export async function GET(request: Request) {
@@ -21,12 +22,8 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.ComplaintTypeSettingWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (all) {
       const complaintTypes = await prisma.complaintTypeSetting.findMany({

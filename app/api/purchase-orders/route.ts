@@ -8,6 +8,7 @@ import { generateIdWithPrefix } from '@/lib/id-generator'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for purchase order item input
 interface PurchaseOrderItemInput {
@@ -89,12 +90,11 @@ export const GET = apiHandler(async (request) => {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { supplier: { name: { contains: search, mode: 'insensitive' } } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.PurchaseOrderWhereInput>(search, [
+      'id',
+      'supplier.name',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as PurchaseOrderStatus

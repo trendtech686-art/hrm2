@@ -5,6 +5,7 @@ import { createInventorySchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/inventory - List all inventory
 export async function GET(request: Request) {
@@ -29,13 +30,9 @@ export async function GET(request: Request) {
       where.locationId = locationId
     }
 
-    if (search) {
-      where.product = {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { id: { contains: search, mode: 'insensitive' } },
-        ],
-      }
+    const productSearch = buildSearchWhere<Prisma.ProductWhereInput>(search, ['name', 'id'])
+    if (productSearch) {
+      where.product = productSearch
     }
 
     // Filter low stock items

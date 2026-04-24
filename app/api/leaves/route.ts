@@ -14,6 +14,7 @@ import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createBulkNotifications } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Status mapping from enum to Vietnamese for response
 const statusToVietnamese: Record<string, string> = {
@@ -83,13 +84,12 @@ export async function GET(request: NextRequest) {
       where.status = mappedStatus as LeaveStatus;
     }
 
-    if (search) {
-      where.OR = [
-        { employeeName: { contains: search, mode: 'insensitive' } },
-        { reason: { contains: search, mode: 'insensitive' } },
-        { employee: { fullName: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.LeaveWhereInput>(search, [
+      'employeeName',
+      'reason',
+      'employee.fullName',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     // Date range filter: find leaves that OVERLAP the given date range
     // A leave overlaps [fromDate, toDate] when leave.startDate <= toDate AND leave.endDate >= fromDate

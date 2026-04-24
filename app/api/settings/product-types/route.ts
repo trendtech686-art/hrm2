@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiError, apiSuccess, parsePagination } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 const TYPE = 'product-type'
 
@@ -14,13 +16,9 @@ export async function GET(request: Request) {
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || undefined
 
-    const where: { type: string; isDeleted: boolean; OR?: { name?: { contains: string; mode: 'insensitive' }; id?: { contains: string; mode: 'insensitive' } }[] } = { type: TYPE, isDeleted: false }
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const where: Prisma.SettingsDataWhereInput = { type: TYPE, isDeleted: false }
+    const searchWhere = buildSearchWhere<Prisma.SettingsDataWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const [data, total] = await Promise.all([
       prisma.settingsData.findMany({

@@ -12,6 +12,7 @@ import { logError } from '@/lib/logger'
 import { syncProductsInventory } from '@/lib/meilisearch-sync'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for inventory receipt item input
 interface _InventoryReceiptItemInput {
@@ -40,13 +41,12 @@ export const GET = apiHandler(async (request) => {
 
     const where: Prisma.InventoryReceiptWhereInput = {};
     
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } },
-        { supplierName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.InventoryReceiptWhereInput>(search, [
+      'id',
+      'notes',
+      'supplierName',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
     
     if (type) {
       where.type = type as InventoryReceiptType;

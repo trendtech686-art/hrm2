@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 const TYPE = 'importer'
 
@@ -13,13 +15,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || undefined
 
-    const where: { type: string; isDeleted: boolean; OR?: { name?: { contains: string; mode: 'insensitive' }; id?: { contains: string; mode: 'insensitive' } }[] } = { type: TYPE, isDeleted: false }
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const where: Prisma.SettingsDataWhereInput = { type: TYPE, isDeleted: false }
+    const searchWhere = buildSearchWhere<Prisma.SettingsDataWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const data = await prisma.settingsData.findMany({ where, orderBy: [{ name: 'asc' }] })
     // Merge metadata vào top-level để UI nhận address, origin, phone, email...

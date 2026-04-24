@@ -5,6 +5,7 @@ import { createEmployeeTypeSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/employee-types - List all employee types
 export async function GET(request: Request) {
@@ -21,12 +22,8 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.EmployeeTypeSettingWhereInput>(search, ['name', 'id'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (all) {
       const employeeTypes = await prisma.employeeTypeSetting.findMany({

@@ -6,6 +6,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { apiPaginated, parsePagination, serializeDecimals } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 export const GET = apiHandler(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -23,14 +24,13 @@ export const GET = apiHandler(async (req) => {
     isDeleted: false,
   }
 
-  if (search) {
-    where.OR = [
-      { id: { contains: search, mode: 'insensitive' } },
-      { supplierName: { contains: search, mode: 'insensitive' } },
-      { trackingNumber: { contains: search, mode: 'insensitive' } },
-      { reason: { contains: search, mode: 'insensitive' } },
-    ]
-  }
+  const searchWhere = buildSearchWhere<Prisma.SupplierWarrantyWhereInput>(search, [
+    'id',
+    'supplierName',
+    'trackingNumber',
+    'reason',
+  ])
+  if (searchWhere) Object.assign(where, searchWhere)
 
   if (status) {
     where.status = status as Prisma.SupplierWarrantyWhereInput['status']

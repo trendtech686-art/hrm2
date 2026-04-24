@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiError } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/logger'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 /**
  * Cursor-based Pagination API for Orders
@@ -66,13 +67,12 @@ export async function GET(request: Request) {
     // Build WHERE clause
     const where: Prisma.OrderWhereInput = {}
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { trackingCode: { contains: search } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.OrderWhereInput>(search, [
+      'id',
+      'customerName',
+      { key: 'trackingCode', caseSensitive: true },
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as Prisma.EnumOrderStatusFilter<"Order">

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiError, parsePagination, apiPaginated } from '@/lib/api-utils'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,7 @@ export const GET = apiHandler(async (
   const { systemId } = params
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
-    const search = searchParams.get('search')?.toLowerCase() || ''
+    const search = searchParams.get('search') || ''
 
     // Verify supplier exists
     const supplier = await prisma.supplier.findUnique({
@@ -43,16 +44,13 @@ export const GET = apiHandler(async (
       return apiError('Nhà cung cấp không tồn tại', 404)
     }
 
-    // Build where condition for search
-    const searchCondition = search ? {
-      OR: [
-        { product: { id: { contains: search, mode: 'insensitive' as const } } },
-        { product: { name: { contains: search, mode: 'insensitive' as const } } },
-        { productSku: { contains: search, mode: 'insensitive' as const } },
-        { productName: { contains: search, mode: 'insensitive' as const } },
-        { purchaseOrder: { id: { contains: search, mode: 'insensitive' as const } } },
-      ],
-    } : {}
+    const searchCondition = buildSearchWhere(search, [
+      'product.id',
+      'product.name',
+      'productSku',
+      'productName',
+      'purchaseOrder.id',
+    ]) ?? {}
 
     // Count total items
     const total = await prisma.purchaseOrderItem.count({

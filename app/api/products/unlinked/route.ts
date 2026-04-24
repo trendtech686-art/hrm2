@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { apiHandler } from '@/lib/api-handler'
 import { NextResponse } from 'next/server'
+import { buildProductSearchWhere } from '@/lib/search/product-search-where'
 
 /**
  * Products Unlinked API
@@ -39,14 +40,8 @@ export const GET = apiHandler(async (request, _ctx) => {
       pkgxId: null,
     }
 
-    // Text search
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search } },
-      ]
-    }
+    const searchWhere = buildProductSearchWhere(search)
+    if (searchWhere) Object.assign(where, searchWhere)
 
     // Count total
     const total = await prisma.product.count({ where })

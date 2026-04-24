@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/payroll/payslips - List payslips (PayrollItems)
 export async function GET(request: Request) {
@@ -25,12 +26,11 @@ export async function GET(request: Request) {
       where.employeeId = employeeId
     }
 
-    if (search) {
-      where.OR = [
-        { employeeName: { contains: search, mode: 'insensitive' } },
-        { employeeCode: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.PayrollItemWhereInput>(search, [
+      'employeeName',
+      'employeeCode',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const [items, total] = await Promise.all([
       prisma.payrollItem.findMany({

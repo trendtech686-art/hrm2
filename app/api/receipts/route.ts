@@ -9,6 +9,7 @@ import { serializeReceipt } from './serialize'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/receipts - List all receipts (phiếu thu)
 export const GET = apiHandler(async (request, { session }) => {
@@ -40,12 +41,11 @@ export const GET = apiHandler(async (request, { session }) => {
 
     const where: Prisma.ReceiptWhereInput = {}
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { customers: { name: { contains: search, mode: 'insensitive' } } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.ReceiptWhereInput>(search, [
+      'id',
+      'customers.name',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
       where.status = status

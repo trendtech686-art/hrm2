@@ -4,11 +4,13 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
 import { generateNextIds } from '@/lib/id-system';
 import { requireAuth, apiSuccess, apiError, apiPaginated, parsePagination } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Helper: normalize English status to Vietnamese display status
 function mapPenaltyStatus(status: string): string {
@@ -80,15 +82,14 @@ export async function GET(request: NextRequest) {
     }
     
     // Server-side search
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { employeeName: { contains: search, mode: 'insensitive' } },
-        { reason: { contains: search, mode: 'insensitive' } },
-        { penaltyTypeName: { contains: search, mode: 'insensitive' } },
-        { issuerName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.PenaltyWhereInput>(search, [
+      'id',
+      'employeeName',
+      'reason',
+      'penaltyTypeName',
+      'issuerName',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     // Map frontend column names to Prisma field names
     const sortFieldMap: Record<string, string> = {

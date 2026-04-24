@@ -12,6 +12,7 @@ import { generateIdWithPrefix } from '@/lib/id-generator'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 export async function GET(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
@@ -36,13 +37,12 @@ export async function GET(request: Request) {
       where.pricingPolicyId = pricingPolicyId
     }
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { reason: { contains: search, mode: 'insensitive' } },
-        { referenceCode: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.PriceAdjustmentWhereInput>(search, [
+      'id',
+      'reason',
+      'referenceCode',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const [data, total] = await Promise.all([
       prisma.priceAdjustment.findMany({

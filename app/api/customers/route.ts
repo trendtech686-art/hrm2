@@ -9,6 +9,7 @@ import { getUserNameFromDb } from '@/lib/get-user-name'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { syncSingleCustomer } from '@/lib/meilisearch-sync'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -30,15 +31,14 @@ export const GET = apiHandler(async (request, { session }) => {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { company: { contains: search, mode: 'insensitive' } },
-        { taxCode: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.CustomerWhereInput>(search, [
+      'name',
+      'id',
+      { key: 'phone', caseSensitive: true },
+      'company',
+      'taxCode',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as CustomerStatus

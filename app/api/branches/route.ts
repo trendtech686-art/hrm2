@@ -7,6 +7,7 @@ import { cache, CACHE_TTL, CACHE_TAGS } from '@/lib/cache'
 import { logError } from '@/lib/logger'
 import { revalidatePath } from '@/lib/revalidation'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/branches - List all branches
 export async function GET(request: Request) {
@@ -23,13 +24,8 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.BranchWhereInput>(search, ['name', 'id', 'address'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (all) {
       // Cache key for all branches (most common use case)

@@ -5,6 +5,7 @@ import { createWikiSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { tokenizeSearch } from '@/lib/search/build-search-where'
 
 // GET /api/wiki - List all wiki articles
 export async function GET(request: Request) {
@@ -22,12 +23,20 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { content: { contains: search, mode: 'insensitive' } },
-        { tags: { has: search } },
-      ]
+    const wikiTokens = tokenizeSearch(search)
+    if (wikiTokens.length > 0) {
+      const tokenAnd = wikiTokens.map<Prisma.WikiWhereInput>((token) => ({
+        OR: [
+          { title: { contains: token, mode: 'insensitive' } },
+          { content: { contains: token, mode: 'insensitive' } },
+          { tags: { has: token } },
+        ],
+      }))
+      if (tokenAnd.length === 1) {
+        where.OR = tokenAnd[0].OR
+      } else {
+        where.AND = tokenAnd
+      }
     }
 
     if (category) {

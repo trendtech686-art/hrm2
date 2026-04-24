@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
 import { requireAuth, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 import {
   packagingStatusLabels,
   printStatusLabels,
@@ -49,15 +50,13 @@ export async function GET(request: NextRequest) {
       where.branchId = branchSystemId;
     }
 
-    // Search filter
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { order: { id: { contains: search, mode: 'insensitive' } } },
-        { order: { customerName: { contains: search, mode: 'insensitive' } } },
-        { assignedEmployeeName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.PackagingWhereInput>(search, [
+      'id',
+      'order.id',
+      'order.customerName',
+      'assignedEmployeeName',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     const [rawData, total] = await Promise.all([
       prisma.packaging.findMany({

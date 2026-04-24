@@ -15,6 +15,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for stock transfer item input
 interface StockTransferItemInput {
@@ -49,12 +50,8 @@ export async function GET(request: NextRequest) {
     // Note: StockTransfer model doesn't have isDeleted field
     // Filter by status instead if needed
     
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.StockTransferWhereInput>(search, ['id', 'notes'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as StockTransferStatus;

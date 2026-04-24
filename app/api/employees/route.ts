@@ -10,6 +10,7 @@ import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { createNotification } from '@/lib/notifications'
 import { getPasswordRules, validatePassword } from '@/lib/password-rules'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -23,9 +24,8 @@ export const GET = apiHandler(async (request) => {
     if (searchParams.get('select') === 'mentions') {
       const search = searchParams.get('search') || ''
       const where: Prisma.EmployeeWhereInput = { isDeleted: false }
-      if (search) {
-        where.fullName = { contains: search, mode: 'insensitive' }
-      }
+      const mentionsSearch = buildSearchWhere<Prisma.EmployeeWhereInput>(search, ['fullName', 'id'])
+      if (mentionsSearch) Object.assign(where, mentionsSearch)
       const mentions = await prisma.employee.findMany({
         where,
         select: { systemId: true, fullName: true, avatarUrl: true },
@@ -47,12 +47,11 @@ export const GET = apiHandler(async (request) => {
       const cbLimit = parseInt(searchParams.get('limit') || '30', 10)
       const cbSkip = (cbPage - 1) * cbLimit
       const where: Prisma.EmployeeWhereInput = { isDeleted: false }
-      if (search) {
-        where.OR = [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search, mode: 'insensitive' } },
-        ]
-      }
+      const comboboxSearch = buildSearchWhere<Prisma.EmployeeWhereInput>(search, [
+        'fullName',
+        { key: 'phone', caseSensitive: true },
+      ])
+      if (comboboxSearch) Object.assign(where, comboboxSearch)
       const [items, total] = await Promise.all([
         prisma.employee.findMany({
           where,
@@ -85,14 +84,13 @@ export const GET = apiHandler(async (request) => {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { fullName: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { workEmail: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.EmployeeWhereInput>(search, [
+      'fullName',
+      'id',
+      { key: 'phone', caseSensitive: true },
+      'workEmail',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
       where.employmentStatus = status as EmploymentStatus

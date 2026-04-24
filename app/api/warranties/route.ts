@@ -8,6 +8,7 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { notifyWarrantyCreated } from '@/lib/warranty-notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/warranties - List all warranties with filtering and pagination
 export async function GET(request: Request) {
@@ -32,15 +33,14 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { productName: { contains: search, mode: 'insensitive' } },
-        { trackingCode: { contains: search, mode: 'insensitive' } },
-        { publicTrackingCode: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.WarrantyWhereInput>(search, [
+      'id',
+      'customerName',
+      'productName',
+      'trackingCode',
+      'publicTrackingCode',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as WarrantyStatus

@@ -8,6 +8,7 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { notifyComplaintCreated } from '@/lib/complaint-notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/complaints - List all complaints
 export async function GET(request: Request) {
@@ -34,15 +35,14 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
-        { orderCode: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.ComplaintWhereInput>(search, [
+      'id',
+      'title',
+      'description',
+      'customer.name',
+      'orderCode',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
       where.status = status as ComplaintStatus

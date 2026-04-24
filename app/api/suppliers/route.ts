@@ -7,6 +7,7 @@ import { createSupplierSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/suppliers - List all suppliers
 export const GET = apiHandler(async (request) => {
@@ -24,15 +25,14 @@ export const GET = apiHandler(async (request) => {
       isDeleted: false,
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { taxCode: { contains: search, mode: 'insensitive' } },
-      ]
-    }
+    const searchWhere = buildSearchWhere<Prisma.SupplierWhereInput>(search, [
+      'name',
+      'id',
+      { key: 'phone', caseSensitive: true },
+      'email',
+      'taxCode',
+    ])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as SupplierStatus

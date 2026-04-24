@@ -8,6 +8,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Map Prisma enum values to Vietnamese display labels
 const STATUS_MAP: Record<string, string> = {
@@ -86,19 +87,17 @@ export async function GET(request: NextRequest) {
       if (createdTo) (where.createdAt as Prisma.DateTimeFilter).lte = new Date(createdTo);
     }
     
-    // Server-side search
-    if (search) {
-      const searchConditions: Prisma.TaskWhereInput[] = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
-      // If we already have OR from assigneeId, wrap with AND
+    const searchWhere = buildSearchWhere<Prisma.TaskWhereInput>(search, [
+      'id',
+      'title',
+      'description',
+    ])
+    if (searchWhere) {
       if (where.OR) {
-        where.AND = [{ OR: where.OR }, { OR: searchConditions }];
-        delete where.OR;
+        where.AND = [{ OR: where.OR }, searchWhere]
+        delete where.OR
       } else {
-        where.OR = searchConditions;
+        Object.assign(where, searchWhere)
       }
     }
 

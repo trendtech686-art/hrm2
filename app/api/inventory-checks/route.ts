@@ -15,6 +15,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // Interface for inventory check item input (matches frontend)
 interface InventoryCheckItemInput {
@@ -72,12 +73,8 @@ export async function GET(request: NextRequest) {
     
     // Note: InventoryCheck table doesn't have isDeleted field
     
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const searchWhere = buildSearchWhere<Prisma.InventoryCheckWhereInput>(search, ['id', 'notes'])
+    if (searchWhere) Object.assign(where, searchWhere)
 
     if (status && status !== 'all') {
       where.status = status as InventoryCheckStatus;
