@@ -1,0 +1,6 @@
+fix(print): separate server-safe template config from client hook
+
+- Create print-template-config.ts with server-safe template resolution utilities
+- Import from new file in print-service.ts instead of client hook
+- Keep use-print-template-config.ts as client-only hook
+- Fixes build error when server routes import client-only hooks

@@ -1,0 +1,8 @@
+feat(employee): phone uniqueness check + normalization + trgm indexes
+
+- Add phone normalization helpers (lib/phone-normalize.ts):
+  normalizePhone, buildPhoneLookupVariants, isValidVNPhone
+- Add /api/employees/check-phone endpoint for duplicate detection
+- Add useCheckEmployeePhone hook for employee form
+- Add SQL migration: trim phone, normalize +84 to 0, add @unique index,
+  enable pg_trgm extension, add GIN trgm indexes on customer/order/product/warranty text columns
