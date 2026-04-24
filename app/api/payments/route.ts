@@ -318,7 +318,7 @@ export const POST = apiHandler(async (request, { session }) => {
       }).catch(e => logError('[Payments POST] notification failed', e))
     }
 
-    // Log activity
+    // Log activity with amount details
     getUserNameFromDb(session!.user.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -326,8 +326,8 @@ export const POST = apiHandler(async (request, { session }) => {
           entityId: serialized.systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo phiếu chi`,
-          metadata: { userName },
+          note: `Tạo phiếu chi: ${payment.id || payment.systemId} - Số tiền: ${Number(payment.amount).toLocaleString('vi-VN')}đ`,
+          metadata: { userName, amount: Number(payment.amount), recipientName: payment.recipientName },
           createdBy: userName,
         }
       })

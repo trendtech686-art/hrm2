@@ -16,6 +16,69 @@ function toNumber(val: Decimal | number | null | undefined): number {
   return Number(val);
 }
 
+// Treats null, undefined, "", [], {} as equivalent "empty"
+function isEmptyValue(val: unknown): boolean {
+  if (val == null) return true
+  if (typeof val === 'string' && val.trim() === '') return true
+  if (Array.isArray(val) && val.length === 0) return true
+  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return true
+  return false
+}
+
+// Normalizes empty-ish values to a canonical form for comparison
+function normalizeValue(val: unknown): unknown {
+  if (val == null) return null
+  if (typeof val === 'string' && val.trim() === '') return null
+  if (Array.isArray(val) && val.length === 0) return null
+  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return null
+
+  // Handle Decimal (convert to number for comparison)
+  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+    return (val as { toNumber: () => number }).toNumber()
+  }
+
+  // Handle Date
+  if (val instanceof Date) {
+    return val.getTime()
+  }
+
+  return val
+}
+
+// Helper to compare values for change detection
+function hasValueChanged(oldVal: unknown, newVal: unknown): boolean {
+  const normalizedOld = normalizeValue(oldVal)
+  const normalizedNew = normalizeValue(newVal)
+
+  // Both null/empty after normalization → no change
+  if (normalizedOld == null && normalizedNew == null) return false
+
+  // One empty, one not → changed
+  if (normalizedOld == null || normalizedNew == null) return true
+
+  // Handle dates/numbers
+  if (typeof normalizedOld === 'number' && typeof normalizedNew === 'number') {
+    return normalizedOld !== normalizedNew
+  }
+
+  return normalizedOld !== normalizedNew
+}
+
+// Serialize a value for storage in the activity log
+function serializeValue(val: unknown): unknown {
+  if (val == null) return null
+  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+    return (val as { toNumber: () => number }).toNumber()
+  }
+  if (val instanceof Date) {
+    return val.getTime()
+  }
+  if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
+    return JSON.parse(JSON.stringify(val))
+  }
+  return val
+}
+
 // GET /api/payments/[systemId]
 export const GET = apiHandler(async (_request, { session, params }) => {
   try {
@@ -92,6 +155,46 @@ export const PUT = apiHandler(async (request, { session, params }) => {
     const { systemId } = params
     const body = await request.json()
 
+    // Fetch existing payment for change detection
+    const existingPayment = await prisma.payment.findUnique({
+      where: { systemId },
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        description: true,
+      },
+    })
+
+    if (!existingPayment) {
+      return apiNotFound('Payment')
+    }
+
+    // Check if any values actually changed
+    const amountChanged = hasValueChanged(existingPayment.amount, body.amount)
+    const methodChanged = hasValueChanged(existingPayment.paymentMethod, body.method || body.paymentMethod)
+    const descriptionChanged = hasValueChanged(existingPayment.description, body.description)
+
+    const hasChanges = amountChanged || methodChanged || descriptionChanged
+
+    if (!hasChanges) {
+      // No actual changes, just return the existing payment
+      const payment = await prisma.payment.findUnique({
+        where: { systemId },
+        include: {
+          purchaseOrder: true,
+          suppliers: true,
+        },
+      })
+      if (!payment) return apiNotFound('Payment')
+      const serialized = {
+        ...payment,
+        amount: toNumber(payment.amount),
+        runningBalance: toNumber(payment.runningBalance),
+      }
+      return apiSuccess(serialized)
+    }
+
     const payment = await prisma.payment.update({
       where: { systemId },
       data: {
@@ -136,7 +239,41 @@ export const PUT = apiHandler(async (request, { session, params }) => {
       }).catch(e => logError('[Payment Update] notification failed', e));
     }
 
-    // Log activity
+    // Compute changes for activity log
+    const fieldLabels: Record<string, string> = {
+      amount: 'Số tiền',
+      paymentMethod: 'Phương thức',
+      description: 'Mô tả',
+    }
+    const changedFields: string[] = []
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+    if (amountChanged) {
+      changedFields.push(fieldLabels.amount)
+      changes[fieldLabels.amount] = {
+        from: toNumber(existingPayment.amount),
+        to: body.amount,
+      }
+    }
+    if (methodChanged) {
+      changedFields.push(fieldLabels.paymentMethod)
+      changes[fieldLabels.paymentMethod] = {
+        from: existingPayment.paymentMethod,
+        to: body.method || body.paymentMethod,
+      }
+    }
+    if (descriptionChanged) {
+      changedFields.push(fieldLabels.description)
+      changes[fieldLabels.description] = {
+        from: existingPayment.description,
+        to: body.description,
+      }
+    }
+
+    const changeNote = changedFields.slice(0, 3).join(', ')
+    const suffix = changedFields.length > 3 ? ` và ${changedFields.length - 3} trường khác` : ''
+
+    // Log activity with change details
     getUserNameFromDb(session!.user.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -144,7 +281,8 @@ export const PUT = apiHandler(async (request, { session, params }) => {
           entityId: systemId,
           action: 'updated',
           actionType: 'update',
-          note: `Cập nhật phiếu chi`,
+          changes: JSON.parse(JSON.stringify(changes)),
+          note: `Cập nhật phiếu chi ${payment.id || systemId}: ${changeNote}${suffix}`,
           metadata: { userName },
           createdBy: userName,
         }

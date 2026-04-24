@@ -23,6 +23,11 @@ interface GeneralSettings {
   logoUrl?: string
 }
 
+interface BrandingInfo {
+  logoUrl?: string | null
+  faviconUrl?: string | null
+}
+
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   timezone: 'Asia/Ho_Chi_Minh',
   dateFormat: 'DD/MM/YYYY',
@@ -48,6 +53,28 @@ function buildApiUrl(path: string): string {
 }
 
 /**
+ * Load branding info (logo, favicon) from API
+ * Returns null if fetch fails
+ */
+async function fetchBrandingInfo(): Promise<BrandingInfo | null> {
+  try {
+    const res = await fetch(buildApiUrl('/api/branding'), {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success && data.data) {
+        return data.data as BrandingInfo
+      }
+    }
+  } catch (error) {
+    logError('Failed to load branding info from API', error)
+  }
+  return null
+}
+
+/**
  * Load general settings from database API
  * Should be called once when app initializes
  */
@@ -66,42 +93,41 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
   isLoading = true
 
   loadPromise = (async () => {
-    try {
-      // Try API first
-      const res = await fetch(buildApiUrl('/api/settings?group=general'), {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      if (res.ok) {
-        const data = await res.json()
-        
-        if (data.grouped?.general) {
-          settingsCache = {
-            ...DEFAULT_GENERAL_SETTINGS,
-            ...data.grouped.general,
-          }
-          return settingsCache
-        }
+    // Fetch settings and branding in parallel
+    const [settingsResult, brandingResult] = await Promise.allSettled([
+      fetchSettingsFromApi(),
+      fetchBrandingInfo(),
+    ])
 
-        // Parse array format
-        if (data.data && Array.isArray(data.data)) {
-          const parsed = (data.data as Array<{key: string; value: unknown}>).reduce((acc: Record<string, unknown>, item) => {
-            acc[item.key] = item.value
-            return acc
-          }, {})
-          
-          settingsCache = {
-            ...DEFAULT_GENERAL_SETTINGS,
-            ...parsed,
-          }
-          return settingsCache
-        }
+    // Get settings (may be null if failed)
+    const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null
+    
+    // Get branding (may be null if failed)
+    const branding = brandingResult.status === 'fulfilled' ? brandingResult.value : null
+
+    // If we have settings from API, use them as base
+    if (settings) {
+      // Merge branding logo into settings if not already present
+      if (!settings.logoUrl && branding?.logoUrl) {
+        settings.logoUrl = branding.logoUrl
       }
-    } catch (error) {
-      logError('Failed to load general settings from API', error)
+      settingsCache = {
+        ...DEFAULT_GENERAL_SETTINGS,
+        ...settings,
+      }
+      return settingsCache
     }
 
-    // Return defaults if API fails
+    // Fallback: Try branding only if settings failed
+    if (branding?.logoUrl) {
+      settingsCache = {
+        ...DEFAULT_GENERAL_SETTINGS,
+        logoUrl: branding.logoUrl,
+      }
+      return settingsCache
+    }
+
+    // Return defaults if everything fails
     settingsCache = DEFAULT_GENERAL_SETTINGS
     return settingsCache
   })()
@@ -113,6 +139,40 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
     isLoading = false
     loadPromise = null
   }
+}
+
+/**
+ * Fetch general settings from /api/settings endpoint
+ */
+async function fetchSettingsFromApi(): Promise<Partial<GeneralSettings> | null> {
+  try {
+    const res = await fetch(buildApiUrl('/api/settings?group=general'), {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    if (res.ok) {
+      const data = await res.json()
+
+      if (data.grouped?.general) {
+        return data.grouped.general as Partial<GeneralSettings>
+      }
+
+      // Parse array format
+      if (data.data && Array.isArray(data.data)) {
+        const parsed = (data.data as Array<{ key: string; value: unknown }>).reduce(
+          (acc: Record<string, unknown>, item) => {
+            acc[item.key] = item.value
+            return acc
+          },
+          {}
+        )
+        return parsed as Partial<GeneralSettings>
+      }
+    }
+  } catch (error) {
+    logError('Failed to load general settings from API', error)
+  }
+  return null
 }
 
 /**

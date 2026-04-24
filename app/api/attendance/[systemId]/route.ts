@@ -32,21 +32,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return apiNotFound('Bản ghi chấm công')
     }
 
-    // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'attendance',
-          entityId: systemId,
-          action: 'updated',
-          actionType: 'update',
-          note: `Cập nhật chấm công`,
-          metadata: { userName },
-          createdBy: userName,
-        }
-      })
-    ).catch(e => logError('[ActivityLog] attendance updated failed', e))
-
     return apiSuccess(attendance)
   } catch (error) {
     logError('Error fetching attendance', error)
@@ -62,6 +47,20 @@ export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
     const body = await request.json()
+
+    // Fetch existing data before update for change detection
+    const existing = await prisma.attendanceRecord.findUnique({
+      where: { systemId },
+      select: {
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        notes: true,
+        workHours: true,
+        employeeId: true,
+      },
+    })
+    if (!existing) return apiNotFound('Bản ghi chấm công')
 
     const attendance = await prisma.attendanceRecord.update({
       where: { systemId },
@@ -87,6 +86,30 @@ export async function PUT(request: Request, { params }: RouteParams) {
         senderId: session.user?.employeeId,
         senderName: session.user?.name,
       }).catch(e => logError('[Attendance Update] notification failed', e));
+    }
+
+    // Log activity only if values actually changed
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.checkIn !== undefined && body.checkIn !== existing.checkIn?.toISOString()) changes['Giờ vào'] = { from: existing.checkIn?.toISOString() ?? '', to: body.checkIn }
+    if (body.checkOut !== undefined && body.checkOut !== existing.checkOut?.toISOString()) changes['Giờ ra'] = { from: existing.checkOut?.toISOString() ?? '', to: body.checkOut }
+    if (body.status !== undefined && body.status !== existing.status) changes['Trạng thái'] = { from: existing.status ?? '', to: body.status }
+    if (body.notes !== undefined && body.notes !== existing.notes) changes['Ghi chú'] = { from: existing.notes ?? '', to: body.notes }
+    if (body.workHours !== undefined && body.workHours !== existing.workHours) changes['Giờ làm'] = { from: existing.workHours ?? 0, to: body.workHours }
+
+    if (Object.keys(changes).length > 0) {
+      getUserNameFromDb(session.user?.id).then(userName =>
+        prisma.activityLog.create({
+          data: {
+            entityType: 'attendance',
+            entityId: systemId,
+            action: `Cập nhật chấm công`,
+            actionType: 'update',
+            note: `Cập nhật chấm công: ${Object.keys(changes).join(', ')}`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        })
+      ).catch(e => logError('[ActivityLog] attendance updated failed', e))
     }
 
     return apiSuccess(attendance)

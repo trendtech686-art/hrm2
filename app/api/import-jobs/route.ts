@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { randomUUID } from 'crypto'
 import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
 
 /**
  * Parse Prisma errors into user-friendly messages
@@ -167,6 +169,20 @@ export async function POST(request: Request) {
     processImportJob(job.id).catch(err => {
       logError(`Import job ${job.id} failed`, err)
     })
+
+    createActivityLog({
+      entityType: 'order' as ActivityLogEntityType,
+      entityId: job.id,
+      action: `Tạo job import ${entityType}`,
+      actionType: 'create',
+      metadata: {
+        entityType,
+        totalRecords: data.length,
+        mode,
+        fileName,
+      },
+      createdBy: session.user.name || 'System',
+    }).catch(e => logError('[import-jobs] activity log failed', e))
 
     return apiSuccess({
       jobId: job.id,

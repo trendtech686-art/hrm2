@@ -1,4 +1,88 @@
 import { prisma } from '@/lib/prisma'
+
+// Treats null, undefined, "", [], {} as equivalent "empty"
+function isEmptyValue(val: unknown): boolean {
+  if (val == null) return true
+  if (typeof val === 'string' && val.trim() === '') return true
+  if (Array.isArray(val) && val.length === 0) return true
+  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return true
+  return false
+}
+
+// Normalizes empty-ish values to a canonical form for comparison
+function normalizeValue(val: unknown): unknown {
+  if (val == null) return null
+  if (typeof val === 'string' && val.trim() === '') return null
+  if (Array.isArray(val) && val.length === 0) return null
+  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return null
+
+  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+    return (val as { toNumber: () => number }).toNumber()
+  }
+
+  if (val instanceof Date) {
+    return val.getTime()
+  }
+
+  return val
+}
+
+// Helper to compare values for change detection
+function hasValueChanged(oldVal: unknown, newVal: unknown): boolean {
+  const normalizedOld = normalizeValue(oldVal)
+  const normalizedNew = normalizeValue(newVal)
+
+  if (normalizedOld == null && normalizedNew == null) return false
+  if (normalizedOld === 0 && normalizedNew === 0) return false
+  if ((normalizedOld == null && normalizedNew === 0) || (normalizedOld === 0 && normalizedNew == null)) return false
+  if (normalizedOld == null || normalizedNew == null) return true
+
+  if (typeof normalizedOld === 'number' && typeof normalizedNew === 'number') {
+    return normalizedOld !== normalizedNew
+  }
+
+  if (typeof normalizedOld === 'object' && typeof normalizedNew === 'object') {
+    return JSON.stringify(normalizedOld) !== JSON.stringify(normalizedNew)
+  }
+
+  return normalizedOld !== normalizedNew
+}
+
+// Serialize a value for storage in the activity log
+function serializeValue(val: unknown): unknown {
+  if (val == null) return null
+  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+    return (val as { toNumber: () => number }).toNumber()
+  }
+  if (val instanceof Date) {
+    return val.getTime()
+  }
+  if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
+    return JSON.parse(JSON.stringify(val))
+  }
+  return val
+}
+
+// Helper to compute changes between old and new data
+function computeChanges(
+  existing: Record<string, unknown>,
+  updateData: Record<string, unknown>
+): Record<string, { from: unknown; to: unknown }> | null {
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+  const ignoreFields = ['updatedAt', 'updatedBy']
+
+  for (const [key, newValue] of Object.entries(updateData)) {
+    if (ignoreFields.includes(key)) continue
+
+    const oldValue = existing[key]
+    if (hasValueChanged(oldValue, newValue)) {
+      changes[key] = { from: serializeValue(oldValue), to: serializeValue(newValue) }
+    }
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null
+}
 import { Prisma, PurchaseOrderStatus } from '@/generated/prisma/client'
 import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
@@ -583,6 +667,45 @@ export const PUT = apiHandler(async (request, { session, params }) => {
     }
 
     // Log activity
+    const changes = computeChanges(
+      {
+        supplierId: oldPO.supplierId,
+        status: oldPO.status,
+        deliveryStatus: oldPO.deliveryStatus,
+        paymentStatus: oldPO.paymentStatus,
+        orderDate: oldPO.orderDate,
+        expectedDate: oldPO.expectedDate,
+        subtotal: oldPO.subtotal,
+        tax: oldPO.tax,
+        discount: oldPO.discount,
+        shippingFee: oldPO.shippingFee,
+        total: oldPO.total,
+        grandTotal: oldPO.grandTotal,
+        notes: oldPO.notes,
+      },
+      {
+        supplierId: body.supplierId,
+        status: body.status,
+        deliveryStatus: body.deliveryStatus,
+        paymentStatus: body.paymentStatus,
+        orderDate: body.orderDate ? new Date(body.orderDate) : null,
+        expectedDate: body.expectedDate ? new Date(body.expectedDate) : null,
+        subtotal: body.subtotal,
+        tax: body.tax,
+        discount: body.discount,
+        shippingFee: body.shippingFee,
+        total: body.total,
+        grandTotal: body.grandTotal,
+        notes: body.notes,
+      }
+    );
+
+    if (!changes) {
+      // No meaningful changes, skip logging
+      return apiSuccess(serializePurchaseOrder(order))
+    }
+
+    const changedFields = Object.keys(changes).join(', ');
     getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -590,7 +713,8 @@ export const PUT = apiHandler(async (request, { session, params }) => {
           entityId: systemId,
           action: 'updated',
           actionType: 'update',
-          note: `Cập nhật đơn đặt hàng`,
+          note: `Cập nhật đơn mua hàng ${order.id || systemId}: ${changedFields}`,
+          changes: JSON.parse(JSON.stringify(changes)),
           metadata: { userName },
           createdBy: userName,
         }

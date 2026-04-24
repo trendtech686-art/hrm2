@@ -252,7 +252,26 @@ export const POST = apiHandler(async (request, { session }) => {
       })
     }
 
-    // Log activity
+    // Log activity with field tracking
+    const fieldLabels = {
+      fullName: 'Họ tên',
+      phone: 'SĐT',
+      personalEmail: 'Email cá nhân',
+      workEmail: 'Email công việc',
+      gender: 'Giới tính',
+      employeeType: 'Loại nhân viên',
+      employmentStatus: 'Trạng thái',
+      role: 'Vai trò',
+      departmentId: 'Phòng ban',
+      jobTitleId: 'Chức vụ',
+      branchId: 'Chi nhánh',
+      managerId: 'Quản lý',
+      baseSalary: 'Lương cơ bản',
+      contractType: 'Loại hợp đồng',
+      bankAccountNumber: 'Số tài khoản',
+      bankName: 'Ngân hàng',
+      notes: 'Ghi chú',
+    }
     getUserNameFromDb(session!.user.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -260,8 +279,8 @@ export const POST = apiHandler(async (request, { session }) => {
           entityId: employee.systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo nhân viên mới`,
-          metadata: { userName },
+          note: `Tạo nhân viên: ${employee.fullName}`,
+          metadata: { userName, fieldLabels },
           createdBy: userName,
         }
       })

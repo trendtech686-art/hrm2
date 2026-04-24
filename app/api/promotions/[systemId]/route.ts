@@ -59,14 +59,26 @@ export const PATCH = apiHandler(async (req, { session, params }) => {
     },
   })
 
-  createActivityLog({
-    entityType: 'promotion',
-    entityId: promotion.systemId,
-    action: 'updated',
-    actionType: 'update',
-    metadata: { code: promotion.code },
-    createdBy: session!.user?.employee?.fullName || session!.user?.email || 'System',
-  })
+  // Activity log with change detection
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+  if (body.code !== undefined && body.code !== existing.code) changes['Mã'] = { from: existing.code, to: body.code }
+  if (body.description !== undefined && body.description !== existing.description) changes['Mô tả'] = { from: existing.description ?? '', to: body.description ?? '' }
+  if (body.discountType !== undefined && body.discountType !== existing.discountType) changes['Loại giảm giá'] = { from: existing.discountType, to: body.discountType }
+  if (body.discountValue !== undefined && Number(body.discountValue) !== Number(existing.discountValue)) changes['Giá trị giảm'] = { from: Number(existing.discountValue), to: body.discountValue }
+  if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+
+  if (Object.keys(changes).length > 0) {
+    const changeDetail = Object.keys(changes).join(', ')
+    createActivityLog({
+      entityType: 'promotion',
+      entityId: promotion.systemId,
+      action: `Cập nhật khuyến mãi: ${existing.code}: ${changeDetail}`,
+      actionType: 'update',
+      changes,
+      metadata: { code: promotion.code },
+      createdBy: session!.user?.employee?.fullName || session!.user?.email || 'System',
+    }).catch(e => console.error('[promotions] activity log failed', e))
+  }
 
   return apiSuccess(promotion)
 }, { permission: 'edit_settings' })

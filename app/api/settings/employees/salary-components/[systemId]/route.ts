@@ -163,6 +163,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       entityType: 'salary_component',
       entityId: systemId,
       action: `Xóa thành phần lương: ${existing.name}`,
+      actionType: 'delete',
       createdBy: session.user?.id,
     }).catch(e => logError('Failed to create activity log', e))
 

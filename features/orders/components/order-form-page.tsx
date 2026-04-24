@@ -1570,7 +1570,13 @@ export function OrderFormPage() {
                         
                         <div className="flex flex-col md:flex-row gap-4 items-start">
                             <div className="grow-7 w-full md:w-0"><CustomerSelector disabled={isFormDisabled || isMetadataOnlyMode} /></div>
-                            <div className="grow-3 w-full md:w-0"><OrderInfoCard disabled={isFormDisabled} isBranchLocked={isBranchLocked} isMetadataOnlyMode={isMetadataOnlyMode} /></div>
+                            <div className="grow-3 w-full md:w-0"><OrderInfoCard 
+                                disabled={isFormDisabled} 
+                                isBranchLocked={isBranchLocked} 
+                                isMetadataOnlyMode={isMetadataOnlyMode}
+                                salespersonName={order?.salesperson}
+                                packerName={order?.assignedPackerName}
+                            /></div>
                         </div>
                         <Card className={cn(mobileBleedCardClass, 'flex flex-col')}>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -1620,7 +1626,7 @@ export function OrderFormPage() {
                                         <Button type="button" variant="outline" className="shrink-0" onClick={openProductSelection} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
                                     </div>
                                     <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId} disabled={isFormDisabled || isMetadataOnlyMode}>
-                                        <SelectTrigger className="w-full md:w-45"><SelectValue /></SelectTrigger>
+                                        <SelectTrigger className="w-full md:w-48"><SelectValue placeholder="Chọn chính sách giá" /></SelectTrigger>
                                         <SelectContent>{salesPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>

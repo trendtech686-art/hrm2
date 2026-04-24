@@ -351,7 +351,7 @@ export const POST = apiHandler(async (request, { session }) => {
       }).catch(e => logError('[Receipts POST] notification failed', e))
     }
 
-    // Log activity
+    // Log activity with amount details
     getUserNameFromDb(session!.user.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -359,8 +359,8 @@ export const POST = apiHandler(async (request, { session }) => {
           entityId: serialized.systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo phiếu thu`,
-          metadata: { userName },
+          note: `Tạo phiếu thu: ${receipt.id || receipt.systemId} - Số tiền: ${Number(receipt.amount).toLocaleString('vi-VN')}đ`,
+          metadata: { userName, amount: Number(receipt.amount), payerName: receipt.payerName },
           createdBy: userName,
         }
       })

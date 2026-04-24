@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface Params {
   params: Promise<{ jobId: string }>
@@ -107,6 +108,21 @@ export async function DELETE(_request: Request, { params }: Params) {
         importData: null, // Clear data
       },
     })
+
+    // Log activity after successful cancellation
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'import_job',
+          entityId: jobId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Hủy job import: ${job.entityType}`,
+          metadata: { userName, entityType: job.entityType },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] import-job delete failed', e))
 
     return apiSuccess({ message: 'Job cancelled' })
   } catch (error) {

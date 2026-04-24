@@ -41,20 +41,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return apiError('Bài viết không tồn tại', 404)
     }
 
-    // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'wiki',
-          entityId: systemId,
-          action: 'updated',
-          actionType: 'update',
-          note: `Cập nhật bài viết wiki`,
-          metadata: { userName },
-          createdBy: userName,
-        }
-      })
-    ).catch(e => logError('[ActivityLog] wiki update failed', e))
     return apiSuccess(wiki)
   } catch (error) {
     logError('Error fetching wiki', error)

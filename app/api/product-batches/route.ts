@@ -2,6 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, apiPaginated, validateBody, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
 
 const batchSchema = z.object({
   productId: z.string().min(1),
@@ -90,6 +93,20 @@ export const POST = apiHandler(async (req) => {
       notes: body.notes,
     },
   })
+
+  createActivityLog({
+    entityType: 'product' as ActivityLogEntityType,
+    entityId: batch.systemId,
+    action: `Thêm lô sản phẩm: ${batch.batchNumber}`,
+    actionType: 'create',
+    metadata: {
+      batchNumber: batch.batchNumber,
+      productId: batch.productId,
+      branchId: batch.branchId,
+      quantity: batch.quantity,
+    },
+    createdBy: 'System',
+  }).catch(e => logError('[product-batches] activity log failed', e))
 
   return apiSuccess(batch)
 }, { permission: 'edit_products' })

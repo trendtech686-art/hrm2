@@ -125,6 +125,17 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const { status, reason, updatedBy } = body;
 
+    // Fetch existing data before update for change detection
+    const existing = await prisma.costAdjustment.findUnique({
+      where: { systemId },
+      select: {
+        status: true,
+        reason: true,
+        id: true,
+      },
+    })
+    if (!existing) return apiError('Cost adjustment not found', 404)
+
     const costAdjustment = await prisma.costAdjustment.update({
       where: { systemId },
       data: {
@@ -138,20 +149,26 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
-    // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'cost_adjustment',
-          entityId: systemId,
-          action: 'updated',
-          actionType: 'update',
-          note: `Cập nhật phiếu điều chỉnh giá vốn`,
-          metadata: { userName },
-          createdBy: userName,
-        }
-      })
-    ).catch(e => logError('[ActivityLog] cost_adjustment update failed', e))
+    // Log activity only if values actually changed
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (status !== undefined && status !== existing.status) changes['Trạng thái'] = { from: existing.status, to: status }
+    if (reason !== undefined && reason !== existing.reason) changes['Lý do'] = { from: existing.reason ?? '', to: reason ?? '' }
+
+    if (Object.keys(changes).length > 0) {
+      getUserNameFromDb(session.user?.id).then(userName =>
+        prisma.activityLog.create({
+          data: {
+            entityType: 'cost_adjustment',
+            entityId: systemId,
+            action: `Cập nhật phiếu điều chỉnh giá vốn: ${existing.id}`,
+            actionType: 'update',
+            note: `Cập nhật phiếu điều chỉnh giá vốn: ${Object.keys(changes).join(', ')}`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        })
+      ).catch(e => logError('[ActivityLog] cost_adjustment update failed', e))
+    }
     return apiSuccess(transformCostAdjustment(costAdjustment as unknown as CostAdjustmentRecord));
   } catch (error) {
     logError('[Cost Adjustments API] PATCH error', error);

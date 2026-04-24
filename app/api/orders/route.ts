@@ -390,6 +390,11 @@ export async function GET(request: Request) {
       tax: Number(order.tax),
       discount: Number(order.discount),
       codAmount: Number(order.codAmount),
+      // ✅ Build shippingInfo from order-level fields for consistent frontend typing
+      shippingInfo: order.shippingInfo as { carrier?: string; service?: string; trackingCode?: string } | undefined ?? {
+        carrier: order.shippingCarrier || undefined,
+        trackingCode: order.trackingCode || undefined,
+      },
       // ✅ Transform linkedSalesReturnValue from Decimal to number
       linkedSalesReturnValue: order.linkedSalesReturnValue ? Number(order.linkedSalesReturnValue) : undefined,
       // ✅ Transform lineItems Decimal fields

@@ -10,12 +10,25 @@ import { getGeneralSettingsSync } from '@/lib/settings-cache';
 
 /**
  * Lấy logo từ general-settings (fallback khi storeInfo không có logo)
+ * Đảm bảo logo URL là absolute để hoạt động trong print context
  */
 export function getStoreLogo(storeInfoLogo?: string): string | undefined {
   if (storeInfoLogo) return storeInfoLogo;
   try {
     const settings = getGeneralSettingsSync();
-    return settings.logoUrl || undefined;
+    const logoUrl = settings.logoUrl;
+    if (!logoUrl) return undefined;
+    
+    // Make URL absolute if it's relative (starts with /)
+    if (logoUrl.startsWith('/')) {
+      if (typeof window !== 'undefined') {
+        return window.location.origin + logoUrl;
+      }
+      // Server-side: use environment variable or fallback
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      return baseUrl.replace(/\/$/, '') + logoUrl;
+    }
+    return logoUrl;
   } catch (_e) { /* ignore */ }
   return undefined;
 }

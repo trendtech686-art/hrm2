@@ -111,6 +111,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       })),
     };
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'price_adjustment',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu điều chỉnh giá`,
+          metadata: { userName, changes: { reason: body.reason, note: body.note, referenceCode: body.referenceCode } },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] price_adjustment update failed', e))
+
     return apiSuccess(transformedAdjustment);
   } catch (error) {
     logError('[Price Adjustments API] Update error', error);

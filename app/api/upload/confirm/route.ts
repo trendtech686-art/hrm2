@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { confirmFilesSchema } from './validation'
 import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -92,6 +93,22 @@ export async function POST(request: NextRequest) {
     // Normalize filepath to use forward slashes for URLs
     const normalizeUrl = (filepath: string) => `/api/files/${filepath.replace(/\\/g, '/')}`;
     
+    getUserNameFromDb(session.user?.id).then(userName => {
+      const firstFile = confirmedFiles[0]
+      const fileId = firstFile?.systemId ?? fileIds?.[0] ?? sessionId ?? 'unknown'
+      const originalFilename = firstFile?.originalName ?? confirmedFiles.map(f => f.originalName).join(', ')
+      prisma.activityLog.create({
+        data: {
+          entityType: 'upload',
+          entityId: fileId,
+          action: 'created',
+          actionType: 'create',
+          note: `Xác nhận upload file: ${originalFilename}`,
+          metadata: { userName, fileId, originalFilename },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[ActivityLog] upload confirm failed', e))
+    })
     
     return apiSuccess({
       success: true,
@@ -145,7 +162,7 @@ export async function DELETE(request: NextRequest) {
       where.sessionId = sessionId
     }
     
-    // Get files to delete (for removing from disk)
+    // Get files to delete (for removing from disk and logging)
     const filesToDelete = await prisma.file.findMany({ where })
     
     // Delete from database
@@ -154,6 +171,23 @@ export async function DELETE(request: NextRequest) {
     // TODO: Also delete files from disk
     // For now, the cleanup job will handle orphan files
     
+    // Log activity after successful deletion
+    getUserNameFromDb(session.user?.id).then(userName => {
+      for (const file of filesToDelete) {
+        prisma.activityLog.create({
+          data: {
+            entityType: 'upload',
+            entityId: file.systemId,
+            action: 'deleted',
+            actionType: 'delete',
+            note: `Xóa file upload: ${file.originalName}`,
+            metadata: { userName, fileId: file.systemId, originalFilename: file.originalName },
+            createdBy: userName,
+          }
+        }).catch(e => logError('[ActivityLog] upload delete failed', e))
+      }
+    })
+
     return apiSuccess({
       success: true,
       message: `Đã xóa ${result.count} file staging`,

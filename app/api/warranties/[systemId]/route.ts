@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { WarrantyStatus } from '@/generated/prisma/client'
+import { Prisma, WarrantyStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateWarrantySchema } from './validation'
 import { serializeWarranty } from '../serialize'
@@ -7,6 +7,28 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { notifyWarrantyStatusChanged, notifyWarrantyAssigned } from '@/lib/warranty-notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+
+// Helper to compute changes between old and new data
+function computeChanges(
+  existing: Record<string, unknown>,
+  updateData: Record<string, unknown>
+): Record<string, { from: unknown; to: unknown }> | null {
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+  // Fields to ignore in change tracking
+  const ignoreFields = ['updatedAt', 'updatedBy', 'updatedBySystemId']
+
+  for (const [key, newValue] of Object.entries(updateData)) {
+    if (ignoreFields.includes(key)) continue
+
+    const oldValue = existing[key]
+    if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+      changes[key] = { from: oldValue, to: newValue }
+    }
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null
+}
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -170,6 +192,63 @@ export async function PUT(request: Request, { params }: RouteParams) {
       }
     }
 
+    // Compute changes for detailed activity log
+    const changes = computeChanges(existing as Record<string, unknown>, updateData)
+
+    // Log detailed changes if there are any (excluding processedImages which is handled above)
+    if (changes) {
+      const fieldLabels: Record<string, string> = {
+        status: 'Trạng thái',
+        priority: 'Ưu tiên',
+        assigneeId: 'Người phụ trách',
+        issueDescription: 'Mô tả lỗi',
+        diagnosis: 'Chẩn đoán',
+        solution: 'Giải pháp',
+        notes: 'Ghi chú',
+        trackingCode: 'Mã vận đơn',
+        shippingFee: 'Phí vận chuyển',
+        customerName: 'Tên khách hàng',
+        customerPhone: 'SĐT khách hàng',
+        customerEmail: 'Email khách hàng',
+        customerAddress: 'Địa chỉ khách hàng',
+        branchSystemId: 'Chi nhánh',
+        branchName: 'Tên chi nhánh',
+        employeeSystemId: 'Nhân viên',
+        employeeName: 'Tên nhân viên',
+        referenceUrl: 'URL tham chiếu',
+        externalReference: 'Tham chiếu ngoài',
+        receivedImages: 'Hình ảnh tiếp nhận',
+        products: 'Sản phẩm',
+        settlement: 'Thanh toán',
+        settlementStatus: 'Trạng thái thanh toán',
+        summary: 'Tóm tắt',
+        history: 'Lịch sử',
+        comments: 'Bình luận',
+        subtasks: 'Công việc con',
+        linkedOrderSystemId: 'Đơn hàng liên kết',
+      }
+
+      const changedFields = Object.keys(changes)
+        .filter(key => key !== 'processedImages')
+        .map(key => fieldLabels[key] || key)
+        .join(', ')
+
+      if (changedFields) {
+        const logUserName = session.user?.name || session.user?.email || 'system'
+        prisma.activityLog.create({
+          data: {
+            entityType: 'warranty',
+            entityId: systemId,
+            action: `Cập nhật phiếu bảo hành: ${existing.id}`,
+            actionType: 'update',
+            note: `Cập nhật phiếu bảo hành: ${existing.id}: ${changedFields}`,
+            metadata: { userName: logUserName, changes } as Prisma.InputJsonValue,
+            createdBy: logUserName,
+          }
+        }).catch(e => logError('[ActivityLog] warranty update failed', e))
+      }
+    }
+
     // TODO: Handle stock adjustments if warranty type changes
     // This would require knowing the previous warranty type and new type
     // If changing from REPLACE to REPAIR/REFUND, uncommit stock
@@ -267,14 +346,14 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
         data: {
           entityType: 'warranty',
           entityId: systemId,
-          action: 'updated',
-          actionType: 'update',
-          note: `Cập nhật phiếu bảo hành`,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu bảo hành`,
           metadata: { userName },
           createdBy: userName,
         }
       })
-    ).catch(e => logError('[ActivityLog] warranty update failed', e))
+    ).catch(e => logError('[ActivityLog] warranty delete failed', e))
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {

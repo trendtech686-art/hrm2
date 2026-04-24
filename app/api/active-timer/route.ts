@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
 
 // GET /api/active-timer?userId=xxx - Get active timer for user
 export async function GET(request: Request) {
@@ -59,6 +62,19 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'employee' as ActivityLogEntityType,
+      entityId: timer.userId,
+      action: 'Bắt đầu timer',
+      actionType: 'create',
+      metadata: {
+        taskId: body.taskId,
+        userId: body.userId,
+        description: body.description,
+      },
+      createdBy: session.user?.employeeId || session.user?.id || 'System',
+    }).catch(e => logError('[active-timer] activity log failed', e))
+
     return apiSuccess(timer, 201)
   } catch (error) {
     logError('Error creating active timer', error)
@@ -79,6 +95,12 @@ export async function DELETE(request: Request) {
       return apiError('userId là bắt buộc', 400)
     }
 
+    // Fetch timer info before deletion
+    const timer = await prisma.activeTimer.findUnique({
+      where: { userId },
+      select: { taskId: true, description: true, startTime: true },
+    })
+
     try {
       await prisma.activeTimer.delete({
         where: { userId },
@@ -88,6 +110,27 @@ export async function DELETE(request: Request) {
       if (!(e instanceof Error && 'code' in e && e.code === 'P2025')) {
         throw e
       }
+    }
+
+    // Log activity after successful deletion
+    if (timer) {
+      const taskTitle = timer.description || timer.taskId
+      const duration = timer.startTime
+        ? Math.round((Date.now() - new Date(timer.startTime).getTime()) / 1000)
+        : 0
+      getUserNameFromDb(session.user?.id).then(userName =>
+        prisma.activityLog.create({
+          data: {
+            entityType: 'active_timer',
+            entityId: userId,
+            action: 'deleted',
+            actionType: 'delete',
+            note: `Dừng timer làm việc: ${taskTitle}`,
+            metadata: { userName, taskTitle, duration },
+            createdBy: userName,
+          }
+        })
+      ).catch(e => logError('[ActivityLog] active-timer delete failed', e))
     }
 
     return apiSuccess({ success: true })

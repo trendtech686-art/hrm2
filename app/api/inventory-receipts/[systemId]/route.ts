@@ -125,6 +125,17 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
 
     const { status, notes, updatedBy } = body;
 
+    // Fetch existing data before update for change detection
+    const existing = await prisma.inventoryReceipt.findUnique({
+      where: { systemId },
+      select: {
+        status: true,
+        notes: true,
+        id: true,
+      },
+    })
+    if (!existing) return apiNotFound('Inventory receipt');
+
     const inventoryReceipt = await prisma.inventoryReceipt.update({
       where: { systemId },
       data: {
@@ -152,20 +163,26 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
       }).catch(e => logError('[Inventory Receipt PATCH] notification failed', e));
     }
 
-    // Log activity
-    getUserNameFromDb(session!.user?.id).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'inventory_receipt',
-          entityId: systemId,
-          action: 'updated',
-          actionType: 'update',
-          note: `Cập nhật phiếu nhập kho`,
-          metadata: { userName },
-          createdBy: userName,
-        }
-      })
-    ).catch(e => logError('[ActivityLog] inventory_receipt update failed', e))
+    // Log activity only if values actually changed
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (status !== undefined && status !== existing.status) changes['Trạng thái'] = { from: existing.status, to: status }
+    if (notes !== undefined && notes !== existing.notes) changes['Ghi chú'] = { from: existing.notes ?? '', to: notes ?? '' }
+
+    if (Object.keys(changes).length > 0) {
+      getUserNameFromDb(session!.user?.id).then(userName =>
+        prisma.activityLog.create({
+          data: {
+            entityType: 'inventory_receipt',
+            entityId: systemId,
+            action: `Cập nhật phiếu nhập kho: ${existing.id}`,
+            actionType: 'update',
+            note: `Cập nhật phiếu nhập kho: ${Object.keys(changes).join(', ')}`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        })
+      ).catch(e => logError('[ActivityLog] inventory_receipt update failed', e))
+    }
     return apiSuccess(inventoryReceipt);
   } catch (error) {
     logError('[Inventory Receipts API] PATCH error', error);

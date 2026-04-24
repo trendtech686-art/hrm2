@@ -9,6 +9,7 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
+import { formatCurrency } from '@/lib/print-service'
 
 // Interface for purchase order item input
 interface PurchaseOrderItemInput {
@@ -320,6 +321,8 @@ export const POST = apiHandler(async (request, { session }) => {
     }
 
     // Log activity
+    const supplierName = order.supplier?.name || body.supplierName || '';
+    const grandTotal = Number(order.grandTotal) || Number(order.total) || 0;
     getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -327,12 +330,12 @@ export const POST = apiHandler(async (request, { session }) => {
           entityId: order.systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo đơn đặt hàng`,
-          metadata: { userName },
+          note: `Tạo đơn mua hàng: ${order.id || order.systemId} - Nhà cung cấp: ${supplierName} - Tổng: ${formatCurrency(grandTotal)}`,
+          metadata: { userName, supplierName, grandTotal },
           createdBy: userName,
         }
       })
-    ).catch(e => logError('[ActivityLog] purchase_order created failed', e))
+    ).catch(e => logError('[ActivityLog] purchase order created failed', e))
 
     return apiSuccess(order, 201)
   } catch (error) {

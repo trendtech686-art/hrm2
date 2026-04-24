@@ -21,6 +21,7 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
+import { formatCurrency } from '@/lib/print-service'
 
 // Interface for sales return item input
 interface _SalesReturnItemInput {
@@ -1021,15 +1022,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Log activity
+    const returnId = (updatedSalesReturn || salesReturn).id || (updatedSalesReturn || salesReturn).systemId;
+    const orderIdStr = order.id || orderId || '';
+    const totalReturnValue = Number((updatedSalesReturn || salesReturn).totalReturnValue) || 0;
     getUserNameFromDb(session.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'sales_return',
-          entityId: responseData.systemId,
+          entityId: (updatedSalesReturn || salesReturn).systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo phiếu trả hàng`,
-          metadata: { userName },
+          note: `Tạo phiếu trả hàng: ${returnId} - Đơn gốc: ${orderIdStr} - Giá trị: ${formatCurrency(totalReturnValue)}`,
+          metadata: { userName, orderId: orderIdStr, totalReturnValue },
           createdBy: userName,
         }
       })

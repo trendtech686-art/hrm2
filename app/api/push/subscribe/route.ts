@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 const subscribeSchema = z.object({
   endpoint: z.string().url(),
@@ -54,7 +55,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return apiSuccess({ id: sub.id, endpoint: sub.endpoint }, 201)
+    const success = apiSuccess({ id: sub.id, endpoint: sub.endpoint }, 201)
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'push_subscription',
+          entityId: sub.id,
+          action: 'created',
+          actionType: 'create',
+          note: `Đăng ký push notification`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[ActivityLog] push subscribe failed', e))
+    )
+    return success
   } catch (error) {
     logError('[API] push/subscribe failed', error)
     return apiError('Failed to register push subscription', 500)

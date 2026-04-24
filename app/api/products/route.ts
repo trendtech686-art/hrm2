@@ -484,6 +484,9 @@ export const POST = apiHandler(async (request, { session }) => {
         entityId: product.systemId,
         action: isUpdate ? 'updated' : 'created',
         actionType: isUpdate ? 'update' : 'create',
+        note: isUpdate
+          ? `Cập nhật sản phẩm: ${product.name} (${product.id})`
+          : `Tạo sản phẩm: ${product.name} (${product.id})`,
         metadata: {
           productId: product.id,
           productName: product.name,

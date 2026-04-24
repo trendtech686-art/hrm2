@@ -7,38 +7,53 @@ import { getUserNameFromDb } from '@/lib/get-user-name'
 import { logError } from '@/lib/logger'
 import { syncSingleCustomer, deleteFromIndex } from '@/lib/meilisearch-sync'
 
+// Helper functions are at the bottom of the file
 // Treats null, undefined, "", [], {} as equivalent "empty"
-function isEmptyValue(val: unknown): boolean {
-  if (val == null) return true
-  if (typeof val === 'string' && val.trim() === '') return true
-  if (Array.isArray(val) && val.length === 0) return true
-  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return true
-  return false
+// Treats 0 as equivalent to empty for numeric fields
+function normalizeValue(val: unknown): unknown {
+  if (val == null) return null
+  if (typeof val === 'string' && val.trim() === '') return null
+  if (Array.isArray(val) && val.length === 0) return null
+  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return null
+  
+  // Handle Decimal (convert to number for comparison)
+  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+    return (val as { toNumber: () => number }).toNumber()
+  }
+  
+  // Handle Date
+  if (val instanceof Date) {
+    return val.getTime()
+  }
+  
+  // For numbers, also treat 0 as equivalent to null (semantic equivalence for debt/limit fields)
+  if (typeof val === 'number' && val === 0) {
+    return 0 // Keep as 0, but we need special handling in comparison
+  }
+  
+  return val
 }
 
 // Helper to compare values for change detection
 function hasValueChanged(oldVal: unknown, newVal: unknown): boolean {
-  // Both empty → no change
-  if (isEmptyValue(oldVal) && isEmptyValue(newVal)) return false
-  // One empty, one not → changed
-  if (isEmptyValue(oldVal) || isEmptyValue(newVal)) return true
+  const normalizedOld = normalizeValue(oldVal)
+  const normalizedNew = normalizeValue(newVal)
   
-  // Handle Decimal (convert to number for comparison)
-  const normalizedOld = typeof oldVal === 'object' && oldVal !== null && 'toNumber' in oldVal
-    ? (oldVal as { toNumber: () => number }).toNumber()
-    : oldVal
-  const normalizedNew = typeof newVal === 'object' && newVal !== null && 'toNumber' in newVal
-    ? (newVal as { toNumber: () => number }).toNumber()
-    : newVal
-    
-  // Handle Date comparison
-  if (normalizedOld instanceof Date && normalizedNew instanceof Date) {
-    return normalizedOld.getTime() !== normalizedNew.getTime()
-  }
-  if (normalizedOld instanceof Date || normalizedNew instanceof Date) {
-    const oldTime = normalizedOld instanceof Date ? normalizedOld.getTime() : new Date(normalizedOld as string).getTime()
-    const newTime = normalizedNew instanceof Date ? normalizedNew.getTime() : new Date(normalizedNew as string).getTime()
-    return oldTime !== newTime
+  // Both null/empty after normalization → no change
+  if (normalizedOld == null && normalizedNew == null) return false
+  
+  // Special case: both are 0 (numeric zero) → no change
+  if (normalizedOld === 0 && normalizedNew === 0) return false
+  
+  // One null, one numeric zero → no change (semantically equivalent)
+  if ((normalizedOld == null && normalizedNew === 0) || (normalizedOld === 0 && normalizedNew == null)) return false
+  
+  // One empty, one not → changed
+  if (normalizedOld == null || normalizedNew == null) return true
+  
+  // Handle dates
+  if (typeof normalizedOld === 'number' && typeof normalizedNew === 'number') {
+    return normalizedOld !== normalizedNew
   }
   
   // Handle arrays/objects
@@ -47,6 +62,21 @@ function hasValueChanged(oldVal: unknown, newVal: unknown): boolean {
   }
   
   return normalizedOld !== normalizedNew
+}
+
+// Serialize a value for storage in the activity log
+function serializeValue(val: unknown): unknown {
+  if (val == null) return null
+  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+    return (val as { toNumber: () => number }).toNumber()
+  }
+  if (val instanceof Date) {
+    return val.getTime()
+  }
+  if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
+    return JSON.parse(JSON.stringify(val))
+  }
+  return val
 }
 
 // Helper to compute changes between old and new data
@@ -64,15 +94,7 @@ function computeChanges(
     
     const oldValue = existing[key]
     if (hasValueChanged(oldValue, newValue)) {
-      // Serialize Decimal to number for storage
-      const serializedOld = typeof oldValue === 'object' && oldValue !== null && 'toNumber' in oldValue
-        ? (oldValue as { toNumber: () => number }).toNumber()
-        : oldValue
-      const serializedNew = typeof newValue === 'object' && newValue !== null && 'toNumber' in newValue
-        ? (newValue as { toNumber: () => number }).toNumber()
-        : newValue
-        
-      changes[key] = { from: serializedOld, to: serializedNew }
+      changes[key] = { from: serializeValue(oldValue), to: serializeValue(newValue) }
     }
   }
   

@@ -164,6 +164,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }).catch(e => logError('[Stock Transfer PATCH] notification failed', e));
     }
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'stock_transfer',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu chuyển kho`,
+          metadata: { userName, changes: { status, notes } },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] stock_transfer update failed', e))
+
     return apiSuccess(transformedResult);
   } catch (error) {
     logError('[Stock Transfers API] PATCH error', error);

@@ -31,6 +31,18 @@ export async function PUT(request: Request, { params }: UnitParams) {
 
   try {
     const body = await request.json()
+
+    // Fetch existing data before update for change detection
+    const existing = await prisma.unit.findUnique({
+      where: { systemId },
+      select: {
+        name: true,
+        description: true,
+        isActive: true,
+      },
+    })
+    if (!existing) return apiError('Unit not found', 404)
+
     const updated = await prisma.unit.update({
       where: { systemId },
       data: {
@@ -39,14 +51,23 @@ export async function PUT(request: Request, { params }: UnitParams) {
       },
     })
 
-    createActivityLog({
-      entityType: 'unit',
-      entityId: systemId,
-      action: 'updated',
-      actionType: 'update',
-      metadata: { name: updated.name },
-      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
-    })
+    // Activity log with change detection
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.description !== undefined && body.description !== existing.description) changes['Mô tả'] = { from: existing.description ?? '', to: body.description ?? '' }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'unit',
+        entityId: systemId,
+        action: `Cập nhật đơn vị: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+      }).catch(e => logError('[units] activity log failed', e))
+    }
 
     return apiSuccess(updated)
   } catch (error) {

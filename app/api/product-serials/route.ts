@@ -3,6 +3,9 @@ import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, apiPaginated, validateBody, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
 
 const serialSchema = z.object({
   productId: z.string().min(1),
@@ -92,6 +95,19 @@ export const POST = apiHandler(async (req) => {
       })),
     })
 
+    createActivityLog({
+      entityType: 'product' as ActivityLogEntityType,
+      entityId: validated.productId,
+      action: `Thêm ${validated.serialNumbers.length} serial numbers`,
+      actionType: 'create',
+      metadata: {
+        productId: validated.productId,
+        branchId: validated.branchId,
+        count: validated.serialNumbers.length,
+      },
+      createdBy: 'System',
+    }).catch(e => logError('[product-serials] activity log failed', e))
+
     return apiSuccess({ count: created.count })
   } else {
     const validated = serialSchema.parse(body)
@@ -103,6 +119,20 @@ export const POST = apiHandler(async (req) => {
     if (existing) return apiError('Serial number đã tồn tại', 400)
 
     const serial = await prisma.productSerial.create({ data: validated })
+
+    createActivityLog({
+      entityType: 'product' as ActivityLogEntityType,
+      entityId: serial.systemId,
+      action: `Thêm serial: ${serial.serialNumber}`,
+      actionType: 'create',
+      metadata: {
+        serialNumber: serial.serialNumber,
+        productId: serial.productId,
+        branchId: serial.branchId,
+      },
+      createdBy: 'System',
+    }).catch(e => logError('[product-serials] activity log failed', e))
+
     return apiSuccess(serial)
   }
 }, { permission: 'edit_products' })

@@ -57,6 +57,28 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     const body = await request.json()
 
+    // Fetch existing data before update for change detection
+    const existing = await prisma.branch.findUnique({
+      where: { systemId },
+      select: {
+        name: true,
+        address: true,
+        phone: true,
+        isDefault: true,
+        managerId: true,
+        province: true,
+        provinceId: true,
+        district: true,
+        districtId: true,
+        ward: true,
+        wardCode: true,
+        addressLevel: true,
+      },
+    })
+    if (!existing) {
+      return apiError('Chi nhánh không tồn tại', 404)
+    }
+
     const branch = await prisma.branch.update({
       where: { systemId },
       data: {
@@ -79,14 +101,25 @@ export async function PUT(request: Request, { params }: RouteParams) {
     cache.deletePattern('^branches:')
     revalidatePath('/api/branches')
 
-    createActivityLog({
-      entityType: 'branch',
-      entityId: systemId,
-      action: 'updated',
-      actionType: 'update',
-      metadata: { name: branch.name },
-      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
-    })
+    // Activity log with change detection
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.address !== undefined && body.address !== existing.address) changes['Địa chỉ'] = { from: existing.address ?? '', to: body.address ?? '' }
+    if (body.phone !== undefined && body.phone !== existing.phone) changes['Điện thoại'] = { from: existing.phone ?? '', to: body.phone ?? '' }
+    if (body.isDefault !== undefined && body.isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: body.isDefault ? 'Có' : 'Không' }
+    if (body.managerId !== undefined && body.managerId !== existing.managerId) changes['Quản lý'] = { from: existing.managerId ?? '', to: body.managerId ?? '' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'branch',
+        entityId: systemId,
+        action: `Cập nhật chi nhánh: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+      }).catch(e => logError('[branches] activity log failed', e))
+    }
 
     return apiSuccess(branch)
   } catch (error) {

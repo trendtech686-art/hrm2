@@ -651,11 +651,13 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params;
 
-    // Fetch order to get customerId before cancelling
+    // Fetch order to get customerId and orderId before cancelling
     const order = await prisma.order.findUnique({
       where: { systemId },
-      select: { customerId: true },
+      select: { customerId: true, id: true },
     });
+
+    const orderId = order?.id || systemId;
 
     await prisma.order.update({
       where: { systemId },
@@ -665,6 +667,21 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         cancellationReason: 'Deleted by user',
       },
     });
+
+    // Log activity after successful deletion
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'order',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa đơn hàng: ${orderId}`,
+          metadata: { userName, orderId },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] order delete failed', e))
 
     // Sync customer debt after cancellation
     if (order?.customerId) {

@@ -2,6 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError, validateBody } from '@/lib/api-utils'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
 
 const conversionSchema = z.object({
   baseProductId: z.string().min(1),
@@ -70,6 +73,19 @@ export const POST = apiHandler(async (req) => {
     },
     include: { baseProduct: { select: { systemId: true, id: true, name: true, unit: true } } },
   })
+
+  createActivityLog({
+    entityType: 'product' as ActivityLogEntityType,
+    entityId: conversion.systemId,
+    action: `Thêm quy đổi: ${conversion.conversionUnit} cho ${product.name}`,
+    actionType: 'create',
+    metadata: {
+      baseProductId: conversion.baseProductId,
+      conversionUnit: conversion.conversionUnit,
+      conversionRate: conversion.conversionRate,
+    },
+    createdBy: 'System',
+  }).catch(e => logError('[product-conversions] activity log failed', e))
 
   return apiSuccess(conversion)
 }, { permission: 'edit_products' })

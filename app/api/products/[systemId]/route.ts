@@ -271,6 +271,11 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
         name: 'Tên sản phẩm', id: 'Mã SKU', status: 'Trạng thái', type: 'Loại',
         costPrice: 'Giá vốn', description: 'Mô tả', unit: 'Đơn vị', brandId: 'Thương hiệu',
       }
+      const changedFieldLabels = Object.keys(changes).map(k => fieldLabels[k] || k)
+      const note = changedFieldLabels.length > 0
+        ? `Cập nhật sản phẩm: ${existingProduct.name} (${existingProduct.id}): ${changedFieldLabels.join(', ')}`
+        : `Cập nhật sản phẩm: ${existingProduct.name} (${existingProduct.id})`
+
       const displayChanges: Record<string, { from?: unknown; to?: unknown }> = {}
       for (const [key, val] of Object.entries(changes)) {
         displayChanges[fieldLabels[key] || key] = val
@@ -281,6 +286,7 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
           entityId: systemId,
           action: 'updated',
           actionType: 'update',
+          note,
           changes: displayChanges as Prisma.InputJsonValue,
           createdBy: getSessionUserName(session),
         },
@@ -300,9 +306,21 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
 }, { permission: 'edit_products' })
 
 // DELETE /api/products/[systemId]
-export const DELETE = apiHandler(async (_request, { params }) => {
+export const DELETE = apiHandler(async (_request, { session, params }) => {
   try {
     const { systemId } = await params
+
+    // Fetch product info before deletion
+    const product = await prisma.product.findUnique({
+      where: { systemId },
+      select: { name: true, id: true },
+    })
+
+    if (!product) {
+      return apiNotFound('Sản phẩm')
+    }
+
+    const { name: productName, id: productId } = product
 
     // Transaction: soft-delete product + unlink PKGX side (PkgxProduct.hrmProductId).
     // KHÔNG clear `product.pkgxId` để restore có thể tự re-link.
@@ -319,6 +337,19 @@ export const DELETE = apiHandler(async (_request, { params }) => {
         },
       })
     })
+
+    // Log activity after successful deletion
+    prisma.activityLog.create({
+      data: {
+        entityType: 'product',
+        entityId: systemId,
+        action: 'deleted',
+        actionType: 'delete',
+        note: `Xóa sản phẩm: ${productName} (${productId})`,
+        metadata: { userName: getSessionUserName(session), productName, productId },
+        createdBy: getSessionUserName(session),
+      }
+    }).catch(e => logError('[ActivityLog] product delete failed', e))
 
     // Fire-and-forget: remove from Meilisearch
     deleteFromIndex('products', systemId).catch(e => logError('[Meilisearch] Product delete failed', e))

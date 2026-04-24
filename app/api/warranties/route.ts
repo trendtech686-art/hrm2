@@ -325,6 +325,7 @@ export async function POST(request: Request) {
     }
 
     // Log activity
+    const productName = warranty.product?.name || warranty.productName || '';
     getUserNameFromDb(session.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
@@ -332,8 +333,8 @@ export async function POST(request: Request) {
           entityId: warranty.systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo phiếu bảo hành`,
-          metadata: { userName },
+          note: `Tạo phiếu bảo hành: ${warranty.id} - Sản phẩm: ${productName}`,
+          metadata: { userName, warrantyId: warranty.id, productName },
           createdBy: userName,
         }
       })

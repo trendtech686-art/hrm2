@@ -63,6 +63,18 @@ export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
+    // Fetch existing data before update for change detection
+    const existing = await prisma.user.findUnique({
+      where: { systemId },
+      select: {
+        email: true,
+        role: true,
+        isActive: true,
+        employeeId: true,
+      },
+    })
+    if (!existing) return apiError('User không tồn tại', 404)
+
     const updateData: Parameters<typeof prisma.user.update>[0]['data'] = {
       email: body.email,
       role: body.role,
@@ -106,14 +118,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
       }
     }
 
-    createActivityLog({
-      entityType: 'user',
-      entityId: systemId,
-      action: 'updated',
-      actionType: 'update',
-      metadata: { email: user.email, role: user.role },
-      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
-    })
+    // Activity log with change detection
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.email !== undefined && body.email !== existing.email) changes['Email'] = { from: existing.email, to: body.email }
+    if (body.role !== undefined && body.role !== existing.role) changes['Vai trò'] = { from: existing.role, to: body.role }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+    if (body.employeeId !== undefined && body.employeeId !== existing.employeeId) changes['Nhân viên'] = { from: existing.employeeId ?? '', to: body.employeeId ?? '' }
+    if (body.password !== undefined) changes['Mật khẩu'] = { from: '[đã thay đổi]', to: '[đã thay đổi]' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'user',
+        entityId: systemId,
+        action: `Cập nhật tài khoản: ${existing.email}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        metadata: { email: user.email, role: user.role },
+        createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+      }).catch(e => logError('[users] activity log failed', e))
+    }
 
     return apiSuccess(user)
   } catch (error) {

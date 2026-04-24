@@ -7,6 +7,28 @@ import { createNotification } from '@/lib/notifications'
 import { notifyComplaintAssigned, notifyComplaintStatusChanged } from '@/lib/complaint-notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 
+// Helper to compute changes between old and new data
+function computeChanges(
+  existing: Record<string, unknown>,
+  updateData: Record<string, unknown>
+): Record<string, { from: unknown; to: unknown }> | null {
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+  // Fields to ignore in change tracking
+  const ignoreFields = ['updatedAt', 'updatedBy']
+
+  for (const [key, newValue] of Object.entries(updateData)) {
+    if (ignoreFields.includes(key)) continue
+
+    const oldValue = existing[key]
+    if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+      changes[key] = { from: oldValue, to: newValue }
+    }
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null
+}
+
 interface RouteParams {
   params: Promise<{ systemId: string }>
 }
@@ -250,24 +272,86 @@ export async function PUT(request: Request, { params }: RouteParams) {
     // Fetch existing to detect changes
     const existing = await prisma.complaint.findUnique({
       where: { systemId },
-      select: { assigneeId: true, status: true, id: true },
+      select: {
+        assigneeId: true,
+        status: true,
+        id: true,
+        type: true,
+        title: true,
+        description: true,
+        priority: true,
+        resolution: true,
+      },
     })
+    if (!existing) {
+      return apiError('Khiếu nại không tồn tại', 404)
+    }
+
+    // Build update data
+    const updateData: Record<string, unknown> = {}
+    if (body.title !== undefined) updateData.title = body.title
+    if (body.description !== undefined) updateData.description = body.description
+    if (body.category !== undefined) updateData.category = body.category
+    if (body.priority !== undefined) updateData.priority = body.priority
+    if (body.status !== undefined) updateData.status = body.status
+    if (body.assigneeId !== undefined) updateData.assigneeId = body.assigneeId
+    if (body.assignedTo !== undefined) updateData.assigneeId = body.assignedTo
+    if (body.resolution !== undefined) updateData.resolution = body.resolution
+    if (body.resolvedAt !== undefined) updateData.resolvedAt = body.resolvedAt ? new Date(body.resolvedAt) : null
 
     const complaint = await prisma.complaint.update({
       where: { systemId },
-      data: {
-        title: body.title,
-        description: body.description,
-        category: body.category,
-        priority: body.priority as ComplaintPriority | undefined,
-        status: body.status as ComplaintStatus | undefined,
-        assigneeId: body.assigneeId || body.assignedTo,
-        resolution: body.resolution,
-        resolvedAt: body.resolvedAt ? new Date(body.resolvedAt) : undefined,
-      },
+      data: updateData,
       include: {
         customer: true,
       },
+    })
+
+    // Compute changes for detailed activity log
+    const changes = computeChanges(existing as Record<string, unknown>, updateData)
+
+    // Log activity with detailed changes
+    getUserNameFromDb(session.user?.id).then(userName => {
+      if (changes) {
+        const fieldLabels: Record<string, string> = {
+          status: 'Trạng thái',
+          type: 'Loại khiếu nại',
+          assignedTo: 'Người xử lý',
+          assigneeId: 'Người xử lý',
+          priority: 'Ưu tiên',
+          description: 'Mô tả',
+          resolution: 'Giải quyết',
+          notes: 'Ghi chú',
+          title: 'Tiêu đề',
+          category: 'Danh mục',
+        }
+
+        const changedFields = Object.keys(changes).map(key => fieldLabels[key] || key).join(', ')
+        prisma.activityLog.create({
+          data: {
+            entityType: 'complaint',
+            entityId: systemId,
+            action: 'updated',
+            actionType: 'update',
+            note: `Cập nhật khiếu nại: ${existing.id}: ${changedFields}`,
+            metadata: { userName, changes } as Prisma.InputJsonValue,
+            createdBy: userName,
+          }
+        }).catch(e => logError('[ActivityLog] complaint update failed', e))
+      } else {
+        // Log simple update if no field changes detected
+        prisma.activityLog.create({
+          data: {
+            entityType: 'complaint',
+            entityId: systemId,
+            action: 'updated',
+            actionType: 'update',
+            note: `Cập nhật khiếu nại: ${existing.id}`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        }).catch(e => logError('[ActivityLog] complaint update failed', e))
+      }
     })
 
     // ✅ Notify assignee on status change or new assignment
@@ -318,20 +402,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
       }
     }
 
-    // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'complaint',
-          entityId: systemId,
-          action: 'updated',
-          actionType: 'update',
-          note: `Cập nhật khiếu nại`,
-          metadata: { userName },
-          createdBy: userName,
-        }
-      })
-    ).catch(e => logError('[ActivityLog] complaint update failed', e))
     return apiSuccess(complaint)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {

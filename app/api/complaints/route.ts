@@ -208,8 +208,8 @@ export async function POST(request: Request) {
           entityId: complaint.systemId,
           action: 'created',
           actionType: 'create',
-          note: `Tạo khiếu nại`,
-          metadata: { userName },
+          note: `Tạo khiếu nại: ${complaint.id} - Loại: ${complaint.type}`,
+          metadata: { userName, complaintId: complaint.id, type: complaint.type },
           createdBy: userName,
         }
       })
