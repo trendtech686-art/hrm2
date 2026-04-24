@@ -1,22 +1,24 @@
 import { apiHandler } from '@/lib/api-handler'
 import { apiSuccess, apiError } from '@/lib/api-utils'
-import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
 import { cache } from '@/lib/cache'
 import { z } from 'zod'
 import crypto from 'crypto'
 import { logError } from '@/lib/logger'
 import { getOtpLoginSettings } from '@/app/api/settings/otp-login/route'
+import { resolveLoginUser } from '@/lib/auth/resolve-login-identifier'
 
 const OTP_TTL = 10 * 60 * 1000 // 10 phút
 const OTP_RATE_LIMIT = 60 * 1000 // 1 phút
 
+// `email` giữ tên field cũ để backward compatible với client, nhưng giờ có thể
+// là email HOẶC số điện thoại của tài khoản (identifier chung).
 const sendOtpSchema = z.object({
-  email: z.string().email(),
+  email: z.string().min(1),
 })
 
 const verifyOtpSchema = z.object({
-  email: z.string().email(),
+  email: z.string().min(1),
   otp: z.string().length(6),
 })
 
@@ -44,34 +46,27 @@ export const POST = apiHandler(async (req) => {
 }, { auth: false })
 
 async function handleSend(body: unknown) {
-  const { email } = sendOtpSchema.parse(body)
-  const normalizedEmail = email.toLowerCase().trim()
+  const { email: identifier } = sendOtpSchema.parse(body)
 
-  // Kiểm tra setting có bật OTP không
   const settings = await getOtpLoginSettings()
   if (!settings.enabled) {
     return apiSuccess({ required: false })
   }
 
-  // Kiểm tra user tồn tại
-  const user = await prisma.user.findFirst({
-    where: { email: normalizedEmail, isActive: true },
-    select: { systemId: true },
-  })
-
-  if (!user) {
+  const user = await resolveLoginUser(identifier)
+  if (!user || !user.isActive) {
     return apiError('Tài khoản không tồn tại', 400)
   }
 
-  // Rate limit
-  const rateLimitKey = `login-otp-rate:${normalizedEmail}`
+  // Cache key khoá theo userSystemId để identifier email/SĐT cùng tài khoản
+  // dùng chung 1 OTP và 1 rate-limit.
+  const otpKey = `login-otp:${user.systemId}`
+  const rateLimitKey = `login-otp-rate:${user.systemId}`
   if (cache.get(rateLimitKey)) {
     return apiSuccess({ required: true, sent: true })
   }
 
-  // Tạo OTP 6 số
   const otp = crypto.randomInt(100000, 999999).toString()
-  const otpKey = `login-otp:${normalizedEmail}`
 
   cache.set(otpKey, {
     otp,
@@ -81,10 +76,9 @@ async function handleSend(body: unknown) {
 
   cache.set(rateLimitKey, true, OTP_RATE_LIMIT)
 
-  // Gửi email
   try {
     const sent = await sendEmail({
-      to: normalizedEmail,
+      to: user.email,
       subject: '[HRM] Mã xác thực đăng nhập',
       html: `
         <div style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -118,10 +112,14 @@ async function handleSend(body: unknown) {
 }
 
 async function handleVerify(body: unknown) {
-  const { email, otp } = verifyOtpSchema.parse(body)
-  const normalizedEmail = email.toLowerCase().trim()
+  const { email: identifier, otp } = verifyOtpSchema.parse(body)
 
-  const otpKey = `login-otp:${normalizedEmail}`
+  const user = await resolveLoginUser(identifier)
+  if (!user) {
+    return apiError('Tài khoản không tồn tại', 400)
+  }
+
+  const otpKey = `login-otp:${user.systemId}`
   const stored = cache.get<{ otp: string; attempts: number; createdAt: number }>(otpKey)
 
   if (!stored) {

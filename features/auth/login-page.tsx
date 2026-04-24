@@ -54,7 +54,7 @@ export function LoginPage() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      toast.error('Vui lòng nhập email và mật khẩu');
+      toast.error('Vui lòng nhập email/SĐT và mật khẩu');
       return;
     }
 
@@ -68,7 +68,7 @@ export function LoginPage() {
       });
       
       if (result?.error) {
-        toast.error('Email hoặc mật khẩu không đúng');
+        toast.error('Thông tin đăng nhập không đúng');
         return;
       }
       
@@ -156,21 +156,23 @@ export function LoginPage() {
           <CardTitle size="lg">Đăng nhập</CardTitle>
           <CardDescription>
             {showOtp
-              ? <>Nhập mã OTP đã gửi đến <strong>{email}</strong></>
-              : 'Nhập email và mật khẩu để đăng nhập'}
+              ? <>Nhập mã OTP đã gửi đến email đăng ký của <strong>{email}</strong></>
+              : 'Nhập email hoặc số điện thoại và mật khẩu để đăng nhập'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">
             {!showOtp && (
               <>
-                {/* Email */}
+                {/* Email hoặc SĐT */}
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email hoặc SĐT</Label>
                   <Input
                     id="email"
-                    type="email"
-                    placeholder="m@example.com"
+                    type="text"
+                    autoComplete="username"
+                    inputMode="text"
+                    placeholder="m@example.com hoặc 0971xxxxxx"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />

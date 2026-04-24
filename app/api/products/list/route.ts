@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { apiHandler } from '@/lib/api-handler'
 import { NextResponse } from 'next/server'
+import { buildProductSearchWhere } from '@/lib/search/product-search-where'
 
 /**
  * Optimized Products List API
@@ -139,13 +140,10 @@ export const GET = apiHandler(async (request, _ctx) => {
       isDeleted: false,
     }
 
-    // Text search (optimized with OR on indexed fields)
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search } },
-      ]
+    // Tìm kiếm dạng token AND (vd: "wtp-009 s s26" vẫn match tên dài)
+    const searchWhere = buildProductSearchWhere(search)
+    if (searchWhere) {
+      Object.assign(where, searchWhere)
     }
 
     // Status filter

@@ -3,9 +3,9 @@
  */
 import { z } from 'zod'
 
-// Login schema
+// Login schema — `email` có thể là email hoặc số điện thoại (identifier chung)
 export const loginSchema = z.object({
-  email: z.string().email('Email không hợp lệ'),
+  email: z.string().min(1, 'Vui lòng nhập email hoặc số điện thoại'),
   password: z.string().min(1, 'Mật khẩu là bắt buộc'),
 })
 

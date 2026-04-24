@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authConfig } from "./auth.config"
 import { resolvePermissions } from "@/lib/rbac/resolve-permissions"
+import { resolveLoginUser } from "@/lib/auth/resolve-login-identifier"
 
 const debugAuth = process.env.NEXTAUTH_DEBUG === 'true'
 
@@ -13,18 +14,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Credentials({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email hoặc SĐT", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, _request) {
-        if (debugAuth) console.warn("[Auth] authorize called with:", { email: credentials?.email });
-        
+        if (debugAuth) console.warn("[Auth] authorize called with:", { identifier: credentials?.email });
+
         if (!credentials?.email || !credentials?.password) {
           if (debugAuth) console.warn("[Auth] Missing credentials");
           return null
         }
 
-        const email = credentials.email as string
+        // `email` ở đây thực chất là identifier (email HOẶC số điện thoại).
+        const identifier = (credentials.email as string).trim()
         const password = credentials.password as string
 
         // Retry logic: Turbopack compile can block event loop for 10-20s,
@@ -32,23 +34,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const MAX_RETRIES = 2
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
           try {
-            if (debugAuth) console.warn(`[Auth] Looking up user: ${email} (attempt ${attempt + 1})`);
-            const user = await prisma.user.findUnique({
-              where: { email },
-              include: {
-                employee: {
-                  select: {
-                    systemId: true,
-                    fullName: true,
-                    workEmail: true,
-                    role: true,
-                    department: { select: { systemId: true, name: true } },
-                    branch: { select: { systemId: true, name: true } },
-                    jobTitle: { select: { systemId: true, name: true } },
-                  },
-                },
-              },
-            })
+            if (debugAuth) console.warn(`[Auth] Looking up user: ${identifier} (attempt ${attempt + 1})`);
+            const user = await resolveLoginUser(identifier)
 
             if (debugAuth) console.warn("[Auth] User found:", user ? { email: user.email, isActive: user.isActive } : null);
 

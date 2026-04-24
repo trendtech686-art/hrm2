@@ -8,6 +8,7 @@ import { generateNextIdsWithTx } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { getSessionUserName } from '@/lib/get-user-name'
 import { syncSingleProduct } from '@/lib/meilisearch-sync'
+import { buildProductSearchWhere } from '@/lib/search/product-search-where'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -38,12 +39,9 @@ export const GET = apiHandler(async (request) => {
       }
     }
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search } },
-      ]
+    const searchWhere = buildProductSearchWhere(search)
+    if (searchWhere) {
+      Object.assign(where, searchWhere)
     }
 
     if (status) {

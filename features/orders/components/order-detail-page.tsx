@@ -63,7 +63,6 @@ import { Comments } from '@/components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { OrderPrintButton } from './order-print-button';
-import { ShareButton } from '@/components/shared/share-button';
 import { useOrderPrintHandlers } from '@/features/orders/hooks/use-order-print-handlers';
 
 // ✅ Import extracted components from detail folder
@@ -1255,30 +1254,9 @@ export function OrderDetailPage() {
 
         const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
 
-        // Print & Copy & Share
+        // Print & Copy
         menuItems.push({ label: 'In đơn hàng', onClick: () => handlePrintOrder(order) });
         menuItems.push({ label: 'Sao chép đơn', onClick: handleCopyOrder });
-        menuItems.push({
-            label: 'Chia sẻ',
-            onClick: async () => {
-                const title = `Đơn hàng ${order.id ?? order.systemId}`;
-                const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-                if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                    try {
-                        await navigator.share({ title, text: `${title} — ${order.customer?.name ?? ''}`.trim(), url: shareUrl });
-                        return;
-                    } catch (err) {
-                        if (err instanceof Error && err.name === 'AbortError') return;
-                    }
-                }
-                try {
-                    await navigator.clipboard?.writeText(shareUrl);
-                    toast.success('Đã sao chép liên kết');
-                } catch {
-                    toast.error('Không thể sao chép liên kết');
-                }
-            },
-        });
 
         // Workflow actions
         if (canSelectDelivery && activePackaging) {
@@ -1452,12 +1430,6 @@ export function OrderDetailPage() {
                         <OrderPrintButton
                             order={order}
                             onPrintProductLabels={handlePrintProductLabels}
-                        />
-                        <ShareButton
-                            size="sm"
-                            className="h-7"
-                            title={`Đơn hàng ${order.id ?? order.systemId}`}
-                            text={`Đơn hàng ${order.id ?? order.systemId} — ${order.customer?.name ?? ''}`.trim()}
                         />
                         <Button
                             variant="outline"

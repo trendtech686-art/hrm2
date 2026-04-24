@@ -60,13 +60,15 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
     properties: { defaultRowHeight: 18 },
   });
 
-  // Column config
-  const numCols = mode === 'full-vat' ? 8 : 7;
+  // Column config — thêm cột "Tên VAT" sau "Tên hàng hóa" (col 4)
+  // Số thứ tự (stt) = 1, Mã SP = 2, Tên hàng hóa = 3, Tên VAT = 4, SL = 5, phần giá = 6..numCols
+  const numCols = mode === 'full-vat' ? 9 : 8;
   if (mode === 'full-vat') {
     ws.columns = [
       { key: 'stt', width: 5 },
       { key: 'sku', width: 18 },
-      { key: 'name', width: 40 },
+      { key: 'name', width: 36 },
+      { key: 'nameVat', width: 36 },
       { key: 'qty', width: 7 },
       { key: 'priceNoVat', width: 18 },
       { key: 'vat', width: 15 },
@@ -77,7 +79,8 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
     ws.columns = [
       { key: 'stt', width: 5 },
       { key: 'sku', width: 18 },
-      { key: 'name', width: 40 },
+      { key: 'name', width: 36 },
+      { key: 'nameVat', width: 36 },
       { key: 'qty', width: 7 },
       { key: 'price', width: 18 },
       { key: 'discount', width: 15 },
@@ -210,7 +213,7 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
     // ─── FULL VAT MODE ───
     const vatMultiplier = 1 + vatRate / 100;
 
-    const headerRow = addRow(['STT', 'Mã SP', 'Tên hàng hóa', 'SL', 'Đơn giá (chưa VAT)', `Thuế VAT ${vatRate}%`, 'Đơn giá (gồm VAT)', 'Thành tiền']);
+    const headerRow = addRow(['STT', 'Mã SP', 'Tên hàng hóa', 'Tên VAT', 'SL', 'Đơn giá (chưa VAT)', `Thuế VAT ${vatRate}%`, 'Đơn giá (gồm VAT)', 'Thành tiền']);
     if (headerRow) headerRow.height = 22;
     headerRow?.eachCell((cell, colNumber) => {
       if (colNumber > numCols) return;
@@ -239,6 +242,7 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
         idx + 1,
         item.productId || '',
         item.productName || '',
+        item.product?.nameVat || '',
         item.quantity,
         fmtNum(unitPriceBeforeVat),
         fmtNum(unitVat),
@@ -254,14 +258,14 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
         if (isOdd) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F7FB' } };
         }
-        // Align: STT center, SKU left, Name left, rest right
-        if (colNumber === 1 || colNumber === 4) {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        } else if (colNumber >= 5) {
+        // STT (1) & SL (5) center; cột Tên/Tên VAT (3,4) + SKU (2) left; giá (>=6) right.
+        if (colNumber === 1 || colNumber === 5) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        } else if (colNumber >= 6) {
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
           cell.numFmt = '#,##0';
         } else {
-          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
         }
       });
     });
@@ -272,9 +276,9 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
     // ─── TOTALS ───
     const addTotalRow = (label: string, value: number, isBold = false) => {
       const r = addRow();
-      // Merge label across columns E-G
-      ws.mergeCells(row, 5, row, numCols - 1);
-      const labelCell = ws.getCell(row, 5);
+      // Merge label từ cột giá đầu tiên (col 6) tới cột ngay trước cột Thành tiền.
+      ws.mergeCells(row, 6, row, numCols - 1);
+      const labelCell = ws.getCell(row, 6);
       labelCell.value = label;
       labelCell.font = { name: FONT_NAME, bold: isBold, size: 10 };
       labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -311,7 +315,7 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
 
   } else {
     // ─── NO VAT MODE ───
-    const headerRow = addRow(['STT', 'Mã SP', 'Tên hàng hóa', 'SL', 'Đơn giá', 'Giảm giá', 'Thành tiền']);
+    const headerRow = addRow(['STT', 'Mã SP', 'Tên hàng hóa', 'Tên VAT', 'SL', 'Đơn giá', 'Giảm giá', 'Thành tiền']);
     if (headerRow) headerRow.height = 22;
     headerRow?.eachCell((cell, colNumber) => {
       if (colNumber > numCols) return;
@@ -337,9 +341,10 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
         idx + 1,
         item.productId || '',
         item.productName || '',
+        item.product?.nameVat || '',
         item.quantity,
         fmtNum(item.unitPrice),
-        typeof discountDisplay === 'number' ? discountDisplay : discountDisplay,
+        discountDisplay,
         fmtNum(lineTotal),
       ]);
 
@@ -351,13 +356,13 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
         if (isOdd) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F7FB' } };
         }
-        if (colNumber === 1 || colNumber === 4) {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        } else if (colNumber >= 5 && typeof cell.value === 'number') {
+        if (colNumber === 1 || colNumber === 5) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        } else if (colNumber >= 6 && typeof cell.value === 'number') {
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
           cell.numFmt = '#,##0';
         } else {
-          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
         }
       });
     });
@@ -366,8 +371,9 @@ export async function exportInvoiceExcel(options: InvoiceExportOptions) {
 
     const addTotalRow = (label: string, value: number, isBold = false) => {
       addRow();
-      ws.mergeCells(row, 5, row, numCols - 1);
-      const labelCell = ws.getCell(row, 5);
+      // Merge label từ cột giá đầu tiên (col 6) tới cột ngay trước cột Thành tiền.
+      ws.mergeCells(row, 6, row, numCols - 1);
+      const labelCell = ws.getCell(row, 6);
       labelCell.value = label;
       labelCell.font = { name: FONT_NAME, bold: isBold, size: 10 };
       labelCell.alignment = { horizontal: 'right', vertical: 'middle' };

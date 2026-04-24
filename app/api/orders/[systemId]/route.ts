@@ -90,6 +90,7 @@ export async function GET(request: Request, { params }: RouteParams) {
                 systemId: true,
                 id: true,
                 name: true,
+                nameVat: true,
                 imageUrl: true,
                 costPrice: true,
                 productTypeSystemId: true,

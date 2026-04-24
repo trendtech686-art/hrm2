@@ -954,6 +954,7 @@ export type LineItem = {
     systemId?: string;
     id?: string;
     name?: string;
+    nameVat?: string | null;
     imageUrl?: string | null;
     costPrice?: number;
     productTypeSystemId?: string;

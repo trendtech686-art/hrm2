@@ -7,6 +7,7 @@ import { checkRateLimit } from '@/lib/security-utils'
 import { loginSchema } from './validation'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { resolveLoginUser } from '@/lib/auth/resolve-login-identifier'
 
 const JWT_SECRET = process.env.JWT_SECRET!
 const TOKEN_COOKIE_NAME = 'auth_token'
@@ -25,22 +26,27 @@ export async function POST(request: Request) {
   if (!validation.success) {
     return apiError(validation.error, 400)
   }
-  const { email, password } = validation.data
+  const { email: identifier, password } = validation.data
 
   try {
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        employee: {
+    // Resolve theo email hoặc SĐT
+    const userLite = await resolveLoginUser(identifier)
+    // resolveLoginUser chỉ include employee fields tối thiểu; cần fetch lại để lấy
+    // password và các quan hệ đầy đủ cho activity log + JWT payload.
+    const user = userLite
+      ? await prisma.user.findUnique({
+          where: { systemId: userLite.systemId },
           include: {
-            department: true,
-            branch: true,
-            jobTitle: true,
+            employee: {
+              include: {
+                department: true,
+                branch: true,
+                jobTitle: true,
+              },
+            },
           },
-        },
-      },
-    })
+        })
+      : null
 
     if (!user) {
       createActivityLog({
@@ -48,10 +54,10 @@ export async function POST(request: Request) {
         entityId: 'UNKNOWN',
         action: 'Đăng nhập thất bại',
         actionType: 'system',
-        note: `Email không tồn tại: ${email}`,
-        metadata: { email, ip, reason: 'user_not_found' },
+        note: `Tài khoản không tồn tại: ${identifier}`,
+        metadata: { identifier, ip, reason: 'user_not_found' },
       }).catch(() => undefined)
-      return apiError('Email hoặc mật khẩu không đúng', 401)
+      return apiError('Thông tin đăng nhập không đúng', 401)
     }
 
     if (!user.isActive) {
@@ -61,13 +67,12 @@ export async function POST(request: Request) {
         action: 'Đăng nhập thất bại',
         actionType: 'system',
         note: 'Tài khoản bị vô hiệu hóa',
-        metadata: { email, ip, reason: 'account_disabled' },
+        metadata: { identifier, ip, reason: 'account_disabled' },
         createdBy: user.systemId,
       }).catch(() => undefined)
       return apiError('Tài khoản đã bị vô hiệu hóa', 401)
     }
 
-    // Check password
     const isValidPassword = await bcrypt.compare(password, user.password)
     if (!isValidPassword) {
       createActivityLog({
@@ -76,13 +81,12 @@ export async function POST(request: Request) {
         action: 'Đăng nhập thất bại',
         actionType: 'system',
         note: 'Sai mật khẩu',
-        metadata: { email, ip, reason: 'invalid_password' },
+        metadata: { identifier, ip, reason: 'invalid_password' },
         createdBy: user.systemId,
       }).catch(() => undefined)
-      return apiError('Email hoặc mật khẩu không đúng', 401)
+      return apiError('Thông tin đăng nhập không đúng', 401)
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       {
         userId: user.systemId,
@@ -94,7 +98,6 @@ export async function POST(request: Request) {
       { expiresIn: '1d' }
     )
 
-    // Update last login
     await prisma.user.update({
       where: { systemId: user.systemId },
       data: { lastLogin: new Date() },
@@ -105,11 +108,10 @@ export async function POST(request: Request) {
       entityId: user.systemId,
       action: 'Đăng nhập',
       actionType: 'system',
-      metadata: { email, ip, userName: user.employee?.fullName || user.email },
+      metadata: { identifier, ip, userName: user.employee?.fullName || user.email },
       createdBy: user.systemId,
     }).catch(() => undefined)
 
-    // Prepare user data for response
     const userData = {
       systemId: user.systemId,
       email: user.email,
