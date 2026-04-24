@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Print Template Config - React Query Hook
  * 
