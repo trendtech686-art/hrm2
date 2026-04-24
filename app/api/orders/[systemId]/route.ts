@@ -613,6 +613,48 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }).catch(e => logError('[Orders PATCH] activity log failed', e))
 
+    // ✅ Dedicated log: status change
+    if (existingOrder && updateData.status !== undefined && existingOrder.status !== updateData.status) {
+      const newStatus = updateData.status as string;
+      const oldStatus = existingOrder.status;
+      const STATUS_LABELS: Record<string, string> = {
+        PENDING: 'Đặt hàng',
+        CONFIRMED: 'Đang giao dịch',
+        PROCESSING: 'Đang giao dịch',
+        PACKING: 'Đang giao dịch',
+        PACKED: 'Đang giao dịch',
+        READY_FOR_PICKUP: 'Đang giao dịch',
+        SHIPPING: 'Đang giao dịch',
+        DELIVERED: 'Đang giao dịch',
+        COMPLETED: 'Hoàn thành',
+        ARCHIVED: 'Đã lưu trữ',
+        FAILED_DELIVERY: 'Đang giao dịch',
+        RETURNED: 'Đang giao dịch',
+        CANCELLED: 'Đã hủy',
+      };
+      const oldLabel = STATUS_LABELS[oldStatus] || oldStatus;
+      const newLabel = STATUS_LABELS[newStatus] || newStatus;
+      const orderId = existingOrder.id || systemId;
+
+      await prisma.activityLog.create({
+        data: {
+          entityType: 'order',
+          entityId: systemId,
+          action: 'status_changed',
+          actionType: 'update',
+          note: `Đơn hàng ${orderId} chuyển trạng thái: ${oldLabel} → ${newLabel}`,
+          metadata: {
+            oldStatus,
+            newStatus,
+            orderId,
+            oldLabel,
+            newLabel,
+          },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[Orders PATCH] status_changed activity log failed', e))
+    }
+
     // Sync customer debt when order data changes (grandTotal, status, etc.)
     if (order.customerId) {
       updateCustomerDebt(order.customerId).catch(err => {

@@ -8,8 +8,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionFromCookie } from '@/lib/api-utils';
+import { getSessionFromCookie, serializeDecimals } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants';
 
 // POST - Create activity log
 export async function POST(request: NextRequest) {
@@ -73,9 +74,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get('entityType');
     const entityId = searchParams.get('entityId');
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50') || 50, 1), 200);
-    const offset = Math.max(parseInt(searchParams.get('offset') || '0') || 0, 0);
-    
+    const action = searchParams.get('action');
+    const userId = searchParams.get('userId');
+    const fromDate = searchParams.get('fromDate');
+    const toDate = searchParams.get('toDate');
+
+    // Pagination
+    const page = Math.max(parseInt(searchParams.get('page') || '1') || 1, 1);
+    const rawLimit = parseInt(searchParams.get('limit') || '50') || 50;
+    const limit = Math.min(Math.max(rawLimit, 1), API_MAX_PAGE_LIMIT);
+    const skip = (page - 1) * limit;
+
     const where: Record<string, unknown> = {};
     if (entityType) {
       where.entityType = entityType.includes(',')
@@ -83,17 +92,24 @@ export async function GET(request: NextRequest) {
         : entityType;
     }
     if (entityId) where.entityId = entityId;
-    
+    if (action) where.action = action;
+    if (userId) where.createdBy = userId;
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) (where.createdAt as Record<string, unknown>).gte = new Date(fromDate);
+      if (toDate) (where.createdAt as Record<string, unknown>).lte = new Date(toDate + 'T23:59:59');
+    }
+
     const [logs, total] = await Promise.all([
       prisma.activityLog.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         take: limit,
-        skip: offset,
+        skip,
       }),
       prisma.activityLog.count({ where }),
     ]);
-    
+
     // Resolve createdBy systemIds to display names for logs missing metadata.userName
     const unresolvedIds = new Set<string>();
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -126,10 +142,13 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      data: enrichedLogs,
-      total,
-      limit,
-      offset,
+      data: serializeDecimals(enrichedLogs),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     logError('[Activity Logs API] GET error', error);

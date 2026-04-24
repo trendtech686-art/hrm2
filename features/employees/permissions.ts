@@ -139,6 +139,9 @@ export type Permission =
   | 'edit_wiki'
   | 'delete_wiki'
 
+  // Activity Logs
+  | 'view_activity_logs'
+
   // Shipments (Giao hàng)
   | 'view_shipments'
   | 'create_shipments'
@@ -641,6 +644,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   edit_wiki: 'Sửa tài liệu',
   delete_wiki: 'Xóa tài liệu',
 
+  // Activity Logs
+  view_activity_logs: 'Xem nhật ký hoạt động',
+
   // Reports
   view_reports: 'Xem báo cáo',
   export_reports: 'Xuất báo cáo',
@@ -760,6 +766,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     'view_payments', 'create_payments', 'edit_payments', 'delete_payments',
     'view_tasks', 'manage_tasks', 'create_tasks', 'edit_tasks', 'delete_tasks', 'approve_tasks',
     'view_wiki', 'create_wiki', 'edit_wiki', 'delete_wiki',
+    'view_activity_logs',
     'view_reports', 'export_reports',
     'view_settings', 'edit_settings', 'manage_roles', 'manage_permissions',
     // New permissions
