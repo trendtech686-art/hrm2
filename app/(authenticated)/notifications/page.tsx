@@ -26,35 +26,40 @@ import {
 import type { NotificationGroup } from '@/lib/notification-groups'
 import { formatDateTime } from '@/lib/date-utils'
 import { usePageHeader } from '@/contexts/page-header-context'
+import { TYPE_PALETTE } from '@/lib/type-color-palette'
 
-// Lucide icon mapping for notification types
+// Lucide icon mapping for notification types.
+// - Status-like (order/complaint/penalty/leave/receipt_doc) dùng token semantic.
+// - "Type-like" (warranty/customer/inventory/...) lấy từ TYPE_PALETTE để 1 chỗ sửa
+//   ảnh hưởng nhiều màn (notification-center, complaint-card, …).
+const T = TYPE_PALETTE
 const NOTIFICATION_TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; fg: string }> = {
-  order:            { icon: Package,         bg: 'bg-info/15',     fg: 'text-info' },
-  warranty:         { icon: Wrench,          bg: 'bg-sky-100',     fg: 'text-sky-600' },
-  complaint:        { icon: FileText,        bg: 'bg-destructive/15', fg: 'text-destructive' },
-  sales_return:     { icon: RotateCcw,       bg: 'bg-orange-100',  fg: 'text-orange-600' },
-  customer:         { icon: User,            bg: 'bg-cyan-100',    fg: 'text-cyan-600' },
-  shipment:         { icon: Truck,           bg: 'bg-indigo-100',  fg: 'text-indigo-600' },
-  reconciliation:   { icon: BarChart3,       bg: 'bg-violet-100',  fg: 'text-violet-600' },
-  stock_transfer:   { icon: ArrowLeftRight,  bg: 'bg-amber-100',   fg: 'text-amber-600' },
-  inventory:        { icon: Warehouse,       bg: 'bg-yellow-100',  fg: 'text-yellow-600' },
-  inventory_check:  { icon: ClipboardList,   bg: 'bg-lime-100',    fg: 'text-lime-600' },
-  inventory_receipt:{ icon: Receipt,         bg: 'bg-emerald-100', fg: 'text-emerald-600' },
-  cost_adjustment:  { icon: CreditCard,      bg: 'bg-rose-100',    fg: 'text-rose-600' },
-  price_adjustment: { icon: Tag,             bg: 'bg-pink-100',    fg: 'text-pink-600' },
-  purchase_order:   { icon: ShoppingCart,    bg: 'bg-sky-100',     fg: 'text-sky-600' },
-  purchase_return:  { icon: RotateCcw,       bg: 'bg-fuchsia-100', fg: 'text-fuchsia-600' },
-  system:           { icon: Settings,        bg: 'bg-muted',        fg: 'text-muted-foreground' },
-  task:             { icon: CheckCircle2,    bg: 'bg-teal-100',    fg: 'text-teal-600' },
-  comment:          { icon: MessageCircle,   bg: 'bg-indigo-100',  fg: 'text-indigo-600' },
-  mention:          { icon: AtSign,          bg: 'bg-pink-100',    fg: 'text-pink-600' },
-  attendance:       { icon: Clock,           bg: 'bg-amber-100',   fg: 'text-amber-600' },
-  leave:            { icon: TreePalm,        bg: 'bg-success/15',  fg: 'text-success' },
-  payroll:          { icon: Banknote,        bg: 'bg-emerald-100', fg: 'text-emerald-600' },
-  penalty:          { icon: AlertTriangle,   bg: 'bg-destructive/15', fg: 'text-destructive' },
-  employee:         { icon: User,            bg: 'bg-purple-100',  fg: 'text-purple-600' },
-  payment:          { icon: CreditCard,      bg: 'bg-emerald-100', fg: 'text-emerald-600' },
-  receipt_doc:      { icon: Receipt,         bg: 'bg-info/15',     fg: 'text-info' },
+  order:             { icon: Package,         bg: 'bg-info/15',        fg: 'text-info' },
+  warranty:          { icon: Wrench,          bg: T.sky.bg,            fg: T.sky.fg },
+  complaint:         { icon: FileText,        bg: 'bg-destructive/15', fg: 'text-destructive' },
+  sales_return:      { icon: RotateCcw,       bg: T.orange.bg,         fg: T.orange.fg },
+  customer:          { icon: User,            bg: T.cyan.bg,           fg: T.cyan.fg },
+  shipment:          { icon: Truck,           bg: T.indigo.bg,         fg: T.indigo.fg },
+  reconciliation:    { icon: BarChart3,       bg: T.violet.bg,         fg: T.violet.fg },
+  stock_transfer:    { icon: ArrowLeftRight,  bg: T.amber.bg,          fg: T.amber.fg },
+  inventory:         { icon: Warehouse,       bg: T.yellow.bg,         fg: T.yellow.fg },
+  inventory_check:   { icon: ClipboardList,   bg: T.lime.bg,           fg: T.lime.fg },
+  inventory_receipt: { icon: Receipt,         bg: T.emerald.bg,        fg: T.emerald.fg },
+  cost_adjustment:   { icon: CreditCard,      bg: T.rose.bg,           fg: T.rose.fg },
+  price_adjustment:  { icon: Tag,             bg: T.pink.bg,           fg: T.pink.fg },
+  purchase_order:    { icon: ShoppingCart,    bg: T.sky.bg,            fg: T.sky.fg },
+  purchase_return:   { icon: RotateCcw,       bg: T.fuchsia.bg,        fg: T.fuchsia.fg },
+  system:            { icon: Settings,        bg: T.neutral.bg,        fg: T.neutral.fg },
+  task:              { icon: CheckCircle2,    bg: T.teal.bg,           fg: T.teal.fg },
+  comment:           { icon: MessageCircle,   bg: T.indigo.bg,         fg: T.indigo.fg },
+  mention:           { icon: AtSign,          bg: T.pink.bg,           fg: T.pink.fg },
+  attendance:        { icon: Clock,           bg: T.amber.bg,          fg: T.amber.fg },
+  leave:             { icon: TreePalm,        bg: 'bg-success/15',     fg: 'text-success' },
+  payroll:           { icon: Banknote,        bg: T.emerald.bg,        fg: T.emerald.fg },
+  penalty:           { icon: AlertTriangle,   bg: 'bg-destructive/15', fg: 'text-destructive' },
+  employee:          { icon: User,            bg: T.purple.bg,         fg: T.purple.fg },
+  payment:           { icon: CreditCard,      bg: T.emerald.bg,        fg: T.emerald.fg },
+  receipt_doc:       { icon: Receipt,         bg: 'bg-info/15',        fg: 'text-info' },
 }
 
 function NotificationIcon({ type }: { type: string }) {

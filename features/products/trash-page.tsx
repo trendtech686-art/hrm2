@@ -8,7 +8,6 @@ import { usePageHeader } from "../../contexts/page-header-context";
 import { useDeletedProducts, useTrashMutations } from "./hooks/use-products"
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
-import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import type { Product } from "@/lib/types/prisma-extended"

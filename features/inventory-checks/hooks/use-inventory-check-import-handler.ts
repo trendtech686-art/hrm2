@@ -8,7 +8,6 @@ import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
 import { fetchInventoryChecks } from '../api/inventory-checks-api';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { inventoryCheckKeys } from "./use-inventory-checks";
 import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════

@@ -1,5 +1,4 @@
 import * as React from 'react';
-import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2 } from 'lucide-react';

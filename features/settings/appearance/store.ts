@@ -23,6 +23,11 @@ import {
   THEME_BOOT_STORAGE_KEY,
   THEME_BOOT_VAR_KEYS,
 } from '@/components/theme-boot-script'
+import {
+  THEME_COOKIE_MAX_AGE,
+  THEME_COOKIE_NAME,
+  serializeThemeCookie,
+} from '@/lib/theme-cookie'
 export type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
 
 export type CustomThemeConfig = {
@@ -243,8 +248,9 @@ export async function loadAppearanceFromDatabase() {
         customThemeConfig: mergedConfig,
       };
       useAppearanceStore.setState(next);
-      // Đảm bảo cache boot luôn có nguồn mới nhất từ DB, kể cả khi subscribe không fire.
+      // Đảm bảo cache boot + cookie luôn có nguồn mới nhất từ DB, kể cả khi subscribe không fire.
       writeThemeBootCache(next.colorMode, next.fontSize, next.customThemeConfig);
+      writeThemeCookie(next.colorMode, next.fontSize);
     }
   } catch (error) {
     console.warn('Error loading appearance from database:', error);
@@ -263,8 +269,9 @@ useAppearanceStore.subscribe(
     customThemeConfig: state.customThemeConfig,
   }),
   (current) => {
-    // Ghi boot cache để lần render tiếp theo không bị FOUC (đọc ở components/theme-boot-script.tsx).
+    // Ghi boot cache + cookie để lần render tiếp theo không bị FOUC.
     writeThemeBootCache(current.colorMode, current.fontSize, current.customThemeConfig);
+    writeThemeCookie(current.colorMode, current.fontSize);
     if (isInitialized) {
       syncAppearanceToDatabase();
     }
@@ -294,5 +301,20 @@ function writeThemeBootCache(
     );
   } catch {
     // Bỏ qua: storage có thể bị chặn (privacy mode) — chỉ mất FOUC nhẹ.
+  }
+}
+
+/**
+ * Ghi cookie để RSC layout đọc lần tải trang sau → render `<html class="dark ...">`
+ * ngay trong markup (không cần đợi hydrate). Cookie SameSite=Lax, không HttpOnly để
+ * client tự đọc/ghi (đây là pref UI, không nhạy cảm).
+ */
+function writeThemeCookie(colorMode: ColorMode, fontSize: FontSize): void {
+  if (typeof document === 'undefined') return;
+  try {
+    const value = serializeThemeCookie({ colorMode, fontSize });
+    document.cookie = `${THEME_COOKIE_NAME}=${value}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
+  } catch {
+    // Bỏ qua: trình duyệt có thể chặn cookie — fallback boot script vẫn xử lý FOUC.
   }
 }

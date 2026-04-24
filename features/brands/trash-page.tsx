@@ -8,10 +8,8 @@ import { usePageHeader } from "@/contexts/page-header-context";
 import { useDeletedBrands, useTrashMutations } from "./hooks/use-brands"
 import { getColumns, type TrashBrand } from "./trash-columns"
 import { GenericTrashPage } from "@/components/shared/generic-trash-page"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { Brand } from './api/brands-api'
 import type { SystemId } from "@/lib/id-types";
 
 // TrashBrand is re-exported from trash-columns

@@ -10,9 +10,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ColumnDef } from '@/components/data-table/types'
 import { formatDistanceToNow, format } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import { 
-  History, Plus, Pencil, Trash2, FileText, User, Calendar, 
-  ArrowRight, Eye, RotateCcw, Upload
+import {
+  History, Plus, Pencil, Trash2, FileText, User, Calendar,
+  Eye, RotateCcw, Upload
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'

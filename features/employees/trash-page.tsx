@@ -9,7 +9,6 @@ import { useDeletedEmployees, useTrashMutations } from "./hooks/use-employees";
 import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
-import { Card, CardContent } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { getApiUrl } from "../../lib/api-config"

@@ -8,10 +8,8 @@ import { usePageHeader } from "@/contexts/page-header-context";
 import { useDeletedCategories, useCategoryTrashMutations } from "./hooks/use-categories"
 import { getColumns, type TrashCategory } from "./trash-columns"
 import { GenericTrashPage } from "@/components/shared/generic-trash-page"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { Category } from './api/categories-api'
 import type { SystemId } from "@/lib/id-types";
 
 // TrashCategory is re-exported from trash-columns

@@ -84,7 +84,7 @@ interface ProgressBarProps {
   color?: string;
 }
 
-function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }: ProgressBarProps) {
+function ProgressBar({ label, value, total, percentage, color = "bg-primary" }: ProgressBarProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">

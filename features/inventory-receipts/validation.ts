@@ -2,7 +2,6 @@
  * Zod validation schemas for inventory-receipts module
  */
 import { z } from 'zod';
-import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Item schema - matches server action fields
 export const inventoryReceiptItemSchema = z.object({

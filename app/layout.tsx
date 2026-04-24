@@ -1,9 +1,15 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, Source_Serif_4, Geist_Mono } from "next/font/google"
+import { cookies } from "next/headers"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css"
 import { Providers } from "./providers"
 import { ThemeBootScript } from "@/components/theme-boot-script"
+import {
+  THEME_COOKIE_NAME,
+  buildHtmlThemeClassName,
+  parseThemeCookie,
+} from "@/lib/theme-cookie"
 // preloadSettings moved to (authenticated)/layout.tsx — only needed for auth pages
 
 const inter = Inter({ 
@@ -76,8 +82,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Đọc cookie ở RSC để render `<html class="dark font-size-...">` ngay trong markup,
+  // tránh FOUC class. CSS vars vẫn được boot script áp ngay sau (cùng path đồng bộ).
+  const cookieStore = await cookies()
+  const themeCookie = parseThemeCookie(cookieStore.get(THEME_COOKIE_NAME)?.value)
+  const htmlClassName = buildHtmlThemeClassName(themeCookie)
+
   return (
-    <html lang="vi" className="font-size-base" suppressHydrationWarning>
+    <html lang="vi" className={htmlClassName} suppressHydrationWarning>
       <head>
         {/* Fonts are self-hosted via next/font — no external requests */}
         <ThemeBootScript />

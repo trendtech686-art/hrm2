@@ -7,7 +7,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { cn } from "../../../lib/utils";
 import { mobileBleedCardClass } from '@/components/layout/page-section';
-import { Copy, Plus, AlertTriangle, FileText, Receipt, ClipboardList } from 'lucide-react';
+import { Copy, Plus, AlertTriangle, FileText, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge, COMPLAINT_STATUS_MAP } from "../../../components/StatusBadge";
 import { generateTrackingUrl, getTrackingCode } from '../tracking-utils';

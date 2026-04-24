@@ -127,10 +127,10 @@ export const getColumns = (
       if (!row.status) return '-';
       
       const colorMap: Record<string, string> = {
-        'Đang giao dịch': 'bg-green-500',
-        'Ngừng Giao Dịch': 'bg-red-500',
+        'Đang giao dịch': 'bg-success text-success-foreground',
+        'Ngừng Giao Dịch': 'bg-destructive text-destructive-foreground',
       };
-      
+
       return (
         <Badge className={colorMap[row.status] || 'bg-muted text-foreground'}>
           {row.status}

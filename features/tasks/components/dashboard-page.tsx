@@ -363,10 +363,10 @@ function StatusBar({ label, value, total, color }: StatusBarProps) {
 
   const colorClasses: Record<string, string> = {
     gray: 'bg-muted-foreground',
-    blue: 'bg-blue-500',
-    yellow: 'bg-yellow-500',
-    green: 'bg-green-500',
-    red: 'bg-red-500',
+    blue: 'bg-info',
+    yellow: 'bg-warning',
+    green: 'bg-success',
+    red: 'bg-destructive',
   };
 
   return (

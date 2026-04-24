@@ -10,7 +10,7 @@ import { useOrderActions } from '../hooks/use-order-actions';
 import { useOrderMutations } from '../hooks/use-order-mutations';
 import type { OrderDeliveryStatus, OrderAddress } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from '../address-utils';
-import { ORDER_STATUS_LABELS, getMainOrderStatus } from '@/lib/constants/order-enums';
+import { ORDER_STATUS_LABELS } from '@/lib/constants/order-enums';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { mobileBleedCardClass } from '@/components/layout/page-section';
