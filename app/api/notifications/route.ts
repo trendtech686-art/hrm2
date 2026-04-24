@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
     const unreadOnly = searchParams.get('unreadOnly') === 'true'
 
     const employeeId = session.user.employeeId
-    if (!employeeId) return apiError('Employee not found', 400)
+    // If no employeeId, return empty notifications (user may be a system user without employee record)
+    // Don't return error - just return empty list so UI shows "No notifications"
+    if (!employeeId) {
+      return apiPaginated([], { page, limit, total: 0 })
+    }
 
     const where: Record<string, unknown> = { recipientId: employeeId }
     if (type) where.type = type

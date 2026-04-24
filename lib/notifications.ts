@@ -32,7 +32,7 @@
 
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
-import { logError } from '@/lib/logger'
+import { logError, logWarn } from '@/lib/logger'
 import { sendPushMany, isWebPushConfigured, type PushPayload } from '@/lib/web-push'
 import type { GeneralNotificationSettings, SystemNotificationSettings, TaskNotificationSettings, ComplaintNotificationSettings, WarrantyNotificationSettings, SalesNotificationSettings, WarehouseNotificationSettings, HrNotificationSettings } from '@/features/settings/notifications/types'
 import { defaultGeneralNotifications, defaultSystemNotifications, defaultTaskNotifications, defaultComplaintNotifications, defaultWarrantyNotifications, defaultSalesNotifications, defaultWarehouseNotifications, defaultHrNotifications } from '@/features/settings/notifications/types'
@@ -47,6 +47,18 @@ let _cachedSales: { data: SalesNotificationSettings; ts: number } | null = null
 let _cachedWarehouse: { data: WarehouseNotificationSettings; ts: number } | null = null
 let _cachedHr: { data: HrNotificationSettings; ts: number } | null = null
 const SETTINGS_TTL = 60_000 // 60 seconds
+
+// ─── Cache invalidation ────────────────────────
+export function invalidateNotificationSettingsCache(): void {
+  _cachedGeneral = null
+  _cachedSystem = null
+  _cachedTaskNotif = null
+  _cachedComplaintNotif = null
+  _cachedWarrantyNotif = null
+  _cachedSales = null
+  _cachedWarehouse = null
+  _cachedHr = null
+}
 
 async function readSetting<T extends object>(key: string, group: string, fallback: T): Promise<T> {
   try {
@@ -202,26 +214,49 @@ async function isModuleInAppEnabled(prefix: ModulePrefix): Promise<boolean> {
  */
 export async function shouldNotify(settingsKey?: string): Promise<boolean> {
   const general = await getGeneralNotificationSettings()
-  if (!general.enabled) return false
+  if (!general.enabled) {
+    // Log warning when notifications are blocked by master switch
+    logWarn('[Notification] Blocked by master switch', { settingsKey })
+    return false
+  }
   if (!settingsKey) return true
 
   // General due-date category gates — respect Cài đặt → Thông báo → Chung
   // Any settingsKey ending in these suffixes must also pass the corresponding
   // general toggle (notifyOverdue/notifyDueToday/…).
   const suffix = settingsKey.split(':').pop() ?? ''
-  if (suffix === 'overdue' && !general.notifyOverdue) return false
-  if (suffix === 'dueToday' && !general.notifyDueToday) return false
-  if (suffix === 'dueTomorrow' && !general.notifyDueTomorrow) return false
-  if (suffix === 'dueSoon' && !general.notifyDueSoon) return false
+  if (suffix === 'overdue' && !general.notifyOverdue) {
+    logWarn('[Notification] Blocked by notifyOverdue setting', { settingsKey })
+    return false
+  }
+  if (suffix === 'dueToday' && !general.notifyDueToday) {
+    logWarn('[Notification] Blocked by notifyDueToday setting', { settingsKey })
+    return false
+  }
+  if (suffix === 'dueTomorrow' && !general.notifyDueTomorrow) {
+    logWarn('[Notification] Blocked by notifyDueTomorrow setting', { settingsKey })
+    return false
+  }
+  if (suffix === 'dueSoon' && !general.notifyDueSoon) {
+    logWarn('[Notification] Blocked by notifyDueSoon setting', { settingsKey })
+    return false
+  }
 
   // Check unified settings map (Sales, Warehouse, HR, System)
   const mapping = NOTIFICATION_SETTINGS_MAP[settingsKey]
   if (mapping) {
     const settings = await mapping.reader()
     // Check module-level inAppNotifications toggle if present
-    if ('inAppNotifications' in settings && !settings.inAppNotifications) return false
+    if ('inAppNotifications' in settings && !settings.inAppNotifications) {
+      logWarn('[Notification] Blocked by inAppNotifications toggle', { settingsKey })
+      return false
+    }
     // Check event-level toggle
-    return !!settings[mapping.field]
+    if (!settings[mapping.field]) {
+      logWarn('[Notification] Blocked by event toggle', { settingsKey, field: mapping.field })
+      return false
+    }
+    return true
   }
 
   // Check module-level inAppNotifications (task:*, complaint:*, warranty:*)

@@ -11,6 +11,7 @@ import { logError } from '@/lib/logger'
 import { requireActionPermission } from '@/lib/api-utils'
 import { cache } from '@/lib/cache'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { invalidateNotificationSettingsCache } from '@/lib/notifications'
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -428,6 +429,9 @@ export async function updateModuleSettingSection(
 
     // Invalidate server-side settings cache so GET returns fresh data
     cache.deletePattern('^settings:');
+
+    // Invalidate notification settings cache immediately
+    invalidateNotificationSettingsCache();
 
     return { success: true, data };
   } catch (error) {
