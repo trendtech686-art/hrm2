@@ -16,7 +16,7 @@ const baseLightConfig: Omit<CustomThemeConfig, '--primary' | '--primary-foregrou
     '--accent-foreground': 'oklch(0.205 0 0)',
     '--destructive': 'oklch(0.577 0.245 27.325)',
     '--destructive-foreground': 'oklch(0.985 0 0)',
-    '--success': 'oklch(0.55 0.15 145)',
+    '--success': 'oklch(0.62 0.15 145)',
     '--success-foreground': 'oklch(0.99 0.01 145)',
     '--warning': 'oklch(0.88 0.12 85)',
     '--warning-foreground': 'oklch(0.28 0.06 65)',
