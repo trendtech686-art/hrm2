@@ -7,10 +7,10 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiHandler } from '@/lib/api-utils'
+import { apiSuccess } from '@/lib/api-utils'
 import { normalizePhone, buildPhoneLookupVariants } from '@/lib/phone-normalize'
 
-export const GET = apiHandler(async (request) => {
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const raw = searchParams.get('phone')
   const exclude = searchParams.get('exclude')
@@ -39,4 +39,4 @@ export const GET = apiHandler(async (request) => {
     exists: count > 0,
     normalizedPhone: normalized,
   })
-})
+}

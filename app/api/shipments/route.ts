@@ -26,6 +26,8 @@ export async function GET(request: Request) {
 
     const where: Prisma.ShipmentWhereInput = {}
 
+    const conditions: Prisma.ShipmentWhereInput[] = []
+
     const searchWhere = buildSearchWhere<Prisma.ShipmentWhereInput>(search, [
       'id',
       'trackingNumber',
@@ -33,7 +35,9 @@ export async function GET(request: Request) {
       'recipientPhone',
       'carrier',
     ])
-    if (searchWhere) Object.assign(where, searchWhere)
+    if (searchWhere) {
+      conditions.push(searchWhere)
+    }
 
     if (status && status !== 'all') {
       where.status = status as ShipmentStatus
@@ -48,14 +52,25 @@ export async function GET(request: Request) {
     }
 
     if (branchId && branchId !== 'all') {
-      where.OR = [
-        { order: { branchId } },
-        { warranty: { branchSystemId: branchId } },
-      ]
+      conditions.push({
+        OR: [
+          { order: { branchId } },
+          { warranty: { branchSystemId: branchId } },
+        ],
+      })
     }
 
     if (carrier && carrier !== 'all') {
       where.carrier = carrier
+    }
+
+    if (conditions.length > 0) {
+      if (where.AND) {
+        const existing = Array.isArray(where.AND) ? where.AND : [where.AND]
+        where.AND = [...existing, ...conditions]
+      } else {
+        where.AND = conditions
+      }
     }
 
     // Build orderBy
