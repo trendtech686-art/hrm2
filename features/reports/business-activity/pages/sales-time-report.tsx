@@ -9,6 +9,7 @@
 
 import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
@@ -136,6 +137,8 @@ const DISPLAY_OPTIONS = [
 ];
 
 export function SalesTimeReportPage() {
+  const router = useRouter();
+  
   // State
   const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
   const [timeGrouping, setTimeGrouping] = React.useState<TimeGrouping>('day');
@@ -246,6 +249,14 @@ export function SalesTimeReportPage() {
     { key: 'grossProfit', label: 'Lợi nhuận gộp', selected: true },
   ], []);
   
+  // Build query string for navigation
+  const buildReportUrl = React.useCallback((groupByValue: GroupByOption) => {
+    const params = new URLSearchParams();
+    params.set('from', dateRange.from);
+    params.set('to', dateRange.to);
+    return params.toString();
+  }, [dateRange]);
+  
   // Header actions
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
@@ -305,12 +316,40 @@ export function SalesTimeReportPage() {
     </div>
   );
   
-  // Handle group by change - navigate to different report
-  const handleGroupByChange = (newGroupBy: GroupByOption) => {
-    setGroupBy(newGroupBy);
-    // Could navigate to different page based on groupBy
-    // For now, just update state
-  };
+  // Handle group by change - navigate to different report page
+  const handleGroupByChange = React.useCallback((newGroupBy: GroupByOption) => {
+    const queryString = buildReportUrl(newGroupBy);
+    
+    switch (newGroupBy) {
+      case 'time':
+        router.push(`${ROUTES.REPORTS.SALES_BY_TIME}?${queryString}`);
+        break;
+      case 'employee':
+        router.push(`${ROUTES.REPORTS.SALES_BY_EMPLOYEE}?${queryString}`);
+        break;
+      case 'product':
+        router.push(`${ROUTES.REPORTS.SALES_BY_PRODUCT}?${queryString}`);
+        break;
+      case 'order':
+        router.push(`${ROUTES.REPORTS.SALES_BY_ORDER}?${queryString}`);
+        break;
+      case 'branch':
+        router.push(`${ROUTES.REPORTS.SALES_BY_BRANCH}?${queryString}`);
+        break;
+      case 'source':
+        router.push(`${ROUTES.REPORTS.SALES_BY_SOURCE}?${queryString}`);
+        break;
+      case 'customer':
+        router.push(`${ROUTES.REPORTS.SALES_BY_CUSTOMER}?${queryString}`);
+        break;
+      case 'customer-group':
+        router.push(`${ROUTES.REPORTS.SALES_BY_CUSTOMER_GROUP}?${queryString}`);
+        break;
+      default:
+        // Stay on current page for unknown groupBy
+        break;
+    }
+  }, [router, buildReportUrl]);
   
   return (
     <div className="flex flex-col gap-6">
