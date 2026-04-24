@@ -64,8 +64,10 @@ export function useSalesTimeReport(
         sourceIds: filters?.sourceIds,
       }),
     enabled: Boolean(dateRange.from && dateRange.to),
-    staleTime: REPORTS_QUERY_STALE_MS,
+    // Short stale time so filter changes trigger fresh fetch
+    staleTime: 30 * 1000,
     gcTime: REPORTS_QUERY_GC_MS,
+    refetchOnMount: true,
   });
 
   return {
