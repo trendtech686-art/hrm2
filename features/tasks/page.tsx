@@ -1,6 +1,5 @@
 'use client'
 import * as React from "react"
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useTasks, useTaskMutations, useTaskStats, type TaskStats } from "./hooks/use-tasks"
 import { getColumns } from "./columns"
@@ -14,9 +13,7 @@ import { PageFilters } from "../../components/layout/page-filters"
 import { PageToolbar } from "../../components/layout/page-toolbar"
 import { StatsBar } from "../../components/shared/stats-bar"
 import { Button } from "../../components/ui/button"
-import { Tabs } from "../../components/ui/tabs"
-import { MobileTabsList, MobileTabsTrigger } from "../../components/layout/page-section"
-import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Settings, Loader2 } from "lucide-react"
+import { PlusCircle, FileText, Loader2 } from "lucide-react"
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 
@@ -29,8 +26,6 @@ import type { SystemId } from '../../lib/id-types';
 import { useColumnVisibility, useColumnOrder, usePinnedColumns } from "../../hooks/use-column-visibility";
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
 import { useFilterPresets } from '../../hooks/use-filter-presets';
-
-const TaskKanbanView = dynamic(() => import("./components/kanban-view").then(mod => ({ default: mod.TaskKanbanView })), { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> });
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 import { FAB } from '@/components/mobile/fab';
 
@@ -88,7 +83,7 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-  const [viewMode, setViewMode] = React.useState<'list' | 'kanban'>('list');
+  const [viewMode, setViewMode] = React.useState<'list'>('list');
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
 
@@ -182,11 +177,11 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   ];
 
   const actions = React.useMemo(() => {
-    const btns = [<Tabs key={`vt-${viewMode}`} value={viewMode} onValueChange={v => setViewMode(v as 'list' | 'kanban')} className="h-9"><MobileTabsList><MobileTabsTrigger value="list"><Table className="mr-2 h-4 w-4" />Danh sách</MobileTabsTrigger><MobileTabsTrigger value="kanban"><LayoutGrid className="mr-2 h-4 w-4" />Kanban</MobileTabsTrigger></MobileTabsList></Tabs>];
-    if (can('approve_tasks')) { btns.push(<Button key="t" variant="outline" size="sm" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>, <Button key="d" variant="outline" size="sm" onClick={() => router.push('/tasks/dashboard')}><BarChart3 className="mr-2 h-4 w-4" />Dashboard</Button>); }
+    const btns: React.ReactNode[] = [];
+    if (can('approve_tasks')) { btns.push(<Button key="t" variant="outline" size="sm" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>); }
     if (can('create_tasks')) { btns.push(<Button key="n" onClick={() => router.push('/tasks/new')} size="sm"><PlusCircle className="mr-2 h-4 w-4" />Tạo công việc mới</Button>); }
     return btns;
-  }, [viewMode, router, can]);
+  }, [router, can]);
 
   usePageHeader({ title: 'Quản lý công việc', actions, breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Quản lý công việc', href: '/tasks', isCurrent: true }] });
 
@@ -205,13 +200,17 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
           ]}
         />
 
-        {!isMobile && <PageToolbar leftActions={<>{can('edit_settings') && <Button variant="outline" size="sm" onClick={() => router.push('/settings/tasks')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}</>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
-        <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm kiếm công việc...">
-          <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
-        </PageFilters>
-        <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+        <PageToolbar
+          search={{ value: search, onChange: setSearch, placeholder: 'Tìm kiếm công việc...' }}
+          rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
+        />
+        <div className="hidden md:block px-4">
+          <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm kiếm công việc...">
+            <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
+          </PageFilters>
+          <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+        </div>
       </>)}
-      {viewMode === 'kanban' && <TaskKanbanView tasks={filteredData} onTaskClick={handleRowClick} employees={employees} onTaskUpdate={update} />}
       {viewMode === 'list' && (<>
         <div className={cn(isTasksFetching && 'opacity-70 transition-opacity')}>
         <ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} bulkActions={bulkActions} renderMobileCard={task => <TaskCard task={task} onDelete={id => { setIdToDelete(id); setIsAlertOpen(true); }} />} mobileInfiniteScroll />

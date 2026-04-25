@@ -762,17 +762,17 @@ export function CustomerDetailPage() {
       <div className="w-full h-full">
         <div className="space-y-6">
           {/* Stats Summary - Always from stats API */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-md:-mx-4 max-md:px-4">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-md:-mx-4 max-md:px-4 max-md:[&>*:not(:first-child)]:border-l max-md:[&>*:not(:first-child)]:border-l-border">
             {/* Tổng chi tiêu */}
             <Card
               role="button"
               tabIndex={0}
               onClick={() => handleOrderStatusFilter('Hoàn thành')}
-              className="cursor-pointer transition hover:border-primary/50"
+              className="cursor-pointer transition hover:border-primary/50 max-md:rounded-none max-md:border-x-0"
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 text-center">
                 <div className="text-xs text-muted-foreground">Chi tiêu</div>
-                <div className="text-base font-bold">{formatCurrency(customerStats.financial.totalSpent)}</div>
+                <div className="text-base font-bold mt-1">{formatCurrency(customerStats.financial.totalSpent)}</div>
               </CardContent>
             </Card>
 
@@ -781,16 +781,14 @@ export function CustomerDetailPage() {
               role="button"
               tabIndex={0}
               onClick={() => handleOrderStatusFilter()}
-              className="cursor-pointer transition hover:border-primary/50"
+              className="cursor-pointer transition hover:border-primary/50 max-md:rounded-none max-md:border-x-0"
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 text-center">
                 <div className="text-xs text-muted-foreground">Đơn hàng</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-base font-bold">{customerStats.orders.total}</span>
-                  {customerStats.orders.completed > 0 && (
-                    <span className="text-xs text-green-600">Hoàn thành: {customerStats.orders.completed}</span>
-                  )}
-                </div>
+                <div className="text-base font-bold mt-1">{customerStats.orders.total}</div>
+                {customerStats.orders.completed > 0 && (
+                  <div className="text-xs text-success mt-1">Hoàn thành: {customerStats.orders.completed}</div>
+                )}
               </CardContent>
             </Card>
 
@@ -799,11 +797,11 @@ export function CustomerDetailPage() {
               role="button"
               tabIndex={0}
               onClick={handleDebtCardClick}
-              className="cursor-pointer transition hover:border-primary/50"
+              className="cursor-pointer transition hover:border-primary/50 max-md:rounded-none max-md:border-x-0"
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 text-center">
                 <div className="text-xs text-muted-foreground">Công nợ</div>
-                <div className="text-base font-bold">{formatCurrency(customerStats.financial.currentDebt)}</div>
+                <div className="text-base font-bold mt-1">{formatCurrency(customerStats.financial.currentDebt)}</div>
               </CardContent>
             </Card>
 
@@ -812,16 +810,14 @@ export function CustomerDetailPage() {
               role="button"
               tabIndex={0}
               onClick={() => handleWarrantyCardClick(false)}
-              className="cursor-pointer transition hover:border-primary/50"
+              className="cursor-pointer transition hover:border-primary/50 max-md:rounded-none max-md:border-x-0"
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 text-center">
                 <div className="text-xs text-muted-foreground">Bảo hành</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-base font-bold">{customerStats.warranties.total}</span>
-                  {customerStats.warranties.active > 0 && (
-                    <span className="text-xs text-orange-600">Chưa xử lý: {customerStats.warranties.active}</span>
-                  )}
-                </div>
+                <div className="text-base font-bold mt-1">{customerStats.warranties.total}</div>
+                {customerStats.warranties.active > 0 && (
+                  <div className="text-xs text-warning mt-1">Chưa xử lý: {customerStats.warranties.active}</div>
+                )}
               </CardContent>
             </Card>
 
@@ -830,16 +826,14 @@ export function CustomerDetailPage() {
               role="button"
               tabIndex={0}
               onClick={() => handleComplaintCardClick(false)}
-              className="cursor-pointer transition hover:border-primary/50"
+              className="cursor-pointer transition hover:border-primary/50 max-md:rounded-none max-md:border-x-0"
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 text-center">
                 <div className="text-xs text-muted-foreground">Khiếu nại</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-base font-bold">{customerStats.complaints.total}</span>
-                  {customerStats.complaints.active > 0 && (
-                    <span className="text-xs text-red-600">Đang xử lý: {customerStats.complaints.active}</span>
-                  )}
-                </div>
+                <div className="text-base font-bold mt-1">{customerStats.complaints.total}</div>
+                {customerStats.complaints.active > 0 && (
+                  <div className="text-xs text-destructive mt-1">Đang xử lý: {customerStats.complaints.active}</div>
+                )}
               </CardContent>
             </Card>
 
@@ -848,16 +842,14 @@ export function CustomerDetailPage() {
               role="button"
               tabIndex={0}
               onClick={() => handleOrderStatusFilter('failed')}
-              className="cursor-pointer transition hover:border-primary/50"
+              className="cursor-pointer transition hover:border-primary/50 max-md:rounded-none max-md:border-x-0"
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 text-center">
                 <div className="text-xs text-muted-foreground">GH lỗi</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-base font-bold">{totalFailedDeliveries}</span>
-                  {unresolvedFailedDeliveries > 0 && (
-                    <span className="text-xs text-orange-600">chờ giao lại: {unresolvedFailedDeliveries}</span>
-                  )}
-                </div>
+                <div className="text-base font-bold mt-1">{totalFailedDeliveries}</div>
+                {unresolvedFailedDeliveries > 0 && (
+                  <div className="text-xs text-warning mt-1">chờ giao lại: {unresolvedFailedDeliveries}</div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -933,7 +925,7 @@ export function CustomerDetailPage() {
                           const variant = debtRatio >= 90 ? 'destructive' : debtRatio >= 70 ? 'warning' : 'success';
                           return (
                             <>
-                              <span className={`text-h4 font-bold ${variant === 'destructive' ? 'text-red-600' : variant === 'warning' ? 'text-yellow-600' : 'text-green-600'}`}>
+                              <span className={`text-h4 font-bold ${variant === 'destructive' ? 'text-destructive' : variant === 'warning' ? 'text-warning' : 'text-success'}`}>
                                 {debtRatio.toFixed(0)}%
                               </span>
                               <p className="text-xs text-muted-foreground mt-1">
