@@ -165,28 +165,42 @@ const DEFAULT_TOP_PRODUCT_RANGE: DateRange = {
   label: '7 ngày qua',
 }
 
-function useDashboard(branchId: string | null, chartRange: DateRange, topProductRange: DateRange) {
-  const today = format(new Date(), 'yyyy-MM-dd')
-  // Include chartRange in queryKey to refetch when range changes
+/**
+ * Dashboard API hooks - Tách riêng để tối ưu loading
+ */
+interface DashboardQueryParams {
+  branchId: string | null
+  chartRange: DateRange
+  topProductRange: DateRange
+}
+
+function buildQueryString(params: DashboardQueryParams): URLSearchParams {
+  const today = new Date().toISOString().split('T')[0]
+  const sp = new URLSearchParams()
+  sp.set('startDate', today)
+  sp.set('endDate', today)
+  sp.set('chartFrom', params.chartRange.from)
+  sp.set('chartTo', params.chartRange.to)
+  sp.set('topFrom', params.topProductRange.from)
+  sp.set('topTo', params.topProductRange.to)
+  if (params.branchId) sp.set('branchId', params.branchId)
+  return sp
+}
+
+// KPI & Chart data - useQuery riêng để control loading
+function useDashboardKPI(branchId: string | null, chartRange: DateRange, topProductRange: DateRange) {
   return useQuery<DashboardData>({
-    queryKey: ['dashboard', branchId, chartRange.from, chartRange.to, chartRange.label, topProductRange.from, topProductRange.to, topProductRange.label, today],
+    // NOTE: Không include 'today' trong key để tránh refetch không cần thiết
+    queryKey: ['dashboard-kpi', branchId, chartRange.from, chartRange.to, topProductRange.from, topProductRange.to],
     queryFn: async () => {
-      const params = new URLSearchParams()
-      params.set('startDate', today)
-      params.set('endDate', today)
-      params.set('chartFrom', chartRange.from)
-      params.set('chartTo', chartRange.to)
-      params.set('topFrom', topProductRange.from)
-      params.set('topTo', topProductRange.to)
-      if (branchId) params.set('branchId', branchId)
-      const res = await fetch(`/api/dashboard?${params}`)
+      const params: DashboardQueryParams = { branchId, chartRange, topProductRange }
+      const res = await fetch(`/api/dashboard?${buildQueryString(params)}`)
       if (!res.ok) throw new Error('Failed to fetch dashboard')
       const json = await res.json()
       return json.data ?? json
     },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching new
+    staleTime: 5 * 60 * 1000, // 5 minutes - dashboard không cần real-time
+    gcTime: 10 * 60 * 1000,
   })
 }
 
@@ -216,18 +230,20 @@ function AdminDashboard() {
   const [chartRange, setChartRange] = React.useState<DateRange>(DEFAULT_CHART_RANGE)
   const [topProductRange, setTopProductRange] = React.useState<DateRange>(DEFAULT_TOP_PRODUCT_RANGE)
   const [chartType, setChartType] = React.useState<ChartType>('bar')
-  const { data: branches = [] } = useAllBranches()
-  const { data, isLoading, error } = useDashboard(branchId, chartRange, topProductRange)
 
-  // Chart data transformation
-  const chartDataRaw = React.useMemo(() => data?.chartData ?? [], [data?.chartData])
-  const chartData = React.useMemo<ChartDataPoint[]>(() => {
-    return chartDataRaw.map((d) => ({
+  // KPI & main data query - không auto refetch
+  const { data: branches = [] } = useAllBranches()
+  const { data, isLoading, error, isFetching } = useDashboardKPI(branchId, chartRange, topProductRange)
+
+  // Chart data transformation - memoized để tránh re-render
+  const chartData = React.useMemo(() => {
+    if (!data?.chartData) return []
+    return data.chartData.map((d) => ({
       name: d.date,
       label: format(new Date(d.date), 'dd/MM', { locale: vi }),
       revenue: d.revenue,
     }))
-  }, [chartDataRaw])
+  }, [data?.chartData])
 
   // Operations & HR hooks
   const { data: taskStats, isLoading: taskStatsLoading } = useTaskDashboardStats()
@@ -310,12 +326,15 @@ function AdminDashboard() {
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             <CardTitle>Doanh thu bán hàng</CardTitle>
+            {isFetching && !isLoading && (
+              <span className="text-xs text-muted-foreground animate-pulse">Đang tải...</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <BranchSelect branches={branches} value={branchId} onChange={setBranchId} />
             <DateRangeSelect value={chartRange} onChange={setChartRange} />
             <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
-              <SelectTrigger className="w-36 h-8">
+              <SelectTrigger className="w-40 h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -327,21 +346,17 @@ function AdminDashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : (
-            <ReportChart
-              data={chartData}
-              chartType={chartType}
-              height={280}
-              showLegend={false}
-              isCollapsible={false}
-              displayOptions={[
-                { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
-              ]}
-              selectedOptions={['revenue']}
-            />
-          )}
+          <ReportChart
+            data={chartData}
+            chartType={chartType}
+            height={280}
+            showLegend={false}
+            isCollapsible={false}
+            displayOptions={[
+              { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
+            ]}
+            selectedOptions={['revenue']}
+          />
         </CardContent>
       </Card>
 
