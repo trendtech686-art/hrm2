@@ -6,7 +6,7 @@ import { usePageHeaderState } from '../../contexts/page-header-context';
 /**
  * Page Header Component
  * Mobile-first responsive header với Shadcn UI design
- * 
+ *
  * Mobile: Back button + Title + Actions stacked
  * Desktop: Title/Subtitle + Badge + Actions inline
  */
@@ -33,7 +33,7 @@ export function PageHeader() {
           variant="ghost"
           size="sm"
           asChild
-          className="gap-2 text-muted-foreground"
+          className="gap-2 text-muted-foreground shrink-0"
         >
           <a href={docLink.href} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4" />
@@ -61,50 +61,54 @@ export function PageHeader() {
 
   return (
     <div className="sticky top-0 md:top-16 z-20 bg-background border-b border-border -mx-4 md:-mx-6">
-      {/* Mobile layout — outer wrapper handles visibility only */}
+      {/* Mobile layout */}
       <div className="md:hidden">
         <div className="flex flex-col gap-1.5 px-4 py-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {showBackButton && onBack && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onBack}
-                className="w-9 shrink-0"
+                className="w-9 h-9 shrink-0"
                 aria-label="Quay lại"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             )}
-            
-            <div className="flex-1 min-w-0">
-              <h1 className="text-base font-semibold tracking-tight text-foreground line-clamp-2">
+
+            {/* Title section - max width to leave room for actions */}
+            <div className="flex-1 min-w-0 max-w-[calc(100%-100px)]">
+              <h1 className="text-base font-semibold tracking-tight text-foreground truncate">
                 {title}
               </h1>
-              {badge && (
-                <div className="mt-1">
-                  {badge}
-                </div>
-              )}
               {subtitle && (
-                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                <p className="mt-0.5 text-xs text-muted-foreground truncate">
                   {subtitle}
                 </p>
               )}
             </div>
 
+            {/* Actions - right side, shrink to fit */}
             {actions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 justify-end">
+              <div className="flex items-center gap-1 shrink-0">
                 {actions.map((action, index) => (
                   <React.Fragment key={index}>{action}</React.Fragment>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Badge below title row */}
+          {badge && (
+            <div className="pl-11">
+              {badge}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Desktop layout — outer wrapper handles visibility only */}
+      {/* Desktop layout */}
       <div className="hidden md:block">
         <div className="px-6 py-1.5">
           <div className="flex items-center justify-between gap-4">
@@ -131,7 +135,7 @@ export function PageHeader() {
                   {badge}
                 </div>
                 {subtitle && (
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
                     {subtitle}
                   </p>
                 )}
@@ -158,12 +162,12 @@ export function PageHeader() {
  */
 export function PageHeaderSkeleton() {
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-border -mx-4 md:-mx-6">
       {/* Mobile skeleton */}
       <div className="md:hidden">
-        <div className="flex flex-col gap-3 py-3">
+        <div className="flex flex-col gap-3 py-3 px-4">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-muted animate-pulse rounded-md" />
+            <div className="h-9 w-9 bg-muted animate-pulse rounded-md shrink-0" />
             <div className="flex-1">
               <div className="h-5 w-32 bg-muted animate-pulse rounded" />
               <div className="h-4 w-48 bg-muted animate-pulse rounded mt-1" />
@@ -171,10 +175,10 @@ export function PageHeaderSkeleton() {
           </div>
         </div>
       </div>
-      
+
       {/* Desktop skeleton */}
       <div className="hidden md:block">
-        <div className="flex flex-col gap-3 py-4">
+        <div className="flex flex-col gap-3 py-4 px-6">
           <div className="flex items-center gap-2">
             <div className="h-4 w-16 bg-muted animate-pulse rounded" />
             <div className="h-4 w-2 bg-muted animate-pulse rounded" />
