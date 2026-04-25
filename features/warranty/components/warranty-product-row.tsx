@@ -32,6 +32,8 @@ import {
   type ProductForSelection,
   type SimpleImageFile,
 } from '../utils/warranty-products-helpers';
+import type { WarrantyCheckResult } from '../utils/warranty-checker';
+import { formatDisplayDate } from '../utils/warranty-checker';
 
 interface WarrantyProductRowProps {
   index: number;
@@ -48,9 +50,55 @@ interface WarrantyProductRowProps {
   onStagingFilesChange: (files: StagingFile[]) => void;
   onSessionChange: (sessionId: string) => void;
   onRemove: () => void;
+  warrantyCheckResult?: WarrantyCheckResult;
 }
 
-// ✅ Memoized component để tránh re-render không cần thiết
+// ✅ Tách riêng ResolutionSelect để tránh vấn đề Controller re-render
+interface ResolutionSelectProps {
+  control: unknown;
+  name: string;
+  disabled?: boolean;
+  watchedValue?: string | null;
+}
+
+function ResolutionSelect({ control, name, disabled, watchedValue }: ResolutionSelectProps) {
+  const [localValue, setLocalValue] = React.useState<string>('');
+
+  // Sync local state khi watchedValue từ parent thay đổi
+  React.useEffect(() => {
+    if (watchedValue !== undefined && watchedValue !== null) {
+      setLocalValue(watchedValue);
+    }
+  }, [watchedValue]);
+
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field: formField }) => (
+        <Select
+          value={localValue || formField.value || ''}
+          onValueChange={(val) => {
+            setLocalValue(val);
+            formField.onChange(val);
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="return">Trả lại</SelectItem>
+            <SelectItem value="replace">Đổi mới</SelectItem>
+            <SelectItem value="out_of_stock">Hết hàng</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+    />
+  );
+}
+
+// Memoized component để tránh re-render không cần thiết
 export const WarrantyProductRow = React.memo(function WarrantyProductRow({
   index,
   field,
@@ -65,6 +113,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
   onStagingFilesChange,
   onSessionChange,
   onRemove,
+  warrantyCheckResult,
 }: WarrantyProductRowProps) {
   // Image preview state
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
@@ -94,6 +143,8 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
   // ✅ Watch quantity and unitPrice for reactive total calculation using useWatch
   const watchedQuantity = useWatch({ control, name: `products.${index}.quantity`, defaultValue: field.quantity ?? 1 });
   const watchedUnitPrice = useWatch({ control, name: `products.${index}.unitPrice`, defaultValue: field.unitPrice ?? 0 });
+  // ✅ Watch resolution to trigger re-render when setValue is called from parent
+  const watchedResolution = useWatch({ control, name: `products.${index}.resolution`, defaultValue: field.resolution });
   const total = (watchedQuantity ?? 1) * (watchedUnitPrice ?? 0);
 
   const handlePreviewImage = React.useCallback((image: string, title: string) => {
@@ -213,21 +264,11 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
 
       {/* Kết quả */}
       <TableCell className="align-top pt-3">
-        <Controller
+        <ResolutionSelect
           control={control}
           name={`products.${index}.resolution`}
-          render={({ field: formField }) => (
-            <Select value={formField.value} onValueChange={formField.onChange} disabled={disabled}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="return">Trả lại</SelectItem>
-                <SelectItem value="replace">Đổi mới</SelectItem>
-                <SelectItem value="out_of_stock">Hết hàng</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+          disabled={disabled}
+          watchedValue={watchedResolution}
         />
       </TableCell>
 
@@ -252,20 +293,74 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
         {new Intl.NumberFormat('vi-VN').format(total)} đ
       </TableCell>
 
-      {/* Delete button */}
-      <TableCell className="align-top pt-3">
+      {/* Delete button - Luôn hiển thị */}
+      <TableCell className="align-top pt-3 w-10">
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={onRemove}
           disabled={disabled}
-          className="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+          className="text-muted-foreground hover:text-destructive h-8 w-8"
+          title="Xóa sản phẩm"
         >
-          <Trash2 className="h-4 w-4 text-destructive" />
+          <Trash2 className="h-4 w-4" />
         </Button>
       </TableCell>
       </TableRow>
+
+      {/* Inline Warranty Info - Hiển thị dưới sản phẩm khi đã check BH */}
+      {warrantyCheckResult && (
+        <TableRow className="bg-slate-50/50 hover:bg-slate-50 border-slate-200">
+          <TableCell colSpan={9} className="py-2 px-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              {/* Summary info */}
+              {warrantyCheckResult.totalClaimed > 0 && (
+                <>
+                  <span className="flex items-center gap-1 text-blue-600">
+                    <span>📋 Đã BH: {warrantyCheckResult.totalClaimed}</span>
+                  </span>
+                  <span className="text-muted-foreground">•</span>
+                </>
+              )}
+              
+              {/* Warnings */}
+              {warrantyCheckResult.warnings.map((warning, i) => (
+                <span key={i} className={warrantyCheckResult.isValid ? 'text-amber-700' : 'text-red-700'}>
+                  {warning}
+                </span>
+              ))}
+              
+              {/* Purchase history - 1 dòng */}
+              {warrantyCheckResult.productHistory.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="font-medium">Lịch sử mua ({warrantyCheckResult.productHistory.length} đơn)</span>
+                  {warrantyCheckResult.productHistory.map((item, idx) => (
+                    <span
+                      key={`${item.orderSystemId}-${idx}`}
+                      className={`flex items-center gap-1 ${
+                        item.isExpired ? 'text-red-600' : 'text-green-600'
+                      }`}
+                    >
+                      <Link
+                        href={`/orders/${item.orderSystemId}`}
+                        target="_blank"
+                        className="hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {item.orderId}
+                      </Link>
+                      <span>{formatDisplayDate(item.orderDate)}</span>
+                      <span>x{item.quantity}</span>
+                    </span>
+                  ))}
+                </>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
 
       {/* Image Preview Dialog */}
       <ImagePreviewDialog

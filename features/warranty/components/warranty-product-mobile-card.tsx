@@ -42,6 +42,7 @@ import {
   type ProductForSelection,
   type SimpleImageFile,
 } from '../utils/warranty-products-helpers';
+import { formatDisplayDate, type WarrantyCheckResult } from '../utils/warranty-checker';
 
 interface WarrantyProductMobileCardProps {
   index: number;
@@ -58,6 +59,7 @@ interface WarrantyProductMobileCardProps {
   onStagingFilesChange: (files: StagingFile[]) => void;
   onSessionChange: (sessionId: string) => void;
   onRemove: () => void;
+  warrantyCheckResult?: WarrantyCheckResult;
 }
 
 const formatCurrency = (value?: number) => {
@@ -65,6 +67,52 @@ const formatCurrency = (value?: number) => {
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
+// ✅ Tách riêng ResolutionSelect để tránh vấn đề Controller re-render
+interface ResolutionSelectProps {
+  control: unknown;
+  name: string;
+  disabled?: boolean;
+  watchedValue?: string | null;
+}
+
+function ResolutionSelect({ control, name, disabled, watchedValue }: ResolutionSelectProps) {
+  const [localValue, setLocalValue] = React.useState<string>('');
+
+  React.useEffect(() => {
+    // Sync từ form khi có thay đổi
+    if (watchedValue !== undefined && watchedValue !== null) {
+      setLocalValue(watchedValue);
+    }
+  }, [watchedValue]);
+
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field: formField }) => (
+        <Select
+          value={localValue || formField.value || ''}
+          onValueChange={(val) => {
+            setLocalValue(val);
+            formField.onChange(val);
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-10 mt-1">
+            <SelectValue placeholder="Chọn kết quả" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="return">Trả lại</SelectItem>
+            <SelectItem value="replace">Đổi mới</SelectItem>
+            <SelectItem value="out_of_stock">Hết hàng</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+    />
+  );
+}
+
+// Memoized component để tránh re-render không cần thiết
 export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobileCard({
   index,
   field,
@@ -79,9 +127,13 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
   onStagingFilesChange,
   onSessionChange,
   onRemove,
+  warrantyCheckResult,
 }: WarrantyProductMobileCardProps) {
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = React.useState<string>('');
+
+  // ✅ Watch resolution to trigger re-render when setValue is called from parent
+  const watchedResolution = useWatch({ control, name: `products.${index}.resolution`, defaultValue: field.resolution });
 
   const product = React.useMemo(() => {
     if (field.productSystemId) {
@@ -227,25 +279,11 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
 
         <div>
           <Label className="text-xs text-muted-foreground">Kết quả xử lý</Label>
-          <Controller
+          <ResolutionSelect
             control={control}
             name={`products.${index}.resolution`}
-            render={({ field: formField }) => (
-              <Select
-                value={formField.value}
-                onValueChange={formField.onChange}
-                disabled={disabled}
-              >
-                <SelectTrigger className="h-10 mt-1">
-                  <SelectValue placeholder="Chọn kết quả" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="return">Trả lại</SelectItem>
-                  <SelectItem value="replace">Đổi mới</SelectItem>
-                  <SelectItem value="out_of_stock">Hết hàng</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
+            disabled={disabled}
+            watchedValue={watchedResolution}
           />
         </div>
 
@@ -292,6 +330,54 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
             />
           </div>
         </div>
+
+        {/* Inline Warranty Info */}
+        {warrantyCheckResult && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            {/* Summary info */}
+            {warrantyCheckResult.totalClaimed > 0 && (
+              <>
+                <span className="flex items-center gap-1 text-blue-600">
+                  📋 Đã BH: {warrantyCheckResult.totalClaimed}
+                </span>
+                <span className="text-muted-foreground">•</span>
+              </>
+            )}
+            
+            {/* Warnings */}
+            {warrantyCheckResult.warnings.map((warning, i) => (
+              <span key={i} className={warrantyCheckResult.isValid ? 'text-amber-700' : 'text-red-700'}>
+                {warning}
+              </span>
+            ))}
+            
+            {/* Purchase history - 1 dòng */}
+            {warrantyCheckResult.productHistory.length > 0 && (
+              <>
+                <span className="text-muted-foreground">•</span>
+                <span className="font-medium">Lịch sử mua ({warrantyCheckResult.productHistory.length} đơn)</span>
+                {warrantyCheckResult.productHistory.map((item, idx) => (
+                  <span
+                    key={`${item.orderSystemId}-${idx}`}
+                    className={`flex items-center gap-1 ${
+                      item.isExpired ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    <Link
+                      href={`/orders/${item.orderSystemId}`}
+                      target="_blank"
+                      className="hover:underline"
+                    >
+                      {item.orderId}
+                    </Link>
+                    <span>{formatDisplayDate(item.orderDate)}</span>
+                    <span>x{item.quantity}</span>
+                  </span>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </MobileCardBody>
 
       <ImagePreviewDialog
