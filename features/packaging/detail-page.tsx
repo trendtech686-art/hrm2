@@ -12,11 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { cn } from '@/lib/utils';
 import { Button } from '../../components/ui/button';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, MoreHorizontal } from 'lucide-react';
 import { usePrint } from '../../lib/use-print';
-import { 
+import {
   convertToPackingForPrint,
-  mapPackingToPrintData, 
+  mapPackingToPrintData,
   mapPackingLineItems,
   createStoreSettings,
 } from '../../lib/print/order-print-helper';
@@ -34,6 +34,8 @@ import { useComments } from '@/hooks/use-comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { Skeleton } from '../../components/ui/skeleton';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 
 const packagingStatusVariants: Record<string, "warning" | "success" | "destructive"> = {
     "Chờ đóng gói": "warning",
@@ -130,7 +132,8 @@ function PackagingDetailSkeleton() {
 export function PackagingDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  
+  const isMobile = useBreakpoint('mobile');
+
   // Fetch packaging detail directly from API with full order/customer/product info
   const { data: packagingData, isLoading, isError, error } = usePackagingById(systemId);
   
@@ -231,6 +234,52 @@ export function PackagingDetailPage() {
     });
   }, [packaging, order, customer, print, findBranchById, currentUserSystemId]);
 
+  // Mobile: 3-dot menu with all actions
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!packaging || !isMobile) return [];
+
+    const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
+
+    if (packaging.status === 'Chờ đóng gói') {
+      menuItems.push({
+        label: isConfirming ? 'Đang xác nhận...' : 'Xác nhận đã đóng gói',
+        onClick: () => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId),
+      });
+      menuItems.push({
+        label: isCancelling ? 'Đang hủy...' : 'Hủy yêu cầu đóng gói',
+        onClick: () => setIsCancelDialogOpen(true),
+        destructive: true,
+      });
+    }
+
+    menuItems.push({
+      label: 'In phiếu đóng gói',
+      onClick: handlePrint,
+    });
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {menuItems.map((item, index) => (
+            <DropdownMenuItem
+              key={index}
+              onClick={item.onClick}
+              className={item.destructive ? 'text-destructive focus:text-destructive' : ''}
+            >
+              {item.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }, [packaging, order, isMobile, isConfirming, isCancelling, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, handlePrint]);
+
+  // Desktop: Full buttons
   const headerActions = React.useMemo(() => {
     const actions: React.ReactNode[] = [];
 
@@ -272,20 +321,8 @@ export function PackagingDetailPage() {
       );
     }
 
-    actions.push(
-      <Button
-        key="back"
-        variant="outline"
-        size="sm"
-        onClick={() => router.push('/packaging')}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Danh sách đóng gói
-      </Button>
-    );
-
     return actions;
-  }, [packaging, order, confirmPackaging, isConfirming, isCancelling, currentUserSystemId, setIsCancelDialogOpen, router, handlePrint]);
+  }, [packaging, order, confirmPackaging, isConfirming, isCancelling, currentUserSystemId, setIsCancelDialogOpen, handlePrint]);
 
   const headerBadge = React.useMemo(() => {
     if (!packaging) return undefined;
@@ -307,7 +344,7 @@ export function PackagingDetailPage() {
     showBackButton: true,
     backPath: '/packaging',
     badge: headerBadge,
-    actions: headerActions
+    actions: isMobile ? mobileHeaderActions : headerActions
   });
 
   if (isLoading) {

@@ -79,52 +79,62 @@ export function PageHeader() {
   }
 
   return (
-    <div className="sticky top-0 md:top-16 z-20 bg-background border-b border-border -mx-4 md:-mx-6">
-      {/* Mobile layout */}
-      <div className="md:hidden">
-        <div className="px-4 py-2">
-          <div className="flex items-center gap-2">
-            {showBackButton && onBack && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onBack}
-                className="w-9 h-9 shrink-0"
-                aria-label="Quay lại"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            )}
+    <div className="sticky top-0 md:top-16 z-20 bg-background border-b border-border">
+      {/* Mobile layout - Native app feel with safe areas */}
+      <div className="md:hidden -mx-4">
+        <div className="px-4 pt-2 pb-2.5">
+          {/* Safe area padding for iOS notch devices */}
+          <div className="pt-safe">
+            <div className="flex items-center gap-2 min-h-[44px]">
+              {/* Back button - fixed width container for alignment */}
+              <div className="w-10 shrink-0">
+                {showBackButton && onBack && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onBack}
+                    className="w-9 h-9 -ml-1 active:scale-95 transition-transform"
+                    aria-label="Quay lại"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
 
-            {/* Title + Badge section */}
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <h1 className="text-base font-semibold tracking-tight text-foreground truncate">
-                {title}
-              </h1>
-              {badge}
+              {/* Title + Badge - flexible, takes remaining space */}
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <h1 className="text-base font-semibold tracking-tight text-foreground truncate">
+                  {title}
+                </h1>
+                {badge}
+              </div>
+
+              {/* Actions - right aligned, auto width */}
+              <div className="shrink-0">
+                {actions.length > 0 && (
+                  <div className="flex items-center gap-0.5">
+                    {actions.map((action, index) => (
+                      <React.Fragment key={`mobile-action-${index}`}>{action}</React.Fragment>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Actions - right side */}
-            {actions.length > 0 && (
-              <div className="flex items-center gap-1 shrink-0">
-                {actions.map((action, index) => (
-                  <React.Fragment key={`mobile-action-${index}`}>{action}</React.Fragment>
-                ))}
+            {/* Subtitle - aligned with title, after back button space */}
+            {subtitle && (
+              <div className="flex items-center mt-0.5 pl-10">
+                <p className="text-xs text-muted-foreground truncate">
+                  {subtitle}
+                </p>
               </div>
             )}
           </div>
-
-          {/* Subtitle below */}
-          {subtitle && (
-            <p className="mt-1 text-xs text-muted-foreground truncate pl-11">
-              {subtitle}
-            </p>
-          )}
         </div>
       </div>
 
       {/* Desktop layout */}
-      <div className="hidden md:block">
+      <div className="hidden md:block -mx-6">
         <div className="px-6 py-1.5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -177,31 +187,42 @@ export function PageHeader() {
  */
 export function PageHeaderSkeleton() {
   return (
-    <div className="border-b border-border -mx-4 md:-mx-6">
+    <div className="border-b border-border">
       {/* Mobile skeleton */}
-      <div className="md:hidden">
-        <div className="flex flex-col gap-3 py-3 px-4">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-muted animate-pulse rounded-md shrink-0" />
-            <div className="flex-1">
-              <div className="h-5 w-32 bg-muted animate-pulse rounded" />
-              <div className="h-4 w-48 bg-muted animate-pulse rounded mt-1" />
+      <div className="md:hidden -mx-4">
+        <div className="px-4 pt-2 pb-2.5">
+          <div className="pt-safe">
+            <div className="flex items-center gap-2 min-h-[44px]">
+              {/* Back button placeholder */}
+              <div className="w-10 shrink-0">
+                <div className="h-9 w-9 bg-muted animate-pulse rounded-lg" />
+              </div>
+
+              {/* Title + subtitle placeholder */}
+              <div className="flex-1 min-w-0">
+                <div className="h-5 w-32 bg-muted animate-pulse rounded" />
+                <div className="h-3 w-48 bg-muted animate-pulse rounded mt-1.5" />
+              </div>
+
+              {/* Actions placeholder */}
+              <div className="shrink-0">
+                <div className="h-9 w-20 bg-muted animate-pulse rounded-lg" />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Desktop skeleton */}
-      <div className="hidden md:block">
-        <div className="flex flex-col gap-3 py-4 px-6">
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-16 bg-muted animate-pulse rounded" />
-            <div className="h-4 w-2 bg-muted animate-pulse rounded" />
-            <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-          </div>
+      <div className="hidden md:block -mx-6">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-            <div className="h-9 w-24 bg-muted animate-pulse rounded" />
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+              <div className="h-4 w-2 bg-muted animate-pulse rounded" />
+              <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+            </div>
+            <div className="h-9 w-24 bg-muted animate-pulse rounded-lg" />
           </div>
         </div>
       </div>

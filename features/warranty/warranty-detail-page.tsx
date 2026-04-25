@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Edit2, MessageSquare, XCircle, Clock, AlertCircle, Copy } from 'lucide-react';
+import { Edit2, MessageSquare, XCircle, Clock, AlertCircle, Copy, MoreHorizontal } from 'lucide-react';
 // formatDate import removed - not used
 import { cn } from '../../lib/utils';
 import type { WarrantyTicket, WarrantyHistory } from './types';
@@ -31,6 +31,8 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 
 // Detail-specific components
 import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table';
@@ -84,6 +86,7 @@ export function WarrantyDetailPage() {
   const router = useRouter();
   const { systemId = '' } = useParams<{ systemId: string }>();
   const { user, employee, isAdmin } = useAuth();
+  const isMobile = useBreakpoint('mobile');
   const queryClient = useQueryClient();
 
   // ✅ React Query for single ticket
@@ -452,7 +455,76 @@ export function WarrantyDetailPage() {
       </div>
     </div>
   ) : null;
-  
+
+  // Mobile: 3-dot menu with all actions
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!ticket || !isMobile) return null;
+
+    const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
+
+    // Template response
+    if (!ticket.cancelledAt) {
+      menuItems.push({
+        label: 'Mẫu phản hồi',
+        onClick: () => setTemplateDialogOpen(true),
+      });
+    }
+
+    // Status change actions
+    if (ticket.cancelledAt) {
+      if (isAdmin) {
+        menuItems.push({ label: 'Mở lại', onClick: () => setShowReopenDialog(true) });
+      }
+    } else if (isAdmin) {
+      if (ticket.status === 'RECEIVED') {
+        menuItems.push({ label: 'Cập nhật thông tin', onClick: () => router.push(`/warranty/${systemId}/update`) });
+      }
+      if (ticket.status === 'PROCESSING') {
+        menuItems.push({ label: 'Đánh dấu Hoàn tất', onClick: async () => {
+          const result = await handleStatusChange('COMPLETED');
+          if (result === 'needs-images') setShowUploadProcessedImagesDialog(true);
+        }});
+      }
+      if ((ticket.status === 'COMPLETED' && !ticket.completedAt) || ticket.status === 'RETURNED') {
+        menuItems.push({ label: ticket.status === 'RETURNED' ? 'Cập nhật trả hàng' : 'Đã trả hàng cho khách', onClick: openReturnDialog });
+      }
+      if (ticket.status === 'RETURNED') {
+        menuItems.push({ label: 'Kết thúc', onClick: handleCompleteTicket });
+      }
+      if (ticket.status === 'CANCELLED') {
+        menuItems.push({ label: 'Mở lại', onClick: () => setShowReopenReturnedDialog(true) });
+      }
+    }
+
+    // Edit
+    if (!isReturned && !ticket.cancelledAt && isAdmin) {
+      menuItems.push({ label: 'Chỉnh sửa', onClick: () => router.push(`/warranty/${systemId}/edit`) });
+    }
+
+    // Cancel
+    if (isAdmin && !ticket.cancelledAt && ticket.status !== 'CANCELLED') {
+      menuItems.push({ label: 'Hủy phiếu', onClick: () => setShowCancelDialog(true), destructive: true });
+    }
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {menuItems.map((item, index) => (
+            <DropdownMenuItem key={index} onClick={item.onClick} className={item.destructive ? 'text-destructive focus:text-destructive' : ''}>
+              {item.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }, [ticket, isMobile, isAdmin, router, systemId, handleStatusChange, openReturnDialog, handleCompleteTicket, isReturned, setTemplateDialogOpen, setShowReopenDialog, setShowReopenReturnedDialog, setShowCancelDialog, setShowUploadProcessedImagesDialog]);
+
+  // Desktop: Full buttons with ShareButton
   const allActions = React.useMemo(() => [
     <ShareButton
       key="share"
@@ -463,14 +535,21 @@ export function WarrantyDetailPage() {
     />,
     ...actions.filter(a => a.key !== 'get-link'),
   ], [actions, ticket]);
-  
+
   const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
+
+  // Simplify badge for mobile
+  const mobileBadge = ticket ? (
+    <Badge className={WARRANTY_STATUS_COLORS[ticket.status]}>
+      {WARRANTY_STATUS_LABELS[ticket.status]}
+    </Badge>
+  ) : undefined;
 
   usePageHeader({
     title: headerTitle,
-    badge: statusBadge,
+    badge: isMobile ? mobileBadge : statusBadge,
     backPath: '/warranty',
-    actions: allActions,
+    actions: isMobile ? mobileHeaderActions : allActions,
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Quản lý bảo hành', href: '/warranty', isCurrent: false },

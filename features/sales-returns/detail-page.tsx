@@ -9,18 +9,18 @@ import { useAuth } from '../../contexts/auth-context';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { usePrint } from '../../lib/use-print';
-import { 
+import {
   convertSalesReturnForPrint,
-  mapSalesReturnToPrintData, 
+  mapSalesReturnToPrintData,
   mapSalesReturnReturnLineItems,
-  createStoreSettingsFromBranch 
+  createStoreSettingsFromBranch
 } from '../../lib/print/sales-return-print-helper';
 // ✅ REMOVED: Receipt/Payment print helpers - không cần fetch full data
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import Link from 'next/link';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, MoreHorizontal } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field';
 import { Separator } from '../../components/ui/separator';
 // ✅ REMOVED: useReceiptFinder, usePaymentFinder, useCustomerFinder, useEmployeeFinder
@@ -36,6 +36,8 @@ import { cn } from '@/lib/utils';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import { useComments } from '../../hooks/use-comments';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -50,6 +52,7 @@ const formatDate = (dateString?: string) => {
 export function SalesReturnDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
+    const isMobile = useBreakpoint('mobile');
     const { data: salesReturn, isLoading: isLoadingSalesReturn } = useSalesReturn(systemId);
     // ✅ REMOVED: useReceiptFinder, usePaymentFinder - không cần fetch all, chỉ cần systemId từ salesReturn
     // ✅ REMOVED: useCustomerFinder, useEmployeeFinder - API đã trả về customerSystemId, creatorSystemId
@@ -226,6 +229,27 @@ export function SalesReturnDetailPage() {
     // ✅ Simplified: Chỉ navigate đến trang receipt/payment để in từ đó
     // Bỏ handlePrintTransaction phức tạp - không cần fetch full receipt/payment data
 
+    // Mobile: 3-dot menu
+    const mobileHeaderActions = React.useMemo(() => {
+        if (!salesReturn || !isMobile) return null;
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+                        <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        In phiếu trả hàng
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
+    }, [salesReturn, isMobile, handlePrint]);
+
+    // Desktop: Full button
     const headerActions = React.useMemo(() => [
         <Button
             key="print"
@@ -271,8 +295,8 @@ export function SalesReturnDetailPage() {
                 {salesReturn.isReceived ? 'Đã nhận hàng' : 'Chưa nhận hàng'}
             </Badge>
         ) : undefined,
-        actions: headerActions,
-    }), [salesReturn, headerActions, breadcrumb, isLoadingSalesReturn]);
+        actions: isMobile ? mobileHeaderActions : headerActions,
+    }), [salesReturn, mobileHeaderActions, headerActions, breadcrumb, isLoadingSalesReturn, isMobile]);
 
     usePageHeader(pageHeaderConfig);
 

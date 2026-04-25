@@ -3,14 +3,14 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, MoreHorizontal } from 'lucide-react';
 
 import { useInventoryReceipt } from './hooks/use-inventory-receipts';
 import { usePurchaseOrder } from '../purchase-orders/hooks/use-purchase-orders';
 import { usePrint } from '../../lib/use-print';
-import { 
+import {
   convertStockInForPrint,
-  mapStockInToPrintData, 
+  mapStockInToPrintData,
   mapStockInLineItems,
   createStoreSettings,
 } from '../../lib/print/stock-in-print-helper';
@@ -33,6 +33,8 @@ import { DetailField } from '../../components/ui/detail-field';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 
 const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -44,6 +46,7 @@ const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
 export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const isMobile = useBreakpoint('mobile');
   const { data: receipt, isLoading } = useInventoryReceipt(systemId);
   const { data: purchaseOrder } = usePurchaseOrder(receipt?.purchaseOrderSystemId);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
@@ -161,17 +164,52 @@ export function InventoryReceiptDetailPage() {
     );
   }, [receipt]);
 
+  // Mobile: 3-dot menu
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!receipt || !isMobile) return null;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            In phiếu nhập kho
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }, [receipt, isMobile, handlePrint]);
+
+  // Desktop: Full button
+  const headerActions = React.useMemo(() => {
+    if (!receipt) return [];
+    return [
+      <Button
+        key="print"
+        size="sm"
+        onClick={handlePrint}
+      >
+        <Printer className="mr-2 h-4 w-4" />
+        In phiếu
+      </Button>,
+    ];
+  }, [receipt, handlePrint]);
+
   usePageHeader({
     title: receipt ? `Phiếu nhập kho ${receipt.id}` : 'Chi tiết phiếu nhập',
     subtitle: receipt?.supplierName ? `Nhà cung cấp: ${receipt.supplierName}` : undefined,
     breadcrumb: [
       { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
       { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
-      { label: receipt?.id || 'Chi ti?t', href: '', isCurrent: true },
+      { label: receipt?.id || 'Chi tiết', href: '', isCurrent: true },
     ],
     badge,
     showBackButton: true,
-    actions: headerActions,
+    actions: isMobile ? mobileHeaderActions : headerActions,
   });
 
   if (isLoading) {
