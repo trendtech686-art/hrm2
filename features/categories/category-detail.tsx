@@ -387,24 +387,25 @@ export function CategoryDetailPage() {
   const headerActions = React.useMemo(() => {
     if (isEditMode) {
       return [
-        <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/categories/${systemId}`)}>
-          <X className="mr-2 h-4 w-4" />
-          Hủy
+        <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/categories/${systemId}`)} className="max-md:h-9 max-md:w-9 max-md:p-0 max-md:justify-center max-md:gap-0 max-md:font-normal">
+          <X className="h-4 w-4 max-md:h-5 max-md:w-5 max-md:mr-0" />
+          <span className="max-md:sr-only">Hủy</span>
         </Button>,
-        <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating}>
+        <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating} className="max-md:px-3">
           {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {isUpdating ? 'Đang lưu...' : 'Lưu'}
+          <span className="max-md:sr-only">{isUpdating ? 'Đang lưu...' : 'Lưu'}</span>
+          <span className="max-md:hidden">{isUpdating ? 'Đang lưu...' : 'Lưu'}</span>
         </Button>
       ];
     }
-    
+
     const actions = [
-      <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
-        <Trash2 className="mr-2 h-4 w-4" />
-        Xóa
+      <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive max-md:h-9 max-md:w-9 max-md:p-0 max-md:justify-center max-md:gap-0" onClick={() => setIsDeleteAlertOpen(true)}>
+        <Trash2 className="h-4 w-4 max-md:h-5 max-md:w-5" />
+        <span className="max-md:sr-only">Xóa</span>
       </Button>,
     ];
-    
+
     // Add PKGX sync actions if category is mapped
     if (category) {
       const categoryWithBrandedIds = {
@@ -412,15 +413,14 @@ export function CategoryDetailPage() {
         systemId: asSystemId(category.systemId),
         id: asBusinessId(category.id)
       } as unknown as ProductCategory;
-      
+
       if (hasPkgxMapping(categoryWithBrandedIds)) {
         actions.unshift(
           <DropdownMenu key="pkgx-sync">
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Cập nhật PKGX
-                <ChevronDown className="ml-2 h-4 w-4" />
+              <Button variant="outline" size="sm" className="max-md:size-9 max-md:p-0 max-md:justify-center max-md:gap-0">
+                <RefreshCw className="h-4 w-4 max-md:h-5 max-md:w-5" />
+                <ChevronDown className="ml-1 h-3 w-3 max-md:hidden" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -480,16 +480,17 @@ export function CategoryDetailPage() {
         );
       }
     }
-    
+
     if (isAdmin || can('edit_products')) {
       actions.push(
-        <Button key="edit" size="sm" onClick={handleSwitchToEdit}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Chỉnh sửa
+        <Button key="edit" size="sm" onClick={handleSwitchToEdit} className="max-md:px-3">
+          <Pencil className="mr-2 h-4 w-4 max-md:mr-0" />
+          <span className="max-md:sr-only">Sửa</span>
+          <span className="max-md:hidden">Chỉnh sửa</span>
         </Button>
       );
     }
-    
+
     return actions;
   }, [isEditMode, systemId, router, form, handleSubmit, isUpdating, handleSwitchToEdit, category, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasic, handleUnlinkPkgx, getPkgxCatId, isAdmin, can]);
 
