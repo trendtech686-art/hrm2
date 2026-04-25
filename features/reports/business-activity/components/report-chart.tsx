@@ -1,6 +1,6 @@
 /**
  * Report Chart Component
- * 
+ *
  * Biểu đồ kết hợp (combo chart) với cột và đường
  * Giống như trong hình: Doanh thu (cột) + Lợi nhuận gộp (đường)
  */
@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { ChartType, ChartDataPoint, ComboChartConfig } from '../types';
+import { getChartColors, subscribeToThemeChanges } from '@/hooks/use-chart-colors';
 
 // Chart colors - using shadcn CSS variables
 const CHART_COLORS = {
@@ -104,11 +105,36 @@ export function ReportChart({
   selectedOptions,
   onOptionsChange,
 }: ReportChartProps) {
+  // Force re-render khi theme thay đổi
+  const [, setTick] = React.useState(0)
+
+  React.useEffect(() => {
+    console.log('[DEBUG] ReportChart: subscribing to theme changes')
+    return subscribeToThemeChanges(() => {
+      console.log('[DEBUG] ReportChart: theme changed, forcing re-render')
+      setTick(t => t + 1)
+    })
+  }, [])
+
+  // Đọc colors fresh từ DOM mỗi lần render (sau khi tick tăng)
+  const chart1 = React.useMemo(() => {
+    const c = getChartColors().chart1
+    console.log('[DEBUG] ReportChart reading chart1:', c)
+    return c
+  }, [])
+  const chart2 = React.useMemo(() => getChartColors().chart2, [])
+  const chart3 = React.useMemo(() => getChartColors().chart3, [])
+  const chart4 = React.useMemo(() => getChartColors().chart4, [])
+  const chart5 = React.useMemo(() => getChartColors().chart5, [])
+
   const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed);
   const [localSelectedOptions, setLocalSelectedOptions] = React.useState<string[]>(
     selectedOptions || displayOptions.map(o => o.key)
   );
-  
+
+  // Force re-render when chart colors change (for theme updates)
+  const chartKey = React.useMemo(() => `${chart1}-${chartType}`, [chart1, chartType]);
+
   const activeOptions = selectedOptions || localSelectedOptions;
   
   const handleOptionsChange = (options: string[]) => {
@@ -154,7 +180,17 @@ export function ReportChart({
   
   // Hide dots when data is large to improve performance
   const showDots = data.length <= 31;
-  
+
+  // Helper to resolve CSS variable color to hex
+  const resolveColor = (color: string): string => {
+    if (color === 'var(--chart-1)') return chart1;
+    if (color === 'var(--chart-2)') return chart2;
+    if (color === 'var(--chart-3)') return chart3;
+    if (color === 'var(--chart-4)') return chart4;
+    if (color === 'var(--chart-5)') return chart5;
+    return color; // Return as-is if not a chart variable
+  };
+
   const renderChart = () => {
     if (chartType === 'bar') {
       return (
@@ -162,13 +198,13 @@ export function ReportChart({
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis 
             dataKey="label" 
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: 'currentColor' }}
             tickLine={false}
             axisLine={false}
           />
           <YAxis 
             tickFormatter={formatCurrency}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: 'currentColor' }}
             tickLine={false}
             axisLine={false}
           />
@@ -179,7 +215,7 @@ export function ReportChart({
               key={bar.dataKey}
               dataKey={bar.dataKey}
               name={bar.name}
-              fill={bar.color}
+              fill={resolveColor(bar.color)}
               radius={[4, 4, 0, 0]}
               stackId={bar.stackId}
               isAnimationActive={false}
@@ -195,13 +231,13 @@ export function ReportChart({
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis 
             dataKey="label" 
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: 'currentColor' }}
             tickLine={false}
             axisLine={false}
           />
           <YAxis 
             tickFormatter={formatCurrency}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: 'currentColor' }}
             tickLine={false}
             axisLine={false}
           />
@@ -213,7 +249,7 @@ export function ReportChart({
               type="monotone"
               dataKey={item.dataKey}
               name={item.name}
-              stroke={item.color}
+              stroke={resolveColor(item.color)}
               strokeWidth={2}
               dot={showDots ? { r: 3 } : false}
               activeDot={{ r: 5 }}
@@ -230,13 +266,13 @@ export function ReportChart({
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis 
             dataKey="label" 
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: 'currentColor' }}
             tickLine={false}
             axisLine={false}
           />
           <YAxis 
             tickFormatter={formatCurrency}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: 'currentColor' }}
             tickLine={false}
             axisLine={false}
           />
@@ -248,8 +284,8 @@ export function ReportChart({
               type="monotone"
               dataKey={item.dataKey}
               name={item.name}
-              stroke={item.color}
-              fill={item.color}
+              stroke={resolveColor(item.color)}
+              fill={resolveColor(item.color)}
               fillOpacity={0.3}
               isAnimationActive={false}
             />
@@ -264,14 +300,14 @@ export function ReportChart({
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis 
           dataKey="label" 
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 12, fill: 'currentColor' }}
           tickLine={false}
           axisLine={false}
         />
         <YAxis 
           yAxisId="left"
           tickFormatter={formatCurrency}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 12, fill: 'currentColor' }}
           tickLine={false}
           axisLine={false}
         />
@@ -279,7 +315,7 @@ export function ReportChart({
           yAxisId="right"
           orientation="right"
           tickFormatter={formatCurrency}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 12, fill: 'currentColor' }}
           tickLine={false}
           axisLine={false}
         />
@@ -291,7 +327,7 @@ export function ReportChart({
             yAxisId="left"
             dataKey={bar.dataKey}
             name={bar.name}
-            fill={bar.color}
+            fill={resolveColor(bar.color)}
             radius={[4, 4, 0, 0]}
             stackId={bar.stackId}
             isAnimationActive={false}
@@ -304,9 +340,9 @@ export function ReportChart({
             type="monotone"
             dataKey={line.dataKey}
             name={line.name}
-            stroke={line.color}
+            stroke={resolveColor(line.color)}
             strokeWidth={line.strokeWidth || 2}
-            dot={showDots ? { r: 3, fill: line.color } : false}
+            dot={showDots ? { r: 3, fill: resolveColor(line.color) } : false}
             activeDot={{ r: 5 }}
             isAnimationActive={false}
           />
@@ -396,7 +432,7 @@ export function ReportChart({
       
       {!isCollapsed && (
         <CardContent className="pt-4">
-          <ResponsiveContainer width="100%" height={height} debounce={150}>
+          <ResponsiveContainer key={chartKey} width="100%" height={height} debounce={150}>
             {renderChart()}
           </ResponsiveContainer>
         </CardContent>

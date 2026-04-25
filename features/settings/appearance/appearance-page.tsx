@@ -2,9 +2,9 @@
 
 import * as React from 'react'
 import { Moon, Sun, ChevronsUpDown } from 'lucide-react'
-import { toast } from 'sonner'
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import { useAppearanceStore, type Theme, type FontSize, type CustomThemeConfig, type ColorMode } from './store'
+import { useAppearanceSettings, useAppearanceMutations, type AppearanceSettings } from './hooks/use-appearance-settings';
+import type { Theme, FontSize, CustomThemeConfig, ColorMode } from './store'
 import { getThemeConfig } from './themes';
 import { Button } from '../../../components/ui/button'
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton'
@@ -42,45 +42,51 @@ const PreviewComponents: Record<PreviewComponent, React.ComponentType> = {
 
 export function AppearancePage() {
     // =====================================================
-    // LOCAL STATE for preview only - NOT applied to system
-    // Only save to store (and apply) when user clicks "Lưu"
+    // DATA FROM REACT QUERY (from database)
     // =====================================================
-    
-    // Get SAVED values from store (what's currently applied to system)
-    const savedTheme = useAppearanceStore(s => s.theme);
-    const savedFontSize = useAppearanceStore(s => s.fontSize);
-    const savedCustomThemeConfig = useAppearanceStore(s => s.customThemeConfig);
-    const savedColorMode = useAppearanceStore(s => s.colorMode);
-    
+
+    const { data: savedSettings } = useAppearanceSettings();
+    const { saveMutation } = useAppearanceMutations();
+
+    const savedTheme = savedSettings.theme;
+    const savedFontSize = savedSettings.fontSize;
+    const savedCustomThemeConfig = savedSettings.customThemeConfig;
+    const savedColorMode = savedSettings.colorMode;
+
+    // =====================================================
+    // LOCAL STATE for preview only - NOT applied to system
+    // Only save to DB when user clicks "Lưu"
+    // =====================================================
+
     // LOCAL state for live preview (not yet saved)
     const [localTheme, setLocalTheme] = React.useState<Theme>(savedTheme);
     const [localFontSize, setLocalFontSize] = React.useState<FontSize>(savedFontSize);
     const [localCustomThemeConfig, setLocalCustomThemeConfig] = React.useState<CustomThemeConfig>(savedCustomThemeConfig);
     const [localColorMode, setLocalColorMode] = React.useState<ColorMode>(savedColorMode);
-    
+
     // Track if we just saved to prevent useEffect from resetting
     const justSavedRef = React.useRef(false);
-    
+
     // Keep track of latest state in a ref to avoid recreating handleSave constantly
-    // This fixes the issue where the header action button becomes stale because
-    // the page header context doesn't update when event handlers change
-    const stateRef = React.useRef({ 
-        localTheme, 
-        localFontSize, 
-        localColorMode, 
-        localCustomThemeConfig 
+    const stateRef = React.useRef({
+        theme: savedTheme,
+        fontSize: savedFontSize,
+        colorMode: savedColorMode,
+        customThemeConfig: savedCustomThemeConfig,
+        font: savedSettings.font,
     });
 
     React.useEffect(() => {
-        stateRef.current = { 
-            localTheme, 
-            localFontSize, 
-            localColorMode, 
-            localCustomThemeConfig 
+        stateRef.current = {
+            theme: localTheme,
+            fontSize: localFontSize,
+            colorMode: localColorMode,
+            customThemeConfig: localCustomThemeConfig,
+            font: savedSettings.font,
         };
-    }, [localTheme, localFontSize, localColorMode, localCustomThemeConfig]);
-    
-    // Sync local state when store changes (e.g., on initial mount/hydration)
+    }, [localTheme, localFontSize, localColorMode, localCustomThemeConfig, savedSettings.font]);
+
+    // Sync local state when saved data changes (e.g., initial load)
     // But NOT right after we save (to prevent resetting to old values)
     React.useEffect(() => {
         if (justSavedRef.current) {
@@ -91,34 +97,30 @@ export function AppearancePage() {
         setLocalCustomThemeConfig(savedCustomThemeConfig);
         setLocalColorMode(savedColorMode);
     }, [savedTheme, savedFontSize, savedCustomThemeConfig, savedColorMode]);
-    
-    // Store actions - only called on Save
-    const updateAppearance = useAppearanceStore(s => s.updateAppearance);
-    
+
     // Preview panel state (UI only)
     const [previewComponent, setPreviewComponent] = React.useState<PreviewComponent>('Dashboard');
 
-    // SAVE: Apply to store (which applies to system via ThemeProvider)
+    // SAVE: Save to database (which triggers theme-change event via React Query)
     const handleSave = React.useCallback(() => {
-        const { localTheme, localFontSize, localColorMode, localCustomThemeConfig } = stateRef.current;
-        
-        
+        const { theme, fontSize, colorMode, customThemeConfig, font } = stateRef.current;
+
         // Mark that we just saved so useEffect doesn't reset our values
         justSavedRef.current = true;
         // Reset after a small delay to allow all updates to propagate
         setTimeout(() => {
             justSavedRef.current = false;
         }, 100);
-        
-        updateAppearance({
-            theme: localTheme,
-            fontSize: localFontSize,
-            colorMode: localColorMode,
-            customThemeConfig: localCustomThemeConfig
+
+        // Call React Query mutation to save to DB
+        saveMutation.mutate({
+            theme,
+            fontSize,
+            colorMode,
+            font,
+            customThemeConfig,
         });
-        
-        toast.success('Đã lưu giao diện thành công!');
-    }, [updateAppearance]);
+    }, [saveMutation]);
 
     const storedAppearance = React.useMemo(
         () => ({ theme: savedTheme, fontSize: savedFontSize, colorMode: savedColorMode, customThemeConfig: savedCustomThemeConfig }),

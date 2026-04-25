@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const DISMISS_KEY = "pwa-notif-prompt-dismissed-at";
+const DISMISS_KEY = "pwa:notif-prompt:dismissed-at";
 const DISMISS_TTL_DAYS = 14;
 
 /** Converts a URL-safe base64 VAPID public key into the Uint8Array format
@@ -28,6 +28,27 @@ type Stage =
   | "subscribed"
   | "registering";
 
+// ── DB-based dismiss state (replaces localStorage) ──────────────────────────
+
+async function fetchPwaPref(key: string): Promise<number | null> {
+  try {
+    const res = await fetch(`/api/pwa/preferences?key=${encodeURIComponent(key)}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.data?.dismissedAt ?? null
+  } catch {
+    return null
+  }
+}
+
+async function savePwaPref(key: string, dismissedAt: number): Promise<void> {
+  await fetch("/api/pwa/preferences", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, dismissedAt }),
+  })
+}
+
 /**
  * Subtle banner that walks the user through enabling web push notifications.
  * Designed to be rendered once near the root of the authenticated shell.
@@ -36,6 +57,7 @@ type Stage =
 export function NotificationPermissionPrompt() {
   const [stage, setStage] = React.useState<Stage>("idle");
   const [visible, setVisible] = React.useState(false);
+  const [dismissedAt, setDismissedAt] = React.useState<number | null>(null);
 
   // Decide whether to show ourselves based on permission state + dismiss TTL.
   React.useEffect(() => {
@@ -53,25 +75,23 @@ export function NotificationPermissionPrompt() {
       setStage("denied");
       return;
     }
-    try {
-      const dismissedAt = Number(localStorage.getItem(DISMISS_KEY) ?? "0");
+
+    // Fetch dismiss state from DB (cross-device)
+    void fetchPwaPref(DISMISS_KEY).then((ts) => {
+      setDismissedAt(ts)
       const ttlMs = DISMISS_TTL_DAYS * 24 * 60 * 60 * 1000;
-      if (dismissedAt && Date.now() - dismissedAt < ttlMs) return;
-    } catch {
-      // localStorage unavailable (Safari private mode) — still OK to show prompt.
-    }
-    // Small delay so we don't compete with app-launch chrome.
-    const t = window.setTimeout(() => setVisible(true), 4000);
-    return () => window.clearTimeout(t);
+      if (ts && Date.now() - ts < ttlMs) return;
+      // Small delay so we don't compete with app-launch chrome.
+      const t = window.setTimeout(() => setVisible(true), 4000);
+      return () => window.clearTimeout(t);
+    });
   }, []);
 
-  const handleDismiss = React.useCallback(() => {
+  const handleDismiss = React.useCallback(async () => {
     setVisible(false);
-    try {
-      localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    } catch {
-      // ignore
-    }
+    const now = Date.now()
+    setDismissedAt(now);
+    await savePwaPref(DISMISS_KEY, now);
   }, []);
 
   const handleEnable = React.useCallback(async () => {
@@ -83,7 +103,7 @@ export function NotificationPermissionPrompt() {
         if (permission === "denied") {
           toast.info("Thông báo đã bị chặn. Mở cài đặt trình duyệt để bật lại.");
         }
-        handleDismiss();
+        await handleDismiss();
         return;
       }
 

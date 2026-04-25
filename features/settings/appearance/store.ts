@@ -1,33 +1,11 @@
 /**
- * Appearance Settings Store
- * UI configuration only - theme, fonts, colors
- * 
- * ✅ KEEP IN ZUSTAND - This is pure UI state
- * DO NOT MIGRATE TO REACT QUERY
- * 
- * Architecture:
- * - Primary: Zustand store with localStorage persistence (instant updates)
- * - Secondary: API sync via updateAppearance() method (server backup)
- * - Hydration: Loads from server on app init via loadFromAPI()
- * 
- * Why Zustand (not React Query):
- * - User preferences requiring instant visual feedback
- * - Theme provider needs synchronous .getState() during mount
- * - Dual persistence (localStorage + database) pattern
- * - React Query would introduce latency for visual changes
+ * Appearance Settings Types
+ * Chỉ export types - data được quản lý bởi React Query hooks
+ *
+ * @module features/settings/appearance/store
  */
-import { create } from 'zustand'
-import { subscribeWithSelector } from 'zustand/middleware'
-import type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
-import {
-  THEME_BOOT_STORAGE_KEY,
-  THEME_BOOT_VAR_KEYS,
-} from '@/components/theme-boot-script'
-import {
-  THEME_COOKIE_MAX_AGE,
-  THEME_COOKIE_NAME,
-  serializeThemeCookie,
-} from '@/lib/theme-cookie'
+
+// Re-export types từ appearance-constants
 export type { ColorMode, Font, FontSize, Theme } from '@/lib/appearance-constants'
 
 export type CustomThemeConfig = {
@@ -78,7 +56,6 @@ export type CustomThemeConfig = {
     '--sidebar-accent-foreground': string;
     '--sidebar-border': string;
     '--sidebar-ring': string;
-    // Heading sizes
     '--font-size-h1': string;
     '--font-size-h2': string;
     '--font-size-h3': string;
@@ -87,7 +64,7 @@ export type CustomThemeConfig = {
     '--font-size-h6': string;
 };
 
-/** Default theme variables; merged với DB để user cũ luôn có token mới (--success, …). */
+/** Default theme variables */
 export const defaultCustomTheme: CustomThemeConfig = {
     '--background': 'oklch(1 0 0)',
     '--foreground': 'oklch(0.129 0.042 264.695)',
@@ -136,185 +113,10 @@ export const defaultCustomTheme: CustomThemeConfig = {
     '--sidebar-accent-foreground': 'oklch(0.208 0.042 265.755)',
     '--sidebar-border': 'oklch(0.929 0.013 255.508)',
     '--sidebar-ring': 'oklch(0.704 0.04 256.788)',
-    // Default heading sizes
-    '--font-size-h1': '2.25rem', // 36px
-    '--font-size-h2': '1.875rem', // 30px
-    '--font-size-h3': '1.5rem', // 24px
-    '--font-size-h4': '1.25rem', // 20px
-    '--font-size-h5': '1.125rem', // 18px
-    '--font-size-h6': '1rem', // 16px
+    '--font-size-h1': '2.25rem',
+    '--font-size-h2': '1.875rem',
+    '--font-size-h3': '1.5rem',
+    '--font-size-h4': '1.25rem',
+    '--font-size-h5': '1.125rem',
+    '--font-size-h6': '1rem',
 };
-
-
-type AppearanceState = {
-  theme: Theme
-  colorMode: ColorMode
-  font: Font
-  fontSize: FontSize
-  customThemeConfig: CustomThemeConfig
-  setTheme: (theme: Theme) => void
-  setColorMode: (mode: ColorMode) => void
-  setFont: (font: Font) => void
-  setFontSize: (size: FontSize) => void
-  setCustomThemeConfig: (config: CustomThemeConfig) => void
-  updateAppearance: (settings: Partial<Omit<AppearanceState, 'setTheme' | 'setColorMode' | 'setFont' | 'setFontSize' | 'setCustomThemeConfig' | 'updateAppearance'>>) => void
-}
-
-export const useAppearanceStore = create<AppearanceState>()(
-  subscribeWithSelector(
-    (set) => ({
-      theme: 'slate',
-      colorMode: 'light',
-      font: 'inter',
-      fontSize: 'base',
-      customThemeConfig: defaultCustomTheme,
-      setTheme: (theme) => set({ theme }),
-      setColorMode: (colorMode) => set({ colorMode }),
-      setFont: (font) => set({ font }),
-      setFontSize: (size) => set({ fontSize: size }),
-      setCustomThemeConfig: (config) => set({ customThemeConfig: { ...config } }),
-      updateAppearance: (settings) => set((state) => ({ ...state, ...settings })),
-    })
-  )
-)
-
-// ========================================
-// Database Sync Functions
-// ========================================
-
-const APPEARANCE_API = '/api/user-preferences/appearance';
-let saveTimeout: NodeJS.Timeout | null = null;
-let isInitialized = false;
-
-// Helper to get initial state (returns default since we use database now)
-export function getInitialAppearanceState() {
-  return null; // Database-backed, no localStorage
-}
-
-/**
- * Sync appearance settings to database (debounced)
- */
-export function syncAppearanceToDatabase(): void {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  
-  saveTimeout = setTimeout(async () => {
-    try {
-      const state = useAppearanceStore.getState();
-      const settings = {
-        theme: state.theme,
-        colorMode: state.colorMode,
-        font: state.font,
-        fontSize: state.fontSize,
-        customThemeConfig: state.customThemeConfig,
-      };
-      
-      await fetch(APPEARANCE_API, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-    } catch (error) {
-      console.warn('Error syncing appearance to database:', error);
-    }
-  }, 1000);
-}
-
-/**
- * Load appearance settings from database
- * Call this after user logs in to restore their settings
- */
-export async function loadAppearanceFromDatabase() {
-  try {
-    const response = await fetch(APPEARANCE_API);
-    if (!response.ok) {
-      return;
-    }
-
-    const { data } = await response.json();
-    if (data) {
-      const prev = useAppearanceStore.getState();
-      const fromApi =
-        data.customThemeConfig && typeof data.customThemeConfig === 'object'
-          ? (data.customThemeConfig as Record<string, string>)
-          : {};
-      const mergedConfig = { ...defaultCustomTheme, ...fromApi } as CustomThemeConfig;
-      const next = {
-        theme: (data.theme ?? prev.theme) as Theme,
-        colorMode: (data.colorMode ?? prev.colorMode) as ColorMode,
-        font: (data.font ?? prev.font) as Font,
-        fontSize: (data.fontSize ?? prev.fontSize) as FontSize,
-        customThemeConfig: mergedConfig,
-      };
-      useAppearanceStore.setState(next);
-      // Đảm bảo cache boot + cookie luôn có nguồn mới nhất từ DB, kể cả khi subscribe không fire.
-      writeThemeBootCache(next.colorMode, next.fontSize, next.customThemeConfig);
-      writeThemeCookie(next.colorMode, next.fontSize);
-    }
-  } catch (error) {
-    console.warn('Error loading appearance from database:', error);
-  } finally {
-    isInitialized = true;
-  }
-}
-
-// Auto-save when settings change (after initial load)
-useAppearanceStore.subscribe(
-  (state) => ({
-    theme: state.theme,
-    colorMode: state.colorMode,
-    font: state.font,
-    fontSize: state.fontSize,
-    customThemeConfig: state.customThemeConfig,
-  }),
-  (current) => {
-    // Ghi boot cache + cookie để lần render tiếp theo không bị FOUC.
-    writeThemeBootCache(current.colorMode, current.fontSize, current.customThemeConfig);
-    writeThemeCookie(current.colorMode, current.fontSize);
-    if (isInitialized) {
-      syncAppearanceToDatabase();
-    }
-  },
-  { equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
-);
-
-/**
- * Chỉ lưu subset các CSS var quan trọng nhất để script boot áp sớm tránh FOUC.
- * Không đồng bộ ngược lại: DB vẫn là nguồn sự thật khi load tiếp theo.
- */
-function writeThemeBootCache(
-  colorMode: ColorMode,
-  fontSize: FontSize,
-  config: CustomThemeConfig,
-): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const vars: Record<string, string> = {};
-    for (const key of THEME_BOOT_VAR_KEYS) {
-      const value = config[key as keyof CustomThemeConfig];
-      if (value) vars[key] = value;
-    }
-    window.localStorage.setItem(
-      THEME_BOOT_STORAGE_KEY,
-      JSON.stringify({ colorMode, fontSize, vars }),
-    );
-  } catch {
-    // Bỏ qua: storage có thể bị chặn (privacy mode) — chỉ mất FOUC nhẹ.
-  }
-}
-
-/**
- * Ghi cookie để RSC layout đọc lần tải trang sau → render `<html class="dark ...">`
- * ngay trong markup (không cần đợi hydrate). Cookie SameSite=Lax, không HttpOnly để
- * client tự đọc/ghi (đây là pref UI, không nhạy cảm).
- */
-function writeThemeCookie(colorMode: ColorMode, fontSize: FontSize): void {
-  if (typeof document === 'undefined') return;
-  try {
-    const value = serializeThemeCookie({ colorMode, fontSize });
-    document.cookie = `${THEME_COOKIE_NAME}=${value}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
-  } catch {
-    // Bỏ qua: trình duyệt có thể chặn cookie — fallback boot script vẫn xử lý FOUC.
-  }
-}

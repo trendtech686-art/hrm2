@@ -1,7 +1,5 @@
 import {
   getPrintTemplateConfigSync,
-  resolveTemplate,
-  getDefaultSizeForType
 } from '@/features/settings/printer/hooks/use-print-template-config';
 import { TemplateType, PaperSize } from '@/lib/types/prisma-extended';
 import { parseLabelSize, type PrintMargins, DEFAULT_MARGINS } from '@/features/settings/printer/types';

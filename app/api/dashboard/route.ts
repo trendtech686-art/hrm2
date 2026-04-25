@@ -235,12 +235,11 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fill chart data
+    // Fill chart data - iterate from chartStart to chartEnd (not just chartDays from today)
     const chartData: Array<{ date: string; orders: number; revenue: number }> = []
-    for (let i = chartDays - 1; i >= 0; i--) {
-      const d = new Date(endOfDay)
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
+    const currentDate = new Date(chartStart)
+    while (currentDate <= chartEnd) {
+      const dateStr = currentDate.toISOString().split('T')[0]
       const found = revenueChart.find(
         r => new Date(r.date).toISOString().split('T')[0] === dateStr
       )
@@ -249,6 +248,7 @@ export async function GET(request: Request) {
         orders: found ? Number(found.orders) : 0,
         revenue: found ? Number(found.revenue) : 0,
       })
+      currentDate.setDate(currentDate.getDate() + 1)
     }
 
     // Inventory

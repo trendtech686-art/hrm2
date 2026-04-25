@@ -4,15 +4,15 @@ import { cookies } from "next/headers"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css"
 import { Providers } from "./providers"
-import { ThemeBootScript } from "@/components/theme-boot-script"
 import {
   THEME_COOKIE_NAME,
   buildHtmlThemeClassName,
   parseThemeCookie,
 } from "@/lib/theme-cookie"
+import { getServerTheme, generateThemeCSS } from "@/lib/theme-server"
 // preloadSettings moved to (authenticated)/layout.tsx — only needed for auth pages
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin", "vietnamese"],
   variable: "--font-sans",
   display: "swap",
@@ -83,16 +83,21 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   // Đọc cookie ở RSC để render `<html class="dark font-size-...">` ngay trong markup,
-  // tránh FOUC class. CSS vars vẫn được boot script áp ngay sau (cùng path đồng bộ).
+  // tránh FOUC class. CSS vars được inject từ DB.
   const cookieStore = await cookies()
   const themeCookie = parseThemeCookie(cookieStore.get(THEME_COOKIE_NAME)?.value)
   const htmlClassName = buildHtmlThemeClassName(themeCookie)
+
+  // Lấy theme từ DB server-side
+  const serverTheme = await getServerTheme()
+  const themeCSS = serverTheme ? generateThemeCSS(serverTheme.customThemeConfig) : ''
 
   return (
     <html lang="vi" className={htmlClassName} suppressHydrationWarning>
       <head>
         {/* Fonts are self-hosted via next/font — no external requests */}
-        <ThemeBootScript />
+        {/* Server-injected theme CSS vars - prevents FOUC */}
+        {themeCSS && <style dangerouslySetInnerHTML={{ __html: `:root { ${themeCSS} }` }} />}
       </head>
       <body className={`${inter.variable} ${sourceSerif4.variable} ${geistMono.variable} bg-background text-foreground antialiased`}>
         <Providers>

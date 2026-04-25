@@ -1,16 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { useAppearanceStore } from '@/features/settings/appearance/store'
 
 /**
  * Cập nhật <meta name="theme-color"> theo nền hiện tại (--background) sau khi theme áp dụng,
  * thay vì màu cố định trong `layout` viewport.
+ * Đọc trực tiếp từ CSS variable đã được ThemeProvider apply vào DOM.
  */
 export function ThemeColorMeta() {
-  const customThemeConfig = useAppearanceStore((s) => s.customThemeConfig)
-  const colorMode = useAppearanceStore((s) => s.colorMode)
-
   const sync = React.useCallback(() => {
     if (typeof document === 'undefined') return
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
@@ -24,10 +21,19 @@ export function ThemeColorMeta() {
     meta.setAttribute('content', bg)
   }, [])
 
+  // Sync on mount
   React.useEffect(() => {
-    // Sau khi class light/dark + biến CSS từ ThemeProvider ổn định
     sync()
-  }, [customThemeConfig, colorMode, sync])
+  }, [sync])
+
+  // Re-sync when theme changes (via theme-change event from ThemeProvider)
+  React.useEffect(() => {
+    const handleThemeChange = () => {
+      sync()
+    }
+    window.addEventListener('theme-change', handleThemeChange)
+    return () => window.removeEventListener('theme-change', handleThemeChange)
+  }, [sync])
 
   return null
 }

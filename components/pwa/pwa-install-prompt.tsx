@@ -12,29 +12,29 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-const DISMISS_STORAGE_KEY = "pwa-install-dismissed-at";
+const DISMISS_KEY = "pwa:install-prompt:dismissed-at";
 // Hide the prompt for 14 days after the user dismisses it.
 const DISMISS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
-function wasRecentlyDismissed(): boolean {
-  if (typeof window === "undefined") return false;
+// ── DB-based dismiss state (replaces localStorage) ──────────────────────────
+
+async function fetchDismissedAt(): Promise<number | null> {
   try {
-    const raw = window.localStorage.getItem(DISMISS_STORAGE_KEY);
-    if (!raw) return false;
-    const at = Number.parseInt(raw, 10);
-    if (!Number.isFinite(at)) return false;
-    return Date.now() - at < DISMISS_TTL_MS;
+    const res = await fetch(`/api/pwa/preferences?key=${encodeURIComponent(DISMISS_KEY)}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.data?.dismissedAt ?? null
   } catch {
-    return false;
+    return null
   }
 }
 
-function markDismissed() {
-  try {
-    window.localStorage.setItem(DISMISS_STORAGE_KEY, String(Date.now()));
-  } catch {
-    // localStorage can be blocked in private/incognito — that's fine.
-  }
+async function saveDismissedAt(ts: number): Promise<void> {
+  await fetch("/api/pwa/preferences", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: DISMISS_KEY, dismissedAt: ts }),
+  })
 }
 
 /**
@@ -48,48 +48,58 @@ export function PWAInstallPrompt() {
   const [deferred, setDeferred] = React.useState<BeforeInstallPromptEvent | null>(null);
   const [showIOSHint, setShowIOSHint] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
+  const [dismissedAt, setDismissedAt] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    // Already installed / running standalone — nothing to do.
+
+    // Check if already installed / running standalone
     const standalone =
       window.matchMedia?.("(display-mode: standalone)").matches ||
       // @ts-expect-error iOS-only Safari property
       window.navigator.standalone === true;
     if (standalone) return;
-    if (wasRecentlyDismissed()) return;
 
-    const handleBeforeInstall = (event: Event) => {
-      event.preventDefault();
-      setDeferred(event as BeforeInstallPromptEvent);
-      setVisible(true);
-    };
-    const handleInstalled = () => {
-      setVisible(false);
-      setDeferred(null);
-    };
+    // Check dismiss state from DB (cross-device)
+    void fetchDismissedAt().then((ts) => {
+      setDismissedAt(ts)
+      if (ts) {
+        const ttlMs = DISMISS_TTL_MS
+        if (Date.now() - ts < ttlMs) return
+      }
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-    window.addEventListener("appinstalled", handleInstalled);
-
-    // iOS Safari never fires `beforeinstallprompt` — show a one-time hint
-    // after a small delay so it doesn't fight the initial page load.
-    const ua = window.navigator.userAgent;
-    const isIOS = /iphone|ipad|ipod/i.test(ua);
-    const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
-    let iosTimer: ReturnType<typeof setTimeout> | undefined;
-    if (isIOS && isSafari) {
-      iosTimer = setTimeout(() => {
-        setShowIOSHint(true);
+      const handleBeforeInstall = (event: Event) => {
+        event.preventDefault();
+        setDeferred(event as BeforeInstallPromptEvent);
         setVisible(true);
-      }, 6000);
-    }
+      };
+      const handleInstalled = () => {
+        setVisible(false);
+        setDeferred(null);
+      };
 
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-      window.removeEventListener("appinstalled", handleInstalled);
-      if (iosTimer) clearTimeout(iosTimer);
-    };
+      window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.addEventListener("appinstalled", handleInstalled);
+
+      // iOS Safari never fires `beforeinstallprompt` — show a one-time hint
+      // after a small delay so it doesn't fight the initial page load.
+      const ua = window.navigator.userAgent;
+      const isIOS = /iphone|ipad|ipod/i.test(ua);
+      const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
+      let iosTimer: ReturnType<typeof setTimeout> | undefined;
+      if (isIOS && isSafari) {
+        iosTimer = setTimeout(() => {
+          setShowIOSHint(true);
+          setVisible(true);
+        }, 6000);
+      }
+
+      return () => {
+        window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+        window.removeEventListener("appinstalled", handleInstalled);
+        if (iosTimer) clearTimeout(iosTimer);
+      };
+    });
   }, []);
 
   const handleInstall = React.useCallback(async () => {
@@ -105,9 +115,11 @@ export function PWAInstallPrompt() {
     }
   }, [deferred]);
 
-  const handleDismiss = React.useCallback(() => {
+  const handleDismiss = React.useCallback(async () => {
     setVisible(false);
-    markDismissed();
+    const now = Date.now()
+    setDismissedAt(now);
+    await saveDismissedAt(now);
   }, []);
 
   if (!visible) return null;
