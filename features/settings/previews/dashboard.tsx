@@ -30,8 +30,8 @@ export function PreviewDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">45.231.890đ</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+20.1%</span> so với tháng trước
+              <ArrowUpRight className="h-3 w-3 text-success" />
+              <span className="text-success">+20.1%</span> so với tháng trước
             </p>
           </CardContent>
         </Card>
@@ -44,8 +44,8 @@ export function PreviewDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">+2,350</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+180.1%</span> so với tháng trước
+              <ArrowUpRight className="h-3 w-3 text-success" />
+              <span className="text-success">+180.1%</span> so với tháng trước
             </p>
           </CardContent>
         </Card>
@@ -58,8 +58,8 @@ export function PreviewDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">+12,234</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowDownRight className="h-3 w-3 text-red-500" />
-              <span className="text-red-500">-4.3%</span> so với tháng trước
+              <ArrowDownRight className="h-3 w-3 text-destructive" />
+              <span className="text-destructive">-4.3%</span> so với tháng trước
             </p>
           </CardContent>
         </Card>
@@ -72,8 +72,8 @@ export function PreviewDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">+573</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+201</span> từ giờ trước
+              <ArrowUpRight className="h-3 w-3 text-success" />
+              <span className="text-success">+201</span> từ giờ trước
             </p>
           </CardContent>
         </Card>
