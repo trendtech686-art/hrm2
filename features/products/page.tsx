@@ -436,9 +436,49 @@ export function ProductsPage({ initialStats }: ProductsPageProps = {}) {
         </ToggleGroup>
       </div>
 
-      {!isMobile ? <PageToolbar className="flex-wrap gap-2" leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/pricing')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} /> : (<><div className="py-3"><Button type="button" variant="outline" size="sm" className="w-full justify-center gap-2" onClick={() => setActionsSheetOpen(true)}><Settings2 className="h-4 w-4" />Tùy chọn bảng</Button></div><Sheet open={isActionsSheetOpen} onOpenChange={setActionsSheetOpen}><SheetContent side="bottom" className="space-y-4"><SheetHeader><SheetTitle>Hành động nhanh</SheetTitle><SheetDescription>Nhập, xuất và tùy chỉnh cột.</SheetDescription></SheetHeader><div className="space-y-3"><Button className="w-full justify-center" variant="outline" onClick={() => { setActionsSheetOpen(false); setIsImportOpen(true); }}>Nhập sản phẩm</Button><Button className="w-full justify-center" variant="outline" onClick={() => { setActionsSheetOpen(false); setIsExportOpen(true); }}>Xuất danh sách</Button><DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns}><Button className="w-full justify-center gap-2" variant="outline"><Columns3 className="h-4 w-4" />Tuỳ chỉnh cột</Button></DataTableColumnCustomizer></div></SheetContent></Sheet></>)}
+      {/* Mobile: Search in toolbar */}
+      <PageToolbar
+        search={{ value: tableState.search, onChange: handleSearchChange, placeholder: 'Tìm kiếm sản phẩm...' }}
+        rightActions={<Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setActionsSheetOpen(true)}><Settings2 className="h-5 w-5" /></Button>}
+      />
 
-      {!isMobile ? <PageFilters searchValue={tableState.search} onSearchChange={handleSearchChange} searchPlaceholder="Tìm kiếm sản phẩm...">{renderFilterControls()}<AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} /></PageFilters> : (<><PageFilters searchValue={tableState.search} onSearchChange={handleSearchChange} searchPlaceholder="Tìm kiếm sản phẩm..."><Button type="button" variant="outline" size="sm" className="w-full sm:w-auto justify-center gap-2" onClick={() => setFilterSheetOpen(true)}><SlidersHorizontal className="h-4 w-4" />Bộ lọc nâng cao</Button></PageFilters><Sheet open={isFilterSheetOpen} onOpenChange={setFilterSheetOpen}><SheetContent side="bottom" className="space-y-4"><SheetHeader><SheetTitle>Bộ lọc sản phẩm</SheetTitle><SheetDescription>Lọc theo trạng thái, loại, danh mục.</SheetDescription></SheetHeader><div className="space-y-3">{renderFilterControls()}</div></SheetContent></Sheet></>)}
+      {/* Desktop toolbar */}
+      {!isMobile && <PageToolbar className="flex-wrap gap-2" leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/pricing')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
+
+      {/* Mobile actions */}
+      {isMobile && (
+        <div className="px-4 pb-2 flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="flex-1"><FileUp className="mr-1 h-4 w-4" />Nhập</Button>
+          <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)} className="flex-1"><Download className="mr-1 h-4 w-4" />Xuất</Button>
+          <Sheet open={isActionsSheetOpen} onOpenChange={setActionsSheetOpen}>
+            <SheetContent side="bottom" className="space-y-4">
+              <SheetHeader><SheetTitle>Hành động nhanh</SheetTitle><SheetDescription>Nhập, xuất và tùy chỉnh cột.</SheetDescription></SheetHeader>
+              <div className="space-y-3">
+                <Button className="w-full justify-center" variant="outline" onClick={() => { setActionsSheetOpen(false); setIsImportOpen(true); }}>Nhập sản phẩm</Button>
+                <Button className="w-full justify-center" variant="outline" onClick={() => { setActionsSheetOpen(false); setIsExportOpen(true); }}>Xuất danh sách</Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      )}
+
+      {/* Desktop filters */}
+      {!isMobile && <PageFilters searchValue={tableState.search} onSearchChange={handleSearchChange} searchPlaceholder="Tìm kiếm sản phẩm...">{renderFilterControls()}<AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} /></PageFilters>}
+
+      {/* Mobile filter button */}
+      {isMobile && (
+        <div className="px-4 pb-2">
+          <PageFilters searchValue={tableState.search} onSearchChange={handleSearchChange} searchPlaceholder="Tìm kiếm sản phẩm...">
+            <Button type="button" variant="outline" size="sm" className="w-full justify-center gap-2" onClick={() => setFilterSheetOpen(true)}><SlidersHorizontal className="h-4 w-4" />Bộ lọc nâng cao</Button>
+          </PageFilters>
+          <Sheet open={isFilterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <SheetContent side="bottom" className="space-y-4">
+              <SheetHeader><SheetTitle>Bộ lọc sản phẩm</SheetTitle><SheetDescription>Lọc theo trạng thái, loại, danh mục.</SheetDescription></SheetHeader>
+              <div className="space-y-3">{renderFilterControls()}</div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      )}
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
       <div className={cn("pb-4", (isFilterPending || (isFetching && !isLoading)) && "opacity-60 transition-opacity")}><ResponsiveDataTable columns={columns} data={pageData} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={tableState.pagination} setPagination={handlePaginationChange} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} onBulkDelete={undefined} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} sorting={tableState.sorting} setSorting={handleSortingChange} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} emptyTitle="Không có sản phẩm" emptyDescription="Thêm sản phẩm đầu tiên để bắt đầu" isLoading={isLoading} mobileInfiniteScroll /></div>

@@ -495,12 +495,20 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
         </ToggleGroup>
       </div>
 
-      {!isMobile && <PageToolbar leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsSapoImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Import Sapo</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
-      
-      {/* Filters: Search + Status + Date range + Employee + Advanced */}
+      {/* Mobile: Search in toolbar */}
+      <PageToolbar
+        search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Tìm kiếm đơn hàng...' }}
+        rightActions={<Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground" onClick={() => setScannerOpen(true)} title="Quét mã QR/Barcode"><ScanLine className="h-5 w-5" /></Button>}
+      />
+
+      {/* Desktop toolbar + Mobile filters row */}
       <div className="flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 py-3">
-          <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm đơn hàng..." className="py-0!" searchSuffix={<Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 md:hidden text-muted-foreground" onClick={() => setScannerOpen(true)} title="Quét mã QR/Barcode"><ScanLine className="h-4 w-4" /></Button>}>
+        {/* Desktop toolbar */}
+        {!isMobile && <PageToolbar leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsSapoImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Import Sapo</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
+
+        {/* Desktop search + filters */}
+        <div className="hidden md:flex flex-col sm:flex-row items-stretch sm:items-center gap-3 py-3">
+          <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm đơn hàng..." className="py-0!" >
             <DataTableFacetedFilter title="Trạng thái" selectedValues={statusFilter} onSelectedValuesChange={(v) => { startFilterTransition(() => { setStatusFilter(v); setActiveCard(null); }); }} options={[{ label: 'Đặt hàng', value: 'Đặt hàng' }, { label: 'Đang giao dịch', value: 'Đang giao dịch' }, { label: 'Hoàn thành', value: 'Hoàn thành' }, { label: 'Đã hủy', value: 'Đã hủy' }]} />
             <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} onOpenChange={setFilterPanelOpen} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
           </PageFilters>
@@ -519,21 +527,32 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
               ))}
             </SelectContent>
           </Select>
-          {(dateRange || employeeFilter || activeCard || statusFilter.size > 0) && (
-            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => {
-              startFilterTransition(() => {
-                setDateRange(undefined);
-                setEmployeeFilter('');
-                setActiveCard(null);
-                setStatusFilter(new Set());
-              });
-            }}>
-              Xóa lọc
-            </Button>
-          )}
+        </div>
+
+        {/* Mobile filters - horizontal scroll */}
+        <div className="md:hidden overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-4 -mx-4">
+          <div className="flex items-center gap-2 py-2 min-w-max">
+            <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="shrink-0"><FileUp className="mr-1 h-4 w-4" />Nhập</Button>
+            <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)} className="shrink-0"><Download className="mr-1 h-4 w-4" />Xuất</Button>
+            <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} onOpenChange={setFilterPanelOpen} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
           </div>
         </div>
-        <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+
+        {/* Clear filters button */}
+        {(dateRange || employeeFilter || activeCard || statusFilter.size > 0) && (
+          <Button variant="ghost" size="sm" className="text-muted-foreground self-start" onClick={() => {
+            startFilterTransition(() => {
+              setDateRange(undefined);
+              setEmployeeFilter('');
+              setActiveCard(null);
+              setStatusFilter(new Set());
+            });
+          }}>
+            Xóa lọc
+          </Button>
+        )}
+      </div>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       </div>
       <div className={cn("pb-4", (isFilterPending || (isFetching && !isLoadingOrders)) && "opacity-60 transition-opacity")}><ResponsiveDataTable columns={columns} data={orders} renderMobileCard={o => <OrderCard order={o} onCancel={handleCancelRequest} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} emptyTitle="Không có đơn hàng" emptyDescription="Tạo đơn hàng đầu tiên" isLoading={isLoadingOrders} mobileInfiniteScroll /></div>
       <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy đơn hàng?</AlertDialogTitle><AlertDialogDescription className="space-y-4 text-left"><div className="space-y-2 text-sm"><p>Thao tác sẽ cập nhật trạng thái đơn thành "Đã hủy".</p></div><div className="space-y-2"><Label htmlFor="cancel-reason" className="text-sm font-semibold">Lý do hủy (bắt buộc)</Label><Textarea id="cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="Nhập lý do hủy..." rows={3} /></div><div className="flex items-start gap-3 rounded-md border border-border p-3"><Checkbox id="restock" checked={restockItems} onCheckedChange={c => setRestockItems(c === true)} /><div><Label htmlFor="restock" className="text-sm font-medium">Hoàn kho {pendingCancelQuantity} SP</Label><p className="text-xs text-muted-foreground">Bỏ chọn nếu tự xử lý tồn kho</p></div></div></AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Thoát</AlertDialogCancel><AlertDialogAction onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
