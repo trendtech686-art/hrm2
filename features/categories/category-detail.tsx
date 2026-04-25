@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw, ChevronDown, Info, FileText, Layers, ExternalLink, Unlink, Loader2 } from 'lucide-react';
+import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw, ChevronDown, Info, FileText, Layers, ExternalLink, Unlink, Loader2, MoreHorizontal } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -383,119 +383,159 @@ export function CategoryDetailPage() {
     router.push(`/categories/${systemId}/edit`);
   }, [router, systemId]);
 
-  // Header actions
+  // Header actions - mobile uses 3-dot menu, desktop shows full buttons
   const headerActions = React.useMemo(() => {
     if (isEditMode) {
       return [
-        <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/categories/${systemId}`)} className="max-md:h-9 max-md:w-9 max-md:p-0 max-md:justify-center max-md:gap-0 max-md:font-normal">
-          <X className="h-4 w-4 max-md:h-5 max-md:w-5 max-md:mr-0" />
-          <span className="max-md:sr-only">Hủy</span>
+        <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/categories/${systemId}`)}>
+          <X className="mr-2 h-4 w-4" />
+          Hủy
         </Button>,
-        <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating} className="max-md:px-3">
+        <Button key="save" size="sm" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating}>
           {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          <span className="max-md:sr-only">{isUpdating ? 'Đang lưu...' : 'Lưu'}</span>
-          <span className="max-md:hidden">{isUpdating ? 'Đang lưu...' : 'Lưu'}</span>
+          {isUpdating ? 'Đang lưu...' : 'Lưu'}
         </Button>
       ];
     }
 
-    const actions = [
-      <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive max-md:h-9 max-md:w-9 max-md:p-0 max-md:justify-center max-md:gap-0" onClick={() => setIsDeleteAlertOpen(true)}>
-        <Trash2 className="h-4 w-4 max-md:h-5 max-md:w-5" />
-        <span className="max-md:sr-only">Xóa</span>
-      </Button>,
-    ];
+    // Mobile: Single 3-dot menu with all actions
+    const mobileMenu = (
+      <DropdownMenu key="mobile-menu">
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {isAdmin || can('edit_products') ? (
+            <DropdownMenuItem onClick={handleSwitchToEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Chỉnh sửa
+            </DropdownMenuItem>
+          ) : null}
+          {category ? (
+            <>
+              {hasPkgxMapping(category) ? (
+                <>
+                  <DropdownMenuItem onClick={() => handleConfirm(
+                    'Đồng bộ tất cả',
+                    `Đồng bộ TẤT CẢ thông tin danh mục "${category.name}" lên PKGX?`,
+                    () => handleSyncAll({ ...category, systemId: asSystemId(category.systemId), id: asBusinessId(category.id) } as unknown as ProductCategory)
+                  )}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Đồng bộ PKGX
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const pkgxId = getPkgxCatId({ ...category, systemId: asSystemId(category.systemId), id: asBusinessId(category.id) } as unknown as ProductCategory);
+                    if (pkgxId) window.open(`https://phukiengiaxuong.com.vn/admin/cat.php?act=edit&id=${pkgxId}`, '_blank');
+                  }}>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Xem trên web
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleUnlinkPkgx} className="text-destructive focus:text-destructive">
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Hủy liên kết PKGX
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Xóa danh mục
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
 
-    // Add PKGX sync actions if category is mapped
-    if (category) {
+    // Desktop: Full buttons
+    const desktopActions = [];
+
+    if (isAdmin || can('edit_products')) {
+      desktopActions.push(
+        <Button key="edit" size="sm" onClick={handleSwitchToEdit}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Chỉnh sửa
+        </Button>
+      );
+    }
+
+    if (category && hasPkgxMapping(category)) {
       const categoryWithBrandedIds = {
         ...category,
         systemId: asSystemId(category.systemId),
         id: asBusinessId(category.id)
       } as unknown as ProductCategory;
 
-      if (hasPkgxMapping(categoryWithBrandedIds)) {
-        actions.unshift(
-          <DropdownMenu key="pkgx-sync">
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="max-md:size-9 max-md:p-0 max-md:justify-center max-md:gap-0">
-                <RefreshCw className="h-4 w-4 max-md:h-5 max-md:w-5" />
-                <ChevronDown className="ml-1 h-3 w-3 max-md:hidden" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleConfirm(
-                'Đồng bộ tất cả',
-                `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin danh mục "${category?.name}" lên PKGX?`,
-                () => handleSyncAll(categoryWithBrandedIds)
-              )}>
-                <Layers className="mr-2 h-4 w-4" />
-                Đồng bộ tất cả
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleConfirm(
-                'Đồng bộ thông tin cơ bản',
-                `Bạn có chắc muốn đồng bộ thông tin cơ bản (Tên) của "${category?.name}" lên PKGX?`,
-                () => handleSyncBasic(categoryWithBrandedIds)
-              )}>
-                <Info className="mr-2 h-4 w-4" />
-                Thông tin cơ bản
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleConfirm(
-                'Đồng bộ SEO',
-                `Bạn có chắc muốn đồng bộ SEO (Keywords, Meta Title, Meta Description) của "${category?.name}" lên PKGX?`,
-                () => handleSyncSeo(categoryWithBrandedIds)
-              )}>
-                <Globe className="mr-2 h-4 w-4" />
-                SEO
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleConfirm(
-                'Đồng bộ mô tả',
-                `Bạn có chắc muốn đồng bộ mô tả (Short Desc, Long Desc) của "${category?.name}" lên PKGX?`,
-                () => handleSyncDescription(categoryWithBrandedIds)
-              )}>
-                <FileText className="mr-2 h-4 w-4" />
-                Mô tả
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => {
-                const pkgxId = getPkgxCatId(categoryWithBrandedIds);
-                if (pkgxId) {
-                  window.open(`https://phukiengiaxuong.com.vn/admin/cat.php?act=edit&id=${pkgxId}`, '_blank');
-                }
-              }}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Xem trên web
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={handleUnlinkPkgx}
-              >
-                <Unlink className="mr-2 h-4 w-4" />
-                Hủy liên kết
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      }
-    }
-
-    if (isAdmin || can('edit_products')) {
-      actions.push(
-        <Button key="edit" size="sm" onClick={handleSwitchToEdit} className="max-md:px-3">
-          <Pencil className="mr-2 h-4 w-4 max-md:mr-0" />
-          <span className="max-md:sr-only">Sửa</span>
-          <span className="max-md:hidden">Chỉnh sửa</span>
-        </Button>
+      desktopActions.push(
+        <DropdownMenu key="pkgx-sync">
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              PKGX
+              <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => handleConfirm('Đồng bộ tất cả', `Đồng bộ TẤT CẢ thông tin danh mục "${category?.name}" lên PKGX?`, () => handleSyncAll(categoryWithBrandedIds))}>
+              <Layers className="mr-2 h-4 w-4" />
+              Đồng bộ tất cả
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleConfirm('Đồng bộ thông tin cơ bản', `Đồng bộ thông tin cơ bản của "${category?.name}" lên PKGX?`, () => handleSyncBasic(categoryWithBrandedIds))}>
+              <Info className="mr-2 h-4 w-4" />
+              Thông tin cơ bản
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConfirm('Đồng bộ SEO', `Đồng bộ SEO của "${category?.name}" lên PKGX?`, () => handleSyncSeo(categoryWithBrandedIds))}>
+              <Globe className="mr-2 h-4 w-4" />
+              SEO
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConfirm('Đồng bộ mô tả', `Đồng bộ mô tả của "${category?.name}" lên PKGX?`, () => handleSyncDescription(categoryWithBrandedIds))}>
+              <FileText className="mr-2 h-4 w-4" />
+              Mô tả
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { const pkgxId = getPkgxCatId(categoryWithBrandedIds); if (pkgxId) window.open(`https://phukiengiaxuong.com.vn/admin/cat.php?act=edit&id=${pkgxId}`, '_blank'); }}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Xem trên web
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleUnlinkPkgx} className="text-destructive focus:text-destructive">
+              <Unlink className="mr-2 h-4 w-4" />
+              Hủy liên kết
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     }
 
-    return actions;
-  }, [isEditMode, systemId, router, form, handleSubmit, isUpdating, handleSwitchToEdit, category, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasic, handleUnlinkPkgx, getPkgxCatId, isAdmin, can]);
+    desktopActions.push(
+      <Button key="delete" variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
+        <Trash2 className="mr-2 h-4 w-4" />
+        Xóa
+      </Button>
+    );
+
+    // Return both mobile and desktop actions with proper visibility classes
+    return [
+      <React.Fragment key="mobile-menu">{mobileMenu}</React.Fragment>,
+      <div key="desktop-actions" className="hidden md:contents">
+        {desktopActions}
+      </div>
+    ];
+  }, [isEditMode, systemId, router, form, handleSubmit, isUpdating, handleSwitchToEdit, category, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasic, handleUnlinkPkgx, getPkgxCatId, isAdmin, can, setIsDeleteAlertOpen]);
+
+  // Status badge for subtitle
+  const statusBadge = category?.isActive !== false ? (
+    <Badge variant="default" className="text-xs">Hoạt động</Badge>
+  ) : (
+    <Badge variant="secondary" className="text-xs">Tạm tắt</Badge>
+  );
 
   usePageHeader({
     title: category?.name || 'Danh mục',
+    badge: statusBadge,
     actions: headerActions,
     showBackButton: true,
   });

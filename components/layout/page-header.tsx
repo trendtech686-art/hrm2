@@ -7,7 +7,7 @@ import { usePageHeaderState } from '../../contexts/page-header-context';
  * Page Header Component
  * Mobile-first responsive header với Shadcn UI design
  *
- * Mobile: Back button + Title + Actions stacked
+ * Mobile: Back button + Title + Badge + Actions (3-dot menu)
  * Desktop: Title/Subtitle + Badge + Actions inline
  */
 export function PageHeader() {
@@ -22,6 +22,27 @@ export function PageHeader() {
     actions: rawActions,
     docLink,
   } = pageHeader;
+
+  // Flatten React Fragments to handle nested components
+  const flattenActions = React.useCallback((nodes: React.ReactNode[]): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    nodes.forEach(node => {
+      if (React.isValidElement(node)) {
+        if ((node as React.ReactElement).type === React.Fragment) {
+          // @ts-expect-error - Fragment children handling
+          const children = node.props?.children;
+          if (Array.isArray(children)) {
+            result.push(...flattenActions(children));
+          } else if (children) {
+            result.push(children);
+          }
+        } else {
+          result.push(node);
+        }
+      }
+    });
+    return result;
+  }, []);
 
   const actions = React.useMemo(() => {
     const normalizedActions: React.ReactNode[] = [];
@@ -44,15 +65,13 @@ export function PageHeader() {
     }
 
     if (rawActions) {
-      if (Array.isArray(rawActions)) {
-        normalizedActions.push(...rawActions.filter(Boolean));
-      } else {
-        normalizedActions.push(rawActions);
-      }
+      const actionNodes = Array.isArray(rawActions) ? rawActions : [rawActions];
+      const flattened = flattenActions(actionNodes.filter(Boolean) as React.ReactNode[]);
+      normalizedActions.push(...flattened);
     }
 
     return normalizedActions;
-  }, [docLink, rawActions]);
+  }, [docLink, rawActions, flattenActions]);
 
   // Don't render if no content
   if (!title && actions.length === 0 && !subtitle && !badge) {
@@ -63,7 +82,7 @@ export function PageHeader() {
     <div className="sticky top-0 md:top-16 z-20 bg-background border-b border-border -mx-4 md:-mx-6">
       {/* Mobile layout */}
       <div className="md:hidden">
-        <div className="flex flex-col gap-1.5 px-4 py-2">
+        <div className="px-4 py-2">
           <div className="flex items-center gap-2">
             {showBackButton && onBack && (
               <Button
@@ -77,33 +96,29 @@ export function PageHeader() {
               </Button>
             )}
 
-            {/* Title section - max width to leave room for actions */}
-            <div className="flex-1 min-w-0 max-w-[calc(100%-100px)]">
+            {/* Title + Badge section */}
+            <div className="flex-1 min-w-0 flex items-center gap-2">
               <h1 className="text-base font-semibold tracking-tight text-foreground truncate">
                 {title}
               </h1>
-              {subtitle && (
-                <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                  {subtitle}
-                </p>
-              )}
+              {badge}
             </div>
 
-            {/* Actions - right side, shrink to fit */}
+            {/* Actions - right side */}
             {actions.length > 0 && (
               <div className="flex items-center gap-1 shrink-0">
                 {actions.map((action, index) => (
-                  <React.Fragment key={index}>{action}</React.Fragment>
+                  <React.Fragment key={`mobile-action-${index}`}>{action}</React.Fragment>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Badge below title row */}
-          {badge && (
-            <div className="pl-11">
-              {badge}
-            </div>
+          {/* Subtitle below */}
+          {subtitle && (
+            <p className="mt-1 text-xs text-muted-foreground truncate pl-11">
+              {subtitle}
+            </p>
           )}
         </div>
       </div>
@@ -145,7 +160,7 @@ export function PageHeader() {
             {actions.length > 0 && (
               <div className="flex items-center gap-2 shrink-0">
                 {actions.map((action, index) => (
-                  <React.Fragment key={index}>{action}</React.Fragment>
+                  <React.Fragment key={`desktop-action-${index}`}>{action}</React.Fragment>
                 ))}
               </div>
             )}
