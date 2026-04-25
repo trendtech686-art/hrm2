@@ -150,7 +150,12 @@ function deepMerge<T extends Record<string, unknown>>(defaults: T, overrides: Re
 
 // ⚡ PERFORMANCE: Single GET fetch for all warranty settings
 async function fetchAllWarrantySettings(): Promise<Record<string, unknown>> {
-  const res = await fetch('/api/settings?group=warranty', { credentials: 'include' });
+  const res = await fetch('/api/settings?group=warranty', {
+    credentials: 'include',
+    // Never use fetch cache - always get fresh data from server
+    // This fixes the issue where settings revert after F5
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('Failed to fetch warranty settings');
   const json = await res.json();
   const grouped = json.grouped?.warranty as Record<string, unknown> | undefined;

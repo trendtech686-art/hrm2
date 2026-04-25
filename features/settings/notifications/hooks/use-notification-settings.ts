@@ -78,7 +78,12 @@ const GENERAL_KEY_MAP: Record<string, string> = {
 };
 
 async function fetchGroupSettings(group: string, keyMap: Record<string, string>): Promise<Record<string, unknown>> {
-  const res = await fetch(`/api/settings?group=${group}`, { credentials: 'include' });
+  const res = await fetch(`/api/settings?group=${group}`, {
+    credentials: 'include',
+    // Never use fetch cache - always get fresh data from server
+    // This fixes the issue where settings revert after F5
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error(`Failed to fetch ${group} settings`);
   const json = await res.json();
   const grouped = json.grouped?.[group] as Record<string, unknown> | undefined;
@@ -245,7 +250,12 @@ export function useSystemNotificationSettings() {
   const query = useQuery({
     queryKey: notificationSettingsKeys.system,
     queryFn: async () => {
-      const res = await fetch('/api/settings?group=system-notifications', { credentials: 'include' });
+      const res = await fetch('/api/settings?group=system-notifications', {
+        credentials: 'include',
+        // Never use fetch cache - always get fresh data from server
+        // This fixes the issue where settings revert after F5
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error('Failed to fetch system notification settings');
       const json = await res.json();
       const grouped = json.grouped?.['system-notifications'] as Record<string, unknown> | undefined;

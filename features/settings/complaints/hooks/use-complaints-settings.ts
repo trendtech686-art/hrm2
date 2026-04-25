@@ -67,7 +67,12 @@ function deepMerge<T extends Record<string, unknown>>(defaults: T, overrides: Re
 
 // ⚡ PERFORMANCE: Single GET fetch for all complaints settings
 async function fetchAllComplaintsSettings(): Promise<Record<ComplaintsSettingType, unknown>> {
-  const res = await fetch('/api/settings?group=complaints', { credentials: 'include' });
+  const res = await fetch('/api/settings?group=complaints', {
+    credentials: 'include',
+    // Never use fetch cache - always get fresh data from server
+    // This fixes the issue where settings revert after F5
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('Failed to fetch complaints settings');
   const json = await res.json();
 

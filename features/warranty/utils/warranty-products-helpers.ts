@@ -2,6 +2,7 @@
  * Helper functions for warranty products section
  */
 import { checkWarrantyStatus, type WarrantyCheckResult } from './warranty-checker';
+export type { WarrantyCheckResult, ProductWarrantyInfo } from './warranty-checker';
 import type { Order } from '@/features/orders/types';
 import { generateSubEntityId } from '@/lib/id-utils';
 

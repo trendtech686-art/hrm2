@@ -20,7 +20,11 @@ import {
 const GLOBAL_SETTINGS_QUERY_KEY = ['settings', 'global'] as const;
 
 async function fetchGlobalSettings(): Promise<GlobalSettings> {
-  const response = await fetch('/api/settings/global');
+  const response = await fetch('/api/settings/global', {
+    // Never use fetch cache - always get fresh data from server
+    // This fixes the issue where settings revert after F5
+    cache: 'no-store',
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch global settings');
   }

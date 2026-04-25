@@ -3,7 +3,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Plus, LayoutGrid, Table, Settings, Loader2 } from 'lucide-react';
+import { Plus, Table, Settings, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
@@ -14,9 +14,8 @@ import {
 import { useColumnLayout } from '../../hooks/use-column-visibility';
 
 // Types & Store
-import type { WarrantyTicket, WarrantyStatus } from './types';
+import type { WarrantyTicket } from './types';
 import { useWarranties, useWarrantyMutations, useWarrantyStats, type WarrantyStats } from './hooks/use-warranties';
-import { useAllWarranties } from './hooks/use-all-warranties';
 
 import { WARRANTY_STATUS_LABELS } from './types';
 import { asSystemId } from '@/lib/id-types';
@@ -24,7 +23,6 @@ import { getColumns } from './columns';
 
 // Dynamic imports for heavy components
 const WarrantyCard = dynamic(() => import('./warranty-card').then(mod => ({ default: mod.WarrantyCard })), { ssr: false });
-const KanbanColumn = dynamic(() => import('./components/warranty-kanban-column').then(mod => ({ default: mod.KanbanColumn })), { ssr: false });
 const WarrantyCancelDialog = dynamic(() => import('./components/dialogs/warranty-cancel-dialog').then(mod => ({ default: mod.WarrantyCancelDialog })), { ssr: false });
 
 // UI Components
@@ -166,10 +164,6 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   const tickets = React.useMemo(() => warrantyData?.data ?? [], [warrantyData?.data]);
   const totalRows = warrantyData?.pagination?.total ?? 0;
   const pageCount = Math.ceil(totalRows / pagination.pageSize);
-
-  // For export/kanban: fetch all data ONLY when in kanban mode (lazy-load)
-  const [viewMode, setViewMode] = React.useState<'kanban' | 'table'>('table');
-  const { data: allTickets } = useAllWarranties({ enabled: viewMode === 'kanban' });
 
   const { remove: deleteWarrantyMutation, update: updateWarrantyMutation } = useWarrantyMutations({});
   const deleteWarrantyTicket = React.useCallback((id: string | undefined) => id && deleteWarrantyMutation.mutate(id), [deleteWarrantyMutation]);
@@ -315,9 +309,6 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   const bulkCancelCompletedRef = React.useRef(0);
   const currentCancelTicket = cancelQueue[0] ?? null;
 
-  // View mode: kanban or table (moved above to enable lazy-load of allTickets)
-
-  // View mode: kanban or table (moved above to enable lazy-load of allTickets)
   // Handlers
   // ==========================================
   const handleEdit = React.useCallback(
@@ -635,40 +626,10 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   ], [handleBulkPrint, handleBulkGetTrackingLink, handleBulkCancel, canDelete]);
 
   // ==========================================
-  // Kanban Data (Group by status) - uses allTickets for kanban view
-  // ==========================================
-  const ticketsByStatus = React.useMemo(() => {
-    const statuses: WarrantyStatus[] = ['RECEIVED', 'PROCESSING', 'COMPLETED', 'RETURNED', 'WAITING_PARTS'];
-    return statuses.reduce((acc, status) => {
-      acc[status] = allTickets.filter((ticket) => ticket.status === status && !ticket.cancelledAt); // Exclude cancelled
-      return acc;
-    }, {} as Record<WarrantyStatus, WarrantyTicket[]>);
-  }, [allTickets]);
-
-  // ==========================================
   // Header Actions
   // ==========================================
   const actions = React.useMemo(
     () => [
-      // View toggle (RIGHT)
-      <Button
-        key="view-toggle"
-        onClick={() => setViewMode(viewMode === 'kanban' ? 'table' : 'kanban')}
-        variant="outline"
-        size="sm"
-      >
-        {viewMode === 'kanban' ? (
-          <>
-            <Table className="h-4 w-4 mr-2" />
-            Chế độ bảng
-          </>
-        ) : (
-          <>
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Chế độ Kanban
-          </>
-        )}
-      </Button>,
       // Create button (RIGHT)
       canCreate && <Button
         key="new"
@@ -679,7 +640,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         Tạo phiếu mới
       </Button>,
     ].filter(Boolean),
-    [router, viewMode, canCreate]
+    [router, canCreate]
   );
   usePageHeader({
     title: 'Quản lý bảo hành',
@@ -748,117 +709,42 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
-      {/* Table - Desktop View */}
+      {/* Table View */}
       <div className={cn('w-full py-4', isWarrantiesFetching && !isLoadingWarranties && 'opacity-70 transition-opacity')}>
-        {viewMode === 'table' ? (
-          <ResponsiveDataTable<WarrantyTicket>
-            columns={columns}
-            data={tickets}
-            renderMobileCard={(ticket) => (
-              <WarrantyCard
-                key={ticket.systemId}
-                ticket={ticket}
-                onClick={() => router.push(`/warranty/${ticket.systemId}`)}
-              />
-            )}
-            pageCount={pageCount}
-            pagination={pagination}
-            setPagination={setPagination}
-            rowCount={totalRows}
-            rowSelection={rowSelection}
-            setRowSelection={setRowSelection}
-            onBulkDelete={() => setDeleteDialogOpen(true)}
-            bulkActions={bulkActions}
-            allSelectedRows={selectedTickets}
-            expanded={expanded}
-            setExpanded={setExpanded}
-            sorting={sorting}
-            setSorting={setSorting}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={columnOrder}
-            setColumnOrder={setColumnOrder}
-            pinnedColumns={pinnedColumns}
-            setPinnedColumns={setPinnedColumns}
-            isLoading={isLoadingWarranties}
-            onRowClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
-            getRowStyle={getRowStyle}
-            mobileInfiniteScroll
-          />
-        ) : (
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            <KanbanColumn
-              status="RECEIVED"
-              tickets={ticketsByStatus.RECEIVED}
-              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
-              cardColors={cardColors}
-              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
-              onGetLink={handleGetLink}
-              onStartProcessing={handleStartProcessing}
-              onMarkProcessed={handleMarkProcessed}
-              onMarkReturned={handleMarkReturned}
-              onCancel={handleCancel}
-              canEdit={canEdit}
-              canCancel={canDelete}
+        <ResponsiveDataTable<WarrantyTicket>
+          columns={columns}
+          data={tickets}
+          renderMobileCard={(ticket) => (
+            <WarrantyCard
+              key={ticket.systemId}
+              ticket={ticket}
+              onClick={() => router.push(`/warranty/${ticket.systemId}`)}
             />
-            <KanbanColumn
-              status="PROCESSING"
-              tickets={ticketsByStatus.PROCESSING}
-              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
-              cardColors={cardColors}
-              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
-              onGetLink={handleGetLink}
-              onStartProcessing={handleStartProcessing}
-              onMarkProcessed={handleMarkProcessed}
-              onMarkReturned={handleMarkReturned}
-              onCancel={handleCancel}
-              canEdit={canEdit}
-              canCancel={canDelete}
-            />
-            <KanbanColumn
-              status="COMPLETED"
-              tickets={ticketsByStatus.COMPLETED}
-              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
-              cardColors={cardColors}
-              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
-              onGetLink={handleGetLink}
-              onStartProcessing={handleStartProcessing}
-              onMarkProcessed={handleMarkProcessed}
-              onMarkReturned={handleMarkReturned}
-              onCancel={handleCancel}
-              canEdit={canEdit}
-              canCancel={canDelete}
-            />
-            <KanbanColumn
-              status="RETURNED"
-              tickets={ticketsByStatus.RETURNED}
-              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
-              cardColors={cardColors}
-              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
-              onGetLink={handleGetLink}
-              onStartProcessing={handleStartProcessing}
-              onMarkProcessed={handleMarkProcessed}
-              onMarkReturned={handleMarkReturned}
-              onCancel={handleCancel}
-              canEdit={canEdit}
-              canCancel={canDelete}
-            />
-            <KanbanColumn
-              status="WAITING_PARTS"
-              tickets={ticketsByStatus.WAITING_PARTS}
-              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
-              cardColors={cardColors}
-              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
-              onGetLink={handleGetLink}
-              onStartProcessing={handleStartProcessing}
-              onMarkProcessed={handleMarkProcessed}
-              onMarkReturned={handleMarkReturned}
-              onCancel={handleCancel}
-              canEdit={canEdit}
-              canCancel={canDelete}
-            />
-          </div>
-        )}
+          )}
+          pageCount={pageCount}
+          pagination={pagination}
+          setPagination={setPagination}
+          rowCount={totalRows}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          onBulkDelete={() => setDeleteDialogOpen(true)}
+          bulkActions={bulkActions}
+          allSelectedRows={selectedTickets}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          sorting={sorting}
+          setSorting={setSorting}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          pinnedColumns={pinnedColumns}
+          setPinnedColumns={setPinnedColumns}
+          isLoading={isLoadingWarranties}
+          onRowClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
+          getRowStyle={getRowStyle}
+          mobileInfiniteScroll
+        />
       </div>
 
       {/* Cancel Dialog */}

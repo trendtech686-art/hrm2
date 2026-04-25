@@ -114,7 +114,6 @@ const menuGroups: MenuGroup[] = [
         { href: '/warranty', label: 'Quản lý Bảo hành', icon: Wrench, permission: 'view_warranty' },
         { href: '/complaints', label: 'Quản lý Khiếu nại', icon: ShieldAlert, permission: 'view_complaints' },
         { href: '/penalties', label: 'Quản lý Phiếu phạt', icon: BadgeCent, permission: 'view_employees' },
-        { href: '/activity-logs', label: 'Nhật ký hoạt động', icon: History, permission: 'view_activity_logs' },
     ]
   },
   {

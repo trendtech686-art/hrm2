@@ -65,7 +65,12 @@ function deepMerge<T extends Record<string, unknown>>(defaults: T, overrides: Re
 
 // ⚡ PERFORMANCE: Single GET fetch for all tasks settings
 async function fetchAllTasksSettings(): Promise<Record<TasksSettingType, unknown>> {
-  const res = await fetch('/api/settings?group=tasks', { credentials: 'include' });
+  const res = await fetch('/api/settings?group=tasks', {
+    credentials: 'include',
+    // Never use fetch cache - always get fresh data from server
+    // This fixes the issue where settings revert after F5
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('Failed to fetch tasks settings');
   const json = await res.json();
   const grouped = json.grouped?.tasks as Record<string, unknown> | undefined;
