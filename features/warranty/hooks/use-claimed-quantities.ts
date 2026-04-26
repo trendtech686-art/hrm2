@@ -72,12 +72,12 @@ export function useClaimedQuantities(
 
       if (products && Array.isArray(products)) {
         products.forEach((product) => {
-          // ✅ Chỉ đếm sản phẩm có resolution = 'return' hoặc 'replace'
-          // KHÔNG đếm 'out_of_stock' vì đó không phải BH thực sự
-          const isWarrantyClaim = product.resolution === 'return' || product.resolution === 'replace';
-
-          // Debug
-          console.log('[useClaimedQuantities] product:', product.productName, 'resolution:', product.resolution, 'isWarrantyClaim:', isWarrantyClaim, 'qty:', product.quantity);
+          // ✅ Tính cả resolution 'return', 'replace', 'exchange', 'out_of_stock' đều là bảo hành
+          const isWarrantyClaim = 
+            product.resolution === 'return' || 
+            product.resolution === 'replace' ||
+            product.resolution === 'exchange' ||
+            product.resolution === 'out_of_stock';
 
           if (product.productName && product.quantity && isWarrantyClaim) {
             const name = product.productName.toLowerCase().trim();
@@ -112,8 +112,12 @@ export function useClaimedQuantities(
 
       if (products && Array.isArray(products)) {
         products.forEach((product) => {
-          // ✅ Chỉ đếm sản phẩm có resolution = 'return' hoặc 'replace'
-          const isWarrantyClaim = product.resolution === 'return' || product.resolution === 'replace';
+          // ✅ Tính cả resolution 'return', 'replace', 'exchange', 'out_of_stock' đều là bảo hành
+          const isWarrantyClaim = 
+            product.resolution === 'return' || 
+            product.resolution === 'replace' ||
+            product.resolution === 'exchange' ||
+            product.resolution === 'out_of_stock';
 
           if (product.productName && product.quantity && isWarrantyClaim) {
             const name = product.productName.toLowerCase().trim();
