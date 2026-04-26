@@ -11,15 +11,15 @@ const formatCurrency = (value?: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'secondary' | 'warning' | 'destructive' | 'default' }> = {
   DRAFT: { label: 'Nháp', variant: 'secondary' },
   APPROVED: { label: 'Đã duyệt', variant: 'default' },
   PACKED: { label: 'Đã đóng gói', variant: 'default' },
-  EXPORTED: { label: 'Đã xuất kho', variant: 'default' },
-  SENT: { label: 'Đã gửi', variant: 'default' },
-  DELIVERED: { label: 'Giao thành công', variant: 'default' },
-  CONFIRMED: { label: 'Đã xác nhận', variant: 'outline' },
-  COMPLETED: { label: 'Hoàn thành', variant: 'default' },
+  EXPORTED: { label: 'Đã xuất kho', variant: 'warning' },
+  SENT: { label: 'Đã gửi', variant: 'warning' },
+  DELIVERED: { label: 'Giao thành công', variant: 'success' },
+  CONFIRMED: { label: 'Đã xác nhận', variant: 'success' },
+  COMPLETED: { label: 'Hoàn thành', variant: 'success' },
   CANCELLED: { label: 'Đã hủy', variant: 'destructive' },
 }
 

@@ -278,7 +278,7 @@ export function RolesSettingsContent() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
+                            <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Thao tác">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>

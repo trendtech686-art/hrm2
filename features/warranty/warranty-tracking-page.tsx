@@ -953,8 +953,7 @@ export function WarrantyTrackingPage() {
                 Thông tin phiếu bảo hành
               </CardTitle>
             </CardHeader>
-            <div className="p-4 md:p-6">
-              <CardContent className="space-y-4 p-0!">
+            <CardContent className="px-4! pb-4! md:px-6! md:pb-6! space-y-4">
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Row 1: Mã phiếu | Chi nhánh | Nhân viên */}
                 <div>
@@ -1077,7 +1076,6 @@ export function WarrantyTrackingPage() {
                 </>
               )}
             </CardContent>
-            </div>
           </Card>
 
           {/* Card: Danh sách sản phẩm bảo hành */}

@@ -24,10 +24,10 @@ const formatNumber = (value: number) => new Intl.NumberFormat('vi-VN').format(va
 function getResultBadge(result: string | null) {
   if (!result) return null
   const lower = result.toLowerCase()
-  if (lower.includes('bảo hành') || lower.includes('sửa')) return 'bg-green-100 text-green-800'
-  if (lower.includes('trả') || lower.includes('hoàn')) return 'bg-orange-100 text-orange-800'
-  if (lower.includes('đổi') || lower.includes('thay')) return 'bg-blue-100 text-blue-800'
-  if (lower.includes('từ chối') || lower.includes('hủy')) return 'bg-red-100 text-red-800'
+  if (lower.includes('bảo hành') || lower.includes('sửa')) return 'bg-success/15 text-success-foreground'
+  if (lower.includes('trả') || lower.includes('hoàn')) return 'bg-warning/15 text-warning-foreground'
+  if (lower.includes('đổi') || lower.includes('thay')) return 'bg-info/15 text-info-foreground'
+  if (lower.includes('từ chối') || lower.includes('hủy')) return 'bg-destructive/15 text-destructive'
   return 'bg-muted text-foreground'
 }
 

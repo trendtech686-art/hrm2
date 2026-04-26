@@ -90,6 +90,7 @@ model Product {
   importerSystemId String? // Link to Importer.systemId
   importerName     String? // Override tên đơn vị nhập khẩu
   importerAddress  String? // Override địa chỉ nhập khẩu
+  printLabel       Boolean @default(true) // Bật/tắt in tem phụ cho sản phẩm này
 
   // Combo fields (when type === 'combo')
   comboItems       Json? // Array of ComboItem { productSystemId, quantity }

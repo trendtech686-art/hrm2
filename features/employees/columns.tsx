@@ -588,7 +588,7 @@ export const getColumns = (
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="h-7 w-7 p-0 text-green-600 hover:text-green-600 hover:bg-green-600/10" 
+                  className="h-11 w-11 p-0 text-green-600 hover:text-green-600 hover:bg-green-600/10" 
                   onClick={(e) => {
                     e.stopPropagation();
                     onRestore(employee.systemId);
@@ -607,7 +607,7 @@ export const getColumns = (
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="h-7 w-7 p-0"
+                className="h-11 w-11 p-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />

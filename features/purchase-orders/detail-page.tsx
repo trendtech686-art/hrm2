@@ -674,7 +674,7 @@ export function PurchaseOrderDetailPage() {
   }, [router, purchaseOrder, canBeFinished, canReturn, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint, can, isAdmin]);
 
   const mobileHeaderActions = React.useMemo(() => {
-    if (!isMobile || !purchaseOrder) return [];
+    if (!isMobile || !purchaseOrder) return null;
     const isTerminalStatus = purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
     const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập' && (isAdmin || can('edit_purchase_orders'));
     const canCancelOrder = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';

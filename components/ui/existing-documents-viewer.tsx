@@ -409,8 +409,8 @@ function LazyFileCard({
       ref={ref}
       className={`group p-1.5 transition-all duration-200 hover:shadow-md hover:scale-[1.01] ${
         isMarkedForDeletion 
-          ? 'border-red-300 bg-red-50/50 opacity-60' 
-          : 'border-green-200 bg-green-50/30'
+          ? 'border-destructive/30 bg-destructive/5' 
+          : 'border-success/30 bg-success/5'
       }`}
     >
       <div className="flex flex-col gap-1.5">
@@ -478,11 +478,11 @@ function LazyFileCard({
               {formatFileSize(file.size)}
             </p>
             {isMarkedForDeletion ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium animate-pulse">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-destructive/15 text-destructive rounded-full text-xs font-medium animate-pulse">
                 <span>🗑️</span> Sẽ xóa khi Lưu
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success/15 text-success-foreground rounded-full text-xs font-medium">
                 <span>✓</span> Đã lưu vĩnh viễn
               </span>
             )}
@@ -517,7 +517,7 @@ function LazyFileCard({
             size="sm"
             className={`flex-1 h-7 px-1 ${
               isMarkedForDeletion 
-                ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' 
+                ? 'bg-warning/15 hover:bg-warning/25 text-warning-foreground' 
                 : 'hover:bg-destructive/10 hover:text-destructive'
             }`}
             onClick={() => onDelete(file.id)}

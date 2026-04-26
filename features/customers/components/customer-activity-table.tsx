@@ -127,11 +127,11 @@ export function CustomerActivityTable({ customerSystemId }: CustomerActivityTabl
   // Get action icon and color
   const getActionStyle = (action: string) => {
     const styles: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bgColor: string }> = {
-      created: { icon: Plus, color: 'text-green-600', bgColor: 'bg-green-100' },
-      updated: { icon: Pencil, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-      deleted: { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-100' },
-      status_changed: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-      restored: { icon: RotateCcw, color: 'text-teal-600', bgColor: 'bg-teal-100' },
+      created: { icon: Plus, color: 'text-success', bgColor: 'bg-success/15' },
+      updated: { icon: Pencil, color: 'text-info', bgColor: 'bg-info/15' },
+      deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
+      status_changed: { icon: FileText, color: 'text-warning', bgColor: 'bg-warning/15' },
+      restored: { icon: RotateCcw, color: 'text-info', bgColor: 'bg-info/15' },
     }
     return styles[action] || { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' }
   }
@@ -223,11 +223,11 @@ export function CustomerActivityTable({ customerSystemId }: CustomerActivityTabl
           <div key={field} className="border rounded-lg p-3 bg-muted/30">
             <div className="font-medium text-sm mb-2">{fieldLabels[field] || field}</div>
             <div className="flex items-center gap-2 text-sm">
-              <span className="px-2 py-1 bg-red-100 text-red-700 rounded line-through">
+              <span className="px-2 py-1 bg-destructive/15 text-destructive rounded line-through">
                 {formatValue(change.from, field)}
               </span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded">
+              <span className="px-2 py-1 bg-success/15 text-success-foreground rounded">
                 {formatValue(change.to, field)}
               </span>
             </div>

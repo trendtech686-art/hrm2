@@ -22,7 +22,6 @@ import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { useMediaQuery } from "@/lib/use-media-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { simpleSearch } from "@/lib/simple-search";
 import { getColumns } from "./columns";
 import { MobileCategoryCard } from "./card";
 import dynamic from 'next/dynamic';
@@ -44,34 +43,65 @@ export function ProductCategoriesPage() {
   const {  employee: authEmployee, can } = useAuth();
   const canCreate = can('create_products');
   const canDelete = can('delete_products');
-  const canEdit = can('edit_products');
 
   // Filter presets
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('categories');
   
-  // Use React Query instead of Zustand store - use all=true to get all categories
-  const { data: queryData, isFetching } = useCategories({ all: true });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  // Use React Query instead of Zustand store
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [sorting, setSorting] = React.useState({ id: 'sortOrder', desc: false });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, setPagination]);
+
+  // Server-side paginated query
+  const { data: categoriesData, isLoading: isLoadingCategories, isFetching } = useCategories({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: debouncedSearch || undefined,
+    sortBy: sorting.id,
+    sortOrder: sorting.desc ? 'desc' : 'asc',
+  });
+  const categories = React.useMemo(() => categoriesData?.data ?? [], [categoriesData?.data]);
+  const totalRows = categoriesData?.pagination?.total ?? 0;
+  const pageCount = categoriesData?.pagination?.totalPages ?? 1;
   const { create, update, remove } = useCategoryMutations({
-    onCreateSuccess: () => toast.success("Đã thêm danh mục"),
-    onUpdateSuccess: () => toast.success("Đã cập nhật danh mục"),
-    onDeleteSuccess: () => toast.success("Đã xóa danh mục"),
+    onCreateSuccess: () => {
+      toast.success("Đã thêm danh mục");
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+    },
+    onUpdateSuccess: () => {
+      toast.success("Đã cập nhật danh mục");
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+    },
+    onDeleteSuccess: () => {
+      toast.success("Đã xóa danh mục");
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+    },
     onError: (err) => toast.error(err.message)
   });
   const { bulkDelete, bulkActivate, bulkDeactivate } = useBulkCategoryMutations({
-    onSuccess: () => toast.success("Thao tác hàng loạt thành công"),
+    onSuccess: () => {
+      toast.success("Thao tác hàng loạt thành công");
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+    },
     onError: (err) => toast.error(err.message)
   });
   
-  const activeCategories = React.useMemo(() => data.filter((c: Category) => !c.isDeleted), [data]);
+  const activeCategories = React.useMemo(() => categories.filter((c: Category) => !c.isDeleted), [categories]);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
-  const [sorting, setSorting] = React.useState({ id: 'path', desc: false });
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+  // pagination and setPagination already declared at line 54
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('categories', {});
   const [columnOrder, setColumnOrder] = useColumnOrder('categories');
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('categories', ['select', 'thumbnailImage', 'name']);
@@ -80,8 +110,6 @@ export function ProductCategoriesPage() {
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
   const [categoryToLink, setCategoryToLink] = React.useState<Category | null>(null);
-
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
   const { handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
   
@@ -116,21 +144,18 @@ export function ProductCategoriesPage() {
       const item = importData[i];
       try {
         const existing = activeCategories.find((c: Category) => item.id && c.id === item.id);
-        if (existing) { if (mode === 'insert-only') { results.skipped++; continue; } const upd: Partial<Category> = { ...item, updatedAt: new Date() }; delete (upd as Partial<Category> & { systemId?: unknown }).systemId; delete (upd as Partial<Category> & { createdAt?: unknown }).createdAt; if (item.parentId && item.parentId !== existing.parentId) { const p = data.find((c: Category) => c.systemId === item.parentId); if (p) { upd.path = p.path ? `${p.path} > ${item.name || existing.name}` : (item.name || existing.name); upd.level = (p.level ?? 0) + 1; } } update.mutate({ systemId: existing.systemId, data: upd }); results.updated++; results.success++; }
-        else { if (mode === 'update-only') { results.skipped++; continue; } let path = item.name || '', level = 0; if (item.parentId) { const p = data.find((c: Category) => c.systemId === item.parentId); if (p) { path = p.path ? `${p.path} > ${item.name}` : (item.name || ''); level = (p.level ?? 0) + 1; } } create.mutate({ name: item.name || '', path, level, sortOrder: item.sortOrder ?? 0, isActive: item.isActive !== false, slug: undefined, parentId: undefined, seoTitle: undefined, metaDescription: undefined, seoKeywords: undefined, shortDescription: undefined, longDescription: undefined, websiteSeo: undefined, color: undefined, icon: undefined, imageUrl: undefined, thumbnail: undefined, description: undefined, ogImage: undefined }); results.inserted++; results.success++; }
+        if (existing) { if (mode === 'insert-only') { results.skipped++; continue; } const upd: Partial<Category> = { ...item, updatedAt: new Date() }; delete (upd as Partial<Category> & { systemId?: unknown }).systemId; delete (upd as Partial<Category> & { createdAt?: unknown }).createdAt; if (item.parentId && item.parentId !== existing.parentId) { const p = categories.find((c: Category) => c.systemId === item.parentId); if (p) { upd.path = p.path ? `${p.path} > ${item.name || existing.name}` : (item.name || existing.name); upd.level = (p.level ?? 0) + 1; } } update.mutate({ systemId: existing.systemId, data: upd }); results.updated++; results.success++; }
+        else { if (mode === 'update-only') { results.skipped++; continue; } let path = item.name || '', level = 0; if (item.parentId) { const p = categories.find((c: Category) => c.systemId === item.parentId); if (p) { path = p.path ? `${p.path} > ${item.name}` : (item.name || ''); level = (p.level ?? 0) + 1; } } create.mutate({ name: item.name || '', path, level, sortOrder: item.sortOrder ?? 0, isActive: item.isActive !== false, slug: undefined, parentId: undefined, seoTitle: undefined, metaDescription: undefined, seoKeywords: undefined, shortDescription: undefined, longDescription: undefined, websiteSeo: undefined, color: undefined, icon: undefined, imageUrl: undefined, thumbnail: undefined, description: undefined, ogImage: undefined }); results.inserted++; results.success++; }
       } catch (err) { results.failed++; results.errors.push({ row: i + 1, message: err instanceof Error ? err.message : 'Lỗi' }); }
     }
     return results;
-  }, [activeCategories, data, create, update]);
+  }, [activeCategories, categories, create, update]);
 
-  const columns = React.useMemo(() => getColumns(handleDelete, handleToggleActive, router.push, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink), [handleDelete, handleToggleActive, router, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink]);
+  const columns = React.useMemo(() => getColumns(handleDelete, handleToggleActive, router.push, categories, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink), [handleDelete, handleToggleActive, router, categories, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { if (Object.keys(columnVisibility).length > 0) return; const dv = ['thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt']; const all = ['select', ...dv, 'actions']; const iv: Record<string, boolean> = {}; all.forEach(id => iv[id] = id === 'select' || id === 'actions' || dv.includes(id)); setColumnVisibility(iv); setColumnOrder(all); }, [columnVisibility, setColumnVisibility]);
 
-  const searchedCategories = React.useMemo(() => 
-    simpleSearch(activeCategories, debouncedGlobalFilter, { keys: ['id', 'name', 'path', 'slug'] }), 
-    [activeCategories, debouncedGlobalFilter]
-  );
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete); } setIsAlertOpen(false); setIdToDelete(null); };
   const confirmBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection);
@@ -160,21 +185,8 @@ export function ProductCategoriesPage() {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
   }, [setPagination]);
 
-  const filteredData = React.useMemo(() => {
-    let r = activeCategories;
-    const statusValues = Array.isArray(advancedFilters.status) ? advancedFilters.status as string[] : [];
-    const levelValues = Array.isArray(advancedFilters.level) ? advancedFilters.level as string[] : [];
-    if (statusValues.length > 0) r = r.filter(c => statusValues.includes(c.isActive !== false ? 'active' : 'inactive'));
-    if (levelValues.length > 0) r = r.filter(c => levelValues.includes(String(c.level ?? 0)));
-    if (debouncedGlobalFilter) { const ids = new Set(searchedCategories.map(x => x.systemId)); r = r.filter(c => ids.has(c.systemId)); }
-    return r;
-  }, [activeCategories, advancedFilters, debouncedGlobalFilter, searchedCategories]);
-
-  const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const av = (a as Record<string, unknown>)[sorting.id], bv = (b as Record<string, unknown>)[sorting.id]; if (sorting.id === 'createdAt') return sorting.desc ? new Date(bv as string).getTime() - new Date(av as string).getTime() : new Date(av as string).getTime() - new Date(bv as string).getTime(); if (sorting.id === 'level') return sorting.desc ? (bv as number || 0) - (av as number || 0) : (av as number || 0) - (bv as number || 0); const as = String(av ?? ''), bs = String(bv ?? ''); return sorting.desc ? bs.localeCompare(as) : as.localeCompare(bs); }); return s; }, [filteredData, sorting]);
-
-  const allSelectedRows = React.useMemo(() => activeCategories.filter(c => rowSelection[String(c.systemId)]), [activeCategories, rowSelection]);
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
+  // All categories (excluding deleted) from server-side pagination
+  const allSelectedRows = React.useMemo(() => categories.filter(c => rowSelection[String(c.systemId)]), [categories, rowSelection]);
 
   usePageHeader({ actions: [
     canDelete && <Button key="trash" variant="outline" size="sm" onClick={() => router.push('/categories/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
@@ -192,7 +204,7 @@ export function ProductCategoriesPage() {
   return (
     <div className="space-y-4 h-full flex flex-col">
       {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã, tên danh mục...">
+      <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm theo mã, tên danh mục...">
         <AdvancedFilterPanel
           filters={filterConfigs}
           values={panelValues}
@@ -204,12 +216,12 @@ export function ProductCategoriesPage() {
         />
       </PageFilters>
       <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
-      <div className={cn('w-full py-4', (isFilterPending || (isFetching && data.length > 0)) && 'opacity-60 transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={[{ label: 'Kích hoạt', icon: Power, onSelect: handleBulkActivate }, { label: 'Tắt', icon: PowerOff, onSelect: handleBulkDeactivate }, { label: 'Chuyển vào thùng rác', icon: Archive, onSelect: () => setIsBulkDeleteAlertOpen(true) }]} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} renderMobileCard={c => <MobileCategoryCard category={c} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} childCount={data.filter(x => x.parentId === c.systemId && !x.isDeleted).length} />} mobileInfiniteScroll /></div>
+      <div className={cn('w-full py-4', (isFilterPending || (isFetching && !isLoadingCategories && categories.length > 0)) && 'opacity-60 transition-opacity')}><ResponsiveDataTable columns={columns} data={categories} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={[{ label: 'Kích hoạt', icon: Power, onSelect: handleBulkActivate }, { label: 'Tắt', icon: PowerOff, onSelect: handleBulkDeactivate }, { label: 'Chuyển vào thùng rác', icon: Archive, onSelect: () => setIsBulkDeleteAlertOpen(true) }]} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} renderMobileCard={c => <MobileCategoryCard category={c} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} childCount={categories.filter(x => x.parentId === c.systemId && !x.isDeleted).length} />} mobileInfiniteScroll isLoading={isLoadingCategories} /></div>
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa danh mục?</AlertDialogTitle><AlertDialogDescription>Danh mục sẽ bị xóa khỏi hệ thống.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Chuyển {Object.keys(rowSelection).length} danh mục vào thùng rác?</AlertDialogTitle><AlertDialogDescription>Bạn có thể khôi phục lại từ thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Chuyển vào thùng rác</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <PkgxCategoryLinkDialog open={pkgxLinkDialogOpen} onOpenChange={setPkgxLinkDialogOpen} category={categoryToLink} onSuccess={() => {}} />
       <CategoryImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} existingData={activeCategories} onImport={handleImport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : undefined} />
-      <CategoryExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} allData={activeCategories} filteredData={sortedData} currentPageData={paginatedData} selectedData={allSelectedRows} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : { systemId: asSystemId('SYSTEM'), name: 'System' }} />
+      <CategoryExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} allData={activeCategories} filteredData={categories} currentPageData={categories} selectedData={allSelectedRows} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : { systemId: asSystemId('SYSTEM'), name: 'System' }} />
     </div>
   );
 }

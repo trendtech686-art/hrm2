@@ -65,9 +65,9 @@ const getToneClass = (tone?: 'destructive' | 'warning' | 'success' | 'secondary'
 const getBadgeToneClass = (tone?: 'destructive' | 'warning') => {
     switch (tone) {
         case 'destructive':
-            return 'bg-red-100 text-red-700 border-red-200';
+            return 'bg-destructive/15 text-destructive border-destructive/30';
         case 'warning':
-            return 'bg-amber-100 text-amber-700 border-amber-200';
+            return 'bg-warning/15 text-warning-foreground border-warning/30';
         default:
             return '';
     }
@@ -394,7 +394,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                     </div>
                                 </div>
                                 {!disabled && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" type="button" onClick={() => handleSelect(null)}>
+                                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" type="button" onClick={() => handleSelect(null)}>
                                         <X className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                 )}

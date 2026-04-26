@@ -69,7 +69,7 @@ export function ShippingPartnerCard({
           </p>
         </div>
         {cheapestService && (
-          <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+          <Badge variant="secondary" className="bg-success/15 text-success-foreground border-success/30">
             <DollarSign className="h-3 w-3 mr-1" />
             Rẻ nhất
           </Badge>
@@ -102,13 +102,13 @@ export function ShippingPartnerCard({
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{service.serviceName}</span>
                   {service.serviceId === 'express' && (
-                    <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge variant="secondary" className="text-xs bg-info/15 text-info-foreground border-info/30">
                       <Zap className="h-3 w-3 mr-1" />
                       Nhanh nhất
                     </Badge>
                   )}
                   {isCheapest && services.length > 1 && (
-                    <Badge variant="secondary" className="text-xs bg-green-50 text-green-700 border-green-200">
+                    <Badge variant="secondary" className="text-xs bg-success/15 text-success-foreground border-success/30">
                       Rẻ nhất
                     </Badge>
                   )}

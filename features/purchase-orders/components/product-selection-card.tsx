@@ -679,7 +679,7 @@ export function ProductSelectionCard({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 p-0"
+                                className="h-11 w-11 p-0"
                                 onClick={() => toggleComboExpanded(index)}
                               >
                                 {isComboExpanded ? (

@@ -10,7 +10,8 @@ import type { PrintData, PrintLineItem } from '@/lib/print-service';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { fetchOrder } from '../orders/api/orders-api';
-import { useAllPackagingSlips } from './hooks/use-all-packaging-slips';
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { usePackagingSlips } from './hooks/use-packaging';
 import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
@@ -34,7 +35,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Package, MoreHorizontal, Calendar, User, Inbox, Printer, Download, Settings, UserPlus } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button';
 import { useMediaQuery } from '../../lib/use-media-query';
-import { simpleSearch } from '@/lib/simple-search';
 import { usePrint } from '../../lib/use-print';
 import { convertToPackingForPrint, mapPackingToPrintData, mapPackingLineItems, createStoreSettings } from '../../lib/print/order-print-helper';
 import { asSystemId } from '../../lib/id-types';
@@ -61,15 +61,41 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
 }
 
 export function PackagingPage() {
-    // ✅ Dedicated packaging API — no longer loads ALL orders for list display
-    const { data: packagingSlips } = useAllPackagingSlips();
     const { confirmPackaging, cancelPackagingRequest } = usePackagingActions();
     const { data: branches } = useAllBranches();
     const { findById: findBranchById } = useBranchFinder();
     const { findById: findCustomerById } = useCustomerFinder();
-    const {  employee: authEmployee, can } = useAuth();
-  const canEdit = can('edit_packaging');
-  const canEditSettings = can('edit_settings');
+    const { employee: authEmployee, can } = useAuth();
+    const canEdit = can('edit_packaging');
+    const canEditSettings = can('edit_settings');
+    
+    // State declarations - must be before usage
+    const [globalFilter, setGlobalFilter] = React.useState('');
+    const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
+    // Server-side filters
+    const [branchFilter, setBranchFilter] = React.useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = React.useState<string | null>(null);
+    const [pagination, setPagination] = usePaginationWithGlobalDefault();
+    
+    // ✅ Server-side pagination: only fetch current page
+    const { data: packagingResponse, isLoading: isLoadingPackaging } = usePackagingSlips({
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+      search: debouncedGlobalFilter || undefined,
+      status: statusFilter || undefined,
+      branchSystemId: branchFilter || undefined,
+    });
+    
+    const packagingSlips = React.useMemo(() => packagingResponse?.data ?? [], [packagingResponse?.data]);
+    const pageCount = packagingResponse?.pagination?.totalPages ?? 0;
+    const totalRows = packagingResponse?.pagination?.total ?? 0;
+    
+    // Reset to page 1 when filters change
+    const resetPagination = React.useCallback(() => {
+      setPagination(p => ({ ...p, pageIndex: 0 }));
+    }, [setPagination]);
+    React.useEffect(() => { resetPagination(); }, [resetPagination, branchFilter, statusFilter, debouncedGlobalFilter]);
+    
     // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
     const { print, printMultiple } = usePrint();
     const router = useRouter(), currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM', isMobile = !useMediaQuery('(min-width: 768px)');
@@ -80,8 +106,7 @@ export function PackagingPage() {
     const [assignRows, setAssignRows] = React.useState<PackagingSlip[]>([]);
     const [selectedEmployeeId, setSelectedEmployeeId] = React.useState('');
     const { data: allEmployees } = useAllEmployees({ enabled: assignDialogOpen });
-    const [globalFilter, setGlobalFilter] = React.useState(''), [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 }), [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
     const defaultColumnVisibility = React.useMemo(() => {
         const cols = getColumns(() => {}, () => {}, () => {}), initial: Record<string, boolean> = {};
@@ -106,13 +131,14 @@ export function PackagingPage() {
     ], [branches]);
     const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
     const panelValues = React.useMemo(() => ({
-      branch: advancedFilters.branch ?? null,
-      status: advancedFilters.status ?? null,
+      branch: branchFilter,
+      status: statusFilter,
       requestDate: advancedFilters.requestDate ?? null,
-    }), [advancedFilters]);
+    }), [branchFilter, statusFilter, advancedFilters]);
     const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
       setAdvancedFilters(v);
-      setPagination(p => ({ ...p, pageIndex: 0 }));
+      setBranchFilter(v.branch === 'all' ? null : (v.branch as string | null));
+      setStatusFilter(v.status === 'all' ? null : (v.status as string | null));
     }, []);
 
     usePageHeader({ title: 'Phiếu đóng gói', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Đóng gói', href: '/packaging', isCurrent: true }], showBackButton: false });
@@ -176,45 +202,14 @@ export function PackagingPage() {
     
     const columns = React.useMemo(() => getColumns(handleConfirm, handleCancelRequest, handlePrintSinglePackaging), [handleConfirm, handleCancelRequest, handlePrintSinglePackaging]);
     
-    React.useEffect(() => { if (columnOrderInitialized.current) return; columnOrderInitialized.current = true; setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns]);
+    React.useEffect(() => { 
+      if (columnOrderInitialized.current) return; 
+      columnOrderInitialized.current = true; 
+      setColumnOrder(columns.map((c: { id?: string }) => c.id).filter(Boolean) as string[]); 
+    }, [columns, setColumnOrder]);
     
-    const searchedPackagingSlips = React.useMemo(() => 
-        simpleSearch(packagingSlips, debouncedGlobalFilter.trim(), { keys: ['id', 'orderId', 'customerName', 'assignedEmployeeName', 'branchName'] }), 
-        [packagingSlips, debouncedGlobalFilter]
-    );
-
-    const filteredData = React.useMemo(() => {
-        let data = packagingSlips;
-        const branch = advancedFilters.branch as string | undefined;
-        const status = advancedFilters.status as string | undefined;
-        if (branch && branch !== 'all') data = data.filter(s => s.branchName === branches.find(b => b.systemId === branch)?.name);
-        if (status && status !== 'all') data = data.filter(s => s.status === status);
-        if (debouncedGlobalFilter?.trim()) { const searchIds = new Set(searchedPackagingSlips.map(item => item.systemId)); data = data.filter(s => searchIds.has(s.systemId)); }
-        return data;
-    }, [packagingSlips, advancedFilters, debouncedGlobalFilter, searchedPackagingSlips, branches]);
-    
-    React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, advancedFilters]);
-    
-    const sortedData = React.useMemo(() => {
-        const sorted = [...filteredData];
-        if (sorting.id) {
-            sorted.sort((a, b) => {
-                const aValue = (a as Record<string, unknown>)[sorting.id], bValue = (b as Record<string, unknown>)[sorting.id];
-                if (!aValue) return 1; if (!bValue) return -1;
-                if (sorting.id === 'createdAt' || sorting.id === 'requestDate') {
-                  const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0, bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-                  return sorting.desc ? bTime - aTime : aTime - bTime;
-                }
-                if (aValue < bValue) return sorting.desc ? 1 : -1; if (aValue > bValue) return sorting.desc ? -1 : 1;
-                return 0;
-            });
-        }
-        return sorted;
-    }, [filteredData, sorting]);
-
-    const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-    const paginatedData = React.useMemo(() => { const start = pagination.pageIndex * pagination.pageSize; return sortedData.slice(start, start + pagination.pageSize); }, [sortedData, pagination]);
-    const allSelectedRows = React.useMemo(() => packagingSlips.filter(p => rowSelection[p.systemId]), [packagingSlips, rowSelection]);
+    // Server-side data - no client-side filtering needed
+    const allSelectedRows = React.useMemo(() => packagingSlips.filter((p: PackagingSlip) => rowSelection[p.systemId]), [packagingSlips, rowSelection]);
 
     const handleBulkAssign = React.useCallback((rows: PackagingSlip[]) => {
       const pendingRows = rows.filter(r => r.status === 'Chờ đóng gói');
@@ -305,13 +300,13 @@ export function PackagingPage() {
             </PageFilters>
             <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
             <div className='w-full py-4'>
-                <ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={(packaging) => <MobilePackagingCard packaging={packaging} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} mobileInfiniteScroll />
+                <ResponsiveDataTable columns={columns} data={packagingSlips} renderMobileCard={(packaging) => <MobilePackagingCard packaging={packaging} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} mobileInfiniteScroll isLoading={isLoadingPackaging} />
             </div>
 
             <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu đóng gói" />
             <CancelDialog isOpen={!!cancelDialogState} onOpenChange={(open) => !open && setCancelDialogState(null)} onConfirm={handleConfirmCancel} />
-            {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}
-            {exportDialogOpen && <PackagingExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={packagingSlips} filteredData={sortedData} currentPageData={paginatedData} selectedData={allSelectedRows} currentUser={{ name: authEmployee?.fullName || 'Hệ thống', systemId: authEmployee?.systemId || asSystemId('SYSTEM') }} />}
+            {/* ✅ Export uses current page data from server-side pagination */}
+            {exportDialogOpen && <PackagingExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={packagingSlips} filteredData={packagingSlips} currentPageData={packagingSlips} selectedData={allSelectedRows} currentUser={{ name: authEmployee?.fullName || 'Hệ thống', systemId: authEmployee?.systemId || asSystemId('SYSTEM') }} />}
 
             {/* Bulk Assign Employee Dialog */}
             <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>

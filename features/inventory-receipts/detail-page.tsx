@@ -46,7 +46,7 @@ const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
 export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const isMobile = useBreakpoint('mobile');
+  const { isMobile } = useBreakpoint();
   const { data: receipt, isLoading } = useInventoryReceipt(systemId);
   const { data: purchaseOrder } = usePurchaseOrder(receipt?.purchaseOrderSystemId);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
@@ -139,20 +139,6 @@ export function InventoryReceiptDetailPage() {
       lineItems: lineItems
     });
   }, [receipt, supplier, print, totalValue]);
-
-  const headerActions = React.useMemo(() => {
-    if (!receipt) return [];
-    return [
-      <Button
-        key="print"
-        size="sm"
-        onClick={handlePrint}
-      >
-        <Printer className="mr-2 h-4 w-4" />
-        In phiếu
-      </Button>,
-    ];
-  }, [receipt, handlePrint]);
 
   const badge = React.useMemo(() => {
     if (!receipt) return undefined;

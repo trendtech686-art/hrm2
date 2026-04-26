@@ -140,12 +140,12 @@ function DraggableTaskCard({
               {task.priority}
             </Badge>
             {task.approvalStatus === 'pending' && (
-              <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+              <Badge variant="outline" className="text-xs bg-warning/15 text-warning-foreground border-warning/30">
                 Chờ duyệt
               </Badge>
             )}
             {task.approvalStatus === 'rejected' && (
-              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+              <Badge variant="outline" className="text-xs bg-destructive/15 text-destructive border-destructive/30">
                 Làm lại
               </Badge>
             )}
@@ -171,10 +171,10 @@ function DraggableTaskCard({
         {/* Timer Badge - Show if timer is running */}
         {task.timerRunning && (
           <div 
-            className="mb-2 flex items-center gap-1.5 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 px-2 py-1 rounded"
+            className="mb-2 flex items-center gap-1.5 text-xs bg-success/15 text-success-foreground dark:bg-success/20 dark:text-success dark:border dark:border-success/30 px-2 py-1 rounded"
             onClick={() => onTaskClick(task)}
           >
-            <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse" />
+            <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
             <Clock className="h-3 w-3" />
             <span className="font-medium">Đang đếm giờ</span>
           </div>

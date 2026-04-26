@@ -26,10 +26,13 @@ import type { ReportDateRange, PaymentBranchReportRow, ChartType } from '../type
 import type { SystemId } from '@/lib/id-types';
 import { Building2, DollarSign, TrendingUp, CreditCard, Filter } from 'lucide-react';
 
-const getDefaultDateRange = (): ReportDateRange => ({
-  from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-  to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-});
+// ✅ FIX: Use useMemo to ensure consistent rendering
+export function useDefaultDateRange(): ReportDateRange {
+  return React.useMemo(() => ({
+    from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+    to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  }), []);
+}
 
 const getColumns = (): ColumnDef<PaymentBranchReportRow & { systemId: string; _isSummary?: boolean }>[] => [
   {
@@ -102,7 +105,8 @@ const DISPLAY_OPTIONS = [
 ];
 
 export function PaymentBranchReportPage() {
-  const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
+  const defaultRange = useDefaultDateRange();
+  const [dateRange, setDateRange] = React.useState<ReportDateRange>(defaultRange);
   const [chartType, setChartType] = React.useState<ChartType>('combo');
   const [selectedChartOptions, setSelectedChartOptions] = React.useState<string[]>(['totalAmount', 'cashAmount']);
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });

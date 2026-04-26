@@ -10,10 +10,12 @@ import { logError } from '@/lib/logger'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/brands - List all brands
-export const GET = apiHandler(async (request, { session }) => {
+export const GET = apiHandler(async (request, { session: _session }) => {
   const { searchParams } = new URL(request.url)
   const { page, limit, skip } = parsePagination(searchParams)
   const search = searchParams.get('search') || ''
+  const sortBy = searchParams.get('sortBy') || 'name'
+  const sortOrder = searchParams.get('sortOrder') === 'desc' ? 'desc' : 'asc'
   const all = searchParams.get('all') === 'true'
 
   const where: Prisma.BrandWhereInput = {
@@ -23,6 +25,10 @@ export const GET = apiHandler(async (request, { session }) => {
   const searchWhere = buildSearchWhere<Prisma.BrandWhereInput>(search, ['name', 'id'])
   if (searchWhere) Object.assign(where, searchWhere)
 
+  // Validate sortBy field to prevent SQL injection
+  const validSortFields = ['name', 'id', 'createdAt', 'updatedAt', 'website', 'isActive'];
+  const safeSortBy = validSortFields.includes(sortBy) ? sortBy : 'name';
+
   if (all) {
     const cacheKey = search ? `brands:all:${search}` : 'brands:all'
     const cached = cache.get(cacheKey)
@@ -30,7 +36,7 @@ export const GET = apiHandler(async (request, { session }) => {
 
     const brands = await prisma.brand.findMany({
       where,
-      orderBy: { name: 'asc' },
+      orderBy: { [safeSortBy]: sortOrder },
       include: {
         _count: { select: { products: true } },
       },
@@ -45,7 +51,7 @@ export const GET = apiHandler(async (request, { session }) => {
       where,
       skip,
       take: limit,
-      orderBy: { name: 'asc' },
+      orderBy: { [safeSortBy]: sortOrder },
       include: {
         _count: { select: { products: true } },
       },

@@ -80,7 +80,7 @@ export function StatusStepper({ order }: StatusStepperProps) {
                         <div className="flex flex-col items-center text-center w-24">
                             <div className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-sm",
-                                isStepCancelled ? "bg-red-100 border-red-500 text-red-500" :
+                                isStepCancelled ? "bg-destructive/15 border-destructive text-destructive" :
                                 isStepCompleted ? "bg-primary border-primary text-primary-foreground" :
                                 isStepCurrent ? "border-primary text-primary" :
                                 "border-border bg-muted text-muted-foreground"

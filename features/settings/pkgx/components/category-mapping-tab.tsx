@@ -280,7 +280,7 @@ export function CategoryMappingTab() {
           );
         }
         return row.mappedToHrm ? (
-          <Badge variant="default" className="bg-green-500">
+          <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             {row.mappedToHrm}
           </Badge>
@@ -321,7 +321,7 @@ export function CategoryMappingTab() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-11 w-11">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -1159,7 +1159,7 @@ export function CategoryMappingTab() {
             HRM đã xoá
           </Badge>
         ) : row.mappedToHrm ? (
-          <Badge variant="default" className="bg-green-500 shrink-0">
+          <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 shrink-0">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Đã mapping
           </Badge>

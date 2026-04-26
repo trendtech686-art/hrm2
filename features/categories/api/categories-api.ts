@@ -21,9 +21,12 @@ export interface CategoriesParams {
 
 export interface CategoriesResponse {
   data: Category[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export async function fetchCategories(params: CategoriesParams = {}): Promise<CategoriesResponse> {
@@ -46,17 +49,20 @@ export async function fetchCategories(params: CategoriesParams = {}): Promise<Ca
   }
   
   const result = await response.json();
-  
+
   // Handle both paginated and all response formats
   if (params.all) {
     return {
       data: result.data || [],
-      total: result.data?.length || 0,
-      page: 1,
-      pageSize: result.data?.length || 0,
+      pagination: {
+        page: 1,
+        limit: result.data?.length || 0,
+        total: result.data?.length || 0,
+        totalPages: 1,
+      },
     };
   }
-  
+
   return result;
 }
 

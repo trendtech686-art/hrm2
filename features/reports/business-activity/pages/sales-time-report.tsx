@@ -18,6 +18,7 @@ import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report
 import { formatCurrency, formatNumber } from '@/lib/format-utils';
 import { useSalesTimeReport } from '../hooks/use-sales-report';
 import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
+import { useDefaultDateRange } from '../hooks/use-report-hooks';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -139,8 +140,9 @@ const DISPLAY_OPTIONS = [
 export function SalesTimeReportPage() {
   const router = useRouter();
   
-  // State
-  const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
+  // Default date range: current month
+  const defaultRange = getDefaultDateRange();
+  const [dateRange, setDateRange] = React.useState<ReportDateRange>(defaultRange);
   const [timeGrouping, setTimeGrouping] = React.useState<TimeGrouping>('day');
   const [groupBy, setGroupBy] = React.useState<GroupByOption>('time');
   const [chartType, setChartType] = React.useState<ChartType>('combo');

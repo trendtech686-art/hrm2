@@ -59,7 +59,7 @@ export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick 
                                 <TouchButton
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-8 p-0 shrink-0 -mr-2 -mt-1"
+                                    className="h-11 w-11 p-0 shrink-0 -mr-2 -mt-1"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <MoreHorizontal className="h-4 w-4" />

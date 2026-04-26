@@ -9,8 +9,8 @@ import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 import type { SystemId } from '@/lib/id-types';
 
-const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
-    "Chờ duyệt": "warning",
+const statusVariants: Record<LeaveStatus, "success" | "secondary" | "destructive"> = {
+    "Chờ duyệt": "secondary",
     "Đã duyệt": "success",
     "Đã từ chối": "destructive",
 };

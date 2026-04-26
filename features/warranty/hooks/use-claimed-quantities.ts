@@ -50,7 +50,6 @@ export function useClaimedQuantities(
   // Lấy tất cả warranties của khách hàng (chỉ completed)
   const { data, isLoading } = useWarrantiesByCustomer(customerSystemId, {
     status: 'COMPLETED',
-    enabled: !!customerSystemId && !!customerName,
   });
 
   const warranties = React.useMemo(() => extractWarrantiesArray(data), [data]);
@@ -100,15 +99,7 @@ export function useClaimedQuantities(
         quantity?: number;
         resolution?: string;
       }> | null;
-      // Handle both Date object and ISO string from API
-      let completedAt = '';
-      if (warranty.completedAt) {
-        if (typeof warranty.completedAt === 'string') {
-          completedAt = warranty.completedAt;
-        } else if (typeof warranty.completedAt.toISOString === 'function') {
-          completedAt = warranty.completedAt.toISOString();
-        }
-      }
+      const completedAt = warranty.completedAt || '';
 
       if (products && Array.isArray(products)) {
         products.forEach((product) => {

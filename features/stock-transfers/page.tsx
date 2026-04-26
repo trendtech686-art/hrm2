@@ -31,6 +31,7 @@ import { useColumnLayout } from '../../hooks/use-column-visibility';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
 import { useFilterPresets } from '../../hooks/use-filter-presets';
 import { ListPageShell } from '@/components/layout/page-section';
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 const StockTransferImportDialog = dynamic(() => import("./components/stock-transfers-import-export-dialogs").then(mod => ({ default: mod.StockTransferImportDialog })), { ssr: false });
 const StockTransferExportDialog = dynamic(() => import("./components/stock-transfers-import-export-dialogs").then(mod => ({ default: mod.StockTransferExportDialog })), { ssr: false });
@@ -46,8 +47,8 @@ export function StockTransfersPage({ initialStats }: StockTransfersPageProps = {
   const { print, printMultiple } = usePrint({ enabled: false });
   const {  employee: currentUser, can } = useAuth();
   const canCreate = can('create_stock_transfers');
-  const canDelete = can('delete_stock_transfers');
-  const canEdit = can('edit_stock_transfers');
+  const _canDelete = can('delete_stock_transfers'); // For future bulk actions
+  const _canEdit = can('edit_stock_transfers'); // For future bulk actions
   const canEditSettings = can('edit_settings');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   
@@ -60,8 +61,8 @@ export function StockTransfersPage({ initialStats }: StockTransfersPageProps = {
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [fromBranchFilter, setFromBranchFilter] = React.useState<string>('all');
   const [toBranchFilter, setToBranchFilter] = React.useState<string>('all');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('stock-transfers');
@@ -91,12 +92,12 @@ export function StockTransfersPage({ initialStats }: StockTransfersPageProps = {
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, 300);
     return () => clearTimeout(t);
-  }, [searchQuery]);
+  }, [searchQuery, setPagination]);
 
   // Reset pagination on filter change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [statusFilter, fromBranchFilter, toBranchFilter]);
+  }, [statusFilter, fromBranchFilter, toBranchFilter, setPagination]);
 
   // Server-side query
   const statusValue = statusFilter.size === 1 ? Array.from(statusFilter)[0] as StockTransferStatus : undefined;
@@ -111,8 +112,8 @@ export function StockTransfersPage({ initialStats }: StockTransfersPageProps = {
     sortOrder: sorting.desc ? 'desc' : 'asc',
   });
   const transfers = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-  const totalRows = queryData?.total ?? 0;
-  const pageCount = Math.ceil(totalRows / pagination.pageSize);
+  const totalRows = queryData?.pagination?.total ?? 0;
+  const pageCount = queryData?.pagination?.totalPages ?? 1;
 
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
   const [itemsToPrint, setItemsToPrint] = React.useState<StockTransfer[]>([]);

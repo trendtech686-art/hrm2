@@ -9,15 +9,25 @@ const BASE_URL = '/api/packaging';
 export interface PackagingFilters {
   page?: number;
   limit?: number;
+  search?: string;
   status?: string;
   branchSystemId?: string;
   startDate?: string;
   endDate?: string;
 }
 
-export interface PackagingResponse {
-  data: PackagingSlip[];
+export type PaginatedPackagingResponse<T = PackagingSlip> = {
+  data: T[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
+};
+
+export async function fetchPackagingSlips(filters: PackagingFilters = {}): Promise<PaginatedPackagingResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => v && params.set(k, String(v)));
+  const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Không thể tải danh sách đóng gói');
+  return res.json();
 }
 
 // Detail response types
@@ -113,15 +123,6 @@ export interface PackagingDetailResponse {
   packaging: PackagingDetailInfo;
   order: PackagingOrderInfo;
   customer: PackagingCustomerInfo | null;
-}
-
-export async function fetchPackagingSlips(filters: PackagingFilters = {}): Promise<PackagingResponse> {
-  const params = new URLSearchParams();
-  Object.entries(filters).forEach(([k, v]) => v && params.set(k, String(v)));
-  const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Không thể tải danh sách đóng gói');
-  return res.json();
 }
 
 export async function fetchPackagingById(systemId: string): Promise<PackagingDetailResponse> {

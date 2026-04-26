@@ -20,6 +20,8 @@ export interface TaskFilters {
   createdTo?: string;
   boardId?: string;
   includeDeleted?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface TaskResponse {

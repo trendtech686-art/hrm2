@@ -25,7 +25,7 @@ import {
   type CreateTaskInput,
   type UpdateTaskInput,
 } from '@/app/actions/tasks';
-import type { TaskStatus } from '@/lib/types/prisma-extended';
+import type { TaskStatus, TaskPriority } from '@/lib/types/prisma-extended';
 import type { Task } from '@/generated/prisma/client';
 
 // Helper to convert legacy update format to flat format
@@ -308,6 +308,36 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
 export function useMyTasks(assigneeId: string | undefined) {
   return useTasks({
     assigneeId: assigneeId || '',
+  });
+}
+
+/**
+ * Hook for paginated task fetching with all options
+ * Used by tasks page for server-side pagination
+ */
+export function useAllTasks(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  priority?: string;
+  assigneeId?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}) {
+  // Cast params to TaskFilters for type compatibility
+  const taskFilters: TaskFilters = {
+    ...params,
+    status: params.status as TaskFilters['status'],
+    priority: params.priority as TaskFilters['priority'],
+  };
+  return useQuery({
+    queryKey: taskKeys.list(taskFilters),
+    queryFn: () => fetchTasks(taskFilters),
+    staleTime: 1000 * 30,
+    placeholderData: keepPreviousData,
   });
 }
 

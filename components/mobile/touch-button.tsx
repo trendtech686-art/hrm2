@@ -17,11 +17,11 @@ const touchButtonVariants = cva(
       },
       size: {
         default: "h-12 px-4 py-2 min-w-touch", // Mobile-first: 48px height
-        sm: "h-9 rounded-md px-3 min-w-touch",
+        sm: "h-11 rounded-md px-3 min-w-touch", // 44px height for touch-friendly
         lg: "h-14 rounded-md px-8 min-w-touch-lg", // 56px height for large touch
         xl: "h-16 rounded-md px-10 min-w-touch-lg", // 64px height for extra large
         icon: "h-12 w-12", // Square touch target
-        "icon-sm": "h-9 w-10",
+        "icon-sm": "h-11 w-11", // 44px touch target
         "icon-lg": "h-14 w-14",
       },
     },

@@ -14,7 +14,6 @@ import { WarrantyPackagingInfo } from './components/warranty-packaging-info'
 import { CancelPackagingDialog } from '@/features/orders/components/cancel-packaging-dialog'
 import type { DeliveryMethod } from '@/lib/types/prisma-extended'
 import { usePageHeader } from '@/contexts/page-header-context'
-import { ShareButton } from '@/components/shared/share-button'
 import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section'
 import { useAuth } from '@/contexts/auth-context'
 import { useSupplierWarranty, useSupplierWarrantyMutations, useWarrantyReceipts } from './hooks/use-supplier-warranty'
@@ -449,18 +448,8 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
   }, [warranty, can, router])
 
   const headerActions = React.useMemo(() => {
-    if (!warranty) return []
+    if (!warranty) return null
     const actions: React.ReactNode[] = []
-
-    actions.push(
-      <ShareButton
-        key="share"
-        size="sm"
-        className="h-9"
-        title={`Bảo hành NCC ${warranty.id ?? warranty.systemId}`}
-        text={`Phiếu bảo hành NCC ${warranty.id ?? warranty.systemId}`}
-      />,
-    )
 
     // Edit (DRAFT, APPROVED)
     if (['DRAFT', 'APPROVED'].includes(warranty.status) && can('edit_supplier_warranty')) {
@@ -847,13 +836,13 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 ml-2 shrink-0"
+                          className="h-11 w-11 ml-2 shrink-0"
                           onClick={(e) => { e.stopPropagation(); handlePrintReceipt(receipt) }}
                           title="In phiếu thu"
                         >
                           <Printer className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0">
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
                       </div>

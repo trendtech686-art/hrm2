@@ -22,6 +22,8 @@ export async function GET(request: Request) {
     const toDate = searchParams.get('toDate')
     const status = searchParams.get('status')
     const search = searchParams.get('search')
+    // Group by employee mode for per-employee attendance view
+    const groupByEmployee = searchParams.get('groupByEmployee') === 'true'
 
     const where: Prisma.AttendanceRecordWhereInput = {}
 
@@ -52,6 +54,137 @@ export async function GET(request: Request) {
       where.employee = employeeSearch
     }
 
+    // Group by employee mode: fetch all records for the month, group by employee, then paginate
+    if (groupByEmployee) {
+      const allRecords = await prisma.attendanceRecord.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        include: {
+          employee: {
+            select: {
+              systemId: true,
+              id: true,
+              fullName: true,
+              avatar: true,
+              department: true,
+            },
+          },
+        },
+      })
+
+      // Group records by employee
+      const groupedByEmployee = new Map<string, {
+        employeeSystemId: string;
+        employeeId: string;
+        fullName: string;
+        department: string | null;
+        records: Array<{
+          date: string;
+          status: string;
+          checkIn: string | null;
+          checkOut: string | null;
+          notes: string | null;
+        }>;
+      }>()
+
+      for (const record of allRecords) {
+        if (!record.employee) continue;
+        const empId = record.employee.systemId
+        if (!groupedByEmployee.has(empId)) {
+          groupedByEmployee.set(empId, {
+            employeeSystemId: empId,
+            employeeId: record.employee.id,
+            fullName: record.employee.fullName,
+            department: record.employee.department?.name ?? null,
+            records: [],
+          })
+        }
+        groupedByEmployee.get(empId)!.records.push({
+          date: record.date.toISOString(),
+          status: record.status,
+          checkIn: record.checkIn?.toISOString() ?? null,
+          checkOut: record.checkOut?.toISOString() ?? null,
+          notes: record.notes,
+        })
+      }
+
+      const employees = Array.from(groupedByEmployee.values())
+      const total = employees.length
+      const paginatedEmployees = employees.slice(skip, skip + limit)
+
+      // Transform to AttendanceDataRow format
+      const attendanceRows = paginatedEmployees.map(emp => {
+        const row: Record<string, unknown> = {
+          systemId: emp.employeeSystemId,
+          employeeSystemId: emp.employeeSystemId,
+          employeeId: emp.employeeId,
+          fullName: emp.fullName,
+          department: emp.department,
+          workDays: 0,
+          leaveDays: 0,
+          absentDays: 0,
+          lateArrivals: 0,
+          earlyDepartures: 0,
+          otHours: 0,
+        }
+
+        const statusMap: Record<string, string> = {
+          'PRESENT': 'present',
+          'ABSENT': 'absent',
+          'LEAVE': 'leave',
+          'HALF_DAY': 'half-day',
+          'HOLIDAY': 'holiday',
+        }
+
+        for (const rec of emp.records) {
+          const recordDate = new Date(rec.date)
+          const day = recordDate.getDate()
+          const status = statusMap[rec.status] || 'present'
+
+          row[`day_${day}`] = {
+            status,
+            checkIn: rec.checkIn ? new Date(rec.checkIn).toTimeString().slice(0, 5) : undefined,
+            checkOut: rec.checkOut ? new Date(rec.checkOut).toTimeString().slice(0, 5) : undefined,
+            notes: rec.notes,
+          }
+
+          if (status === 'present') {
+            (row.workDays as number) = ((row.workDays as number) || 0) + 1
+          } else if (status === 'half-day') {
+            (row.workDays as number) = ((row.workDays as number) || 0) + 0.5
+          } else if (status === 'leave') {
+            (row.leaveDays as number) = ((row.leaveDays as number) || 0) + 1
+          } else if (status === 'absent') {
+            (row.absentDays as number) = ((row.absentDays as number) || 0) + 1
+          }
+
+          if (rec.checkIn) {
+            const checkInTime = new Date(rec.checkIn)
+            const checkInMinutes = checkInTime.getHours() * 60 + checkInTime.getMinutes()
+            if (checkInMinutes > 8 * 60 + 30) {
+              (row.lateArrivals as number) = ((row.lateArrivals as number) || 0) + 1
+            }
+          }
+          if (rec.checkOut) {
+            const checkOutTime = new Date(rec.checkOut)
+            const checkOutMinutes = checkOutTime.getHours() * 60 + checkOutTime.getMinutes()
+            if (checkOutMinutes < 18 * 60) {
+              (row.earlyDepartures as number) = ((row.earlyDepartures as number) || 0) + 1
+            }
+            if (checkOutMinutes > 18 * 60) {
+              const otMinutes = checkOutMinutes - 18 * 60
+              ;(row.otHours as number) = ((row.otHours as number) || 0) + (otMinutes / 60)
+            }
+          }
+        }
+
+        return row
+      })
+
+      return apiPaginated(attendanceRows, { page, limit, total })
+    }
+
+    // Original behavior: return individual records
     const [records, total] = await Promise.all([
       prisma.attendanceRecord.findMany({
         where,

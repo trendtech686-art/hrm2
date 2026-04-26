@@ -141,7 +141,7 @@ export function PenaltiesPage() {
       <MobileCard onClick={() => handleRowClick(penalty)}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0"><AlertTriangle className="h-4 w-4 text-destructive shrink-0" /><span className="font-semibold text-sm font-mono">{penalty.id}</span><Badge variant={statusVariant} className="text-xs ml-auto">{penalty.status}</Badge></div>
-            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0 -mr-2 -mt-1 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-11 w-11 p-0 shrink-0 -mr-2 -mt-1 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           </div>
           <div className="flex items-center text-sm mb-2"><User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" /><span className="font-medium truncate">{penalty.employeeName}</span></div>
           <div className="text-xs text-muted-foreground mb-3 line-clamp-2"><FileText className="h-3 w-3 mr-1.5 inline-flex shrink-0" />{penalty.reason}</div>

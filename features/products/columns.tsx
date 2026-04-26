@@ -564,7 +564,7 @@ export const getColumns = (
       header: "PKGX",
       cell: ({ row }) => (
         row.pkgxId ? (
-          <Badge variant="default" className="bg-green-500 text-xs">
+          <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 text-xs">
             <Globe className="h-3 w-3 mr-1" />
             {row.pkgxId}
           </Badge>
@@ -992,7 +992,7 @@ export const getColumns = (
           <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" className="h-11 w-11 p-0" onClick={(e) => e.stopPropagation()}>
                     <span className="sr-only">Mở menu</span>
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>

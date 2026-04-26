@@ -290,10 +290,10 @@ export function useOrderPrintHandlers() {
     ]);
     const productMap = new Map(products.map(p => [p.systemId, p]));
     const importerMap = new Map(importers.map(i => [i.systemId, i]));
-    // Only print labels for products that have nameVat configured
+    // Only print labels for products that have nameVat configured AND printLabel is not disabled
     const eligibleItems = order.lineItems.filter(item => {
       const product = productMap.get(item.productSystemId);
-      return product?.nameVat;
+      return product?.nameVat && product?.printLabel !== false;
     });
     if (!eligibleItems.length) {
       toast.error('Không có sản phẩm nào được cài đặt Tên hàng hóa (VAT)', {
@@ -314,8 +314,9 @@ export function useOrderPrintHandlers() {
       const labelData = mapProductToLabelPrintData(product, storeSettings, overrides);
       return Array.from({ length: qty }, () => ({ data: labelData, paperSize: '50x30' as const, branchId: order.branchSystemId }));
     });
-    const skipped = order.lineItems.length - eligibleItems.length;
     const totalLabels = labelOpts.length;
+    const skipped = order.lineItems.length - eligibleItems.length;
+    const desc = skipped > 0 ? `Bỏ qua ${skipped} SP (chưa có Tên VAT hoặc đã tắt in tem phụ)` : undefined;
 
     // Gộp tất cả tem phụ + tem khách hàng vào 1 lệnh in duy nhất
     const allDocuments: Array<{ type: TemplateType; options: PrintOptions }> = [];
@@ -347,7 +348,6 @@ export function useOrderPrintHandlers() {
 
     printMixedDocuments(allDocuments);
 
-    const desc = skipped > 0 ? `Bỏ qua ${skipped} SP chưa có Tên VAT` : undefined;
     toast.success(`Đang in ${totalLabels} tem phụ + tem khách hàng (${eligibleItems.length} mã SP)`, { description: desc });
   }, [ensureImporters, ensureProductsByIds, findBranchById, findCustomerById, printMixedDocuments]);
 
@@ -545,10 +545,10 @@ export function useOrderPrintHandlers() {
           ? findBranch(branchSystemId)
           : findBranch(order.branchSystemId);
         const storeSettings = createStoreSettings(branch);
-        // Only print labels for products that have nameVat configured
+        // Only print labels for products that have nameVat configured AND printLabel is not disabled
         order.lineItems.forEach(item => {
           const product = productMap.get(item.productSystemId);
-          if (!product?.nameVat) return; // Skip products without VAT name
+          if (!product?.nameVat || product?.printLabel === false) return; // Skip products without VAT name or with printLabel disabled
           const qty = Math.max(1, item.quantity || 1);
           // Fallback từ importer setting
           const importer = product.importerSystemId ? importerMap.get(product.importerSystemId) : undefined;

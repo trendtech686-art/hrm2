@@ -326,7 +326,7 @@ export function PenaltyDetailPage() {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Đã trừ vào bảng lương</p>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-200">
+                  <Badge variant="outline" className="bg-success/15 text-success-foreground border-success/30">
                     Đã trừ lương
                   </Badge>
                   {penalty.deductedAt && (

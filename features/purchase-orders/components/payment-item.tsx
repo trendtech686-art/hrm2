@@ -76,13 +76,13 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 ml-2 shrink-0" 
+                      className="h-11 w-11 ml-2 shrink-0" 
                       title="In phiếu"
                       onClick={(e) => onPrint(e, item)}
                     >
                       <Printer className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0">
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </Button>
                 </div>

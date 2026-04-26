@@ -130,12 +130,14 @@ function PackagingDetailSkeleton() {
 }
 
 export function PackagingDetailPage() {
-  const { systemId } = useParams<{ systemId: string }>();
+  const params = useParams<{ systemId: string | string[] }>();
+  const systemId = Array.isArray(params.systemId) ? params.systemId[0] : params.systemId;
+  const validSystemId = typeof systemId === 'string' && systemId.length > 0 ? systemId : undefined;
   const router = useRouter();
-  const isMobile = useBreakpoint('mobile');
+  const { isMobile } = useBreakpoint();
 
   // Fetch packaging detail directly from API with full order/customer/product info
-  const { data: packagingData, isLoading, isError, error } = usePackagingById(systemId);
+  const { data: packagingData, isLoading, isError, error } = usePackagingById(validSystemId);
   
   const { confirmPackaging, cancelPackagingRequest, isConfirming, isCancelling } = usePackagingActions();
   const { findById: findBranchById } = useBranchFinder();
@@ -155,7 +157,7 @@ export function PackagingDetailPage() {
     comments: dbComments, 
     addComment: dbAddComment, 
     deleteComment: dbDeleteComment 
-  } = useComments('packaging', systemId || '');
+  } = useComments('packaging', validSystemId || '');
 
   const comments = React.useMemo(() => 
     dbComments.map(c => ({
@@ -236,11 +238,11 @@ export function PackagingDetailPage() {
 
   // Mobile: 3-dot menu with all actions
   const mobileHeaderActions = React.useMemo(() => {
-    if (!packaging || !isMobile) return [];
+    if (!packaging || !isMobile) return null;
 
     const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
 
-    if (packaging.status === 'Chờ đóng gói') {
+    if (packaging.status === 'Chờ đóng gói' && order) {
       menuItems.push({
         label: isConfirming ? 'Đang xác nhận...' : 'Xác nhận đã đóng gói',
         onClick: () => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId),
@@ -260,7 +262,7 @@ export function PackagingDetailPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0">
             <MoreHorizontal className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
@@ -283,14 +285,14 @@ export function PackagingDetailPage() {
   const headerActions = React.useMemo(() => {
     const actions: React.ReactNode[] = [];
 
-    if (packaging && order) {
+    if (packaging) {
       if (packaging.status === 'Chờ đóng gói') {
         actions.push(
           <Button
             key="confirm"
             size="sm"
             disabled={isConfirming}
-            onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId)}
+            onClick={() => confirmPackaging(order!.systemId, packaging.systemId, currentUserSystemId)}
           >
             {isConfirming ? 'Đang xử lý...' : 'Xác nhận đã đóng gói'}
           </Button>
@@ -339,7 +341,7 @@ export function PackagingDetailPage() {
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Đóng gói', href: '/packaging', isCurrent: false },
-      { label: packaging ? packaging.id : 'Chi tiết', href: systemId ? `/packaging/${systemId}` : '/packaging', isCurrent: true }
+      { label: packaging ? packaging.id : 'Chi tiết', href: validSystemId ? `/packaging/${validSystemId}` : '/packaging', isCurrent: true }
     ],
     showBackButton: true,
     backPath: '/packaging',
@@ -357,7 +359,7 @@ export function PackagingDetailPage() {
         <div className="text-center">
           <h2 className="text-h3 font-bold text-destructive">Lỗi tải phiếu đóng gói</h2>
           <p className="text-muted-foreground mt-2">{error?.message || 'Không thể tải dữ liệu'}</p>
-          <p className="text-muted-foreground text-sm">Mã: {systemId}</p>
+          <p className="text-muted-foreground text-sm">Mã: {validSystemId}</p>
           <Button onClick={() => router.push('/packaging')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
@@ -372,7 +374,7 @@ export function PackagingDetailPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <h2 className="text-h3 font-bold">Không tìm thấy phiếu đóng gói</h2>
-          <p className="text-muted-foreground mt-2">Mã: {systemId}</p>
+          <p className="text-muted-foreground mt-2">Mã: {validSystemId}</p>
           <Button onClick={() => router.push('/packaging')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách

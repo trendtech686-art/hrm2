@@ -21,12 +21,12 @@ const priorityVariants: Record<TaskPriority, "default" | "secondary" | "warning"
   urgent: "destructive",
 };
 
-const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "success" | "outline"> = {
+const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "success" | "destructive" | "outline"> = {
   "Chưa bắt đầu": "outline",
   "Đang thực hiện": "warning",
   "Chờ duyệt": "secondary",
   "Hoàn thành": "success",
-  "Đã hủy": "default",
+  "Đã hủy": "destructive",
 };export const getColumns = (
   onDelete: (id: SystemId) => void,
   onEdit: (task: Task) => void,
@@ -166,7 +166,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
         <div className="text-center">
           <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
+                <Button variant="ghost" className="h-11 w-11 p-0">
                   <span className="sr-only">Mở menu</span>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>

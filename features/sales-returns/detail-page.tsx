@@ -52,7 +52,7 @@ const formatDate = (dateString?: string) => {
 export function SalesReturnDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
-    const isMobile = useBreakpoint('mobile');
+    const { isMobile } = useBreakpoint();
     const { data: salesReturn, isLoading: isLoadingSalesReturn } = useSalesReturn(systemId);
     // ✅ REMOVED: useReceiptFinder, usePaymentFinder - không cần fetch all, chỉ cần systemId từ salesReturn
     // ✅ REMOVED: useCustomerFinder, useEmployeeFinder - API đã trả về customerSystemId, creatorSystemId

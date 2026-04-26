@@ -211,7 +211,7 @@ function SortableSubtask<T>({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <p
-                className={`flex-1 text-sm ${
+                className={`flex-1 text-sm wrap-break-word ${
                   subtask.completed
                     ? 'line-through text-muted-foreground'
                     : 'font-medium'

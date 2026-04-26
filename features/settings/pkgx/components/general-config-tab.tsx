@@ -167,7 +167,7 @@ export function GeneralConfigTab() {
   const getStatusBadge = () => {
     switch (settings?.connectionStatus) {
       case 'connected':
-        return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Đã kết nối</Badge>;
+        return <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30"><CheckCircle2 className="h-3 w-3 mr-1" />Đã kết nối</Badge>;
       case 'error':
         return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Lỗi kết nối</Badge>;
       default:

@@ -113,3 +113,178 @@ export type CreateFeatureInput = z.infer<typeof createFeatureSchema>
 - [ ] List page + detail page
 - [ ] Sidebar navigation
 - [ ] Mobile responsive (card view)
+- [ ] PWA-ready (xem bên dưới)
+
+---
+
+# PWA Readiness Checklist
+
+Khi tạo feature mới, đảm bảo tuân thủ các quy tắc PWA sau:
+
+## 1. Offline-first Data Fetching
+
+```typescript
+// ✅ Đúng: Dùng React Query với staleTime để cache dữ liệu
+export function useOrders(params: OrderParams) {
+  return useQuery({
+    queryKey: orderKeys.list(params),
+    queryFn: () => fetchOrders(params),
+    staleTime: 1000 * 60 * 5, // 5 phút - dữ liệu valid trong 5 phút khi offline
+  })
+}
+
+// ❌ Sai: Refetch liên tục khi offline
+export function useOrders(params: OrderParams) {
+  return useQuery({
+    queryKey: orderKeys.list(params),
+    queryFn: () => fetchOrders(params),
+    refetchOnMount: true, // KHÔNG dùng - gây lỗi khi offline
+  })
+}
+```
+
+## 2. Image Optimization
+
+```typescript
+// ✅ Đúng: Dùng next/image cho PWA icons
+import Image from 'next/image'
+
+<Image
+  src="/icon-192.png"
+  alt="ERP Icon"
+  width={192}
+  height={192}
+  priority // Load ngay lập tức
+/>
+
+// ❌ Sai: Dùng thẻ img thuần
+<img src="/icon-192.png" alt="ERP Icon" />
+```
+
+## 3. Touch Targets
+
+```typescript
+// ✅ Đúng: Touch target tối thiểu 40px trên mobile
+<Button className="h-10 md:h-9">...</Button>
+
+// Input fields cũng cần touch-friendly
+<Input className="h-10 md:h-9" />
+```
+
+## 4. Safe Area & Mobile Layout
+
+```typescript
+// ✅ Đúng: Hỗ trợ safe area cho iPhone notch/home indicator
+<div className="pb-[env(safe-area-inset-bottom)]">
+  ...
+</div>
+
+// Card trên mobile dùng flat div thay vì paper
+<div className="rounded-xl border border-border/50 bg-card p-4">
+  {/* Mobile-first card design */}
+</div>
+```
+
+## 5. Offline Indicators
+
+```typescript
+// Khi feature có form submit, thêm offline queue indicator
+import { OfflineQueueIndicator } from '@/components/pwa/offline-queue-indicator'
+
+// Trong form component
+<form>
+  {/* form fields */}
+</form>
+<OfflineQueueIndicator />
+```
+
+## 6. API Route Offline Handling
+
+```typescript
+// ✅ API routes nên có retry logic cho offline scenarios
+export const GET = apiHandler(async (req, { session }) => {
+  try {
+    const data = await prisma.order.findMany()
+    return apiSuccess(data)
+  } catch (error) {
+    // Log error nhưng không throw để UI không crash
+    console.error('Fetch error (may be offline):', error)
+    return apiSuccess([]) // Return empty array thay vì error
+  }
+})
+```
+
+## 7. Lazy Loading với Skeleton
+
+```typescript
+// ✅ Đúng: Dùng skeleton cho better perceived performance
+import { CardSkeleton } from '@/components/ui/card-skeleton'
+
+export function OrderList({ initialData }) {
+  return (
+    <Suspense fallback={<CardSkeleton />}>
+      <OrderListContent />
+    </Suspense>
+  )
+}
+```
+
+## 8. Route Segment Config
+
+```typescript
+// app/(authenticated)/orders/page.tsx
+// Thêm dynamicParams và revalidate cho PWA
+
+export const dynamic = 'force-dynamic' // Hoặc 'auto' tùy use case
+export const revalidate = 60 // Revalidate mỗi 60s
+
+export default async function OrdersPage() {
+  // Server component fetch
+}
+```
+
+## 9. Prisma Error Handling
+
+```typescript
+// ✅ Dùng serializeDecimals() cho decimal fields
+import { serializeDecimals } from '@/lib/api-utils'
+
+const orders = await prisma.order.findMany()
+return apiSuccess(serializeDecimals(orders))
+```
+
+## Quick Reference: PWA File Locations
+
+| File | Purpose |
+|------|---------|
+| `public/manifest.json` | PWA manifest (app metadata, icons, shortcuts) |
+| `public/sw.js` | Service Worker (caching strategy) |
+| `components/pwa/service-worker-register.tsx` | Register SW in browser |
+| `components/pwa/pwa-install-prompt.tsx` | Install banner |
+| `components/pwa/offline-queue-indicator.tsx` | Offline queue status |
+| `components/pwa/notification-permission-prompt.tsx` | Push notification prompt |
+| `app/api/pwa/preferences/route.ts` | Store PWA user preferences |
+
+## Generate PWA Icons
+
+```bash
+# Tạo icons từ SVG source
+npm run pwa:icons
+```
+
+## manifest.json Shortcuts
+
+Khi thêm feature mới quan trọng, cân nhắc thêm shortcut vào `public/manifest.json`:
+
+```json
+{
+  "shortcuts": [
+    {
+      "name": "Tên shortcut",
+      "short_name": "Tên ngắn",
+      "description": "Mô tả",
+      "url": "/path-to-feature"
+    }
+  ]
+}
+```

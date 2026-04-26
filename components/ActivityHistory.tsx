@@ -229,14 +229,14 @@ export function ActivityHistory({
       created: { icon: Plus, color: 'text-success', bgColor: 'bg-success/15' },
       updated: { icon: Edit, color: 'text-info', bgColor: 'bg-info/15' },
       deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
-      status_changed: { icon: CheckCircle2, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-      assigned: { icon: User, color: 'text-warning', bgColor: 'bg-warning/25' },
-      product_added: { icon: Package, color: 'text-teal-600', bgColor: 'bg-teal-100' },
+      status_changed: { icon: CheckCircle2, color: 'text-warning', bgColor: 'bg-warning/15' },
+      assigned: { icon: User, color: 'text-warning', bgColor: 'bg-warning/15' },
+      product_added: { icon: Package, color: 'text-success', bgColor: 'bg-success/15' },
       product_updated: { icon: Package, color: 'text-info', bgColor: 'bg-info/15' },
       product_removed: { icon: Package, color: 'text-destructive', bgColor: 'bg-destructive/15' },
       payment_made: { icon: DollarSign, color: 'text-success', bgColor: 'bg-success/15' },
       comment_added: { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
-      attachment_added: { icon: FileText, color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+      attachment_added: { icon: FileText, color: 'text-info', bgColor: 'bg-info/15' },
       
       // Complaint-specific actions
       verified: { icon: CheckCircle2, color: 'text-info', bgColor: 'bg-info/15' },
@@ -247,7 +247,7 @@ export function ActivityHistory({
       rejected: { icon: XCircle, color: 'text-destructive', bgColor: 'bg-destructive/15' },
       cancelled: { icon: XCircle, color: 'text-destructive', bgColor: 'bg-destructive/15' },
       ended: { icon: CheckCircle2, color: 'text-success', bgColor: 'bg-success/15' },
-      reopened: { icon: History, color: 'text-purple-600', bgColor: 'bg-purple-100' },
+      reopened: { icon: History, color: 'text-warning', bgColor: 'bg-warning/15' },
       commented: { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
       
       custom: { icon: AlertCircle, color: 'text-muted-foreground', bgColor: 'bg-muted' },

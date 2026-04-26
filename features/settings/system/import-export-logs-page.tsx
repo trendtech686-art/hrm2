@@ -246,7 +246,7 @@ export function ImportExportLogsContent() {
         );
       case 'processing':
         return (
-          <Badge variant="default" className="bg-blue-500 animate-pulse">
+          <Badge variant="default" className="bg-info/15 text-info-foreground animate-pulse">
             <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
             Đang xử lý {log.progress || 0}%
           </Badge>
@@ -254,14 +254,14 @@ export function ImportExportLogsContent() {
       case 'success':
       case 'completed':
         return (
-          <Badge variant="default" className="bg-green-500">
+          <Badge variant="default" className="bg-success/15 text-success-foreground">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Thành công
           </Badge>
         );
       case 'partial':
         return (
-          <Badge variant="default" className="bg-yellow-500">
+          <Badge variant="default" className="bg-warning/15 text-warning-foreground">
             <AlertCircle className="h-3 w-3 mr-1" />
             Một phần
           </Badge>
@@ -883,12 +883,12 @@ export function ImportExportLogsContent() {
               {selectedLog.errors && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
                     Chi tiết lỗi
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {parseErrors(selectedLog.errors).map((error, index) => (
-                      <div key={index} className="p-2 rounded-md bg-red-50 text-sm text-red-700 border border-red-200">
+                      <div key={index} className="p-2 rounded-md bg-destructive/10 text-sm text-destructive border border-destructive/20">
                         {error}
                       </div>
                     ))}

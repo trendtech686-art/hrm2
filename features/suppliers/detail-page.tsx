@@ -5,11 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { formatDate } from '@/lib/date-utils';
-import { useSupplier } from './hooks/use-suppliers';
+import { useSupplier, useSupplierMutations } from './hooks/use-suppliers';
 import { useSupplierStats } from './hooks/use-supplier-stats';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
-import { Card, CardContent } from '../../components/ui/card';
+import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { ArrowLeft, Edit, Plus, MoreHorizontal } from 'lucide-react';
 import {
@@ -57,7 +57,7 @@ import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { useComments } from '../../hooks/use-comments';
 const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return '-';
+    if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
@@ -192,6 +192,7 @@ export function SupplierDetailPage() {
   const queryClient = useQueryClient();
   const { data: supplier, isLoading: isLoadingSupplier } = useSupplier(systemIdParam);
   const { data: supplierStats } = useSupplierStats(systemIdParam);
+  const { update: updateSupplier } = useSupplierMutations();
   const { employee: authEmployee, can, isAdmin } = useAuth();
   const { isMobile } = useBreakpoint();
 
@@ -294,6 +295,18 @@ export function SupplierDetailPage() {
   // ⚡ Use dynamically calculated debt from stats (includes POs - payments - returns)
   const calculatedDebt = supplierStats?.financial?.debtBalance || 0;
 
+  // ⚡ Sync DB currentDebt immediately if it differs from live calculation
+  // Uses stats API (always loaded) as source of truth for server-computed debt
+  React.useEffect(() => {
+    if (!supplier || !supplierStats) return;
+    const dbDebt = Number(supplier.currentDebt ?? 0) ?? 0;
+    const calculatedDebtValue = supplierStats?.financial?.debtBalance ?? 0;
+    if (Math.abs(dbDebt - calculatedDebtValue) > 0.01) {
+      updateSupplier.mutate({ systemId: supplier.systemId, currentDebt: calculatedDebtValue } as Parameters<typeof updateSupplier.mutate>[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierStats?.financial?.debtBalance, supplier?.systemId, supplier?.currentDebt, updateSupplier]);
+
   const [receiptDialogOpen, setReceiptDialogOpen] = React.useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
   const receiptFormRef = React.useRef<HTMLFormElement>(null);
@@ -303,6 +316,7 @@ export function SupplierDetailPage() {
     onCreateSuccess: () => {
       toast.success("Tạo phiếu thu thành công");
       setReceiptDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
     onError: (error) => toast.error(error.message || "Tạo phiếu thu thất bại"),
   });
@@ -311,6 +325,7 @@ export function SupplierDetailPage() {
     onCreateSuccess: () => {
       toast.success("Tạo phiếu chi thành công");
       setPaymentDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
     onError: (error) => toast.error(error.message || "Tạo phiếu chi thất bại"),
   });
@@ -381,7 +396,7 @@ export function SupplierDetailPage() {
         }, [router, supplierSystemId, isAdmin, can]);
 
         const mobileHeaderActions = React.useMemo(() => {
-            if (!isMobile || !(isAdmin || can('edit_suppliers'))) return [];
+            if (!isMobile || !(isAdmin || can('edit_suppliers'))) return null;
             return [
                 <DropdownMenu key="mobile-actions">
                     <DropdownMenuTrigger asChild>
@@ -524,6 +539,55 @@ export function SupplierDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Stats Summary Bar */}
+      <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-md:-mx-4 max-md:px-4 max-md:[&>*:not(:first-child)]:border-l max-md:[&>*:not(:first-child)]:border-l-border">
+        {/* Tổng mua */}
+        <Card className="max-md:rounded-none max-md:border-x-0 max-md:shadow-none">
+          <CardContent className="p-3 text-center">
+            <div className="text-xs text-muted-foreground">Tổng mua</div>
+            <div className="text-sm font-bold mt-1 truncate" title={formatCurrency(supplierStats?.financial?.totalPurchases || 0)}>
+              {formatCurrency(supplierStats?.financial?.totalPurchases || 0)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Đã thanh toán */}
+        <Card className="max-md:rounded-none max-md:border-x-0 max-md:shadow-none">
+          <CardContent className="p-3 text-center">
+            <div className="text-xs text-muted-foreground">Đã trả</div>
+            <div className="text-sm font-bold mt-1 text-green-600 truncate" title={formatCurrency(supplierStats?.financial?.totalPayments || 0)}>
+              {formatCurrency(supplierStats?.financial?.totalPayments || 0)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Công nợ */}
+        <Card className="max-md:rounded-none max-md:border-x-0 max-md:shadow-none">
+          <CardContent className="p-3 text-center">
+            <div className="text-xs text-muted-foreground">Công nợ</div>
+            <div className={`text-sm font-bold mt-1 truncate ${(supplierStats?.financial?.debtBalance || 0) > 0 ? 'text-orange-600' : 'text-green-600'}`} title={formatCurrency(calculatedDebt)}>
+              {formatCurrency(calculatedDebt)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Đơn hàng (desktop only) */}
+        <Card className="hidden md:block">
+          <CardContent className="p-3 text-center">
+            <div className="text-xs text-muted-foreground">Đơn hàng</div>
+            <div className="text-sm font-bold mt-1">{supplierStats?.purchaseOrders?.total || 0}</div>
+          </CardContent>
+        </Card>
+
+        {/* Bảo hành (desktop only) */}
+        <Card className="hidden md:block">
+          <CardContent className="p-3 text-center">
+            <div className="text-xs text-muted-foreground">Bảo hành</div>
+            <div className="text-sm font-bold mt-1">{supplierStats?.warranties?.total || 0}</div>
+          </CardContent>
+        </Card>
+      </div>
 
     <div className="space-y-4">
         <Card className={mobileBleedCardClass}>

@@ -306,7 +306,7 @@ export const GET = apiHandler(async (
         // Convert Decimal fields to numbers for JSON
         totalPurchased: Number(supplier.totalPurchased ?? 0),
         totalDebt: Number(supplier.totalDebt ?? 0),
-        currentDebt: supplier.currentDebt ? Number(supplier.currentDebt) : null,
+        currentDebt: Number(supplier.currentDebt ?? 0),
         createdAt: supplier.createdAt?.toISOString() ?? null,
         updatedAt: supplier.updatedAt?.toISOString() ?? null,
         deletedAt: supplier.deletedAt?.toISOString() ?? null,

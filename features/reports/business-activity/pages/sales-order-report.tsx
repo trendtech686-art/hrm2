@@ -27,10 +27,13 @@ import type { SystemId } from '@/lib/id-types';
 import { ShoppingCart, DollarSign, TrendingUp, Filter, FileText } from 'lucide-react';
 import { parseISO, isWithinInterval } from 'date-fns';
 
-const getDefaultDateRange = (): ReportDateRange => ({
-  from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-  to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-});
+// ✅ FIX: Use useMemo to ensure consistent rendering
+export function useDefaultDateRange(): ReportDateRange {
+  return React.useMemo(() => ({
+    from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+    to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  }), []);
+}
 
 const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSummary?: boolean }>[] => [
   {
@@ -119,7 +122,8 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
 ];
 
 export function SalesOrderReportPage() {
-  const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
+  const defaultRange = useDefaultDateRange();
+  const [dateRange, setDateRange] = React.useState<ReportDateRange>(defaultRange);
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'orderDate', desc: true });
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});

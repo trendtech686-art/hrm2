@@ -16,7 +16,7 @@ export function serializeSupplier<T extends {
     ...supplier,
     totalPurchased: supplier.totalPurchased != null ? Number(supplier.totalPurchased) : 0,
     totalDebt: supplier.totalDebt != null ? Number(supplier.totalDebt) : 0,
-    currentDebt: supplier.currentDebt != null ? Number(supplier.currentDebt) : null,
+    currentDebt: supplier.currentDebt != null ? Number(supplier.currentDebt) : 0,
     purchaseOrders: supplier.purchaseOrders?.map(po => ({
       ...po,
       subtotal: po.subtotal != null ? Number(po.subtotal) : 0,

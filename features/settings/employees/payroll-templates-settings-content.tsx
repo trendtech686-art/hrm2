@@ -283,7 +283,7 @@ export function PayrollTemplatesSettingsContent() {
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              className="absolute right-1 top-1/2 h-11 w-11 -translate-y-1/2"
               onClick={() => setSearchQuery('')}
             >
               <X className="h-4 w-4" />

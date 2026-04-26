@@ -47,7 +47,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-sm truncate">{brand.name}</span>
                 {brand.isActive !== false ? (
-                  <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 text-xs h-5">
+                  <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 hover:bg-success/15 text-xs h-5">
                     Hoạt động
                   </Badge>
                 ) : (
@@ -65,7 +65,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
               <TouchButton
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0"
+                className="h-11 w-11 p-0 -mr-2 -mt-1 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -128,13 +128,13 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
           <div className="flex items-center gap-2">
             {/* SEO PKGX */}
             {(brand.websiteSeo?.pkgx?.seoTitle || brand.websiteSeo?.pkgx?.metaDescription || brand.websiteSeo?.pkgx?.slug) && (
-              <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+              <Badge variant="outline" className="text-xs bg-destructive/15 text-destructive border-destructive/30">
                 PKGX
               </Badge>
             )}
             {/* SEO Trendtech */}
             {(brand.websiteSeo?.trendtech?.seoTitle || brand.websiteSeo?.trendtech?.metaDescription || brand.websiteSeo?.trendtech?.slug) && (
-              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              <Badge variant="outline" className="text-xs bg-info/15 text-info-foreground border-info/30">
                 Trendtech
               </Badge>
             )}

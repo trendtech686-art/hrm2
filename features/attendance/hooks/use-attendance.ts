@@ -24,6 +24,8 @@ export const attendanceKeys = {
   lists: () => [...attendanceKeys.all, 'list'] as const,
   list: (filters: AttendanceFilters) => [...attendanceKeys.lists(), filters] as const,
   month: (monthKey: string) => [...attendanceKeys.all, 'month', monthKey] as const,
+  page: (monthKey: string, params: { page?: number; limit?: number; search?: string; department?: string }) =>
+    [...attendanceKeys.all, 'page', monthKey, params] as const,
   details: () => [...attendanceKeys.all, 'detail'] as const,
   detail: (id: string) => [...attendanceKeys.details(), id] as const,
 };

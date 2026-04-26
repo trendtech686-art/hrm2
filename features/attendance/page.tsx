@@ -13,7 +13,8 @@ import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useEmployeeSettings, DEFAULT_EMPLOYEE_SETTINGS } from '@/features/settings/employees/hooks/use-employee-settings';
-import { useAttendanceByMonth, useAttendanceMutations, attendanceKeys } from './hooks/use-attendance';
+import { useAttendanceMutations, attendanceKeys } from './hooks/use-attendance';
+import { useAttendancePage } from './hooks/use-attendance-page';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateEmptyAttendance } from './data';
 import { getColumns } from './columns';
@@ -32,14 +33,10 @@ import { ChevronLeft, ChevronRight, Search, Upload, Download, Printer, Lock, Loc
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/contexts/breakpoint-context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { simpleSearch } from '@/lib/simple-search';
 import { AttendanceEditDialog } from './components/attendance-edit-dialog';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
 import { StatisticsDashboard } from './components/statistics-dashboard';
-import { useDebounce } from '@/hooks/use-debounce';
 import { toast } from 'sonner';
-import { useAllLeavesByDateRange } from '@/features/leaves/hooks/use-leaves';
-import { leaveAttendanceSync } from '@/features/leaves/leave-sync-service';
 import { usePrint } from '@/lib/use-print';
 import { fetchPrintData } from '@/lib/lazy-print-data';
 import { convertAttendanceSheetForPrint, mapAttendanceSheetToPrintData, mapAttendanceSheetLineItems, createStoreSettings } from '@/lib/print/attendance-print-helper';
@@ -74,7 +71,6 @@ function MonthYearPicker({ value, onChange }: { value: Date; onChange: (date: Da
 export function AttendancePage() {
   // Permission checks
   const { can } = useAuth();
-  const canEdit = can('edit_attendance');
   const canEditSettings = can('edit_settings');
   const { isMobile } = useBreakpoint();
   const router = useRouter();
@@ -89,19 +85,34 @@ export function AttendancePage() {
   // Core state
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
   const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
+  
+  // Server-side: fetch paginated attendance data
+  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [departmentFilter, setDepartmentFilter] = React.useState('all');
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+  
+  // Debounce search for server-side filtering
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(globalFilter);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [globalFilter, setPagination]);
 
-  // Server-side: fetch ALL approved leaves for the current month (auto-paginated)
-  const { data: leaveRequests } = useAllLeavesByDateRange({
-    status: 'Đã duyệt',
-    fromDate: `${currentMonthKey}-01`,
-    toDate: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0],
+  const { data: attendanceData, isFetching } = useAttendancePage(currentMonthKey, {
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: debouncedSearch || undefined,
+    department: departmentFilter !== 'all' ? departmentFilter : undefined,
   });
   
-  // Fetch attendance data from database
-  const { data: dbAttendanceData, isFetching } = useAttendanceByMonth(currentMonthKey);
-  
-  // Local state for UI
-  const [attendanceData, setAttendanceData] = React.useState<AttendanceDataRow[]>([]);
+  // Extract data and pagination info from server response
+  const paginatedData = React.useMemo(() => attendanceData?.data ?? [], [attendanceData?.data]);
+  const totalRows = attendanceData?.pagination?.total ?? 0;
+  const pageCount = attendanceData?.pagination?.totalPages ?? 1;
   
   // ✅ Use React Query hook for locked months (syncs via database)
   const { lockedMonths, toggleLock } = useAttendanceLocks();
@@ -118,12 +129,7 @@ export function AttendancePage() {
   });
 
   // Filter state
-  const [departmentFilter, setDepartmentFilter] = React.useState('all');
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const debouncedGlobalFilter = useDebounce(globalFilter, 300);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('attendance', {});
   const [columnOrder, setColumnOrder] = useColumnOrder('attendance');
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('attendance');
@@ -144,58 +150,10 @@ export function AttendancePage() {
   const [isPenaltyConfirmOpen, setIsPenaltyConfirmOpen] = React.useState(false);
   const [pendingPenalties, setPendingPenalties] = React.useState<PenaltyPreviewItem[]>([]);
 
-  // Use ref for leaveRequests to avoid effect re-runs
-  const leaveRequestsRef = React.useRef(leaveRequests);
-  leaveRequestsRef.current = leaveRequests;
-
-  // Replay approved leaves - pure function, returns modified data
-  const replayApprovedLeavesForMonth = React.useCallback((monthKey: string, data: AttendanceDataRow[]): AttendanceDataRow[] => {
-    const currentLeaves = leaveRequestsRef.current;
-    if (!currentLeaves?.length) return data;
-    const [yearStr, monthStr] = monthKey.split('-');
-    const year = Number(yearStr), month = Number(monthStr);
-    if (!year || !month) return data;
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0);
-    let result = data;
-    currentLeaves.forEach((leave) => {
-      if (leave.status !== 'Đã duyệt') return;
-      const start = new Date(leave.startDate), end = new Date(leave.endDate);
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= monthEnd && end >= monthStart) {
-        const updated = leaveAttendanceSync.applyToData(leave, monthKey, result);
-        if (updated) result = updated;
-      }
-    });
-    return result;
-  }, []);
-
-  // Track if data has been loaded for current month to prevent re-runs
-  const loadedMonthRef = React.useRef<string | null>(null);
-
-  // Load attendance data - stabilized effect
-  React.useEffect(() => {
-    // Skip if we already loaded this month's data
-    if (loadedMonthRef.current === currentMonthKey) return;
-    // Skip if employees not loaded yet
-    if (!employees?.length) return;
-    
-    // If no data from DB, generate empty structure
-    if (!dbAttendanceData || dbAttendanceData.length === 0) {
-      const seededData = generateEmptyAttendance(employees, currentDate.getFullYear(), currentDate.getMonth() + 1, settings);
-      const withLeaves = replayApprovedLeavesForMonth(currentMonthKey, seededData);
-      setAttendanceData(withLeaves);
-      loadedMonthRef.current = currentMonthKey;
-    } else {
-      // Recalculate summary for each row from DB data
-      const dataWithSummary = dbAttendanceData.map(row => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1;
-        return { ...row, ...recalculateSummary(row as AnyAttendanceDataRow, year, month, settings) } as AttendanceDataRow;
-      });
-      setAttendanceData(dataWithSummary);
-      loadedMonthRef.current = currentMonthKey;
-    }
-  }, [employees, currentDate, settings, currentMonthKey, dbAttendanceData, replayApprovedLeavesForMonth]);
+  // Invalidate attendance query after mutations
+  const invalidateAttendanceQuery = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: attendanceKeys.page(currentMonthKey, {}) });
+  }, [queryClient, currentMonthKey]);
 
   // Toggle lock handler - uses database-backed hook
   const handleToggleLock = React.useCallback(async () => {
@@ -220,17 +178,27 @@ export function AttendancePage() {
   const handleQuickFill = React.useCallback((employeeSystemId: SystemId, day: number) => {
     if (isLocked) return;
     const defaultRecord: DailyRecord = { status: 'present', checkIn: settings.workStartTime, checkOut: settings.workEndTime };
-    const updatedData = attendanceData.map(row => {
-      if (row.employeeSystemId === employeeSystemId) {
-        const newRow = { ...row } as AnyAttendanceDataRow;
-        newRow[`day_${day}`] = defaultRecord;
-        return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
-      }
-      return row;
-    });
-    setAttendanceData(updatedData);
     
-    // Save single record to database
+    // Optimistically update local cache
+    queryClient.setQueryData(
+      attendanceKeys.page(currentMonthKey, {}),
+      (old: { data: AttendanceDataRow[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map(row => {
+            if (row.employeeSystemId === employeeSystemId) {
+              const newRow = { ...row } as AnyAttendanceDataRow;
+              newRow[`day_${day}`] = defaultRecord;
+              return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+            }
+            return row;
+          }),
+        };
+      }
+    );
+    
+    // Save to database
     updateAttendance.mutate({
       systemId: employeeSystemId,
       data: {
@@ -240,31 +208,43 @@ export function AttendancePage() {
         dayKey: `day_${day}`,
         record: defaultRecord,
       },
+    }, {
+      onSettled: () => invalidateAttendanceQuery(),
     });
     
     toast('Điền nhanh', { description: 'Đã áp dụng giờ làm việc mặc định' });
-  }, [attendanceData, currentDate, settings, isLocked, currentMonthKey, updateAttendance]);
+  }, [currentDate, settings, isLocked, currentMonthKey, updateAttendance, queryClient, invalidateAttendanceQuery]);
 
   // Edit record handler
   const handleEditRecord = React.useCallback((employeeSystemId: SystemId, day: number) => {
     if (isLocked) return;
     if (isSelectionMode) { toggleCellSelection(employeeSystemId, day); return; }
-    const emp = attendanceData.find(e => e.employeeSystemId === employeeSystemId);
+    const emp = paginatedData.find(e => e.employeeSystemId === employeeSystemId);
     if (emp) { setEditingRecordInfo({ employeeSystemId, day, record: emp[`day_${day}`] as DailyRecord }); setIsEditModalOpen(true); }
-  }, [attendanceData, isLocked, isSelectionMode, toggleCellSelection]);
+  }, [paginatedData, isLocked, isSelectionMode, toggleCellSelection]);
 
   // Save record handler
   const handleSaveRecord = React.useCallback((updatedRecord: DailyRecord) => {
     if (!editingRecordInfo) return;
-    const updatedData = attendanceData.map(row => {
-      if (row.employeeSystemId === editingRecordInfo.employeeSystemId) {
-        const newRow = { ...row } as AnyAttendanceDataRow;
-        newRow[`day_${editingRecordInfo.day}`] = updatedRecord;
-        return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+    
+    // Optimistically update local cache
+    queryClient.setQueryData(
+      attendanceKeys.page(currentMonthKey, {}),
+      (old: { data: AttendanceDataRow[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map(row => {
+            if (row.employeeSystemId === editingRecordInfo.employeeSystemId) {
+              const newRow = { ...row } as AnyAttendanceDataRow;
+              newRow[`day_${editingRecordInfo.day}`] = updatedRecord;
+              return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+            }
+            return row;
+          }),
+        };
       }
-      return row;
-    });
-    setAttendanceData(updatedData);
+    );
     
     // Save to database
     updateAttendance.mutate({
@@ -276,25 +256,36 @@ export function AttendancePage() {
         dayKey: `day_${editingRecordInfo.day}`,
         record: updatedRecord,
       },
+    }, {
+      onSettled: () => invalidateAttendanceQuery(),
     });
     
     setIsEditModalOpen(false);
     setEditingRecordInfo(null);
     toast.success('Cập nhật thành công', { description: `Đã lưu chấm công ngày ${editingRecordInfo.day}` });
-  }, [editingRecordInfo, attendanceData, currentDate, settings, currentMonthKey, updateAttendance]);
+  }, [editingRecordInfo, currentDate, settings, currentMonthKey, updateAttendance, queryClient, invalidateAttendanceQuery]);
 
   // Bulk save handler
   const handleBulkSave = React.useCallback((updates: Array<{ employeeSystemId: SystemId; day: number; record: DailyRecord }>) => {
-    const updatedData = attendanceData.map(row => {
-      const empUpdates = updates.filter(u => u.employeeSystemId === row.employeeSystemId);
-      if (empUpdates.length > 0) {
-        const newRow = { ...row } as AnyAttendanceDataRow;
-        empUpdates.forEach(u => { newRow[`day_${u.day}`] = u.record; });
-        return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+    // Optimistically update local cache
+    queryClient.setQueryData(
+      attendanceKeys.page(currentMonthKey, {}),
+      (old: { data: AttendanceDataRow[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map(row => {
+            const empUpdates = updates.filter(u => u.employeeSystemId === row.employeeSystemId);
+            if (empUpdates.length > 0) {
+              const newRow = { ...row } as AnyAttendanceDataRow;
+              empUpdates.forEach(u => { newRow[`day_${u.day}`] = u.record; });
+              return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+            }
+            return row;
+          }),
+        };
       }
-      return row;
-    });
-    setAttendanceData(updatedData);
+    );
     
     // Save to database
     const records = updates.map(u => ({
@@ -307,12 +298,14 @@ export function AttendancePage() {
         record: u.record,
       },
     }));
-    bulkUpdateAttendance.mutate(records);
+    bulkUpdateAttendance.mutate(records, {
+      onSettled: () => invalidateAttendanceQuery(),
+    });
     
     setCellSelection({});
     setIsSelectionMode(false);
     toast.success('Cập nhật thành công', { description: `Đã chỉnh sửa ${updates.length} ô` });
-  }, [attendanceData, currentDate, settings, currentMonthKey, bulkUpdateAttendance]);
+  }, [currentDate, settings, currentMonthKey, bulkUpdateAttendance, queryClient, invalidateAttendanceQuery]);
 
   // Import confirm handler
   const handleConfirmImport = React.useCallback(async (importedData: Record<SystemId, { day: number; checkIn?: string; morningCheckOut?: string; afternoonCheckIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>, date: Date) => {
@@ -333,7 +326,6 @@ export function AttendancePage() {
       }
       return empRow;
     });
-    setAttendanceData(updatedData);
     
     // Save entire month to database
     const monthKey = formatDateCustom(date, 'yyyy-MM');
@@ -358,19 +350,14 @@ export function AttendancePage() {
       return updates;
     });
     
+    setCurrentDate(date);
+    
+    // Invalidate query to refresh data from server after import and save data
+    const newMonthKey = formatDateCustom(date, 'yyyy-MM');
     if (records.length > 0) {
       bulkUpdateAttendance.mutate(records);
     }
-    
-    setCurrentDate(date);
-    
-    // Reset ref và invalidate query để load lại dữ liệu mới từ DB
-    const newMonthKey = formatDateCustom(date, 'yyyy-MM');
-    loadedMonthRef.current = null;
-    queryClient.invalidateQueries({ queryKey: attendanceKeys.month(newMonthKey) });
-    
-    // Cập nhật UI ngay lập tức với dữ liệu đã import
-    setAttendanceData(updatedData);
+    queryClient.invalidateQueries({ queryKey: attendanceKeys.page(newMonthKey, {}) });
     
     // Lazy-load penalty service (only needed after import)
     const { loadExistingPenalties, previewAttendancePenalties } = await import('./penalty-sync-service');
@@ -390,22 +377,36 @@ export function AttendancePage() {
   const handleSkipPenalties = React.useCallback(() => { toast.info('Đã bỏ qua tạo phiếu phạt'); setPendingPenalties([]); }, []);
 
   // Selected cells array
-  const selectedCellsArray = React.useMemo(() => Object.keys(cellSelection).map(key => { const [sId, dayStr] = key.split('-'); const emp = attendanceData.find(e => e.employeeSystemId === sId); return { employeeSystemId: sId as SystemId, employeeCode: emp?.employeeId ?? '', employeeName: emp?.fullName ?? '', day: parseInt(dayStr, 10) }; }), [cellSelection, attendanceData]);
+  const selectedCellsArray = React.useMemo(() => Object.keys(cellSelection).map(key => { const [sId, dayStr] = key.split('-'); const emp = paginatedData.find(e => e.employeeSystemId === sId); return { employeeSystemId: sId as SystemId, employeeCode: emp?.employeeId ?? '', employeeName: emp?.fullName ?? '', day: parseInt(dayStr, 10) }; }), [cellSelection, paginatedData]);
 
-  // Filtering with simple search (attendance data is bounded by month)
-  const searchOptions = React.useMemo(() => ({ keys: ['employeeId', 'fullName', 'department'] as const satisfies readonly (keyof AttendanceDataRow)[] }), []);
-  const searchedData = React.useMemo(() => simpleSearch(attendanceData, debouncedGlobalFilter, { keys: [...searchOptions.keys] }), [attendanceData, debouncedGlobalFilter, searchOptions]);
-  const filteredData = React.useMemo(() => { let data = searchedData; if (departmentFilter !== 'all') data = data.filter(r => r.department === departmentFilter); return data; }, [searchedData, departmentFilter]);
-  const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined; if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1; if (aV < bV) return sorting.desc ? 1 : -1; if (aV > bV) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
+  // Server-side filtered/sorted data from API (search and department handled by API)
+  const serverData = React.useMemo(() => {
+    // Sort client-side for now (API doesn't support sorting yet)
+    if (!paginatedData.length) return [];
+    const s = [...paginatedData];
+    if (sorting.id) {
+      s.sort((a, b) => {
+        const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
+        const bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
+        if (aV == null && bV == null) return 0;
+        if (aV == null) return 1;
+        if (bV == null) return -1;
+        if (aV < bV) return sorting.desc ? 1 : -1;
+        if (aV > bV) return sorting.desc ? -1 : 1;
+        return 0;
+      });
+    }
+    return s;
+  }, [paginatedData, sorting]);
 
   // Print & Export handlers (must be after sortedData)
   const handlePrint = React.useCallback(async () => {
-    if (!sortedData?.length) return;
+    if (!serverData?.length) return;
     const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
-    const sheetForPrint = convertAttendanceSheetForPrint(currentMonthKey, sortedData as Parameters<typeof convertAttendanceSheetForPrint>[1], { isLocked, departmentName: departmentFilter !== 'all' ? departments.find(d => d.name === departmentFilter)?.name : undefined });
+    const sheetForPrint = convertAttendanceSheetForPrint(currentMonthKey, serverData as Parameters<typeof convertAttendanceSheetForPrint>[1], { isLocked, departmentName: departmentFilter !== 'all' ? departments.find(d => d.name === departmentFilter)?.name : undefined });
     print('attendance', { data: mapAttendanceSheetToPrintData(sheetForPrint, storeSettings), lineItems: mapAttendanceSheetLineItems(sheetForPrint.employees, currentMonthKey) });
-  }, [sortedData, currentMonthKey, departmentFilter, departments, isLocked, print]);
+  }, [serverData, currentMonthKey, departmentFilter, departments, isLocked, print]);
 
   const handleExport = React.useCallback(async () => {
     const XLSX = await import('xlsx');
@@ -413,7 +414,7 @@ export function AttendancePage() {
     const headers = ['Mã NV', 'Họ tên', 'Phòng ban'];
     for (let d = 1; d <= daysInMonth; d++) headers.push(`${d}`);
     headers.push('Ngày công', 'Nghỉ phép', 'Vắng');
-    const rows = sortedData.map(row => {
+    const rows = serverData.map(row => {
       const r: (string | number)[] = [row.employeeId, row.fullName, row.department ?? ''];
       for (let d = 1; d <= daysInMonth; d++) { const rec = row[`day_${d}` as keyof AttendanceDataRow] as DailyRecord | undefined; r.push(!rec ? '' : rec.status === 'present' ? 'X' : rec.status === 'leave' ? 'P' : rec.status === 'absent' ? 'V' : rec.status === 'weekend' ? '-' : rec.status === 'holiday' ? 'L' : ''); }
       r.push(row.workDays ?? 0, row.leaveDays ?? 0, row.absentDays ?? 0);
@@ -423,8 +424,8 @@ export function AttendancePage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Chấm công T${month}`);
     XLSX.writeFile(wb, `cham-cong-${formatDateCustom(currentDate, 'yyyy-MM')}.xlsx`);
-    toast.success('Xuất Excel thành công', { description: `Đã xuất ${sortedData.length} nhân viên` });
-  }, [sortedData, currentDate]);
+    toast.success('Xuất Excel thành công', { description: `Đã xuất ${serverData.length} nhân viên` });
+  }, [serverData, currentDate]);
 
   // Page actions (after handlers)
   usePageHeader(React.useMemo(() => ({
@@ -462,10 +463,8 @@ export function AttendancePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run once on initial mount
   }, [year, month]);
 
-
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize);
-  const allSelectedRows = React.useMemo(() => attendanceData.filter(a => rowSelection[a.systemId]), [attendanceData, rowSelection]);
+  // Server-side pagination: data already sorted/filtered by API
+  const allSelectedRows = React.useMemo(() => paginatedData.filter(a => rowSelection[a.systemId]), [paginatedData, rowSelection]);
 
   // Mobile employee card renderer
   const renderMobileEmployeeCard = React.useCallback((row: AttendanceDataRow) => {
@@ -533,7 +532,7 @@ export function AttendancePage() {
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
     <div className="flex flex-col h-full space-y-4">
-      <StatisticsDashboard data={filteredData} currentDate={currentDate} />
+      <StatisticsDashboard data={serverData} currentDate={currentDate} />
 
       {/* Toolbar */}
       <Card className={cn(mobileBleedCardClass, 'shrink-0')}>
@@ -608,7 +607,7 @@ export function AttendancePage() {
 
       {/* Data display */}
       <div className={cn((isFetching) && 'opacity-60 pointer-events-none transition-opacity')}>
-        <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} renderMobileCard={renderMobileEmployeeCard} mobileInfiniteScroll />
+        <ResponsiveDataTable columns={columns} data={serverData} rowCount={totalRows} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} renderMobileCard={renderMobileEmployeeCard} mobileInfiniteScroll isLoading={isFetching} />
       </div>
 
       <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={currentDate} isSaving={updateAttendance.isPending} />

@@ -938,7 +938,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-8 w-8 p-0"
+              className="h-11 w-11 p-0"
               onClick={() => editor?.chain().focus().undo().run()}
               disabled={!editor?.can().undo() || isHtmlMode}
             >
@@ -947,7 +947,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-8 w-8 p-0"
+              className="h-11 w-11 p-0"
               onClick={() => editor?.chain().focus().redo().run()}
               disabled={!editor?.can().redo() || isHtmlMode}
             >
@@ -1363,7 +1363,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive('bulletList') && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive('bulletList') && "bg-muted")}
               onClick={() => editor?.chain().focus().toggleBulletList().run()}
               disabled={isHtmlMode}
             >
@@ -1372,7 +1372,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive('orderedList') && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive('orderedList') && "bg-muted")}
               onClick={() => editor?.chain().focus().toggleOrderedList().run()}
               disabled={isHtmlMode}
             >
@@ -1384,7 +1384,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive('blockquote') && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive('blockquote') && "bg-muted")}
               onClick={() => editor?.chain().focus().toggleBlockquote().run()}
               disabled={isHtmlMode}
             >
@@ -1396,7 +1396,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive({ textAlign: 'left' }) && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive({ textAlign: 'left' }) && "bg-muted")}
               onClick={() => editor?.chain().focus().setTextAlign('left').run()}
               disabled={isHtmlMode}
             >
@@ -1405,7 +1405,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive({ textAlign: 'center' }) && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive({ textAlign: 'center' }) && "bg-muted")}
               onClick={() => editor?.chain().focus().setTextAlign('center').run()}
               disabled={isHtmlMode}
             >
@@ -1414,7 +1414,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive({ textAlign: 'right' }) && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive({ textAlign: 'right' }) && "bg-muted")}
               onClick={() => editor?.chain().focus().setTextAlign('right').run()}
               disabled={isHtmlMode}
             >
@@ -1423,7 +1423,7 @@ export function PrintTemplatesPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={cn("h-7 w-7 p-0", editor?.isActive({ textAlign: 'justify' }) && "bg-muted")}
+              className={cn("h-11 w-11 p-0", editor?.isActive({ textAlign: 'justify' }) && "bg-muted")}
               onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
               disabled={isHtmlMode}
             >

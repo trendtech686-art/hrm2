@@ -893,7 +893,7 @@ export function ComplaintFormPage() {
   
   return (
     <FormPageShell className="w-full h-full">
-      <form onSubmit={onSubmit} className="space-y-6" data-complaint-form>
+      <form onSubmit={onSubmit} className="space-y-3 md:space-y-6 pt-2 md:pt-0" data-complaint-form>
         {/* Main Form Card */}
         <Card className={mobileBleedCardClass}>
           <CardHeader>
@@ -1111,7 +1111,7 @@ export function ComplaintFormPage() {
                               : '0'}
                           </span>
                           {customerStats.complaints.active > 0 && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-medium">
                               {customerStats.complaints.active} chưa xử lý
                             </span>
                           )}
@@ -1197,37 +1197,39 @@ export function ComplaintFormPage() {
               <CardContent>
                 {availableProducts.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-sm">Tất cả sản phẩm trong đơn hàng đã được trả lại.</p>
-                    <p className="text-xs mt-1">Không thể tạo khiếu nại cho đơn hàng này.</p>
+                    <p className="text-sm">Tất cả sản phẩm đã được trả lại.</p>
+                    <p className="text-xs mt-1">Không thể tạo khiếu nại.</p>
                   </div>
                 ) : (
-                <div className="border rounded-lg overflow-x-auto">
-                  <Table className="text-xs">
-                    <TableHeader>
-                      <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableHead className="w-10">
-                          <Checkbox
-                            checked={isAllSelected}
-                            ref={(el) => {
-                              if (el) (el as unknown as HTMLButtonElement).dataset.state = isSomeSelected ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked';
-                            }}
-                            disabled={canOnlyEditNote}
-                            onCheckedChange={handleSelectAll}
-                            aria-label="Chọn tất cả"
-                          />
-                        </TableHead>
-                        <TableHead className="min-w-50">Sản phẩm</TableHead>
-                        <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                        <TableHead className="w-16 text-center">SL</TableHead>
-                        <TableHead className="w-24">Loại KN</TableHead>
-                        <TableHead className="w-24 text-center">Thừa</TableHead>
-                        <TableHead className="w-24 text-center">Thiếu</TableHead>
-                        <TableHead className="w-24 text-center">Hỏng</TableHead>
-                        <TableHead className="w-24 text-right">Tổng tiền</TableHead>
-                        <TableHead className="min-w-30">Ghi chú</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                <>
+                  {/* ===== DESKTOP: Table view ===== */}
+                  <div className="hidden md:block border rounded-lg overflow-x-auto">
+                    <Table className="text-xs">
+                      <TableHeader>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={isAllSelected}
+                              ref={(el) => {
+                                if (el) (el as unknown as HTMLButtonElement).dataset.state = isSomeSelected ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked';
+                              }}
+                              disabled={canOnlyEditNote}
+                              onCheckedChange={handleSelectAll}
+                              aria-label="Chọn tất cả"
+                            />
+                          </TableHead>
+                          <TableHead className="min-w-50">Sản phẩm</TableHead>
+                          <TableHead className="w-24 text-right">Đơn giá</TableHead>
+                          <TableHead className="w-16 text-center">SL</TableHead>
+                          <TableHead className="w-24">Loại KN</TableHead>
+                          <TableHead className="w-24 text-center">Thừa</TableHead>
+                          <TableHead className="w-24 text-center">Thiếu</TableHead>
+                          <TableHead className="w-24 text-center">Hỏng</TableHead>
+                          <TableHead className="w-24 text-right">Tổng tiền</TableHead>
+                          <TableHead className="min-w-30">Ghi chú</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                       {availableProducts.map((item, idx) => {
                         const returnedQty = returnedQuantities[item.productSystemId] || 0;
                         const remainingQty = item.quantity - returnedQty;
@@ -1443,7 +1445,165 @@ export function ComplaintFormPage() {
                       })}
                     </TableBody>
                   </Table>
-                </div>
+                  </div>
+
+                  {/* ===== MOBILE: Card stack view ===== */}
+                  <div className="md:hidden space-y-3">
+                    {availableProducts.map((item, idx) => {
+                      const returnedQty = returnedQuantities[item.productSystemId] || 0;
+                      const remainingQty = item.quantity - returnedQty;
+                      const affected = affectedProducts.find(p => p.lineItemIndex === idx);
+                      const isSelected = !!affected;
+                      const product = findProductById(item.productSystemId);
+                      const productImageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+
+                      return (
+                        <div
+                          key={`mobile-${item.productSystemId}-${idx}`}
+                          className="border rounded-lg p-3 bg-card"
+                        >
+                          <div className="flex items-start gap-3 mb-3">
+                            <Checkbox
+                              checked={isSelected}
+                              disabled={canOnlyEditNote}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setAffectedProducts(prev => [...prev, {
+                                    lineItemIndex: idx,
+                                    productSystemId: item.productSystemId,
+                                    productId: item.productId,
+                                    productName: item.productName,
+                                    unitPrice: item.unitPrice || 0,
+                                    quantityOrdered: remainingQty,
+                                    quantityReceived: item.quantity,
+                                    quantityMissing: 0,
+                                    quantityDefective: 0,
+                                    quantityExcess: 0,
+                                    issueType: 'missing',
+                                    note: '',
+                                    resolutionType: 'ignore',
+                                  }]);
+                                } else {
+                                  setAffectedProducts(prev =>
+                                    prev.filter(p => p.lineItemIndex !== idx)
+                                  );
+                                }
+                              }}
+                            />
+                            {productImageUrl && (
+                              <img
+                                src={productImageUrl}
+                                alt={item.productName}
+                                className="w-12 h-12 rounded-md object-cover border"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium line-clamp-2">{item.productName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {item.productId} • {(item.unitPrice || 0).toLocaleString('vi-VN')}đ • SL: {remainingQty}
+                              </p>
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <div className="space-y-2 pl-8">
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Loại KN</label>
+                                  <Select
+                                    value={affected?.issueType || 'missing'}
+                                    onValueChange={(value: 'excess' | 'missing' | 'defective' | 'other') => {
+                                      setAffectedProducts(prev => prev.map(p => {
+                                        if (p.lineItemIndex === idx) {
+                                          return {
+                                            ...p,
+                                            issueType: value,
+                                            quantityExcess: 0,
+                                            quantityMissing: 0,
+                                            quantityDefective: 0,
+                                          };
+                                        }
+                                        return p;
+                                      }));
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="excess">Thừa</SelectItem>
+                                      <SelectItem value="missing">Thiếu</SelectItem>
+                                      <SelectItem value="defective">Hỏng</SelectItem>
+                                      <SelectItem value="other">Khác</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {affected?.issueType === 'missing' || affected?.issueType === 'defective' ? (
+                                  <div>
+                                    <label className="text-xs text-muted-foreground">
+                                      {affected.issueType === 'missing' ? 'Thiếu' : 'Hỏng'}
+                                    </label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={remainingQty}
+                                      value={affected.issueType === 'missing' ? (affected?.quantityMissing ?? 0) : (affected?.quantityDefective ?? 0)}
+                                      onChange={(e) => {
+                                        const val = Math.min(Math.max(0, Number(e.target.value)), remainingQty);
+                                        setAffectedProducts(prev => prev.map(p =>
+                                          p.lineItemIndex === idx
+                                            ? {
+                                                ...p,
+                                                [affected.issueType === 'missing' ? 'quantityMissing' : 'quantityDefective']: val,
+                                              }
+                                            : p
+                                        ));
+                                      }}
+                                      className="h-9 text-center"
+                                    />
+                                  </div>
+                                ) : affected?.issueType === 'excess' ? (
+                                  <div>
+                                    <label className="text-xs text-muted-foreground">Thừa</label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={affected?.quantityExcess ?? 0}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, Number(e.target.value));
+                                        setAffectedProducts(prev => prev.map(p =>
+                                          p.lineItemIndex === idx
+                                            ? { ...p, quantityExcess: val }
+                                            : p
+                                        ));
+                                      }}
+                                      className="h-9 text-center"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div />
+                                )}
+                              </div>
+                              <Input
+                                type="text"
+                                placeholder="Ghi chú..."
+                                value={affected?.note || ''}
+                                onChange={(e) => {
+                                  setAffectedProducts(prev => prev.map(p =>
+                                    p.lineItemIndex === idx
+                                      ? { ...p, note: e.target.value }
+                                      : p
+                                  ));
+                                }}
+                                className="h-9 text-sm"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
                 )}
               </CardContent>
             </Card>
@@ -1457,7 +1617,7 @@ export function ComplaintFormPage() {
               <CardTitle>Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                 {/* Thừa */}
                 {(() => {
                   const excessItems = affectedProducts.filter(p => p.issueType === 'excess' && (p.quantityExcess || 0) > 0);
@@ -1598,8 +1758,8 @@ export function ComplaintFormPage() {
               </div>
             </div>
             
-            {/* Images Row - 2 columns: Customer Images (50%) | Employee Images (50%) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Images Row - Mobile: stacked, Desktop: 2 columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               
               {/* Customer Images - Hình ảnh từ khách hàng */}
               <div className="space-y-4">

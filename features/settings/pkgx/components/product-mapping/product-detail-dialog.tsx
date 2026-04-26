@@ -201,11 +201,11 @@ function BasicInfoTab({ product, router, onCloseDialog }: BasicInfoTabProps) {
               {product.is_hot == 1 ? <Flame className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
               Hot
             </Badge>
-            <Badge variant={product.is_new == 1 ? 'default' : 'secondary'} className={`gap-1 ${product.is_new == 1 ? 'bg-purple-500 hover:bg-purple-600' : ''}`}>
+            <Badge variant={product.is_new == 1 ? 'default' : 'secondary'} className={`gap-1 ${product.is_new == 1 ? 'bg-info/15 text-info-foreground hover:bg-info/25 border-info/30' : ''}`}>
               {product.is_new == 1 ? <Sparkles className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
               New
             </Badge>
-            <Badge variant={product.is_home == 1 ? 'outline' : 'secondary'} className={`gap-1 ${product.is_home == 1 ? 'border-orange-500 text-orange-600' : ''}`}>
+            <Badge variant={product.is_home == 1 ? 'outline' : 'secondary'} className={`gap-1 ${product.is_home == 1 ? 'border-warning/30 bg-warning/15 text-warning-foreground' : ''}`}>
               {product.is_home == 1 ? <Home className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
               Home
             </Badge>

@@ -177,7 +177,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       
       // Check 2: Block nếu có sản phẩm chưa được check (không có trong results)
       for (const product of products) {
-        if (!currentWarrantyCheckResults[product.productName]) {
+        if (!currentWarrantyCheckResults![product.productName]) {
           toast.error('Chưa kiểm tra bảo hành', {
             description: `Sản phẩm "${product.productName}" chưa được kiểm tra. Vui lòng bấm "Kiểm tra BH" trước.`,
             duration: 5000
@@ -189,7 +189,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       
       // Check 3: Block nếu có cảnh báo nghiêm trọng (❌)
       for (const product of products) {
-        const result = currentWarrantyCheckResults[product.productName];
+        const result = currentWarrantyCheckResults![product.productName];
         if (result) {
           const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
           

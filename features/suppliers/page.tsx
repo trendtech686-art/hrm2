@@ -51,7 +51,17 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   const { data: stats } = useSupplierStats(initialStats);
   const queryClient = useQueryClient();
   const [isFilterPending, startFilterTransition] = React.useTransition();
-  
+  const [hasSynced, setHasSynced] = React.useState(false);
+
+  // Auto-sync debts on page mount (once)
+  React.useEffect(() => {
+    if (hasSynced) return;
+    setHasSynced(true);
+    fetch('/api/suppliers/sync-debts', { method: 'POST' }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    }).catch(() => {});
+  }, [hasSynced, queryClient]);
+
   // Server-side pagination state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
@@ -193,12 +203,12 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   const handleImport = React.useCallback(async (importedSuppliers: Partial<Supplier>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
     let addedCount = 0, updatedCount = 0, skippedCount = 0;
     const errors: Array<{ row: number; message: string }> = [];
-    
+
     for (const [index, supplier] of importedSuppliers.entries()) {
       try {
         const existing = activeSuppliers.find(s => s.id.toLowerCase() === (supplier.id || '').toLowerCase());
         if (existing) {
-          if (mode === 'update-only' || mode === 'upsert') { 
+          if (mode === 'update-only' || mode === 'upsert') {
             await new Promise<void>((resolve, reject) => {
               updateMutation.mutate({ systemId: existing.systemId, ...supplier }, {
                 onSuccess: () => { updatedCount++; resolve(); },
@@ -207,7 +217,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
             });
           } else skippedCount++;
         } else {
-          if (mode === 'insert-only' || mode === 'upsert') { 
+          if (mode === 'insert-only' || mode === 'upsert') {
             await new Promise<void>((resolve, reject) => {
               createMutation.mutate(supplier as unknown as Parameters<typeof createMutation.mutate>[0], {
                 onSuccess: () => { addedCount++; resolve(); },
@@ -218,7 +228,17 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
         }
       } catch (error) { errors.push({ row: index + 1, message: (error as Error).message }); }
     }
-    
+
+    // Auto-sync debts after import to calculate correct currentDebt
+    if (addedCount > 0 || updatedCount > 0) {
+      try {
+        await fetch('/api/suppliers/sync-debts', { method: 'POST' });
+        queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      } catch {
+        // Silent fail - debt sync can be done manually if needed
+      }
+    }
+
     if (addedCount > 0 || updatedCount > 0) {
       const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} nhà cung cấp mới`);
@@ -226,7 +246,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
       toast.success(`Đã import: ${messages.join(', ')}`);
     }
     return { success: addedCount + updatedCount, failed: errors.length, inserted: addedCount, updated: updatedCount, skipped: skippedCount, errors };
-  }, [activeSuppliers, createMutation, updateMutation]);
+  }, [activeSuppliers, createMutation, updateMutation, queryClient]);
 
   const selectedSuppliers = React.useMemo(() => suppliers.filter(s => rowSelection[s.systemId]), [suppliers, rowSelection]);
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);

@@ -465,8 +465,8 @@ export function BrandDetailPage() {
   }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, brand, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasicInfo, handleUnlinkPkgx, pkgxBrandMappings, isAdmin, can, update.isPending]);
 
   // Mobile: gom tất cả view-mode actions vào 1 dropdown (edit mode 2 nút OK)
-  const mobileHeaderActions = React.useMemo((): React.ReactNode[] => {
-    if (!isMobile || isEditMode) return headerActions;
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!isMobile || isEditMode) return null;
     const brandWithBrandedIds = brand as unknown as _Brand;
     const hasPkgx = brand && hasPkgxMapping(brandWithBrandedIds);
 

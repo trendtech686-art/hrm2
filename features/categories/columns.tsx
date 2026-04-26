@@ -48,9 +48,9 @@ const calculateSeoScore = (category: ProductCategory, website: 'pkgx' | 'trendte
 };
 
 const getSeoStatusBadge = (score: number) => {
-  if (score >= 80) return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100"><CheckCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  if (score >= 50) return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100"><AlertTriangle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  if (score > 0) return <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100"><XCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
+  if (score >= 80) return <Badge variant="default" className="bg-success/15 text-success-foreground hover:bg-success/15"><CheckCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
+  if (score >= 50) return <Badge variant="secondary" className="bg-warning/15 text-warning-foreground hover:bg-warning/15"><AlertTriangle className="h-3 w-3 mr-1" /> {score}%</Badge>;
+  if (score > 0) return <Badge variant="secondary" className="bg-destructive/15 text-destructive hover:bg-destructive/15"><XCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
   return <Badge variant="outline" className="text-muted-foreground">—</Badge>;
 };
 
@@ -105,7 +105,7 @@ function PkgxActionsCell({
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="ghost" 
-              className={`h-8 w-8 p-0 ${hasPkgxMapping ? "text-primary" : "text-muted-foreground"}`}
+              className={`h-11 w-11 p-0 ${hasPkgxMapping ? "text-primary" : "text-muted-foreground"}`}
               onClick={(e) => e.stopPropagation()}
             >
               <span className="sr-only">PKGX menu</span>
@@ -580,7 +580,7 @@ export const getColumns = (
       const pkgxId = getPkgxCatId?.(category);
       
       return hasMapping ? (
-        <Badge variant="default" className="bg-green-500 text-xs">
+        <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 text-xs">
           <Globe className="h-3 w-3 mr-1" />
           {pkgxId}
         </Badge>
@@ -683,7 +683,7 @@ export const getColumns = (
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
+            <Button variant="ghost" className="h-11 w-11 p-0">
               <span className="sr-only">Mở menu</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>

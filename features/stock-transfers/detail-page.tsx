@@ -262,7 +262,7 @@ export function StockTransferDetailPage() {
 
   // Mobile: gom tất cả actions vào dropdown
   const mobileHeaderActions = React.useMemo(() => {
-    if (!transfer || !isMobile) return headerActions;
+    if (!transfer || !isMobile) return null;
     const canEdit = transfer.status !== 'cancelled' && (isAdmin || can('edit_stock_transfers'));
 
     return (

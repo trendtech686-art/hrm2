@@ -233,7 +233,7 @@ export function InventoryCheckDetailPage() {
   }, [check, creatorName, print]);
 
   const headerActions = React.useMemo(() => {
-    if (!check) return [];
+    if (!check) return null;
 
     const btns: React.ReactNode[] = [
       <Button
@@ -329,7 +329,7 @@ export function InventoryCheckDetailPage() {
   }, [check]);
 
   const mobileHeaderActions = React.useMemo(() => {
-    if (!isMobile || !check) return [];
+    if (!isMobile || !check) return null;
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>

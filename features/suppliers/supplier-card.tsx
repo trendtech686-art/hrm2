@@ -62,7 +62,7 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 w-8 p-0"
+                className="h-11 w-11 p-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />

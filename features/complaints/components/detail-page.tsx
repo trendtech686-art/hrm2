@@ -27,7 +27,6 @@ import { useComplaintMutations, useComplaint } from "../hooks/use-complaints";
 
 // UI Components
 import { Button } from "@/components/ui/button";
-import { ShareButton } from "@/components/shared/share-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailPageShell, mobileBleedCardClass } from "@/components/layout/page-section";
 import { cn } from "@/lib/utils";
@@ -621,15 +620,6 @@ export function ComplaintDetailPage() {
     
     const actions: React.ReactNode[] = [];
 
-    actions.push(
-      <ShareButton
-        key="share"
-        size="sm"
-        title={`Khiếu nại ${complaint.id ?? complaint.systemId}`}
-        text={`Khiếu nại ${complaint.id ?? complaint.systemId}`}
-      />
-    );
-
     // Add Cancel button (for active complaints only - requires creator/admin permission)
     if (canCancel) {
       actions.push(
@@ -732,29 +722,29 @@ export function ComplaintDetailPage() {
   return (
     <DetailPageShell gap="lg" className="h-full">
         <ComplaintHeaderSection complaint={complaint} timeTracking={timeTracking} headerActions={headerActions} leftActions={leftHeaderActions} />
-        {/* Verification Card - Full Width at Top */}
-        {!isVerified && complaint.status !== "cancelled" && (
+      {/* Verification Card - Full Width at Top */}
+      {!isVerified && complaint.status !== "cancelled" && (
         <Card className={cn("border-2 border-primary/20", mobileBleedCardClass)}>
-          <CardHeader>
-            <CardTitle>
-              Xác minh khiếu nại
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Xác minh khiếu nại</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Button
-                className="flex-1"
                 variant="default"
+                size="lg"
                 onClick={handleVerifyCorrectClick}
+                className="h-12"
               >
-                Khiếu nại Đúng
+                Đúng
               </Button>
               <Button
-                className="flex-1"
                 variant="outline"
+                size="lg"
                 onClick={handleVerifyIncorrect}
+                className="h-12"
               >
-                Khiếu nại Sai
+                Sai
               </Button>
             </div>
           </CardContent>
@@ -768,12 +758,12 @@ export function ComplaintDetailPage() {
         onProcessInventory={handleProcessInventory}
       />
 
-      {/* Info Row - 2 columns: (Info + Customer + Order stacked 70%) | (Workflow 30%) */}
-      <div className="grid gap-6 lg:grid-cols-[70%_1fr]">
+      {/* Info Row - Mobile: stacked, Desktop: 2 cols (70% | 30%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[70%_1fr] gap-4 lg:gap-6">
         {/* Column 1: Info cards stacked */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Complaint Details Card - includes badges + tracking link */}
-          <ComplaintDetailsCard 
+          <ComplaintDetailsCard
             complaint={complaint}
             currentUser={currentUser}
             employees={employees}
@@ -793,16 +783,16 @@ export function ComplaintDetailPage() {
         />
 
         {/* Order Information Card */}
-        <ComplaintOrderInfo 
+        <ComplaintOrderInfo
           complaint={complaint}
           relatedOrder={relatedOrder ?? undefined}
           employees={employees}
         />
         </div>
 
-        {/* Column 2: Workflow */}
-        <div className="space-y-6">
-          <ComplaintWorkflowSection 
+        {/* Column 2: Workflow - Mobile: on top, Desktop: sidebar */}
+        <div className="space-y-4 lg:order-first">
+          <ComplaintWorkflowSection
             complaint={complaint}
             currentUser={currentUser}
             updateComplaint={updateComplaint}

@@ -181,7 +181,7 @@ export const productColumns: ColumnDef<PurchasedProduct>[] = [
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-11 w-11">
             <MoreHorizontal className="h-4 w-4" />
             <span className="sr-only">Mở menu</span>
           </Button>
@@ -262,7 +262,7 @@ export const warrantyColumns: ColumnDef<WarrantyTicket>[] = [
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-11 w-11">
             <MoreHorizontal className="h-4 w-4" />
             <span className="sr-only">Mở menu</span>
           </Button>
@@ -356,7 +356,7 @@ export const complaintColumns: ColumnDef<ComplaintRow>[] = [
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-11 w-11">
             <MoreHorizontal className="h-4 w-4" />
             <span className="sr-only">Mở menu</span>
           </Button>
@@ -498,7 +498,7 @@ export const debtColumns: ColumnDef<DebtTransaction>[] = [
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-11 w-11">
               <MoreHorizontal className="h-4 w-4" />
               <span className="sr-only">Mở menu</span>
             </Button>
@@ -708,7 +708,7 @@ export const createOrderColumnsWithReturns = (): ColumnDef<OrderWithReturns>[] =
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-11 w-11">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -903,7 +903,7 @@ export const salesReturnColumns: ColumnDef<SalesReturn>[] = [
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-11 w-11">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

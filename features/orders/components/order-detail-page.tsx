@@ -1009,7 +1009,7 @@ export function OrderDetailPage() {
 
     const headerActions = React.useMemo(() => {
         if (!order) {
-            return [];
+            return null;
         }
 
         // ✅ Chỉ cho phép trả hàng nếu đã xuất kho (FULLY_STOCKED_OUT hoặc PARTIALLY_STOCKED_OUT)
@@ -1053,8 +1053,8 @@ export function OrderDetailPage() {
                 <Button
                     key="cancel-packaging"
                     variant="outline"
-                    size="sm"
-                    className="border-destructive text-destructive hover:bg-destructive/5"
+                    size="default"
+                    className="h-11 min-h-11 border-destructive text-destructive hover:bg-destructive/5"
                     onClick={() => setCancelPackagingState({ packagingSystemId: activePackaging.systemId })}
                 >
                     Hủy đóng gói
@@ -1067,7 +1067,7 @@ export function OrderDetailPage() {
             actions.push(
                 <DropdownMenu key="select-delivery">
                     <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline">
+                        <Button size="default" className="h-11 min-h-11" variant="outline">
                             Giao hàng <ChevronDown className="ml-2 h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -1084,7 +1084,8 @@ export function OrderDetailPage() {
             actions.push(
                 <Button 
                     key="dispatch" 
-                    size="sm" 
+                    size="default"
+                    className="h-11 min-h-11" 
                     onClick={() => handleDispatch(activePackaging.systemId)}
                 >
                     Xác nhận Xuất kho
@@ -1098,8 +1099,8 @@ export function OrderDetailPage() {
                 <Button
                     key="cancel-delivery"
                     variant="outline"
-                    size="sm"
-                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    size="default"
+                    className="h-11 min-h-11 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => {
                         if (isNotStockedOut) {
                             handleCancelDeliveryDirectly(activePackaging.systemId);
@@ -1118,7 +1119,7 @@ export function OrderDetailPage() {
             actions.push(
                 <DropdownMenu key="fail-delivery">
                     <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive">
+                        <Button size="default" variant="outline" className="h-11 min-h-11 border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive">
                             Hủy/Thất bại
                         </Button>
                     </DropdownMenuTrigger>
@@ -1141,7 +1142,8 @@ export function OrderDetailPage() {
             actions.push(
                 <Button 
                     key="complete-delivery" 
-                    size="sm" 
+                    size="default"
+                    className="h-11 min-h-11" 
                     onClick={() => handleCompleteDelivery(activePackaging.systemId)}
                 >
                     Đã giao hàng
@@ -1154,7 +1156,8 @@ export function OrderDetailPage() {
                 <Button
                     key="return"
                     variant="outline"
-                    size="sm"
+                    size="default"
+                    className="h-11 min-h-11"
                     onClick={() => router.push(`/orders/${order.systemId}/return`)}
                 >
                     Hoàn trả hàng
@@ -1192,8 +1195,8 @@ export function OrderDetailPage() {
                 <Button
                     key="cancel"
                     variant="outline"
-                    size="sm"
-                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    size="default"
+                    className="h-11 min-h-11 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => setIsCancelAlertOpen(true)}
                 >
                     Hủy đơn hàng
@@ -1206,7 +1209,8 @@ export function OrderDetailPage() {
                 <Button
                     key="edit"
                     variant="outline"
-                    size="sm"
+                    size="default"
+                    className="h-11 min-h-11"
                     onClick={() => router.push(`/orders/${order.systemId}/edit`)}
                 >
                     Sửa
@@ -1219,7 +1223,7 @@ export function OrderDetailPage() {
 
     // Mobile: gom tất cả actions vào 1 dropdown overflow menu
     const mobileHeaderActions = React.useMemo(() => {
-        if (!order || !isMobile) return [];
+        if (!order || !isMobile) return null;
 
         const deliveryStatusStr = String(activePackaging?.deliveryStatus || '');
         const packagingStatusStr = String(activePackaging?.status || '');
@@ -1433,8 +1437,8 @@ export function OrderDetailPage() {
                         />
                         <Button
                             variant="outline"
-                            size="sm"
-                            className="h-7"
+                            size="default"
+                            className="h-11 min-h-11"
                             onClick={handleCopyOrder}
                             disabled={isCopying}
                         >
@@ -1531,7 +1535,7 @@ export function OrderDetailPage() {
         // ✅ Only show "Yêu cầu đóng gói" in card header 
         // "Xác nhận đóng gói" is already shown inside PackagingInfo component
         if (canRequestPackaging) {
-            return <Button size="sm" onClick={handleRequestPackagingClick}>Yêu cầu đóng gói</Button>;
+            return <Button size="default" className="h-11 min-h-11" onClick={handleRequestPackagingClick}>Yêu cầu đóng gói</Button>;
         }
         
         return null;
@@ -1888,7 +1892,7 @@ export function OrderDetailPage() {
                                 </CardTitle>
                             </div>
                             {isActionable && payableAmount > 0 && (isAdmin || can('pay_orders')) && (
-                                <Button size="sm" onClick={() => setIsPaymentDialogOpen(true)}>
+                                <Button size="default" className="h-11 min-h-11" onClick={() => setIsPaymentDialogOpen(true)}>
                                     Thanh toán
                                 </Button>
                             )}

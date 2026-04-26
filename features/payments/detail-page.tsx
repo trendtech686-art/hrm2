@@ -162,7 +162,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   }, [payment]);
   
   const headerActions = React.useMemo(() => {
-    if (!payment) return [];
+    if (!payment) return null;
     const actions: React.ReactNode[] = [];
 
     actions.push(

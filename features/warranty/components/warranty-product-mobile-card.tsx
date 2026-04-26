@@ -11,7 +11,7 @@
  */
 import * as React from 'react';
 import Link from 'next/link';
-import { Controller, useWatch, type Control } from 'react-hook-form';
+import { Controller, useWatch, type Control, type FieldValues } from 'react-hook-form';
 import { Trash2, Package, Eye } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -69,7 +69,7 @@ const formatCurrency = (value?: number) => {
 
 // ✅ Tách riêng ResolutionSelect để tránh vấn đề Controller re-render
 interface ResolutionSelectProps {
-  control: unknown;
+  control: Control<FieldValues>;
   name: string;
   disabled?: boolean;
   watchedValue?: string | null;
@@ -225,7 +225,7 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0 h-8 w-8"
+            className="shrink-0 h-11 w-11"
             onClick={onRemove}
             aria-label="Xoá sản phẩm"
           >

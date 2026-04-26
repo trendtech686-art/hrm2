@@ -276,7 +276,7 @@ export function TaskDetailPage() {
   }, [task]);
 
   const mobileHeaderActions = React.useMemo(() => {
-    if (!isMobile || !task) return [];
+    if (!isMobile || !task) return null;
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>

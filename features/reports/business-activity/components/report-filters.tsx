@@ -13,23 +13,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { PageFilters } from '@/components/layout/page-filters';
 import { CalendarIcon } from 'lucide-react';
 import type { ReportDateRange, GroupByOption, TimeGrouping } from '../types';
+import { useDatePresets } from '../hooks/use-report-hooks';
 
 const fmtDate = (d: Date) => format(d, 'yyyy-MM-dd');
 const fmtDisplay = (d: Date) => format(d, 'dd/MM/yyyy');
 
-function getDatePresets() {
-  const today = new Date();
-  return [
-    { label: 'Hôm nay', from: fmtDate(today), to: fmtDate(today) },
-    { label: 'Hôm qua', from: fmtDate(subDays(today, 1)), to: fmtDate(subDays(today, 1)) },
-    { label: '7 ngày qua', from: fmtDate(subDays(today, 6)), to: fmtDate(today) },
-    { label: '30 ngày qua', from: fmtDate(subDays(today, 29)), to: fmtDate(today) },
-    { label: 'Tháng trước', from: fmtDate(startOfMonth(subMonths(today, 1))), to: fmtDate(endOfMonth(subMonths(today, 1))) },
-    { label: 'Tháng này', from: fmtDate(startOfMonth(today)), to: fmtDate(today) },
-    { label: 'Năm trước', from: fmtDate(startOfYear(subYears(today, 1))), to: fmtDate(endOfYear(subYears(today, 1))) },
-    { label: 'Năm nay', from: fmtDate(startOfYear(today)), to: fmtDate(today) },
-  ];
-}
+// Re-export for backward compatibility - but prefer using the hook directly
+export { useDatePresets } from '../hooks/use-report-hooks';
 
 // Report type options
 const REPORT_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -128,15 +118,15 @@ export function ReportFilters({
   const [showCustom, setShowCustom] = React.useState(false);
   const [customFrom, setCustomFrom] = React.useState(dateRange.from);
   const [customTo, setCustomTo] = React.useState(dateRange.to);
-  const presets = React.useMemo(() => getDatePresets(), []);
+  const presets = useDatePresets();
   
   // Determine active preset label
   const activeLabel = React.useMemo(() => {
-    const match = presets.find(p => p.from === dateRange.from && p.to === dateRange.to);
+    const match = presets.find((p: { from: string; to: string }) => p.from === dateRange.from && p.to === dateRange.to);
     return match?.label;
   }, [presets, dateRange]);
   
-  const handlePresetSelect = (preset: ReturnType<typeof getDatePresets>[number]) => {
+  const handlePresetSelect = (preset: { from: string; to: string; label: string }) => {
     onDateRangeChange({ from: preset.from, to: preset.to });
     setShowCustom(false);
     setOpen(false);

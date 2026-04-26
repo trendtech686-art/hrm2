@@ -196,7 +196,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
   }, [router, receipt, handlePrint]);
 
   const mobileHeaderActions = React.useMemo(() => {
-    if (!isMobile || !receipt) return [];
+    if (!isMobile || !receipt) return null;
     const items: React.ReactNode[] = [
       <DropdownMenuItem key="print" onClick={handlePrint}>
         <Printer className="mr-2 h-4 w-4" />

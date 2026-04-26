@@ -516,7 +516,7 @@ export function EmployeeRolesPage() {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
+                              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Thao tác">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -773,7 +773,7 @@ export function EmployeeRolesPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-11 w-11"
                     onClick={() => handleCopyPassword(newPassword)}
                     disabled={!newPassword}
                     title="Sao chép"
@@ -784,7 +784,7 @@ export function EmployeeRolesPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-11 w-11"
                     onClick={() => setShowPassword(!showPassword)}
                     title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   >

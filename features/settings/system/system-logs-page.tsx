@@ -206,13 +206,13 @@ export function SystemLogsPage() {
   const getActionBadgeColor = (actionType: string | null) => {
     switch (actionType) {
       case 'create':
-        return 'bg-green-100 text-green-700 border-green-200';
+        return 'bg-success/15 text-success-foreground border-success/30';
       case 'update':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
+        return 'bg-info/15 text-info-foreground border-info/30';
       case 'delete':
-        return 'bg-red-100 text-red-700 border-red-200';
+        return 'bg-destructive/15 text-destructive border-destructive/30';
       case 'status':
-        return 'bg-purple-100 text-purple-700 border-purple-200';
+        return 'bg-secondary/80 text-secondary-foreground border-border';
       default:
         return 'bg-muted text-foreground border-border';
     }

@@ -7,7 +7,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/packaging-api';
-import type { PackagingFilters } from '../api/packaging-api';
+import type { PackagingFilters, PaginatedPackagingResponse } from '../api/packaging-api';
 import {
   completePackagingAction,
   cancelPackagingAction,
@@ -23,20 +23,29 @@ export const packagingKeys = {
   detail: (id: string) => [...packagingKeys.details(), id] as const,
 };
 
-export function usePackagingSlips(filters: PackagingFilters = {}) {
-  return useQuery({
-    queryKey: packagingKeys.list(filters),
-    queryFn: () => api.fetchPackagingSlips(filters),
-    staleTime: 1000 * 60 * 2,
+export function usePackagingSlips(
+  params: PackagingFilters & { enabled?: boolean } = {}
+) {
+  const { enabled = true, ...fetchParams } = params;
+  
+  return useQuery<PaginatedPackagingResponse>({
+    queryKey: packagingKeys.list(fetchParams),
+    queryFn: () => api.fetchPackagingSlips(fetchParams),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+    enabled,
   });
 }
 
 export function usePackagingById(systemId: string | undefined) {
+  // Ensure systemId is a valid string (not array or empty)
+  const validSystemId = typeof systemId === 'string' && systemId.length > 0 ? systemId : undefined;
+  
   return useQuery({ 
-    queryKey: packagingKeys.detail(systemId!), 
-    queryFn: () => api.fetchPackagingById(systemId!), 
-    enabled: !!systemId,
+    queryKey: packagingKeys.detail(validSystemId ?? ''), 
+    queryFn: () => api.fetchPackagingById(validSystemId!), 
+    enabled: !!validSystemId,
     retry: 1, // Retry once on failure
     staleTime: 1000 * 60 * 2, // 2 minutes
   });

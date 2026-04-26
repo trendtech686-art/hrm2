@@ -233,6 +233,61 @@ export async function fetchAttendanceByEmployeeMonth(
 }
 
 /**
+ * Fetch paginated attendance by month with server-side pagination
+ * Used for attendance page with per-employee grouping and pagination
+ */
+export async function fetchPaginatedAttendanceByMonth(
+  monthKey: string,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    department?: string;
+  } = {}
+): Promise<{
+  data: AttendanceDataRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}> {
+  const { page = 1, limit = 40, search, department } = options;
+  const [year, month] = monthKey.split('-');
+  const fromDate = `${year}-${month}-01`;
+  const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+  const toDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+
+  const params = new URLSearchParams({
+    fromDate,
+    toDate,
+    page: String(page),
+    limit: String(limit),
+    groupByEmployee: 'true',
+  });
+
+  if (search) params.set('search', search);
+  if (department && department !== 'all') params.set('department', department);
+
+  const response = await fetch(`/api/attendance?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch attendance');
+  }
+
+  const result = await response.json();
+  return {
+    data: result.data as AttendanceDataRow[],
+    pagination: {
+      page: result.pagination.page,
+      limit: result.pagination.limit,
+      total: result.pagination.total,
+      totalPages: result.pagination.totalPages,
+    },
+  };
+}
+
+/**
  * Fetch single attendance record by ID
  */
 export async function fetchAttendanceById(

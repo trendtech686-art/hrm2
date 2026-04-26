@@ -313,3 +313,104 @@ kbd {
   border-radius: calc(var(--radius) - 4px);
   box-shadow: 0 1px 0 var(--border);
 }
+
+/* ============================================
+   Touch Target Minimum Sizes (PWA)
+   Following Apple HIG: min 44x44pt tap targets
+   ============================================ */
+.min-w-touch {
+  min-width: var(--touch-target, 44px);
+}
+
+.min-h-touch {
+  min-height: var(--touch-target, 44px);
+}
+
+.min-w-touch-lg {
+  min-width: var(--touch-target-lg, 48px);
+}
+
+.min-h-touch-lg {
+  min-height: var(--touch-target-lg, 48px);
+}
+
+/* Touch target sizing variants */
+.touch-target-sm {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.touch-target-md {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.touch-target-lg {
+  min-width: 56px;
+  min-height: 56px;
+}
+
+/* ============================================
+   Safe Area Handling (Notch/Dynamic Island)
+   ============================================ */
+.pl-safe-left {
+  padding-left: max(0px, env(safe-area-inset-left));
+}
+
+.pr-safe-right {
+  padding-right: max(0px, env(safe-area-inset-right));
+}
+
+.pt-safe-top {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+.pb-safe-bottom {
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+}
+
+/* Safe area margins */
+.ml-safe-left {
+  margin-left: max(0px, env(safe-area-inset-left));
+}
+
+.mr-safe-right {
+  margin-right: max(0px, env(safe-area-inset-right));
+}
+
+/* ============================================
+   Mobile Optimizations
+   ============================================ */
+
+/* Prevent text selection on double-tap zoom prevention */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth scroll behavior for mobile */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Touch feedback - subtle scale on press */
+.touch-feedback:active {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+/* Mobile card bleeding (full-width on mobile) */
+.mobile-bleed {
+  margin-left: -1rem;
+  margin-right: -1rem;
+  border-radius: 0;
+}
+
+@media (min-width: 768px) {
+  .mobile-bleed {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: var(--radius);
+  }
+}

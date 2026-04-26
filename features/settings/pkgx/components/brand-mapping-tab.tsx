@@ -260,7 +260,7 @@ export function BrandMappingTab() {
           );
         }
         return row.mappedToHrm ? (
-          <Badge variant="default" className="bg-green-500">
+          <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             {row.mappedToHrm}
           </Badge>
@@ -301,7 +301,7 @@ export function BrandMappingTab() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-11 w-11">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -910,7 +910,7 @@ export function BrandMappingTab() {
             HRM đã xoá
           </Badge>
         ) : row.mappedToHrm ? (
-          <Badge variant="default" className="bg-green-500 shrink-0">
+          <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 shrink-0">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Đã mapping
           </Badge>
@@ -1245,8 +1245,8 @@ export function BrandMappingTab() {
                     Trạng thái mapping
                   </h4>
                   {findMapping(selectedBrandForDetail.brand_id) ? (
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-md p-3">
-                      <Badge variant="default" className="bg-green-500 mb-2">
+                    <div className="bg-success/10 border border-success/20 rounded-md p-3">
+                      <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 mb-2">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Đã mapping
                       </Badge>

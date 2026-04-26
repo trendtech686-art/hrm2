@@ -164,7 +164,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
               variant="ghost"
               size="sm"
               onClick={() => onAddChild(category.systemId)}
-              className="h-8 w-8 p-0"
+              className="h-11 w-11 p-0"
               title="Thêm danh mục con"
             >
               <Plus className="h-4 w-4" />
@@ -173,7 +173,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
               variant="ghost"
               size="sm"
               onClick={() => onEdit(category)}
-              className="h-8 w-8 p-0"
+              className="h-11 w-11 p-0"
               title="Sửa"
             >
               <Pencil className="h-4 w-4" />

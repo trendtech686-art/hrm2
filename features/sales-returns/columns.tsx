@@ -4,6 +4,7 @@ import type { SalesReturn } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../components/data-table/types';
 import Link from 'next/link';
 import { Checkbox } from "../../components/ui/checkbox";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { MoreHorizontal, Printer } from "lucide-react";
@@ -69,13 +70,9 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         accessorKey: "isReceived",
         header: "Trạng thái",
         cell: ({ row }) => (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                row.isReceived 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-amber-100 text-amber-800'
-            }`}>
+            <Badge variant={row.isReceived ? 'success' : 'secondary'}>
                 {row.isReceived ? 'Đã nhận' : 'Chưa nhận'}
-            </span>
+            </Badge>
         ),
         meta: { displayName: "Trạng thái" },
         size: 100,
@@ -182,7 +179,7 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         cell: ({ row }) => (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
+                    <Button variant="ghost" className="h-11 w-11 p-0">
                         <span className="sr-only">Mở menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                     </Button>

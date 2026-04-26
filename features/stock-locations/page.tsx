@@ -26,22 +26,43 @@ export function StockLocationsPage() {
   // Permission checks
   const { can } = useAuth();
   const canCreate = can('create_stock_locations');
-  const canDelete = can('delete_stock_locations');
-  const canEdit = can('edit_stock_locations');
-  const { data: queryData } = useStockLocations({ limit: 100 });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  // Note: canDelete and canEdit may be used for future bulk actions
+
+  // Server-side pagination state
+  const [searchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, setPagination]);
+
+  // Server-side paginated query
+  const { data: stockLocationsData, isLoading: isLoadingStockLocations } = useStockLocations({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: debouncedSearch || undefined,
+  });
+
+  const stockLocations = React.useMemo(() => stockLocationsData?.data ?? [], [stockLocationsData?.data]);
+  const totalRows = stockLocationsData?.pagination?.total ?? 0;
+  const pageCount = stockLocationsData?.pagination?.totalPages ?? 1;
+
   const { create, update, remove } = useStockLocationMutations({
     onSuccess: () => toast.success('Thành công'),
     onError: (err) => toast.error(err.message)
   });
   const { data: branches } = useAllBranches();
-  
+
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<StockLocation | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-  
-  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   
   // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
   const defaultColumnVisibility = React.useMemo(() => {
@@ -80,9 +101,6 @@ export function StockLocationsPage() {
   };
   
   const columns = React.useMemo(() => getColumns(handleEdit, handleDeleteRequest, branches), [handleEdit, handleDeleteRequest, branches]);
-  
-  const pageCount = Math.ceil(data.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => data.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [data, pagination]);
 
   return (
     <div className="space-y-4">
@@ -94,11 +112,12 @@ export function StockLocationsPage() {
         <CardContent>
           <ResponsiveDataTable
             columns={columns}
-            data={paginatedData}
+            data={stockLocations}
             pageCount={pageCount}
             pagination={pagination}
             setPagination={setPagination}
-            rowCount={data.length}
+            rowCount={totalRows}
+            isLoading={isLoadingStockLocations}
             rowSelection={{}}
             setRowSelection={() => {}}
             sorting={{id: 'createdAt', desc: true}}

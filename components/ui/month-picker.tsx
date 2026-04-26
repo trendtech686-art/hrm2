@@ -77,7 +77,8 @@ export function MonthPicker({
   minYear = 2020,
   maxYear = 2030 
 }: MonthPickerProps) {
-  const now = new Date();
+  // ✅ FIX: Use useState with lazy initialization to prevent hydration mismatch
+  const [now] = React.useState(() => new Date());
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 

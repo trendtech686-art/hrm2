@@ -59,7 +59,7 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1" onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="sm" className="h-11 w-11 p-0 -mr-2 -mt-1" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

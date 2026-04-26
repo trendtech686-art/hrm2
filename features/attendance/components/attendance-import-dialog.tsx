@@ -831,7 +831,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                                         </div>
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                                <Button variant="ghost" size="icon" className="h-11 w-11">
                                                                     <MoreHorizontal className="h-4 w-4" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
@@ -915,7 +915,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                         <Button
                                             variant="outline"
                                             size="icon"
-                                            className="h-7 w-7"
+                                            className="h-11 w-11"
                                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                             disabled={currentPage === 1}
                                         >
@@ -927,7 +927,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                         <Button
                                             variant="outline"
                                             size="icon"
-                                            className="h-7 w-7"
+                                            className="h-11 w-11"
                                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                             disabled={currentPage === totalPages}
                                         >

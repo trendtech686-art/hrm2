@@ -19,9 +19,12 @@ export interface BrandsParams {
 
 export interface BrandsResponse {
   data: Brand[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
 }
 
 export async function fetchBrands(params: BrandsParams = {}): Promise<BrandsResponse> {

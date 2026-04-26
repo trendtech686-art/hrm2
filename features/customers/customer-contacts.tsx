@@ -280,7 +280,7 @@ export function CustomerContacts({ contacts = [], onUpdate }: CustomerContactsPr
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                          <Button type="button" variant="ghost" size="icon" className="h-11 w-11">
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Mở menu</span>
                           </Button>

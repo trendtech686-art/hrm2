@@ -1,9 +1,10 @@
 'use client'
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { useTasks, useTaskMutations, useTaskStats, type TaskStats } from "./hooks/use-tasks"
+import { useAllTasks, useTaskMutations, useTaskStats, type TaskStats } from "./hooks/use-tasks"
 import { getColumns } from "./columns"
 import type { Task } from "./types"
+import type { TaskStatus, TaskPriority } from '@/lib/types/prisma-extended';
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { useAuth } from "../../contexts/auth-context";
@@ -40,10 +41,38 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   // Search state at top for server-side search
   const [search, setSearch] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(t); }, [search]);
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+  
+  // Advanced filter state - must be before query that uses it
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+  
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, setPagination]);
 
-  const { data: tasksData, isFetching: isTasksFetching } = useTasks({ search: debouncedSearch || undefined });
-  const allTasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
+  // Server-side paginated query
+  const { data: tasksData, isLoading: isTasksFetching, isFetching: isTasksFetchingAny } = useAllTasks({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: debouncedSearch || undefined,
+    status: (advancedFilters.status as TaskStatus) || undefined,
+    priority: (advancedFilters.priority as TaskPriority) || undefined,
+    assigneeId: advancedFilters.assignee as string | undefined,
+    createdFrom: (advancedFilters.dateRange as { from?: string; to?: string } | null)?.from,
+    createdTo: (advancedFilters.dateRange as { from?: string; to?: string } | null)?.to,
+    sortBy: sorting.id,
+    sortOrder: sorting.desc ? 'desc' : 'asc',
+  });
+
+  const tasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
+  const totalRows = tasksData?.pagination?.total ?? 0;
+  const pageCount = tasksData?.pagination?.totalPages ?? 1;
   const { remove: removeMutation, update: updateMutation } = useTaskMutations({
     onSuccess: () => {
       toast.success('Đã cập nhật task');
@@ -83,9 +112,7 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-  const [viewMode, setViewMode] = React.useState<'list'>('list');
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+  const [viewMode] = React.useState<'list'>('list');
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('tasks');
@@ -103,7 +130,6 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
     ] },
     { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
   ], [employees]);
-  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
   const panelValues = React.useMemo(() => ({
     status: advancedFilters.status ?? null,
     priority: advancedFilters.priority ?? null,
@@ -133,40 +159,12 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
     const vis: Record<string, boolean> = {};
     columns.forEach(c => { vis[c.id!] = c.id === 'select' || c.id === 'actions' || defVisible.includes(c.id!); });
     setColumnVisibility(vis); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); colInitRef.current = true;
-  }, [columns, setColumnVisibility]);
+  }, [columns, setColumnVisibility, setColumnOrder]);
 
-  const empSysId = employee?.systemId;
-  const canViewAllTasks = can('view_tasks') && (isAdmin || can('approve_tasks'));
-  const tasks = React.useMemo(() => canViewAllTasks ? allTasks : !empSysId ? allTasks : allTasks.filter(t => t.assignees?.some(a => a.employeeSystemId === empSysId) || t.assigneeId === empSysId), [canViewAllTasks, allTasks, empSysId]);
-  // Server-side search - filter only by facets
-  const filteredData = React.useMemo(() => {
-    let d = tasks;
-    const status = advancedFilters.status as string | undefined;
-    const priority = advancedFilters.priority as string | undefined;
-    const assignee = advancedFilters.assignee as string | undefined;
-    const dateRange = advancedFilters.dateRange as { from?: string; to?: string } | null;
-    if (status && status !== 'all') d = d.filter(r => r.status === status);
-    if (priority && priority !== 'all') d = d.filter(r => r.priority === priority);
-    if (assignee && assignee !== 'all') d = d.filter(r => r.assigneeId === assignee);
-    if (dateRange?.from) { const from = new Date(dateRange.from).getTime(); d = d.filter(r => r.createdAt && new Date(r.createdAt).getTime() >= from); }
-    if (dateRange?.to) { const to = new Date(dateRange.to).getTime() + 86400000; d = d.filter(r => r.createdAt && new Date(r.createdAt).getTime() < to); }
-    if (activeQuickFilters.length) { const fns = quickFilters.filter(q => activeQuickFilters.includes(q.id)).map(q => q.filter); d = d.filter(t => fns.every(fn => fn(t))); }
-    return d;
-  }, [tasks, advancedFilters, activeQuickFilters, quickFilters]);
-
-  const sortedData = React.useMemo(() => {
-    const d = [...filteredData];
-    if (!sorting.id) return d;
-    d.sort((a, b) => { const av = (a as Record<string, unknown>)[sorting.id], bv = (b as Record<string, unknown>)[sorting.id]; if (!av) return 1; if (!bv) return -1; if (sorting.id === 'createdAt' || sorting.id === 'dueDate') { const at = av ? new Date(av as string).getTime() : 0, bt = bv ? new Date(bv as string).getTime() : 0; return sorting.desc ? bt - at : at - bt; } return av < bv ? (sorting.desc ? 1 : -1) : av > bv ? (sorting.desc ? -1 : 1) : 0; });
-    return d;
-  }, [filteredData, sorting]);
-
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
   const allSelectedRows = React.useMemo(() => tasks.filter(t => rowSelection[t.systemId]), [tasks, rowSelection]);
   const handleRowClick = (row: Task) => router.push(`/tasks/${row.systemId}`);
   const handleToggleQuickFilter = React.useCallback((id: string) => setActiveQuickFilters(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]), []);
-  const quickFilterCounts = React.useMemo(() => { const c: Record<string, number> = {}; quickFilters.forEach(q => { c[q.id] = tasks.filter(q.filter).length; }); return c; }, [tasks, quickFilters]);
+  const quickFilterCounts = React.useMemo(() => { const c: Record<string, number> = {}; quickFilters.forEach(q => { c[q.id] = 0; }); return c; }, [quickFilters]);
   const confirmDelete = () => { if (idToDelete) remove(idToDelete); else { allSelectedRows.forEach(t => remove(t.systemId)); setRowSelection({}); } setIsAlertOpen(false); };
 
   const bulkActions = [
@@ -212,8 +210,8 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
         </div>
       </>)}
       {viewMode === 'list' && (<>
-        <div className={cn(isTasksFetching && 'opacity-70 transition-opacity')}>
-        <ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} bulkActions={bulkActions} renderMobileCard={task => <TaskCard task={task} onDelete={id => { setIdToDelete(id); setIsAlertOpen(true); }} />} mobileInfiniteScroll />
+        <div className={cn((isTasksFetchingAny && !isTasksFetching) && 'opacity-70 transition-opacity')}>
+        <ResponsiveDataTable columns={columns} data={tasks} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} bulkActions={bulkActions} renderMobileCard={task => <TaskCard task={task} onDelete={id => { setIdToDelete(id); setIsAlertOpen(true); }} />} mobileInfiniteScroll isLoading={isTasksFetching} />
         </div>
       </>)}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{idToDelete ? "Xóa công việc?" : `Xóa ${allSelectedRows.length} công việc?`}</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={removeMutation.isPending}>{removeMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Xóa'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

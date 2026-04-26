@@ -514,8 +514,8 @@ export function ProductDetailPage() {
   }, [product, removeMutation]);
 
   const headerActions = React.useMemo(() => {
-    if (!product) return [];
-    if (!can('edit_products')) return [];
+    if (!product) return null;
+    if (!can('edit_products')) return null;
     
     const pkgxActions = product.pkgxId ? [
       <DropdownMenu key="pkgx-actions">
@@ -688,7 +688,7 @@ export function ProductDetailPage() {
 
   // Mobile: gom tất cả actions vào 1 dropdown menu
   const mobileHeaderActions = React.useMemo(() => {
-    if (!product || !isMobile || !can('edit_products')) return [];
+    if (!product || !isMobile || !can('edit_products')) return null;
 
     type MobileAction = { label: string; icon: React.ReactNode; onClick: () => void; destructive?: boolean; };
     const menuItems: MobileAction[] = [
@@ -931,16 +931,16 @@ export function ProductDetailPage() {
                     </Badge>
                   )}
                   {product.isFeatured && (
-                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">Nổi bật</Badge>
+                    <Badge variant="default" className="bg-warning/15 text-warning-foreground hover:bg-warning/25 border-warning/30">Nổi bật</Badge>
                   )}
                   {product.isNewArrival && (
-                    <Badge variant="outline" className="border-green-500 text-green-600">Mới về</Badge>
+                    <Badge variant="outline" className="border-success/30 bg-success/15 text-success-foreground">Mới về</Badge>
                   )}
                   {product.isBestSeller && (
                     <Badge variant="destructive">Bán chạy</Badge>
                   )}
                   {product.isOnSale && (
-                    <Badge variant="default" className="bg-rose-500 hover:bg-rose-600">Đang giảm giá</Badge>
+                    <Badge variant="default" className="bg-destructive/15 text-destructive hover:bg-destructive/25 border-destructive/30">Đang giảm giá</Badge>
                   )}
                 </div>
 

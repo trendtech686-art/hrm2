@@ -76,7 +76,7 @@ export function TestApiPageContent() {
           <CardTitle className="flex items-center gap-2">
             🔌 API Connection Test
             {allLoaded && !anyError && (
-              <Badge className="bg-green-500">All Connected</Badge>
+              <Badge className="bg-success/15 text-success-foreground border-success/30">All Connected</Badge>
             )}
             {anyError && (
               <Badge variant="destructive">Connection Error</Badge>

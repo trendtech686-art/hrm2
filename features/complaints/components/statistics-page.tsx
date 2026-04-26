@@ -173,11 +173,11 @@ export function ComplaintStatisticsPage() {
     <div className="w-full h-full">
       <div className="space-y-6">
         {/* ============================================
-            OVERVIEW STATS
+            OVERVIEW STATS - Mobile: 1 col, Tablet: 2 cols, Desktop: 4 cols
         ============================================ */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
-            title="Tổng khiếu nại"
+            title="Tổng"
             value={stats.overview.total}
             icon={<Activity className="h-5 w-5" />}
             colorClass="text-blue-600"
@@ -190,7 +190,7 @@ export function ComplaintStatisticsPage() {
           <StatCard
             title="Đã giải quyết"
             value={stats.overview.resolved}
-            subtitle={`${stats.overview.resolvedPercentage.toFixed(1)}% tổng số`}
+            subtitle={`${stats.overview.resolvedPercentage.toFixed(0)}%`}
             icon={<CheckCircle className="h-5 w-5" />}
             colorClass="text-green-600"
           />
@@ -198,57 +198,57 @@ export function ComplaintStatisticsPage() {
           <StatCard
             title="Đang xử lý"
             value={stats.overview.investigating + stats.overview.pending}
-            subtitle={`${(stats.overview.investigatingPercentage + stats.overview.pendingPercentage).toFixed(1)}% tổng số`}
+            subtitle={`${(stats.overview.investigatingPercentage + stats.overview.pendingPercentage).toFixed(0)}%`}
             icon={<Clock className="h-5 w-5" />}
             colorClass="text-orange-600"
           />
 
           <StatCard
-            title="Tuân thủ SLA"
-            value={`${stats.timeBased.slaComplianceRate.toFixed(1)}%`}
-            subtitle={`${stats.timeBased.onTimeSLA} / ${stats.overview.resolved + stats.overview.rejected} đúng hạn`}
+            title="SLA"
+            value={`${stats.timeBased.slaComplianceRate.toFixed(0)}%`}
+            subtitle={`${stats.timeBased.onTimeSLA} đúng hạn`}
             icon={<Target className="h-5 w-5" />}
             colorClass={stats.timeBased.slaComplianceRate >= 80 ? "text-green-600" : "text-red-600"}
           />
         </div>
 
         {/* ============================================
-            TIME-BASED METRICS
+            TIME-BASED METRICS - Mobile: stacked, Desktop: 3 cols
         ============================================ */}
         <Card className={mobileBleedCardClass}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Thời gian xử lý trung bình
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4" />
+              Thời gian xử lý
             </CardTitle>
-            <CardDescription>Hiệu suất phản hồi và giải quyết khiếu nại</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <div className="text-sm text-blue-600 mb-1">Phản hồi trung bình</div>
-                <div className="text-2xl font-bold text-blue-900">{stats.timeBased.avgResponseTimeFormatted}</div>
-                <div className="text-xs text-blue-600 mt-1">Mục tiêu: 4 giờ</div>
+          <CardContent className="space-y-3">
+            {/* Mobile: stack vertically, Desktop: 3 cols */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-3 bg-info/10 rounded-lg border border-info/20">
+                <div className="text-xs text-info mb-1">Phản hồi TB</div>
+                <div className="text-xl font-bold text-info">{stats.timeBased.avgResponseTimeFormatted}</div>
+                <div className="text-xs text-info/80 mt-0.5">Mục tiêu: 4h</div>
               </div>
 
-              <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                <div className="text-sm text-green-600 mb-1">Giải quyết trung bình</div>
-                <div className="text-2xl font-bold text-green-900">{stats.timeBased.avgResolutionTimeFormatted}</div>
-                <div className="text-xs text-green-600 mt-1">Mục tiêu: 48 giờ</div>
+              <div className="p-3 bg-success/10 rounded-lg border border-success/20">
+                <div className="text-xs text-success mb-1">Giải quyết TB</div>
+                <div className="text-xl font-bold text-success">{stats.timeBased.avgResolutionTimeFormatted}</div>
+                <div className="text-xs text-success/80 mt-0.5">Mục tiêu: 48h</div>
               </div>
 
-              <div className="p-4 bg-orange-50 rounded-xl border border-orange-200">
-                <div className="text-sm text-orange-600 mb-1">Quá hạn SLA</div>
-                <div className="text-2xl font-bold text-orange-900">{stats.timeBased.overdueCount}</div>
-                <div className="text-xs text-orange-600 mt-1">
-                  {((stats.timeBased.overdueCount / (stats.overview.resolved + stats.overview.rejected || 1)) * 100).toFixed(1)}% tổng số
+              <div className="p-3 bg-warning/10 rounded-lg border border-warning/20">
+                <div className="text-xs text-warning mb-1">Quá hạn SLA</div>
+                <div className="text-xl font-bold text-warning">{stats.timeBased.overdueCount}</div>
+                <div className="text-xs text-warning/80 mt-0.5">
+                  {((stats.timeBased.overdueCount / (stats.overview.resolved + stats.overview.rejected || 1)) * 100).toFixed(0)}%
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* ============================================
               VERIFICATION STATS
           ============================================ */}
@@ -371,45 +371,44 @@ export function ComplaintStatisticsPage() {
           </Card>
         </div>
 
-        {/* ============================================
-            TOP PERFORMERS (BY ASSIGNEE)
-        ============================================ */}
-        {stats.byAssignee.length > 0 && (
-          <Card className={mobileBleedCardClass}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Hiệu suất nhân viên
-              </CardTitle>
-              <CardDescription>Top người xử lý khiếu nại nhiều nhất</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {stats.byAssignee.slice(0, 5).map((assignee, index) => (
-                  <div key={assignee.assigneeId} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-info/15 flex items-center justify-center font-bold text-info-foreground">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{assignee.assigneeName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {assignee.totalAssigned} khiếu nại • {assignee.resolved} đã giải quyết
+          {/* ============================================
+              TOP PERFORMERS (BY ASSIGNEE) - Mobile optimized
+          ============================================ */}
+          {stats.byAssignee.length > 0 && (
+            <Card className={mobileBleedCardClass}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4" />
+                  Hiệu suất nhân viên
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {stats.byAssignee.slice(0, 5).map((assignee, index) => (
+                    <div key={assignee.assigneeId} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                      <div className="shrink-0 w-7 h-7 rounded-full bg-info/15 flex items-center justify-center font-bold text-xs text-info">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{assignee.assigneeName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {assignee.totalAssigned} KN • {assignee.resolved} đã giải quyết
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-sm font-medium text-green-600">
+                          {assignee.resolutionRate.toFixed(0)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          TB: {Math.round(assignee.avgResolutionTime / (60 * 60 * 1000))}h
+                        </div>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-sm font-medium text-green-600">
-                        {assignee.resolutionRate.toFixed(0)}%
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        TB: {Math.round(assignee.avgResolutionTime / (60 * 60 * 1000))}h
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         {/* ============================================
             TREND ANALYSIS

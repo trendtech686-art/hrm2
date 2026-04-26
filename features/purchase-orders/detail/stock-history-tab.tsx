@@ -88,7 +88,7 @@ export function StockHistoryTab({
                 <React.Fragment key={data.systemId}>
                   <TableRow onClick={() => toggleRow(data.systemId)} className="cursor-pointer">
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500">
+                      <Button variant="ghost" size="icon" className="h-11 w-11 text-blue-500">
                         {expandedRowId === data.systemId ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                       </Button>
                     </TableCell>

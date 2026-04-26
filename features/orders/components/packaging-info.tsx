@@ -521,7 +521,7 @@ export function PackagingInfo({
                             <div className="flex items-center gap-1 min-w-0">
                                 <Separator orientation="vertical" className="h-4 mx-1 hidden sm:block" />
                                 <span className="text-sm text-primary truncate">{packaging.trackingCode}</span>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
+                                <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
                                     {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
                             </div>
@@ -535,7 +535,7 @@ export function PackagingInfo({
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className="h-7 w-7"
+                                            className="h-11 w-11"
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <AlertCircle className="h-4 w-4 text-amber-500" />
@@ -563,7 +563,7 @@ export function PackagingInfo({
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-8 w-8"
+                                        className="h-11 w-11"
                                         onClick={handlePrintDelivery}
                                     >
                                         <Printer className="h-4 w-4" />
@@ -572,7 +572,7 @@ export function PackagingInfo({
                                 <TooltipContent>In phiếu giao hàng</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsExpanded(!isExpanded)}>
+                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setIsExpanded(!isExpanded)}>
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
                     </div>

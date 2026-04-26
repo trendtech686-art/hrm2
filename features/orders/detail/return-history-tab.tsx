@@ -175,7 +175,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                 <React.Fragment key={returnSlip.systemId}>
                                     <TableRow onClick={() => setExpandedReturnId(isExpanded ? null : returnSlip.systemId)} className="cursor-pointer hover:bg-muted/50">
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button variant="ghost" size="icon" className="h-11 w-11">
                                                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                             </Button>
                                         </TableCell>
@@ -318,7 +318,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-8 w-8"
+                                                className="h-11 w-11"
                                                 onClick={(e) => handlePrintReturn(e, returnSlip)}
                                                 title="In phiếu trả hàng"
                                             >

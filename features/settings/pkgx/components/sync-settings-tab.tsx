@@ -237,7 +237,7 @@ export function SyncSettingsTab() {
               {lastSyncResult ? (
                 <div className="flex items-center gap-2">
                   {lastSyncResult.status === 'success' ? (
-                    <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Thành công</Badge>
+                    <Badge className="bg-success/15 text-success-foreground border-success/30"><CheckCircle2 className="h-3 w-3 mr-1" />Thành công</Badge>
                   ) : (
                     <Badge variant="destructive"><AlertCircle className="h-3 w-3 mr-1" />Có lỗi</Badge>
                   )}
@@ -312,7 +312,7 @@ export function SyncSettingsTab() {
                         </p>
                       </div>
                     </div>
-                    <Badge variant={log.status === 'success' ? 'default' : 'destructive'} className={log.status === 'success' ? 'bg-green-500' : ''}>
+                    <Badge variant={log.status === 'success' ? 'default' : 'destructive'} className={log.status === 'success' ? 'bg-success/15 text-success-foreground border-success/30' : ''}>
                       {log.status === 'success' ? 'OK' : log.status === 'partial' ? 'Một phần' : 'Lỗi'}
                     </Badge>
                   </div>

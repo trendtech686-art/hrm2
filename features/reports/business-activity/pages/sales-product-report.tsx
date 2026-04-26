@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 /**
  * Sales Product Report Page
  * 
- * Báo cáo bán hàng theo sản phẩm
+ * B�o c�o b�n h�ng theo s?n ph?m
  */
 
 import * as React from 'react';
@@ -35,21 +35,24 @@ import type { SystemId } from '@/lib/id-types';
 import { Package, DollarSign, TrendingUp, Filter, ShoppingCart } from 'lucide-react';
 import { ProductImage } from '@/features/products/components/product-image';
 
-const getDefaultDateRange = (): ReportDateRange => ({
-  from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-  to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-});
+// ? FIX: Use useMemo to ensure consistent rendering
+export function useDefaultDateRange(): ReportDateRange {
+  return React.useMemo(() => ({
+    from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+    to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  }), []);
+}
 
 const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _isSummary?: boolean }>[] => [
   {
     id: 'productName',
     accessorKey: 'productName',
-    header: 'Sản phẩm',
+    header: 'S?n ph?m',
     size: 200,
     enableSorting: true,
     cell: ({ row }) => (
       <div className={row._isSummary ? 'font-semibold' : ''}>
-        {row._isSummary ? 'Tổng' : (
+        {row._isSummary ? 'T?ng' : (
           <div className="flex items-center gap-2">
             <ProductImage
               productSystemId={row.productSystemId}
@@ -68,7 +71,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'categoryName',
     accessorKey: 'categoryName',
-    header: 'Danh mục',
+    header: 'Danh m?c',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : (row.categoryName || '-'),
@@ -76,7 +79,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'quantitySold',
     accessorKey: 'quantitySold',
-    header: 'SL bán',
+    header: 'SL b�n',
     size: 80,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{row.quantitySold}</span>,
@@ -84,7 +87,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'quantityReturned',
     accessorKey: 'quantityReturned',
-    header: 'SL trả',
+    header: 'SL tr?',
     size: 80,
     enableSorting: true,
     cell: ({ row }) => (
@@ -96,7 +99,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'netQuantity',
     accessorKey: 'netQuantity',
-    header: 'SL thực',
+    header: 'SL th?c',
     size: 80,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block font-medium">{row.netQuantity}</span>,
@@ -104,7 +107,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'productAmount',
     accessorKey: 'productAmount',
-    header: 'Tiền hàng',
+    header: 'Ti?n h�ng',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{formatCurrency(row.productAmount)}</span>,
@@ -120,7 +123,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'grossProfit',
     accessorKey: 'grossProfit',
-    header: 'Lợi nhuận gộp',
+    header: 'L?i nhu?n g?p',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => (
@@ -132,7 +135,7 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
   {
     id: 'averagePrice',
     accessorKey: 'averagePrice',
-    header: 'Giá TB',
+    header: 'Gi� TB',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{formatCurrency(row.averagePrice)}</span>,
@@ -141,13 +144,14 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
 
 const DISPLAY_OPTIONS = [
   { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
-  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'var(--chart-2)', type: 'line' as const },
-  { key: 'quantitySold', label: 'SL bán', color: 'var(--chart-3)', type: 'bar' as const },
-  { key: 'netQuantity', label: 'SL thực', color: 'var(--chart-5)', type: 'line' as const },
+  { key: 'grossProfit', label: 'L?i nhu?n g?p', color: 'var(--chart-2)', type: 'line' as const },
+  { key: 'quantitySold', label: 'SL b�n', color: 'var(--chart-3)', type: 'bar' as const },
+  { key: 'netQuantity', label: 'SL th?c', color: 'var(--chart-5)', type: 'line' as const },
 ];
 
 export function SalesProductReportPage() {
-  const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
+  const defaultRange = useDefaultDateRange();
+  const [dateRange, setDateRange] = React.useState<ReportDateRange>(defaultRange);
   const [chartType, setChartType] = React.useState<ChartType>('combo');
   const [selectedChartOptions, setSelectedChartOptions] = React.useState<string[]>(['revenue', 'grossProfit']);
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
@@ -196,7 +200,7 @@ export function SalesProductReportPage() {
   const tableData = React.useMemo(() => {
     const summaryRow: SalesProductReportRow & { systemId: SystemId; _isSummary: boolean } = {
       productSystemId: '__summary__' as SystemId,
-      productName: 'Tổng',
+      productName: 'T?ng',
       productCode: '',
       sku: '',
       categoryName: '',
@@ -247,7 +251,7 @@ export function SalesProductReportPage() {
   
   const pageCount = Math.ceil(filteredData.length / pagination.pageSize);
   
-  // Reset page khi filter thay đổi
+  // Reset page khi filter thay d?i
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
   }, [productFilter, categoryFilter]);
@@ -271,29 +275,29 @@ export function SalesProductReportPage() {
   }), [selectedChartOptions]);
   
   const exportColumns = React.useMemo(() => [
-    { key: 'productName', label: 'Sản phẩm', selected: true },
+    { key: 'productName', label: 'S?n ph?m', selected: true },
     { key: 'sku', label: 'SKU', selected: true },
-    { key: 'categoryName', label: 'Danh mục', selected: true },
-    { key: 'quantitySold', label: 'SL bán', selected: true },
-    { key: 'quantityReturned', label: 'SL trả', selected: true },
-    { key: 'netQuantity', label: 'SL thực', selected: true },
-    { key: 'productAmount', label: 'Tiền hàng', selected: true },
+    { key: 'categoryName', label: 'Danh m?c', selected: true },
+    { key: 'quantitySold', label: 'SL b�n', selected: true },
+    { key: 'quantityReturned', label: 'SL tr?', selected: true },
+    { key: 'netQuantity', label: 'SL th?c', selected: true },
+    { key: 'productAmount', label: 'Ti?n h�ng', selected: true },
     { key: 'revenue', label: 'Doanh thu', selected: true },
-    { key: 'grossProfit', label: 'Lợi nhuận gộp', selected: true },
-    { key: 'averagePrice', label: 'Giá TB', selected: true },
+    { key: 'grossProfit', label: 'L?i nhu?n g?p', selected: true },
+    { key: 'averagePrice', label: 'Gi� TB', selected: true },
   ], []);
   
   const summaryCards = React.useMemo(() => [
-    { title: 'Số sản phẩm', value: data.length, icon: Package },
-    { title: 'SL bán ra', value: data.reduce((sum, r) => sum + r.netQuantity, 0), icon: ShoppingCart },
+    { title: 'S? s?n ph?m', value: data.length, icon: Package },
+    { title: 'SL b�n ra', value: data.reduce((sum, r) => sum + r.netQuantity, 0), icon: ShoppingCart },
     { title: 'Doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
-    { title: 'Lợi nhuận gộp', value: formatCurrency(summary.grossProfit), icon: DollarSign,
+    { title: 'L?i nhu?n g?p', value: formatCurrency(summary.grossProfit), icon: DollarSign,
       className: summary.grossProfit >= 0 ? 'text-green-600' : 'text-red-500' },
   ], [data, summary]);
   
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
-      title="Báo cáo bán hàng theo sản phẩm"
+      title="B�o c�o b�n h�ng theo s?n ph?m"
       data={data as unknown as Record<string, unknown>[]}
       columns={exportColumns}
       glossary={SALES_REPORT_GLOSSARY}
@@ -301,12 +305,12 @@ export function SalesProductReportPage() {
   ), [data, exportColumns]);
   
   usePageHeader({
-    title: 'Báo cáo bán hàng theo sản phẩm',
-    subtitle: 'Doanh thu và số lượng bán từng sản phẩm',
+    title: 'B�o c�o b�n h�ng theo s?n ph?m',
+    subtitle: 'Doanh thu v� s? lu?ng b�n t?ng s?n ph?m',
     breadcrumb: [
-      { label: 'Trang chủ', href: ROUTES.ROOT },
-      { label: 'Báo cáo', href: ROUTES.REPORTS.INDEX },
-      { label: 'Bán hàng theo sản phẩm', href: ROUTES.REPORTS.SALES_BY_PRODUCT, isCurrent: true },
+      { label: 'Trang ch?', href: ROUTES.ROOT },
+      { label: 'B�o c�o', href: ROUTES.REPORTS.INDEX },
+      { label: 'B�n h�ng theo s?n ph?m', href: ROUTES.REPORTS.SALES_BY_PRODUCT, isCurrent: true },
     ],
     showBackButton: true,
     actions: [headerActions],
@@ -318,7 +322,7 @@ export function SalesProductReportPage() {
     <div className={`p-4 space-y-3 ${row._isSummary ? 'bg-muted/50' : ''}`}>
       <div className="flex items-center justify-between">
         <div className={row._isSummary ? 'font-semibold' : ''}>
-          {row._isSummary ? 'Tổng cộng' : (
+          {row._isSummary ? 'T?ng c?ng' : (
             <div>
               <div className="font-medium">{row.productName}</div>
               {row.sku && <div className="text-xs text-muted-foreground">{row.sku}</div>}
@@ -328,11 +332,11 @@ export function SalesProductReportPage() {
         <Badge variant="secondary">{row.netQuantity} SP</Badge>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div><span className="text-muted-foreground">Bán:</span> {row.quantitySold}</div>
-        <div><span className="text-muted-foreground">Trả:</span> {row.quantityReturned}</div>
+        <div><span className="text-muted-foreground">B�n:</span> {row.quantitySold}</div>
+        <div><span className="text-muted-foreground">Tr?:</span> {row.quantityReturned}</div>
         <div><span className="text-muted-foreground">Doanh thu:</span> {formatCurrency(row.revenue)}</div>
         <div className={row.grossProfit >= 0 ? 'text-green-600' : 'text-red-500'}>
-          <span className="text-muted-foreground">LN gộp:</span> {formatCurrency(row.grossProfit)}
+          <span className="text-muted-foreground">LN g?p:</span> {formatCurrency(row.grossProfit)}
         </div>
       </div>
     </div>
@@ -365,21 +369,21 @@ export function SalesProductReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Chi tiết theo sản phẩm</CardTitle>
+            <CardTitle>Chi ti?t theo s?n ph?m</CardTitle>
             <Button
               variant={showFilters ? 'default' : 'outline'}
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
             >
               <Filter className="h-4 w-4 mr-2" />
-              Lọc ({filteredData.length})
+              L?c ({filteredData.length})
             </Button>
           </div>
           {showFilters && (
             <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t">
               <div className="flex-1 min-w-50 max-w-75">
                 <Input
-                  placeholder="Tìm sản phẩm, mã SP..."
+                  placeholder="T�m s?n ph?m, m� SP..."
                   value={productFilter}
                   onChange={(e) => setProductFilter(e.target.value)}
                   className="h-8 text-sm"
@@ -388,10 +392,10 @@ export function SalesProductReportPage() {
               <div className="w-45">
                 <UiSelect value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Tất cả danh mục" />
+                    <SelectValue placeholder="T?t c? danh m?c" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">Tất cả danh mục</SelectItem>
+                    <SelectItem value="__all__">T?t c? danh m?c</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
@@ -405,7 +409,7 @@ export function SalesProductReportPage() {
                   className="h-8 text-xs"
                   onClick={() => { setProductFilter(''); setCategoryFilter('__all__'); }}
                 >
-                  Xóa lọc
+                  X�a l?c
                 </Button>
               )}
             </div>
@@ -415,7 +419,7 @@ export function SalesProductReportPage() {
           {filteredData.length === 0 ? (
             <div className="p-6">
               <ReportEmptyState
-                title={data.length === 0 ? 'Không có dữ liệu trong khoảng thời gian đã chọn' : 'Không có dòng phù hợp bộ lọc'}
+                title={data.length === 0 ? 'Kh�ng c� d? li?u trong kho?ng th?i gian d� ch?n' : 'Kh�ng c� d�ng ph� h?p b? l?c'}
               />
             </div>
           ) : (

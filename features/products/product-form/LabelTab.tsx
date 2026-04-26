@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { useActiveImporters } from '@/features/settings/inventory/hooks/use-inventory-settings';
 import type { ProductFormCompleteValues } from './types';
@@ -44,6 +45,27 @@ export function LabelTab() {
                 Tên sản phẩm sẽ hiển thị trên hóa đơn VAT
               </FormDescription>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="printLabel"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <FormLabel>In tem phụ</FormLabel>
+                <FormDescription>
+                  Bật để in tem phụ khi xuất đơn hàng
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value ?? true}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
             </FormItem>
           )}
         />

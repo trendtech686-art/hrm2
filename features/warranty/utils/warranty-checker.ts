@@ -69,8 +69,13 @@ export function calculateDaysRemaining(expiryDate: string): number {
  * Lấy lịch sử mua hàng của sản phẩm từ khách hàng
  * ✅ Cache kết quả để tránh tính toán trùng lặp
  */
-const purchaseHistoryCache = new Map<string, ProductWarrantyInfo[]>();
+const purchaseHistoryCache = new Map<string, { data: ProductWarrantyInfo[], _cachedAt: number }>();
 const CACHE_TTL = 5000; // 5 seconds
+
+interface CachedPurchaseHistory {
+  data: ProductWarrantyInfo[];
+  _cachedAt: number;
+}
 
 export function getProductPurchaseHistory(
   customerName: string,
@@ -83,8 +88,8 @@ export function getProductPurchaseHistory(
 
   // Check cache first
   const cached = purchaseHistoryCache.get(cacheKey);
-  if (cached && cached._cachedAt && Date.now() - cached._cachedAt < CACHE_TTL) {
-    return cached;
+  if (cached && Date.now() - cached._cachedAt < CACHE_TTL) {
+    return cached.data;
   }
 
   // Lọc đơn hàng của khách (đã hoàn thành)
@@ -133,9 +138,10 @@ export function getProductPurchaseHistory(
   );
 
   // Cache kết quả
-  const cachedResult = sortedHistory as (ProductWarrantyInfo & { _cachedAt: number })[];
-  cachedResult._cachedAt = Date.now();
-  purchaseHistoryCache.set(cacheKey, cachedResult);
+  purchaseHistoryCache.set(cacheKey, {
+    data: sortedHistory,
+    _cachedAt: Date.now(),
+  });
 
   return sortedHistory;
 }
@@ -181,6 +187,7 @@ export function checkWarrantyStatus(
       availableQuantity: 0,
       warnings,
       productHistory: [],
+      warrantyIds,
     };
   }
 

@@ -399,9 +399,9 @@ export function EntityActivityTable({
       created: { icon: Plus, color: 'text-success', bgColor: 'bg-success/15' },
       updated: { icon: Pencil, color: 'text-info', bgColor: 'bg-info/15' },
       deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
-      status_changed: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-      restored: { icon: RotateCcw, color: 'text-teal-600', bgColor: 'bg-teal-100' },
-      document_uploaded: { icon: Upload, color: 'text-teal-600', bgColor: 'bg-teal-100' },
+      status_changed: { icon: FileText, color: 'text-warning', bgColor: 'bg-warning/15' },
+      restored: { icon: RotateCcw, color: 'text-info', bgColor: 'bg-info/15' },
+      document_uploaded: { icon: Upload, color: 'text-info', bgColor: 'bg-info/15' },
       document_deleted: { icon: Trash2, color: 'text-destructive', bgColor: 'bg-destructive/15' },
     }
     return styles[action] || { icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' }
@@ -422,13 +422,13 @@ export function EntityActivityTable({
   
   const getActionBadgeColor = (action: string) => {
     const colors: Record<string, string> = {
-      created: 'bg-success/10 text-success-foreground border-success/30',
-      updated: 'bg-info/10 text-info-foreground border-info/30',
-      deleted: 'bg-destructive/10 text-destructive border-destructive/30',
-      status_changed: 'bg-purple-100 text-purple-700 border-purple-200',
-      restored: 'bg-teal-100 text-teal-700 border-teal-200',
-      document_uploaded: 'bg-teal-100 text-teal-700 border-teal-200',
-      document_deleted: 'bg-destructive/10 text-destructive border-destructive/30',
+      created: 'bg-success/15 text-success-foreground border-success/30',
+      updated: 'bg-info/15 text-info-foreground border-info/30',
+      deleted: 'bg-destructive/15 text-destructive border-destructive/30',
+      status_changed: 'bg-warning/15 text-warning-foreground border-warning/30',
+      restored: 'bg-info/15 text-info-foreground border-info/30',
+      document_uploaded: 'bg-info/15 text-info-foreground border-info/30',
+      document_deleted: 'bg-destructive/15 text-destructive border-destructive/30',
     }
     return colors[action] || 'bg-muted text-muted-foreground border-border'
   }

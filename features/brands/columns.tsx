@@ -39,9 +39,9 @@ const calculateSeoScore = (brand: Brand, website: 'pkgx' | 'trendtech'): number 
 };
 
 const getSeoStatusBadge = (score: number) => {
-  if (score >= 80) return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100"><CheckCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  if (score >= 50) return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100"><AlertTriangle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  if (score > 0) return <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100"><XCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
+  if (score >= 80) return <Badge variant="default" className="bg-success/15 text-success-foreground hover:bg-success/15"><CheckCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
+  if (score >= 50) return <Badge variant="secondary" className="bg-warning/15 text-warning-foreground hover:bg-warning/15"><AlertTriangle className="h-3 w-3 mr-1" /> {score}%</Badge>;
+  if (score > 0) return <Badge variant="secondary" className="bg-destructive/15 text-destructive hover:bg-destructive/15"><XCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
   return <Badge variant="outline" className="text-muted-foreground">—</Badge>;
 };
 
@@ -308,7 +308,7 @@ export const getColumns = (
       const pkgxId = getPkgxBrandId?.(brand);
       
       return hasMapping ? (
-        <Badge variant="default" className="bg-green-500 text-xs">
+        <Badge variant="default" className="bg-success/15 text-success-foreground border-success/30 text-xs">
           <Globe className="h-3 w-3 mr-1" />
           {pkgxId}
         </Badge>
@@ -439,7 +439,7 @@ export const getColumns = (
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="h-7 w-7 p-0"
+                className="h-11 w-11 p-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />

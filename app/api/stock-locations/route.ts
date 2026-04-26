@@ -14,9 +14,25 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const all = searchParams.get('all') === 'true'
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const search = searchParams.get('search') || ''
+    const branchSystemId = searchParams.get('branchSystemId')
 
     const where: Prisma.StockLocationWhereInput = {
       isActive: true,
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    if (branchSystemId) {
+      where.branchId = branchSystemId
     }
 
     if (all) {
@@ -30,15 +46,26 @@ export async function GET(request: Request) {
       return apiSuccess({ data: locations })
     }
 
-    const locations = await prisma.stockLocation.findMany({
-      where,
-      orderBy: { name: 'asc' },
-      include: {
-        _count: { select: { inventoryRecords: true } },
-      },
-    })
+    const skip = (page - 1) * limit
+    const [locations, total] = await Promise.all([
+      prisma.stockLocation.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+        include: {
+          _count: { select: { inventoryRecords: true } },
+        },
+      }),
+      prisma.stockLocation.count({ where }),
+    ])
 
-    return apiSuccess({ data: locations })
+    const totalPages = Math.ceil(total / limit)
+
+    return apiSuccess({
+      data: locations,
+      pagination: { page, limit, total, totalPages },
+    })
   } catch (error) {
     logError('Error fetching stock locations', error)
     return apiError('Failed to fetch stock locations', 500)

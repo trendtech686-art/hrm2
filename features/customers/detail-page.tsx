@@ -492,7 +492,7 @@ export function CustomerDetailPage() {
   }, [router, systemId, isAdmin, can]);
 
   const mobileHeaderActions = React.useMemo(() => {
-    if (!isMobile || !(isAdmin || can('edit_customers'))) return [];
+    if (!isMobile || !(isAdmin || can('edit_customers'))) return null;
     return [
       <DropdownMenu key="mobile-actions">
         <DropdownMenuTrigger asChild>

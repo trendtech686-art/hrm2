@@ -58,7 +58,7 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
                                 <TouchButton
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0"
+                                    className="h-11 w-11 p-0 -mr-2 -mt-1 shrink-0"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <MoreHorizontal className="h-4 w-4" />

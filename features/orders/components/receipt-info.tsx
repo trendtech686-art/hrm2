@@ -124,7 +124,7 @@ export function ReceiptInfo({ receipt, order, label, linkedSalesReturnSystemId }
                     <div className="ml-auto md:ml-0 md:w-28 text-right font-semibold text-green-600">
                         +{formatCurrency(receipt.amount)}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
                         <Printer className="h-4 w-4" />
                     </Button>
                     {isExpanded ? (

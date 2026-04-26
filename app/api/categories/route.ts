@@ -42,6 +42,8 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || ''
     const all = searchParams.get('all') === 'true'
     const tree = searchParams.get('tree') === 'true'
+    const sortBy = searchParams.get('sortBy') || 'sortOrder'
+    const sortOrder = searchParams.get('sortOrder') === 'desc' ? 'desc' : 'asc'
 
     const where: Prisma.CategoryWhereInput = {
       isDeleted: false,
@@ -102,7 +104,7 @@ export async function GET(request: Request) {
         where,
         skip,
         take: limit,
-        orderBy: { sortOrder: 'asc' },
+        orderBy: { [sortBy]: sortOrder },
         include: {
           parent: true,
           _count: { select: { productCategories: true, children: true } },

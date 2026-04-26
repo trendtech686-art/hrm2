@@ -843,6 +843,7 @@ export type Product = {
   importerSystemId?: SystemId;
   importerName?: string;
   importerAddress?: string;
+  printLabel?: boolean;
   
   // Combo fields
   comboItems?: ComboItem[];
@@ -2600,11 +2601,11 @@ export const complaintTypeLabels: Record<ComplaintType, string> = {
 };
 
 export const complaintTypeColors: Record<ComplaintType, string> = {
-  "wrong-product": "bg-red-500/10 text-red-700 border-red-200",
-  "missing-items": "bg-orange-500/10 text-orange-700 border-orange-200",
-  "wrong-packaging": "bg-yellow-500/10 text-yellow-700 border-yellow-200",
-  "warehouse-defect": "bg-purple-500/10 text-purple-700 border-purple-200",
-  "product-condition": "bg-pink-500/10 text-pink-700 border-pink-200",
+  "wrong-product": "bg-destructive/15 text-destructive border-destructive/30",
+  "missing-items": "bg-warning/15 text-warning-foreground border-warning/30",
+  "wrong-packaging": "bg-warning/15 text-warning-foreground border-warning/30",
+  "warehouse-defect": "bg-destructive/15 text-destructive border-destructive/30",
+  "product-condition": "bg-info/15 text-info-foreground border-info/30",
 };
 
 export const complaintStatusLabels: Record<ComplaintStatus, string> = {
@@ -2616,11 +2617,11 @@ export const complaintStatusLabels: Record<ComplaintStatus, string> = {
 };
 
 export const complaintStatusColors: Record<ComplaintStatus, string> = {
-  pending: "bg-muted/80 text-muted-foreground border-border",
-  investigating: "bg-blue-500/10 text-blue-700 border-blue-200",
-  resolved: "bg-green-500/10 text-green-700 border-green-200",
-  cancelled: "bg-red-500/10 text-red-700 border-red-200",
-  ended: "bg-purple-500/10 text-purple-700 border-purple-200",
+  pending: "bg-secondary/80 text-secondary-foreground border-border",
+  investigating: "bg-info/15 text-info-foreground border-info/30",
+  resolved: "bg-success/15 text-success-foreground border-success/30",
+  cancelled: "bg-destructive/15 text-destructive border-destructive/30",
+  ended: "bg-muted/80 text-muted-foreground border-border",
 };
 
 export const complaintResolutionLabels: Record<ComplaintResolution, string> = {
@@ -2638,8 +2639,8 @@ export const complaintVerificationLabels: Record<ComplaintVerification, string> 
 };
 
 export const complaintVerificationColors: Record<ComplaintVerification, string> = {
-  "verified-correct": "bg-red-500/10 text-red-700 border-red-200",
-  "verified-incorrect": "bg-green-500/10 text-green-700 border-green-200",
+  "verified-correct": "bg-destructive/15 text-destructive border-destructive/30",
+  "verified-incorrect": "bg-success/15 text-success-foreground border-success/30",
   "pending-verification": "bg-muted/80 text-muted-foreground border-border",
 };
 
@@ -2653,9 +2654,9 @@ export const complaintPriorityLabels = {
 
 export const complaintPriorityColors = {
   LOW: "bg-muted/80 text-muted-foreground border-border",
-  MEDIUM: "bg-blue-500/10 text-blue-700 border-blue-200",
-  HIGH: "bg-orange-500/10 text-orange-700 border-orange-200",
-  CRITICAL: "bg-red-500/10 text-red-700 border-red-200",
+  MEDIUM: "bg-info/15 text-info-foreground border-info/30",
+  HIGH: "bg-warning/15 text-warning-foreground border-warning/30",
+  CRITICAL: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
 export function getComplaintTypeLabel(type: ComplaintType): string {

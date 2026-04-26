@@ -129,7 +129,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
   const attendanceColumns: ColumnDef<AttendanceHistoryRow>[] = React.useMemo(() => [
     { id: 'monthLabel', accessorKey: 'monthLabel', header: 'Kỳ chấm công', size: 130, cell: ({ row }) => <span className="font-medium">{row.monthLabel}</span>, meta: { displayName: 'Kỳ chấm công' } },
     { id: 'locked', accessorKey: 'locked', header: 'Trạng thái', size: 100, cell: ({ row }) => (
-      <Badge variant={row.locked ? 'default' : 'outline'} className={row.locked ? 'bg-green-600' : ''}>
+      <Badge variant={row.locked ? 'default' : 'outline'} className={row.locked ? 'bg-success/15 text-success-foreground border-success/30' : ''}>
         {row.locked ? 'Đã khóa' : 'Chưa khóa'}
       </Badge>
     ), meta: { displayName: 'Trạng thái' } },
@@ -147,7 +147,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
         <div onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-11 w-11">
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="sr-only">Mở menu</span>
               </Button>
@@ -340,7 +340,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
         <div onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-11 w-11">
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="sr-only">Mở menu</span>
               </Button>

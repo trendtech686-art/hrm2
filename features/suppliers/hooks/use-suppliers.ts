@@ -69,9 +69,23 @@ export function useSupplierStats(initialData?: SupplierStats) {
       const res = await fetch('/api/suppliers/stats');
       if (!res.ok) throw new Error('Lỗi khi lấy thống kê');
       const json = await res.json();
-      return json.data as SupplierStats;
+      return (json.data || initialData || {
+        totalSuppliers: 0,
+        activeSuppliers: 0,
+        totalDebit: 0,
+        totalCredit: 0,
+        totalPurchased: 0,
+        totalPaid: 0,
+      }) as SupplierStats;
     },
-    initialData,
+    initialData: initialData || {
+      totalSuppliers: 0,
+      activeSuppliers: 0,
+      totalDebit: 0,
+      totalCredit: 0,
+      totalPurchased: 0,
+      totalPaid: 0,
+    },
     staleTime: initialData ? 60_000 : 0,
     gcTime: 5 * 60 * 1000,
   });

@@ -90,7 +90,7 @@ export function PricingTable({
                 <TableCell>
                   <Badge 
                     variant={policy.type === 'Bán hàng' ? 'default' : 'secondary'}
-                    className={policy.type === 'Bán hàng' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-blue-100 text-blue-700 hover:bg-blue-100'}
+                    className={policy.type === 'Bán hàng' ? 'bg-success/15 text-success-foreground hover:bg-success/15' : 'bg-info/15 text-info-foreground hover:bg-info/15'}
                   >
                     {policy.type}
                   </Badge>

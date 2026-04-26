@@ -201,7 +201,7 @@ export const getColumns = (
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-11 w-11 p-0">
               <MoreHorizontal className="h-4 w-4" />
               <span className="sr-only">Mở menu</span>
             </Button>

@@ -136,7 +136,7 @@ function BusinessProfileRow({
     <div className="border rounded-lg p-4 space-y-4 relative">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium">Doanh nghiệp #{index + 1}</h4>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={onRemove}>
+        <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive" onClick={onRemove}>
           <X className="h-4 w-4" />
         </Button>
       </div>

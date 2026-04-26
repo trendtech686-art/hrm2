@@ -37,7 +37,6 @@ export function LeavesPage() {
   const queryClient = useQueryClient();
   const {  user, can } = useAuth();
   const canCreate = can('create_leaves');
-  const canApprove = can('approve_leaves');
   const canEditSettings = can('edit_settings');
 
   // Server-side pagination state
@@ -53,7 +52,7 @@ export function LeavesPage() {
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, setPagination]);
 
   const mutations = useLeaveMutations();
   const batchMutation = useBatchLeaveMutation();
@@ -112,7 +111,7 @@ export function LeavesPage() {
   }, [pagination.pageIndex, pagination.pageSize, debouncedSearch, advancedFilters, sorting]));
   const leaveRequests = React.useMemo(() => leavesResponse?.data ?? [], [leavesResponse?.data]);
   const totalRows = leavesResponse?.pagination?.total ?? 0;
-  const pageCount = Math.ceil(totalRows / pagination.pageSize);
+  const pageCount = leavesResponse?.pagination?.totalPages ?? 1;
 
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('leaves', {
     pinned: ['select', 'employeeName'],

@@ -25,6 +25,28 @@ const statusVariants: Record<PurchaseOrderStatus, "success" | "default" | "secon
     "Đã trả hàng": "destructive",
 };
 
+// ✅ Delivery status variants - consistent with orders page
+const deliveryStatusVariants: Record<string, "success" | "warning" | "secondary" | "default"> = {
+  "Chưa nhập": "secondary",
+  "Đang nhập": "warning",
+  "Đã nhập": "success",
+  "Nhập một phần": "warning",
+};
+
+// ✅ Return status variants - consistent with orders page
+const returnStatusVariants: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
+  "Chưa hoàn trả": "secondary",
+  "Hoàn hàng một phần": "warning",
+  "Hoàn hàng toàn bộ": "destructive",
+};
+
+// ✅ Refund status variants - consistent with orders page
+const refundStatusVariants: Record<string, "success" | "warning" | "secondary"> = {
+  "Chưa hoàn tiền": "secondary",
+  "Hoàn tiền một phần": "warning",
+  "Hoàn tiền toàn bộ": "success",
+};
+
 export const getColumns = (
   onCancel: (purchaseOrder: PurchaseOrder) => void,
   onPrint: (purchaseOrder: PurchaseOrder) => void,
@@ -168,7 +190,7 @@ export const getColumns = (
     id: "deliveryStatus",
     accessorKey: "deliveryStatus",
     header: "Trạng thái Nhận hàng",
-    cell: ({ row }) => <Badge variant="outline">{row.deliveryStatus}</Badge>,
+    cell: ({ row }) => <Badge variant={deliveryStatusVariants[row.deliveryStatus || 'Chưa nhập'] || 'secondary'}>{row.deliveryStatus || 'Chưa nhập'}</Badge>,
     meta: { displayName: "Trạng thái Nhận hàng" },
   },
    {
@@ -182,14 +204,14 @@ export const getColumns = (
     id: "returnStatus",
     accessorKey: "returnStatus",
     header: "Trạng thái Trả hàng",
-    cell: ({ row }) => <Badge variant="outline">{row.returnStatus || 'Chưa hoàn trả'}</Badge>,
+    cell: ({ row }) => <Badge variant={returnStatusVariants[row.returnStatus || 'Chưa hoàn trả'] || 'secondary'}>{row.returnStatus || 'Chưa hoàn trả'}</Badge>,
     meta: { displayName: "Trạng thái Trả hàng" },
   },
   {
     id: "refundStatus",
     accessorKey: "refundStatus",
     header: "Trạng thái Hoàn tiền",
-    cell: ({ row }) => <Badge variant="outline">{row.refundStatus || 'Chưa hoàn tiền'}</Badge>,
+    cell: ({ row }) => <Badge variant={refundStatusVariants[row.refundStatus || 'Chưa hoàn tiền'] || 'secondary'}>{row.refundStatus || 'Chưa hoàn tiền'}</Badge>,
     meta: { displayName: "Trạng thái Hoàn tiền" },
   },
    {
@@ -201,9 +223,9 @@ export const getColumns = (
        <div className="flex items-center justify-center">
          <DropdownMenu>
            <DropdownMenuTrigger asChild>
-             <Button variant="ghost" className="h-8 w-8 p-0">
-               <span className="sr-only">Mở menu</span>
-               <MoreHorizontal className="h-4 w-4" />
+<Button variant="ghost" className="h-11 w-11 p-0">
+              <span className="sr-only">Mở menu</span>
+              <MoreHorizontal className="h-4 w-4" />
              </Button>
            </DropdownMenuTrigger>
            <DropdownMenuContent align="end">

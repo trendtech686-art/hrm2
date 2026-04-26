@@ -16,17 +16,17 @@ interface TaskCardProps {
 }
 
 const PRIORITY_BORDER: Record<string, string> = {
-  'Khẩn cấp': 'border-l-red-500',
-  'Cao': 'border-l-orange-500',
-  'Trung bình': 'border-l-yellow-500',
-  'Thấp': 'border-l-blue-400',
+  'Khẩn cấp': 'border-l-destructive',
+  'Cao': 'border-l-warning',
+  'Trung bình': 'border-l-warning/50',
+  'Thấp': 'border-l-info',
 };
 
 const PRIORITY_DOT: Record<string, string> = {
-  'Khẩn cấp': 'bg-red-500',
-  'Cao': 'bg-orange-500',
-  'Trung bình': 'bg-yellow-400',
-  'Thấp': 'bg-blue-400',
+  'Khẩn cấp': 'bg-destructive',
+  'Cao': 'bg-warning',
+  'Trung bình': 'bg-warning',
+  'Thấp': 'bg-info',
 };
 
 const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
@@ -80,7 +80,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0">
+            <Button variant="ghost" size="sm" className="h-11 w-11 p-0 -mr-2 -mt-1 shrink-0">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

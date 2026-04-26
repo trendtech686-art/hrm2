@@ -48,12 +48,12 @@ const actionIcons: Record<TaskActivity['action'], React.ElementType> = {
 };
 
 const actionColors: Record<TaskActivity['action'], string> = {
-  created: 'text-info bg-info/10',
+  created: 'text-success bg-success/15',
   updated: 'text-muted-foreground bg-muted',
-  status_changed: 'text-purple-600 bg-purple-50',
-  assigned: 'text-indigo-600 bg-indigo-50',
-  assignee_added: 'text-success bg-success/10',
-  assignee_removed: 'text-destructive bg-destructive/10',
+  status_changed: 'text-warning bg-warning/15',
+  assigned: 'text-info bg-info/15',
+  assignee_added: 'text-success bg-success/15',
+  assignee_removed: 'text-destructive bg-destructive/15',
   priority_changed: 'text-warning bg-warning/10',
   progress_updated: 'text-cyan-600 bg-cyan-50',
   timer_started: 'text-success bg-success/10',

@@ -106,6 +106,7 @@ export type CreateProductInput = {
   importerName?: string
   importerAddress?: string
   usageGuide?: string
+  printLabel?: boolean
   // Prices: Record<pricingPolicyId, priceValue>
   prices?: Record<string, number>
   // Inventory: Record<branchSystemId, quantity>
@@ -175,6 +176,7 @@ export type UpdateProductInput = {
   importerName?: string
   importerAddress?: string
   usageGuide?: string
+  printLabel?: boolean
   // Prices: Record<pricingPolicyId, priceValue>
   prices?: Record<string, number>
   // Combo fields

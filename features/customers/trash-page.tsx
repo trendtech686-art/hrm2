@@ -117,7 +117,7 @@ export function CustomersTrashPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+              className="h-11 w-11 text-green-600 hover:text-green-700 hover:bg-green-50"
               onClick={(e) => {
                 e.stopPropagation();
                 handleRestoreFromColumn(customer.systemId);
@@ -128,7 +128,7 @@ export function CustomersTrashPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="h-11 w-11 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteFromColumn(customer.systemId);

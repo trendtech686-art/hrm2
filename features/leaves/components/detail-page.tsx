@@ -41,11 +41,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 
-const statusVariants: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
-    "Chờ duyệt": "warning",
+const statusVariants: Record<string, "success" | "secondary" | "destructive"> = {
+    "Chờ duyệt": "secondary",
     "Đã duyệt": "success",
     "Đã từ chối": "destructive",
-    "Đã hủy": "secondary",
+    "Đã hủy": "destructive",
 };
 
 export function LeaveDetailPage() {
@@ -141,7 +141,7 @@ export function LeaveDetailPage() {
   const isApproved = request?.status === 'Đã duyệt';
 
   const headerActions = React.useMemo(() => {
-    if (!request) return [];
+    if (!request) return null;
     const actions: React.ReactNode[] = [];
 
     if (isPending && canApprove) {

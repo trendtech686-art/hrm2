@@ -382,7 +382,7 @@ export function ShipmentDetailPage() {
     }, [packaging, order, handleDispatchAll, router, handlePrint, isCancelling]);
 
     const mobileHeaderActions = React.useMemo(() => {
-        if (!isMobile) return headerActions;
+        if (!isMobile) return null;
         const deliveryLabel = packaging?.deliveryStatus ? getDeliveryStatusLabel(packaging.deliveryStatus) : '';
 
         return [

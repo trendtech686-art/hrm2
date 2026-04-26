@@ -26,9 +26,12 @@ export interface StockTransfersParams {
 
 export interface StockTransfersResponse {
   data: StockTransfer[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    total: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+  };
 }
 
 export async function fetchStockTransfers(params: StockTransfersParams = {}): Promise<StockTransfersResponse> {
@@ -59,9 +62,12 @@ export async function fetchStockTransfers(params: StockTransfersParams = {}): Pr
   // Transform API response to match expected interface
   return {
     data: json.data || [],
-    total: json.pagination?.total || 0,
-    page: json.pagination?.page || 1,
-    pageSize: json.pagination?.limit || 40,
+    pagination: {
+      total: json.pagination?.total || 0,
+      totalPages: json.pagination?.totalPages ?? Math.ceil((json.pagination?.total || 0) / (params.limit || 40)),
+      page: json.pagination?.page || 1,
+      limit: json.pagination?.limit || params.limit || 40,
+    },
   };
 }
 
