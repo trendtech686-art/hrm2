@@ -163,6 +163,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       // ✅ Validate warranty check results - block if has critical warnings
       // Luôn lấy giá trị mới nhất từ ref khi submit (tránh stale closure)
       const currentWarrantyCheckResults = warrantyCheckResultsRef?.current;
+      
       if (currentWarrantyCheckResults && Object.keys(currentWarrantyCheckResults).length > 0) {
         const products = data.products || [];
         
@@ -173,17 +174,12 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
             const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
             
             if (hasCriticalWarning) {
-              // Check if user has explicitly acknowledged - if not, block submission
-              const hasAcknowledged = product.issueDescription?.includes('❌ Khách hàng chưa từng mua');
-              
-              if (!hasAcknowledged) {
-                toast.error('Cảnh báo bảo hành chưa được xử lý', {
-                  description: `Sản phẩm "${product.productName}" có cảnh báo nghiêm trọng. Vui lòng kiểm tra lại hoặc cập nhật ghi chú xác nhận.`,
-                  duration: 6000
-                });
-                setIsSubmitting(false);
-                return;
-              }
+              toast.error('Không thể tạo phiếu', {
+                description: `Sản phẩm "${product.productName}" có cảnh báo nghiêm trọng (khách chưa từng mua hoặc vượt quá số lượng). Vui lòng kiểm tra lại.`,
+                duration: 6000
+              });
+              setIsSubmitting(false);
+              return;
             }
           }
         }
