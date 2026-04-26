@@ -264,19 +264,19 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
       </div>
 
       {/* Desktop View - Table Layout */}
-      <div className="hidden lg:block overflow-x-auto">
-        <Table>
+      <div className="hidden lg:block">
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 text-center">STT</TableHead>
-              <TableHead className="min-w-50">Tên sản phẩm</TableHead>
-              <TableHead className="w-20 text-center">SL</TableHead>
-              <TableHead className="w-32 text-right">Đơn giá</TableHead>
-              <TableHead className="w-32">Hình ảnh</TableHead>
-              <TableHead className="w-32">Kết quả</TableHead>
-              <TableHead className="min-w-38">Ghi chú</TableHead>
-              <TableHead className="w-32 text-right">Thành tiền</TableHead>
-              <TableHead className="w-32 text-right">Bù trừ</TableHead>
+              <TableHead className="w-10 text-center align-top!">STT</TableHead>
+              <TableHead className="w-auto align-top!">Tên sản phẩm</TableHead>
+              <TableHead className="w-12 text-center align-top!">SL</TableHead>
+              <TableHead className="w-28 text-right align-top!">Đơn giá</TableHead>
+              <TableHead className="w-24 align-top!">Hình ảnh</TableHead>
+              <TableHead className="w-24 align-top!">Kết quả</TableHead>
+              <TableHead className="w-48 align-top!">Ghi chú</TableHead>
+              <TableHead className="w-24 text-right align-top!">Thành tiền</TableHead>
+              <TableHead className="w-24 text-right align-top!">Bù trừ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -304,11 +304,11 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
               return (
               <TableRow key={product.systemId}>
                 {/* STT */}
-                <TableCell className="text-center">{index + 1}</TableCell>
+                <TableCell className="text-center align-top! whitespace-normal!">{index + 1}</TableCell>
 
                 {/* Tên sản phẩm + Ảnh gốc + Loại SP + Mã SKU */}
-                <TableCell>
-                  <div className="flex items-start gap-2">
+                <TableCell className="align-top! whitespace-normal!">
+                  <div className="flex items-start gap-2 min-w-0 w-full">
                     {/* Hình ảnh sản phẩm gốc */}
                     {originalProductImage ? (
                       <div className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-muted">
@@ -323,10 +323,10 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                         <Package className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
-                    
-                    <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                      <p className="font-medium leading-snug">{product.productName}</p>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <p className="font-medium leading-snug wrap-break-word">{product.productName}</p>
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                         <span>{productTypeName}</span>
                         <span>-</span>
                         {product.sku ? (
@@ -349,22 +349,22 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 </TableCell>
 
                 {/* Số lượng */}
-                <TableCell className="text-center">
+                <TableCell className="text-center align-top! whitespace-normal!">
                   {product.quantity || 1}
                 </TableCell>
 
                 {/* Đơn giá */}
-                <TableCell className="text-right">
+                <TableCell className="text-right align-top! whitespace-normal!">
                   {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)}
                 </TableCell>
 
                 {/* Hình ảnh bảo hành */}
-                <TableCell>
+                <TableCell className="align-top! whitespace-normal!">
                   {warrantyImages.length > 0 ? (
                     <div className="flex gap-1 sm:gap-1.5 items-center">
                       {warrantyImages.slice(0, 2).map((url, imgIdx) => (
-                        <div 
-                          key={imgIdx} 
+                        <div
+                          key={imgIdx}
                           className="relative group/image w-8 h-8 sm:w-10 sm:h-9 shrink-0"
                         >
                           <Image
@@ -400,7 +400,7 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 </TableCell>
 
                 {/* Kết quả */}
-                <TableCell>
+                <TableCell className="align-top! whitespace-normal!">
                   <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5")}>
                     {RESOLUTION_LABELS[product.resolution]}
                   </Badge>
@@ -412,22 +412,22 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 </TableCell>
 
                 {/* Ghi chú */}
-                <TableCell>
+                <TableCell className="align-top! whitespace-normal!">
                   <div className="space-y-0.5 sm:space-y-1">
                     {/* Vấn đề */}
                     {product.issueDescription && String(product.issueDescription).trim() && (
-                      <p className="text-xs text-warning font-medium leading-snug">
+                      <p className="text-xs text-warning font-medium leading-snug wrap-break-word">
                         Vấn đề: {product.issueDescription}
                       </p>
                     )}
                     {/* Ghi chú xử lý */}
                     {product.notes && String(product.notes).trim() && (
-                      <p className="text-xs text-muted-foreground leading-snug">
+                      <p className="text-xs text-muted-foreground leading-snug wrap-break-word">
                         {product.notes}
                       </p>
                     )}
                     {/* Empty state */}
-                    {(!product.issueDescription || !String(product.issueDescription).trim()) && 
+                    {(!product.issueDescription || !String(product.issueDescription).trim()) &&
                      (!product.notes || !String(product.notes).trim()) && (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
@@ -435,12 +435,12 @@ export function WarrantyProductsDetailTable({ products: rawProducts }: WarrantyP
                 </TableCell>
 
                 {/* Thành tiền */}
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-right font-medium align-top! whitespace-normal!">
                   {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))}
                 </TableCell>
 
                 {/* Bù trừ - Only show for out_of_stock */}
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-right font-medium align-top! whitespace-normal!">
                   {product.resolution === 'out_of_stock' ? (
                     <span className="text-destructive">
                       {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))}

@@ -21,7 +21,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/ui/skeleton';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { ShareButton } from '@/components/shared/share-button';
 import { DetailPageShell, mobileBleedCardClass } from '@/components/layout/page-section';
 import {
   Dialog,
@@ -86,7 +85,7 @@ export function WarrantyDetailPage() {
   const router = useRouter();
   const { systemId = '' } = useParams<{ systemId: string }>();
   const { user, employee, isAdmin } = useAuth();
-  const isMobile = useBreakpoint('mobile');
+  const { isMobile } = useBreakpoint();
   const queryClient = useQueryClient();
 
   // ✅ React Query for single ticket
@@ -524,17 +523,8 @@ export function WarrantyDetailPage() {
     );
   }, [ticket, isMobile, isAdmin, router, systemId, handleStatusChange, openReturnDialog, handleCompleteTicket, isReturned, setTemplateDialogOpen, setShowReopenDialog, setShowReopenReturnedDialog, setShowCancelDialog, setShowUploadProcessedImagesDialog]);
 
-  // Desktop: Full buttons with ShareButton
-  const allActions = React.useMemo(() => [
-    <ShareButton
-      key="share"
-      size="sm"
-      className="h-9"
-      title={ticket ? `Phiếu bảo hành ${ticket.id}` : 'Phiếu bảo hành'}
-      text={ticket ? `Phiếu bảo hành ${ticket.id}` : ''}
-    />,
-    ...actions.filter(a => a.key !== 'get-link'),
-  ], [actions, ticket]);
+  // Desktop: Full buttons
+  const allActions = React.useMemo(() => actions, [actions]);
 
   const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
 
@@ -609,56 +599,56 @@ export function WarrantyDetailPage() {
               </div>
             )}
             
-            {/* ===== ROW 1: Left Column 70% (Customer + Ticket Info) + Right Column 30% (Workflow) ===== */}
-            <div className="grid grid-cols-1 lg:grid-cols-[70%_30%] gap-4">
-              {/* Left Column: Customer Info + Ticket Info */}
-              <div className="space-y-4">
-                <TicketInfoCard
-                  ticket={ticket}
-                  linkedOrderLabel={linkedOrder?.id}
-                  publicTrackingUrl={publicTrackingUrl}
-                  onCopyPublicLink={handleCopyTrackingLink}
-                  onGenerateTrackingCode={handleGenerateTrackingCode}
-                  onNavigateEmployee={handleNavigateEmployee}
-                  onNavigateOrder={linkedOrder ? handleNavigateOrder : undefined}
-                />
+            {/* ===== ROW 1: Thông tin khách hàng | Xử lý bảo hành ===== */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4">
+              {/* Left: Thông tin khách hàng */}
+              <CustomerInfoCard ticket={ticket} />
 
-                {/* Summary Card - Thanh toán */}
-                <WarrantySummaryCard 
-                  products={ticket.products} 
-                  shippingFee={ticket.shippingFee || 0}
-                  settlement={settlement}
-                />
-
-                {/* Xử lý bảo hành - Nút tạo phiếu chi/thu */}
-                <WarrantyProcessingCard
-                  warrantyId={ticket.id}
-                  warrantySystemId={ticket.systemId}
-                  customer={{
-                    name: ticket.customerName,
-                    phone: ticket.customerPhone,
-                  }}
-                  linkedOrderSystemId={ticket.linkedOrderSystemId}
-                  branchSystemId={ticket.branchSystemId}
-                  branchName={ticket.branchName}
-                  ticket={ticket}
-                  settlement={settlement}
-                />
-              </div>
-
-              {/* Right Column: Customer Info + Workflow */}
-              <div className="space-y-4">
-                <CustomerInfoCard ticket={ticket} />
-
-                <WarrantyWorkflowCard
-                  ticket={ticket}
-                  currentUserName={currentUser.name}
-                  onUpdateTicket={update}
-                  onUpdateStatus={updateStatus}
-                  onAddHistory={addHistory}
-                />
-              </div>
+              {/* Right: Xử lý bảo hành */}
+              <WarrantyProcessingCard
+                warrantyId={ticket.id}
+                warrantySystemId={ticket.systemId}
+                customer={{
+                  name: ticket.customerName,
+                  phone: ticket.customerPhone,
+                }}
+                linkedOrderSystemId={ticket.linkedOrderSystemId}
+                branchSystemId={ticket.branchSystemId}
+                branchName={ticket.branchName}
+                ticket={ticket}
+                settlement={settlement}
+              />
             </div>
+
+            {/* ===== ROW 2: Thông tin phiếu bảo hành | Quy trình xử lý ===== */}
+            <div className="grid grid-cols-1 lg:grid-cols-[70%_30%] gap-4">
+              {/* Left: Thông tin phiếu bảo hành */}
+              <TicketInfoCard
+                ticket={ticket}
+                linkedOrderLabel={linkedOrder?.id}
+                publicTrackingUrl={publicTrackingUrl}
+                onCopyPublicLink={handleCopyTrackingLink}
+                onGenerateTrackingCode={handleGenerateTrackingCode}
+                onNavigateEmployee={handleNavigateEmployee}
+                onNavigateOrder={linkedOrder ? handleNavigateOrder : undefined}
+              />
+
+              {/* Right: Quy trình xử lý */}
+              <WarrantyWorkflowCard
+                ticket={ticket}
+                currentUserName={currentUser.name}
+                onUpdateTicket={update}
+                onUpdateStatus={updateStatus}
+                onAddHistory={addHistory}
+              />
+            </div>
+
+            {/* ===== ROW 3: Thanh toán ===== */}
+            <WarrantySummaryCard
+              products={ticket.products}
+              shippingFee={ticket.shippingFee || 0}
+              settlement={settlement}
+            />
 
             {/* ===== ROW 2: Images - 2 columns side by side (50-50) ===== */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,5 +1,6 @@
 /**
  * Hook xử lý chọn sản phẩm và kiểm tra bảo hành
+ * ✅ Tách riêng: chọn sp nhanh vs check BH (chỉ chạy khi user bấm nút)
  */
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -8,7 +9,6 @@ import type { Order } from '@/features/orders/types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import {
-  checkProductWarranty,
   checkMultipleProductsWarranty,
   createWarrantyProductFromSelection,
   type WarrantyProductField,
@@ -28,17 +28,19 @@ interface UseProductSelectionResult {
   setWarrantyCheckResults: React.Dispatch<React.SetStateAction<Record<string, WarrantyCheckResult>>>;
   handleSelectProduct: (product: Product) => void;
   handleSelectProducts: (products: Product[]) => void;
+  /** ✅ Check warranty cho tất cả products hiện tại và cập nhật vào state */
+  checkAllProductsWarranty: (products: WarrantyProductField[], customerName: string, allOrders: Order[], claimedQuantities: Record<string, number>, claimedProductTickets: Record<string, string[]>) => void;
 }
 
 export function useProductSelection({
-  customerName,
-  allOrders,
+  customerName: _customerName,
+  allOrders: _allOrders,
   productInsertPosition,
   append,
   pricingPolicyId,
 }: UseProductSelectionOptions): UseProductSelectionResult {
   const [warrantyCheckResults, setWarrantyCheckResults] = React.useState<Record<string, WarrantyCheckResult>>({});
-  
+
   // ✅ Lấy default pricing policy để set giá mặc định
   const { data: pricingPolicies = [] } = useAllPricingPolicies();
   const defaultPricingPolicy = React.useMemo(() => {
@@ -64,71 +66,83 @@ export function useProductSelection({
     return product.costPrice || 0;
   }, [pricingPolicyId, defaultPricingPolicy]);
 
+  // ✅ Check all products warranty - CHỈ chạy khi user bấm nút "Kiểm tra BH"
+  const checkAllProductsWarranty = React.useCallback((
+    products: WarrantyProductField[],
+    customerName: string,
+    allOrders: Order[],
+    claimedQuantities: Record<string, number> = {},
+    claimedProductTickets: Record<string, string[]> = {} // ✅ Thêm param
+  ) => {
+    if (!customerName || products.length === 0) {
+      toast.warning('Vui lòng chọn khách hàng và thêm sản phẩm trước');
+      return;
+    }
+
+    const startTime = performance.now();
+
+    const productsForCheck = products.map(p => ({
+      systemId: p.productSystemId || p.systemId || '',
+      id: p.sku || '',
+      name: p.productName || '',
+      costPrice: p.unitPrice,
+      warrantyPeriodMonths: 12,
+    }));
+
+    const { results } = checkMultipleProductsWarranty(
+      customerName,
+      productsForCheck,
+      allOrders,
+      claimedQuantities,
+      claimedProductTickets // ✅ Truyền vào
+    );
+
+    // ✅ Cập nhật state 1 lần duy nhất
+    setWarrantyCheckResults(results);
+
+    // ✅ Toast thông báo kết quả
+    const elapsed = Math.round(performance.now() - startTime);
+    const validCount = Object.values(results).filter(r => r.isValid).length;
+    const totalCount = Object.values(results).length;
+
+    if (validCount === totalCount) {
+      toast.success(`Kiểm tra BH hoàn tất (${elapsed}ms) - Tất cả ${totalCount} sản phẩm còn bảo hành`);
+    } else if (validCount > 0) {
+      toast.warning(`Kiểm tra BH hoàn tất (${elapsed}ms) - ${validCount}/${totalCount} sản phẩm còn bảo hành`);
+    } else {
+      toast.error(`Kiểm tra BH hoàn tất (${elapsed}ms) - Không có sản phẩm nào còn bảo hành`);
+    }
+  }, []);
+
+  // ✅ Chọn 1 sản phẩm - KHÔNG tự động check BH (chỉ thêm vào form)
   const handleSelectProduct = React.useCallback((product: Product) => {
     const defaultPrice = getDefaultPrice(product);
-    
+
     const newProduct = createWarrantyProductFromSelection({
       systemId: product.systemId,
       id: product.id,
       name: product.name,
-      costPrice: defaultPrice, // ✅ Sử dụng giá mặc định thay vì costPrice
+      costPrice: defaultPrice,
       warrantyPeriodMonths: product.warrantyPeriodMonths,
-      thumbnailImage: product.thumbnailImage, // ✅ Thêm ảnh sản phẩm
+      thumbnailImage: product.thumbnailImage,
     });
 
-    // Sử dụng systemId cố định
     newProduct.systemId = generateSubEntityId('WP');
-
     append(newProduct);
-    
-    // Kiểm tra bảo hành nếu đã chọn khách hàng
-    if (customerName) {
-      const checkResult = checkProductWarranty(
-        customerName,
-        {
-          systemId: product.systemId,
-          id: product.id,
-          name: product.name,
-          costPrice: product.costPrice,
-          warrantyPeriodMonths: product.warrantyPeriodMonths,
-        },
-        1,
-        allOrders
-      );
-      
-      // Show toast if there are warnings
-      if (checkResult.warnings.length > 0) {
-        if (checkResult.isValid) {
-          toast.warning(`Cảnh báo: ${product.name}`, {
-            description: checkResult.warnings.join('\n'),
-            duration: 5000,
-          });
-        } else {
-          toast.error(`Không hợp lệ: ${product.name}`, {
-            description: checkResult.warnings.join('\n'),
-            duration: 6000,
-          });
-        }
-      }
-      
-      setWarrantyCheckResults(prev => ({
-        ...prev,
-        [product.name]: checkResult,
-      }));
-    }
-  }, [customerName, allOrders, append, getDefaultPrice]);
+  }, [append, getDefaultPrice]);
 
+  // ✅ Chọn nhiều sản phẩm - KHÔNG tự động check BH (chỉ thêm vào form)
   const handleSelectProducts = React.useCallback((products: Product[]) => {
     const newProducts = products.map((product) => {
       const defaultPrice = getDefaultPrice(product);
-      
+
       const newProduct = createWarrantyProductFromSelection({
         systemId: product.systemId,
         id: product.id,
         name: product.name,
-        costPrice: defaultPrice, // ✅ Sử dụng giá mặc định
+        costPrice: defaultPrice,
         warrantyPeriodMonths: product.warrantyPeriodMonths,
-        thumbnailImage: product.thumbnailImage, // ✅ Thêm ảnh sản phẩm
+        thumbnailImage: product.thumbnailImage,
       });
       return newProduct;
     });
@@ -138,37 +152,13 @@ export function useProductSelection({
     } else {
       newProducts.forEach((p) => append(p));
     }
-    
-    // Kiểm tra bảo hành cho tất cả sản phẩm
-    if (customerName) {
-      const { results, warnings } = checkMultipleProductsWarranty(
-        customerName,
-        products.map(p => ({
-          systemId: p.systemId,
-          id: p.id,
-          name: p.name,
-          costPrice: p.costPrice,
-          warrantyPeriodMonths: p.warrantyPeriodMonths,
-        })),
-        allOrders
-      );
-      
-      setWarrantyCheckResults(prev => ({ ...prev, ...results }));
-      
-      // Show consolidated toast if there are warnings
-      if (warnings.length > 0) {
-        toast.warning(`Cảnh báo bảo hành (${warnings.length} SP)`, {
-          description: warnings.slice(0, 3).join('\n') + (warnings.length > 3 ? `\n...và ${warnings.length - 3} SP khác` : ''),
-          duration: 6000,
-        });
-      }
-    }
-  }, [customerName, allOrders, productInsertPosition, append, getDefaultPrice]);
+  }, [productInsertPosition, append, getDefaultPrice]);
 
   return {
     warrantyCheckResults,
     setWarrantyCheckResults,
     handleSelectProduct,
     handleSelectProducts,
+    checkAllProductsWarranty,
   };
 }

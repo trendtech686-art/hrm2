@@ -154,6 +154,6 @@ export function usePendingWarranties() {
   return useWarranties({ status: 'pending' });
 }
 
-export function useWarrantiesByCustomer(customerId: string | null | undefined) {
-  return useWarranties({ customerId: customerId || undefined });
+export function useWarrantiesByCustomer(customerId: string | null | undefined, options?: { status?: string }) {
+  return useWarranties({ customerId: customerId || undefined, status: options?.status });
 }

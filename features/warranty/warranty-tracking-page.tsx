@@ -948,17 +948,17 @@ export function WarrantyTrackingPage() {
       )}
 
       {/* Main Content */}
-      <div className="container max-w-7xl mx-auto px-4 py-4 md:py-6">
-        <div className="grid gap-4 md:gap-6">
+      <div className="container max-w-7xl mx-auto px-4 pt-4 pb-4 md:pt-6 md:pb-6">
+        <div className="grid gap-4 md:gap-6 mt-4 md:mt-6">
 
           {/* Card: Thông tin phiếu bảo hành */}
-          <Card className={mobileBleedCardClass}>
-            <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
+          <Card className={cn(mobileBleedCardClass, 'pt-4')}>
+            <CardHeader className="pb-3! px-4! pt-5! md:px-6! md:pt-6!">
               <CardTitle className="text-base sm:text-lg">
                 Thông tin phiếu bảo hành
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 px-4 pb-4 md:px-6 md:pb-6">
+            <CardContent className="space-y-4 px-4! pb-4! md:px-6! md:pb-6!">
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Row 1: Mã phiếu | Chi nhánh | Nhân viên */}
                 <div>

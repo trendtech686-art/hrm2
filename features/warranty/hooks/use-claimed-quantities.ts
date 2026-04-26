@@ -10,6 +10,7 @@ interface ClaimedProductInfo {
   productName: string;
   claimedQuantity: number;
   lastClaimDate: string;
+  warrantyIds: string[]; // ✅ Danh sách mã phiếu BH
 }
 
 interface UseClaimedQuantitiesResult {
@@ -17,6 +18,8 @@ interface UseClaimedQuantitiesResult {
   claimedQuantities: Record<string, number>;
   /** Thông tin chi tiết về các sản phẩm đã bảo hành */
   claimedProducts: ClaimedProductInfo[];
+  /** Map: productName -> danh sách mã phiếu BH (để hiển thị) */
+  claimedProductTickets: Record<string, string[]>;
   /** Loading state */
   isLoading: boolean;
 }
@@ -119,12 +122,17 @@ export function useClaimedQuantities(
                 productName: product.productName,
                 claimedQuantity: 0,
                 lastClaimDate: '',
+                warrantyIds: [],
               };
             }
             productsMap[name].claimedQuantity += product.quantity;
             // Cập nhật ngày gần nhất
             if (completedAt && completedAt > productsMap[name].lastClaimDate) {
               productsMap[name].lastClaimDate = completedAt;
+            }
+            // ✅ Thêm mã phiếu BH nếu chưa có
+            if (warranty.id && !productsMap[name].warrantyIds.includes(warranty.id)) {
+              productsMap[name].warrantyIds.push(warranty.id);
             }
           }
         });
@@ -134,9 +142,19 @@ export function useClaimedQuantities(
     return Object.values(productsMap);
   }, [warranties]);
 
+  // ✅ Tạo map để lookup nhanh: productName -> danh sách mã phiếu BH
+  const claimedProductTickets = React.useMemo(() => {
+    const tickets: Record<string, string[]> = {};
+    claimedProducts.forEach(p => {
+      tickets[p.productName.toLowerCase().trim()] = p.warrantyIds;
+    });
+    return tickets;
+  }, [claimedProducts]);
+
   return {
     claimedQuantities,
     claimedProducts,
+    claimedProductTickets,
     isLoading,
   };
 }

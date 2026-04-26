@@ -105,13 +105,15 @@ export function initializePermanentFiles(
 /**
  * Kiểm tra bảo hành cho một sản phẩm
  * @param claimedQuantity Số lượng đã bảo hành trước đó
+ * @param warrantyIds Danh sách mã phiếu BH liên quan
  */
 export function checkProductWarranty(
   customerName: string,
   product: ProductForSelection,
   quantity: number,
   allOrders: Order[],
-  claimedQuantity: number = 0
+  claimedQuantity: number = 0,
+  warrantyIds: string[] = []
 ): WarrantyCheckResult {
   return checkWarrantyStatus(
     customerName,
@@ -119,19 +121,22 @@ export function checkProductWarranty(
     quantity,
     allOrders,
     product.warrantyPeriodMonths || 12,
-    claimedQuantity
+    claimedQuantity,
+    warrantyIds
   );
 }
 
 /**
  * Kiểm tra bảo hành cho nhiều sản phẩm
  * @param claimedQuantities Map của productName -> số lượng đã bảo hành trước đó
+ * @param claimedProductTickets Map của productName -> danh sách mã phiếu BH
  */
 export function checkMultipleProductsWarranty(
   customerName: string,
   products: ProductForSelection[],
   allOrders: Order[],
-  claimedQuantities: Record<string, number> = {}
+  claimedQuantities: Record<string, number> = {},
+  claimedProductTickets: Record<string, string[]> = {} // ✅ Thêm param
 ): { results: Record<string, WarrantyCheckResult>; warnings: string[] } {
   const results: Record<string, WarrantyCheckResult> = {};
   const warnings: string[] = [];
@@ -139,7 +144,8 @@ export function checkMultipleProductsWarranty(
   products.forEach(product => {
     // ✅ Lookup với key đã được lowercase để match với claimedQuantities
     const claimedQty = claimedQuantities[product.name.toLowerCase().trim()] || 0;
-    const checkResult = checkProductWarranty(customerName, product, 1, allOrders, claimedQty);
+    const tickets = claimedProductTickets[product.name.toLowerCase().trim()] || [];
+    const checkResult = checkProductWarranty(customerName, product, 1, allOrders, claimedQty, tickets);
     results[product.name] = checkResult;
 
     if (checkResult.warnings.length > 0) {

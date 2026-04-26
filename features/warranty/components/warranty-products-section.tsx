@@ -111,13 +111,7 @@ export function WarrantyProductsSection({
   const { data: customerOrders } = useCustomerOrders(customerSystemId);
 
   // ✅ Lấy số lượng đã bảo hành trước đó của khách hàng
-  const { claimedQuantities, isLoading: isLoadingClaimed } = useClaimedQuantities(customerSystemId, customerName);
-
-  // Debug log
-  if (customerSystemId && customerName) {
-    console.log('[DEBUG] claimedQuantities:', claimedQuantities);
-    console.log('[DEBUG] isLoadingClaimed:', isLoadingClaimed);
-  }
+  const { claimedQuantities, claimedProductTickets, isLoading: isLoadingClaimed } = useClaimedQuantities(customerSystemId, customerName);
   
   // Pricing policies
   const { data: pricingPolicies = [] } = useAllPricingPolicies();
@@ -312,9 +306,7 @@ export function WarrantyProductsSection({
                 toast.warning('Vui lòng thêm ít nhất 1 sản phẩm để kiểm tra bảo hành');
                 return;
               }
-              console.log('[DEBUG] checkAllProductsWarranty - claimedQuantities:', claimedQuantities);
-              console.log('[DEBUG] checkAllProductsWarranty - products:', products.map(p => ({ name: p.productName, qty: p.quantity })));
-              checkAllProductsWarranty(products, customerName, customerOrders || [], claimedQuantities);
+              checkAllProductsWarranty(products, customerName, customerOrders || [], claimedQuantities, claimedProductTickets);
             }}
             disabled={disabled}
             title="Kiểm tra bảo hành các sản phẩm đã chọn"

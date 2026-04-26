@@ -145,7 +145,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
             </Badge>
           </div>
           {isOverdue && (
-            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 whitespace-nowrap">
+            <Badge variant="destructive" className="text-xs whitespace-nowrap">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Quá hạn
             </Badge>

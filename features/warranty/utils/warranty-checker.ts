@@ -1,11 +1,21 @@
 import type { Order } from '../../orders/types';
-import { parseDate, addMonths, toISODate, getCurrentDate } from '../../../lib/date-utils';
+import { parseDate, addMonths, toISODate, getCurrentDate, formatDate } from '../../../lib/date-utils';
+
+/**
+ * Format date to dd/MM/yyyy for display
+ */
+export function formatDisplayDate(dateStr: string): string {
+  const date = parseDate(dateStr);
+  if (!date) return dateStr;
+  return formatDate(date, 'dd/MM/yyyy');
+}
 
 /**
  * Thông tin bảo hành của sản phẩm từ đơn hàng
  */
 export interface ProductWarrantyInfo {
   orderId: string;
+  orderSystemId: string; // ✅ Thêm systemId để tạo link
   orderDate: string;
   productName: string;
   quantity: number;
@@ -24,9 +34,11 @@ export interface WarrantyCheckResult {
   totalPurchased: number;
   totalStillUnderWarranty: number;
   totalExpired: number;
-  availableQuantity: number;
+  totalClaimed: number; // Số lượng đã bảo hành trước đó
+  availableQuantity: number; // Số lượng còn có thể bảo hành = tổng mua - đã bảo hành
   warnings: string[];
   productHistory: ProductWarrantyInfo[];
+  warrantyIds: string[]; // ✅ Danh sách mã phiếu BH liên quan
 }
 
 /**
@@ -55,18 +67,31 @@ export function calculateDaysRemaining(expiryDate: string): number {
 
 /**
  * Lấy lịch sử mua hàng của sản phẩm từ khách hàng
+ * ✅ Cache kết quả để tránh tính toán trùng lặp
  */
+const purchaseHistoryCache = new Map<string, ProductWarrantyInfo[]>();
+const CACHE_TTL = 5000; // 5 seconds
+
 export function getProductPurchaseHistory(
   customerName: string,
   productName: string,
   allOrders: Order[],
   defaultWarrantyMonths: number = 12
 ): ProductWarrantyInfo[] {
+  // Create cache key
+  const cacheKey = `${customerName}|${productName}|${defaultWarrantyMonths}`;
+
+  // Check cache first
+  const cached = purchaseHistoryCache.get(cacheKey);
+  if (cached && cached._cachedAt && Date.now() - cached._cachedAt < CACHE_TTL) {
+    return cached;
+  }
+
   // Lọc đơn hàng của khách (đã hoàn thành)
   const customerOrders = allOrders.filter(
-    order => 
-      order.customerName === customerName && 
-      order.status === 'Hoàn thành' // Chỉ tính đơn đã hoàn thành
+    order =>
+      order.customerName === customerName &&
+      order.status === 'Hoàn thành'
   );
 
   const history: ProductWarrantyInfo[] = [];
@@ -74,7 +99,7 @@ export function getProductPurchaseHistory(
   // Duyệt qua từng đơn hàng
   for (const order of customerOrders) {
     // Tìm sản phẩm trong đơn hàng
-    const matchingItems = order.lineItems.filter(item => 
+    const matchingItems = order.lineItems.filter(item =>
       item.productName.toLowerCase().includes(productName.toLowerCase()) ||
       productName.toLowerCase().includes(item.productName.toLowerCase())
     );
@@ -82,13 +107,14 @@ export function getProductPurchaseHistory(
     for (const item of matchingItems) {
       // Lấy thời gian bảo hành (từ sản phẩm hoặc mặc định 12 tháng)
       const warrantyMonths = (item as { warrantyPeriodMonths?: number }).warrantyPeriodMonths || defaultWarrantyMonths;
-      
+
       // Tính ngày hết hạn
       const expiryDate = calculateWarrantyExpiry(order.orderDate, warrantyMonths);
       const daysRemaining = calculateDaysRemaining(expiryDate);
-      
+
       history.push({
         orderId: order.id,
+        orderSystemId: order.systemId, // ✅ Thêm systemId để tạo link
         orderDate: order.orderDate,
         productName: item.productName,
         quantity: item.quantity,
@@ -102,21 +128,36 @@ export function getProductPurchaseHistory(
   }
 
   // Sắp xếp theo ngày mua (FIFO - cũ nhất trước)
-  return history.sort((a, b) => 
+  const sortedHistory = history.sort((a, b) =>
     new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()
   );
+
+  // Cache kết quả
+  const cachedResult = sortedHistory as (ProductWarrantyInfo & { _cachedAt: number })[];
+  cachedResult._cachedAt = Date.now();
+  purchaseHistoryCache.set(cacheKey, cachedResult);
+
+  return sortedHistory;
 }
 
 /**
  * Kiểm tra bảo hành sản phẩm theo FIFO
+ * ✅ Export function để clear cache khi cần
+ * @param claimedQuantity Số lượng đã được bảo hành trước đó (từ warranty tickets đã hoàn tất)
+ * @param warrantyIds Danh sách mã phiếu BH liên quan
  */
 export function checkWarrantyStatus(
   customerName: string,
   productName: string,
   requestedQuantity: number,
   allOrders: Order[],
-  defaultWarrantyMonths: number = 12
+  defaultWarrantyMonths: number = 12,
+  claimedQuantity: number = 0, // Số lượng đã bảo hành trước đó
+  warrantyIds: string[] = [] // ✅ Danh sách mã phiếu BH
 ): WarrantyCheckResult {
+  // Clear cache when orders change to ensure fresh data
+  purchaseHistoryCache.clear();
+
   // Lấy lịch sử mua hàng
   const history = getProductPurchaseHistory(
     customerName,
@@ -126,15 +167,17 @@ export function checkWarrantyStatus(
   );
 
   const warnings: string[] = [];
-  
+
   // Check 1: Khách chưa từng mua sản phẩm này
   if (history.length === 0) {
+    // ✅ KHÔNG hiện claimed quantity nếu chưa từng mua - có thể là sản phẩm khác trùng tên
     warnings.push(`❌ Khách hàng chưa từng mua "${productName}"`);
     return {
       isValid: false,
       totalPurchased: 0,
       totalStillUnderWarranty: 0,
       totalExpired: 0,
+      totalClaimed: 0, // ✅ Không hiện claimed nếu chưa mua
       availableQuantity: 0,
       warnings,
       productHistory: [],
@@ -143,6 +186,7 @@ export function checkWarrantyStatus(
 
   // Tính tổng số lượng
   const totalPurchased = history.reduce((sum, h) => sum + h.quantity, 0);
+  const firstPurchaseDate = history.length > 0 ? formatDisplayDate(history[0].orderDate) : '';
   const totalStillUnderWarranty = history
     .filter(h => !h.isExpired)
     .reduce((sum, h) => sum + h.quantity, 0);
@@ -150,34 +194,59 @@ export function checkWarrantyStatus(
     .filter(h => h.isExpired)
     .reduce((sum, h) => sum + h.quantity, 0);
 
-  // Check 2: Số lượng gửi > Số lượng đã mua
+  // Tính số lượng khả dụng = tổng mua - đã bảo hành
+  const totalClaimed = claimedQuantity;
+  const availableQuantity = Math.max(0, totalPurchased - claimedQuantity);
+
+  // Warning nếu đã từng bảo hành
+  if (claimedQuantity > 0) {
+    // ✅ Hiện mã phiếu BH nếu có
+    const ticketInfo = warrantyIds.length > 0
+      ? ` (Phiếu: ${warrantyIds.join(', ')})`
+      : '';
+    warnings.push(`📋 Đã bảo hành ${claimedQuantity} cái trước đó${ticketInfo}. Còn lại: ${availableQuantity} cái có thể bảo hành.`);
+  }
+
+  // Check: Số lượng gửi > Số lượng khả dụng (sau khi trừ đã bảo hành)
+  if (requestedQuantity > availableQuantity) {
+    if (availableQuantity <= 0) {
+      warnings.push(`❌ Khách gửi ${requestedQuantity} cái nhưng tất cả ${totalPurchased} cái đã được bảo hành (không còn để bảo hành)`);
+    } else {
+      warnings.push(
+        `⚠️ Khách gửi ${requestedQuantity} cái nhưng chỉ còn ${availableQuantity} cái có thể bảo hành (đã BH ${claimedQuantity} cái trước đó)`
+      );
+    }
+  }
+
+  // Check: Số lượng gửi > Số lượng đã mua
   if (requestedQuantity > totalPurchased) {
     warnings.push(
-      `⚠️ Khách gửi ${requestedQuantity} cái nhưng chỉ mua ${totalPurchased} cái`
+      `❌ Khách gửi ${requestedQuantity} cái nhưng chỉ mua ${totalPurchased} cái (từ ngày ${firstPurchaseDate})`
     );
   }
 
   // Check 3: Phân bổ theo FIFO và kiểm tra hết hạn
-  let remainingToCheck = requestedQuantity;
-  let availableCount = 0;
+  let remainingToCheck = Math.min(requestedQuantity, availableQuantity);
+  let stillAvailable = 0;
 
   for (const purchase of history) {
     if (remainingToCheck <= 0) break;
 
     const qtyToCheck = Math.min(remainingToCheck, purchase.quantity);
-    
+    const purchaseDateDisplay = formatDisplayDate(purchase.orderDate);
+
     if (!purchase.isExpired) {
-      availableCount += qtyToCheck;
-      
+      stillAvailable += qtyToCheck;
+
       // Cảnh báo sắp hết hạn (< 30 ngày)
       if (purchase.daysRemaining <= 30 && purchase.daysRemaining > 0) {
         warnings.push(
-          `⏰ ${qtyToCheck} cái từ đơn #${purchase.orderId} sắp hết hạn (còn ${purchase.daysRemaining} ngày)`
+          `⏰ ${qtyToCheck} cái từ đơn #${purchase.orderId} (mua ngày ${purchaseDateDisplay}) sắp hết hạn (còn ${purchase.daysRemaining} ngày)`
         );
       }
     } else {
       warnings.push(
-        `❌ ${qtyToCheck} cái từ đơn #${purchase.orderId} đã hết hạn bảo hành (${-purchase.daysRemaining} ngày)`
+        `❌ ${qtyToCheck} cái từ đơn #${purchase.orderId} (mua ngày ${purchaseDateDisplay}) đã hết hạn bảo hành (${-purchase.daysRemaining} ngày)`
       );
     }
 
@@ -185,26 +254,35 @@ export function checkWarrantyStatus(
   }
 
   // Check 4: Tất cả đều hết hạn
-  if (availableCount === 0 && requestedQuantity > 0) {
+  if (stillAvailable === 0 && requestedQuantity > 0 && totalStillUnderWarranty === 0) {
     warnings.push(`🚫 TẤT CẢ ${requestedQuantity} sản phẩm đều ĐÃ HẾT HẠN bảo hành`);
   }
 
   // Check 5: Một số hết hạn, một số còn
-  if (availableCount > 0 && availableCount < requestedQuantity) {
+  if (stillAvailable > 0 && stillAvailable < requestedQuantity) {
     warnings.push(
-      `⚠️ Chỉ ${availableCount}/${requestedQuantity} cái còn bảo hành. ${requestedQuantity - availableCount} cái đã hết hạn.`
+      `⚠️ Chỉ ${stillAvailable}/${requestedQuantity} cái còn bảo hành. ${requestedQuantity - stillAvailable} cái đã hết hạn.`
     );
   }
 
   return {
-    isValid: availableCount > 0,
+    isValid: stillAvailable > 0,
     totalPurchased,
     totalStillUnderWarranty,
     totalExpired,
-    availableQuantity: availableCount,
+    totalClaimed,
+    availableQuantity: stillAvailable,
     warnings,
     productHistory: history,
+    warrantyIds,
   };
+}
+
+/**
+ * Clear purchase history cache - call when orders change
+ */
+export function clearPurchaseHistoryCache() {
+  purchaseHistoryCache.clear();
 }
 
 /**

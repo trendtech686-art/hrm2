@@ -474,7 +474,7 @@ export function WarrantyFormPage() {
   return (
     <FormProvider {...form}>
       <form id="warranty-form" onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
-        <div className="grow overflow-y-auto [scrollbar-width:thin] md:pr-4">
+        <div className="grow overflow-y-auto [scrollbar-width:thin] md:pr-4 pt-2 md:pt-0">
           <div className="space-y-4">
             {/* Read-only warning */}
             {isReadOnly && (
