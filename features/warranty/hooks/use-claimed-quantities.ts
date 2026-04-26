@@ -84,7 +84,7 @@ export function useClaimedQuantities(
       }
     });
 
-    console.log('[useClaimedQuantities] final claimedQuantities:', quantities);
+    console.log('[useClaimedQuantities] final claimedQuantities:', JSON.stringify(quantities));
     return quantities;
   }, [warranties]);
 
