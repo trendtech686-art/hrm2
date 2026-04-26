@@ -198,26 +198,15 @@ export function checkWarrantyStatus(
   const totalClaimed = claimedQuantity;
   const availableQuantity = Math.max(0, totalPurchased - claimedQuantity);
 
-  // Warning nếu đã từng bảo hành (KHÔNG hiện mã phiếu ở đây - sẽ hiện ở component)
+  // Warning nếu đã từng bảo hành
   if (claimedQuantity > 0) {
-    warnings.push(`📋 Đã bảo hành ${claimedQuantity} cái trước đó. Còn lại: ${availableQuantity} cái có thể bảo hành.`);
-  }
-
-  // Check: Số lượng gửi > Số lượng khả dụng (sau khi trừ đã bảo hành)
-  if (requestedQuantity > availableQuantity) {
-    if (availableQuantity <= 0) {
-      warnings.push(`❌ Khách gửi ${requestedQuantity} cái nhưng tất cả ${totalPurchased} cái đã được bảo hành (không còn để bảo hành)`);
-    } else {
-      warnings.push(
-        `⚠️ Khách gửi ${requestedQuantity} cái nhưng chỉ còn ${availableQuantity} cái có thể bảo hành (đã BH ${claimedQuantity} cái trước đó)`
-      );
-    }
+    warnings.push(`📋 Đã bảo hành: ${claimedQuantity} cái → Còn ${availableQuantity} cái khả dụng`);
   }
 
   // Check: Số lượng gửi > Số lượng đã mua
   if (requestedQuantity > totalPurchased) {
     warnings.push(
-      `❌ Khách gửi ${requestedQuantity} cái nhưng chỉ mua ${totalPurchased} cái (từ ngày ${firstPurchaseDate})`
+      `❌ Vượt quá: Khách gửi ${requestedQuantity} cái nhưng chỉ mua ${totalPurchased} cái (từ ${firstPurchaseDate})`
     );
   }
 
@@ -237,12 +226,12 @@ export function checkWarrantyStatus(
       // Cảnh báo sắp hết hạn (< 30 ngày)
       if (purchase.daysRemaining <= 30 && purchase.daysRemaining > 0) {
         warnings.push(
-          `⏰ ${qtyToCheck} cái từ đơn #${purchase.orderId} (mua ngày ${purchaseDateDisplay}) sắp hết hạn (còn ${purchase.daysRemaining} ngày)`
+          `⏰ #${purchase.orderId} sắp hết BH (còn ${purchase.daysRemaining} ngày)`
         );
       }
     } else {
       warnings.push(
-        `❌ ${qtyToCheck} cái từ đơn #${purchase.orderId} (mua ngày ${purchaseDateDisplay}) đã hết hạn bảo hành (${-purchase.daysRemaining} ngày)`
+        `❌ #${purchase.orderId} đã hết hạn BH (quá ${-purchase.daysRemaining} ngày)`
       );
     }
 
@@ -251,13 +240,13 @@ export function checkWarrantyStatus(
 
   // Check 4: Tất cả đều hết hạn
   if (stillAvailable === 0 && requestedQuantity > 0 && totalStillUnderWarranty === 0) {
-    warnings.push(`🚫 TẤT CẢ ${requestedQuantity} sản phẩm đều ĐÃ HẾT HẠN bảo hành`);
+    warnings.push(`🚫 Tất cả sản phẩm đều ĐÃ HẾT HẠN bảo hành`);
   }
 
   // Check 5: Một số hết hạn, một số còn
   if (stillAvailable > 0 && stillAvailable < requestedQuantity) {
     warnings.push(
-      `⚠️ Chỉ ${stillAvailable}/${requestedQuantity} cái còn bảo hành. ${requestedQuantity - stillAvailable} cái đã hết hạn.`
+      `⚠️ Chỉ ${stillAvailable}/${requestedQuantity} cái còn hạn BH`
     );
   }
 

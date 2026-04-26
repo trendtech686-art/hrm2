@@ -205,116 +205,111 @@ function PublicProductsTable({ products, onImageClick }: {
 
   return (
     <>
-      {/* Mobile: Card layout */}
-      <div className="md:hidden space-y-3 -mx-4 px-4">
+      {/* Mobile: Card layout - edge-to-edge like OrderCard */}
+      <div className="md:hidden -mx-4 px-4 space-y-3">
         {products.map((product, index) => {
           const warrantyImages = (product.productImages || []).filter(Boolean);
           return (
-            <Card key={product.systemId} className="overflow-hidden">
-              <CardContent className="p-3 sm:p-4">
-                <div className="space-y-3">
-                  {/* Header: Image + Name + Badge */}
-                  <div className="flex gap-3">
-                    {product.catalogImage ? (
-                      <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-muted">
-                        <OptimizedImage src={product.catalogImage} alt={product.productName} width={56} height={56} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="shrink-0 w-14 h-14 rounded-md bg-muted flex items-center justify-center">
-                        <Package className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm leading-snug">{product.productName}</p>
-                      {product.sku && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{product.sku}</p>
-                      )}
-                    </div>
-                    <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5 h-fit")}>
-                      {RESOLUTION_LABELS[product.resolution] || product.resolution}
-                    </Badge>
+            <div key={product.systemId} className="bg-card rounded-xl border border-border/50 p-4 space-y-3">
+              {/* Header: Image + Name + Badge */}
+              <div className="flex gap-3 items-start">
+                {product.catalogImage ? (
+                  <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-muted">
+                    <OptimizedImage src={product.catalogImage} alt={product.productName} width={56} height={56} className="w-full h-full object-cover" />
                   </div>
-
-                  <Separator />
-
-                  {/* Quantity & Price */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
-                      <p className="font-semibold text-sm">{product.quantity || 1}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Đơn giá</p>
-                      <p className="font-semibold text-sm">
-                        {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
-                      </p>
-                    </div>
+                ) : (
+                  <div className="shrink-0 w-14 h-14 rounded-md bg-muted flex items-center justify-center">
+                    <Package className="h-6 w-6 text-muted-foreground" />
                   </div>
-
-                  {/* Warranty images */}
-                  {warrantyImages.length > 0 && (
-                    <>
-                      <Separator />
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1.5">Hình ảnh bảo hành</p>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {warrantyImages.slice(0, 3).map((url, imgIdx) => (
-                            <button
-                              key={imgIdx}
-                              onClick={() => onImageClick(warrantyImages, imgIdx)}
-                              className="relative w-14 h-14 shrink-0 rounded border border-border overflow-hidden hover:ring-2 ring-primary transition-all"
-                            >
-                              <OptimizedImage src={url} alt={`SP ${index + 1}`} width={56} height={56} className="w-full h-full object-cover" />
-                            </button>
-                          ))}
-                          {warrantyImages.length > 3 && (
-                            <div className="w-14 h-14 rounded border border-border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                              +{warrantyImages.length - 3}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Notes */}
-                  {(product.issueDescription || product.notes) && (
-                    <>
-                      <Separator />
-                      <div className="space-y-1">
-                        {product.issueDescription && (
-                          <p className="text-xs text-warning font-medium">
-                            <span className="text-muted-foreground">Vấn đề: </span>{product.issueDescription}
-                          </p>
-                        )}
-                        {product.notes && (
-                          <p className="text-xs text-muted-foreground">{product.notes}</p>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {/* Total */}
-                  <Separator />
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Thành tiền:</span>
-                    <span className="font-bold text-sm">
-                      {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
-                    </span>
-                  </div>
-
-                  {/* Compensation */}
-                  {product.resolution === 'out_of_stock' && (
-                    <div className="flex justify-between items-center bg-destructive/10 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
-                      <span className="text-xs font-medium text-destructive">Bù trừ:</span>
-                      <span className="font-bold text-sm text-destructive">
-                        {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
-                      </span>
-                    </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm leading-snug">{product.productName}</p>
+                  {product.sku && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{product.sku}</p>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+                <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5 h-fit shrink-0")}>
+                  {RESOLUTION_LABELS[product.resolution] || product.resolution}
+                </Badge>
+              </div>
+
+              <div className="border-t border-border/50" />
+
+              {/* Quantity & Price */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
+                  <p className="font-semibold text-sm">{product.quantity || 1}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Đơn giá</p>
+                  <p className="font-semibold text-sm">
+                    {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
+                  </p>
+                </div>
+              </div>
+
+              {/* Warranty images */}
+              {warrantyImages.length > 0 && (
+                <>
+                  <div className="border-t border-border/50" />
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Hình ảnh bảo hành</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {warrantyImages.slice(0, 3).map((url, imgIdx) => (
+                        <button
+                          key={imgIdx}
+                          onClick={() => onImageClick(warrantyImages, imgIdx)}
+                          className="relative w-14 h-14 shrink-0 rounded border border-border overflow-hidden hover:ring-2 ring-primary transition-all"
+                        >
+                          <OptimizedImage src={url} alt={`SP ${index + 1}`} width={56} height={56} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                      {warrantyImages.length > 3 && (
+                        <div className="w-14 h-14 rounded border border-border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                          +{warrantyImages.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Notes */}
+              {(product.issueDescription || product.notes) && (
+                <>
+                  <div className="border-t border-border/50" />
+                  <div className="space-y-1">
+                    {product.issueDescription && (
+                      <p className="text-xs text-warning font-medium">
+                        <span className="text-muted-foreground">Vấn đề: </span>{product.issueDescription}
+                      </p>
+                    )}
+                    {product.notes && (
+                      <p className="text-xs text-muted-foreground">{product.notes}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Total */}
+              <div className="border-t border-border/50 pt-3 flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Thành tiền:</span>
+                <span className="font-bold text-sm">
+                  {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
+                </span>
+              </div>
+
+              {/* Compensation */}
+              {product.resolution === 'out_of_stock' && (
+                <div className="-mx-4 -mb-4 mt-3 px-4 py-2 bg-destructive/10 flex justify-between items-center rounded-b-xl">
+                  <span className="text-xs font-medium text-destructive">Bù trừ:</span>
+                  <span className="font-bold text-sm text-destructive">
+                    {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
+                  </span>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
