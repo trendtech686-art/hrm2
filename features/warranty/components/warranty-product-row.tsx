@@ -53,6 +53,7 @@ interface WarrantyProductRowProps {
   warrantyCheckResult?: WarrantyCheckResult;
   /** ✅ Callback khi click vào mã phiếu BH để mở chi tiết */
   onViewWarranty?: (warrantyId: string) => void;
+}
 
 // ✅ Tách riêng ResolutionSelect để tránh vấn đề Controller re-render
 interface ResolutionSelectProps {
