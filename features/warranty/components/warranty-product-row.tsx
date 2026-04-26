@@ -51,7 +51,8 @@ interface WarrantyProductRowProps {
   onSessionChange: (sessionId: string) => void;
   onRemove: () => void;
   warrantyCheckResult?: WarrantyCheckResult;
-}
+  /** ✅ Callback khi click vào mã phiếu BH để mở chi tiết */
+  onViewWarranty?: (warrantyId: string) => void;
 
 // ✅ Tách riêng ResolutionSelect để tránh vấn đề Controller re-render
 interface ResolutionSelectProps {
@@ -114,6 +115,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
   onSessionChange,
   onRemove,
   warrantyCheckResult,
+  onViewWarranty,
 }: WarrantyProductRowProps) {
   // Image preview state
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
@@ -314,11 +316,32 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
         <TableRow className="bg-slate-50/50 hover:bg-slate-50 border-slate-200">
           <TableCell colSpan={9} className="py-2 px-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-              {/* Summary info */}
+              {/* Summary info - clickable warranty IDs */}
               {warrantyCheckResult.totalClaimed > 0 && (
                 <>
                   <span className="flex items-center gap-1 text-blue-600">
                     <span>📋 Đã BH: {warrantyCheckResult.totalClaimed}</span>
+                    {warrantyCheckResult.warrantyIds.length > 0 && (
+                      <>
+                        {' ('}
+                        {warrantyCheckResult.warrantyIds.map((wId, idx) => (
+                          <button
+                            key={wId}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onViewWarranty?.(wId);
+                            }}
+                            className="hover:underline hover:text-blue-800 font-medium"
+                            title="Xem chi tiết phiếu BH"
+                          >
+                            {wId}
+                            {idx < warrantyCheckResult.warrantyIds.length - 1 ? ', ' : ''}
+                          </button>
+                        ))}
+                        {')'}
+                      </>
+                    )}
                   </span>
                   <span className="text-muted-foreground">•</span>
                 </>

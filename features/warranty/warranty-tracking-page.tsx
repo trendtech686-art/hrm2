@@ -206,7 +206,7 @@ function PublicProductsTable({ products, onImageClick }: {
   return (
     <>
       {/* Mobile: Card layout */}
-      <div className="block lg:hidden space-y-3">
+      <div className="md:hidden space-y-3 -mx-4 px-4">
         {products.map((product, index) => {
           const warrantyImages = (product.productImages || []).filter(Boolean);
           return (
@@ -320,7 +320,7 @@ function PublicProductsTable({ products, onImageClick }: {
       </div>
 
       {/* Desktop: Table layout */}
-      <div className="hidden lg:block overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
@@ -958,7 +958,8 @@ export function WarrantyTrackingPage() {
                 Thông tin phiếu bảo hành
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 px-4! pb-4! md:px-6! md:pb-6!">
+            <div className="p-4 md:p-6">
+              <CardContent className="space-y-4 p-0!">
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Row 1: Mã phiếu | Chi nhánh | Nhân viên */}
                 <div>
@@ -1081,6 +1082,7 @@ export function WarrantyTrackingPage() {
                 </>
               )}
             </CardContent>
+            </div>
           </Card>
 
           {/* Card: Danh sách sản phẩm bảo hành */}
