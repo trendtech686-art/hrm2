@@ -198,13 +198,9 @@ export function checkWarrantyStatus(
   const totalClaimed = claimedQuantity;
   const availableQuantity = Math.max(0, totalPurchased - claimedQuantity);
 
-  // Warning nếu đã từng bảo hành
+  // Warning nếu đã từng bảo hành (KHÔNG hiện mã phiếu ở đây - sẽ hiện ở component)
   if (claimedQuantity > 0) {
-    // ✅ Hiện mã phiếu BH nếu có
-    const ticketInfo = warrantyIds.length > 0
-      ? ` (Phiếu: ${warrantyIds.join(', ')})`
-      : '';
-    warnings.push(`📋 Đã bảo hành ${claimedQuantity} cái trước đó${ticketInfo}. Còn lại: ${availableQuantity} cái có thể bảo hành.`);
+    warnings.push(`📋 Đã bảo hành ${claimedQuantity} cái trước đó. Còn lại: ${availableQuantity} cái có thể bảo hành.`);
   }
 
   // Check: Số lượng gửi > Số lượng khả dụng (sau khi trừ đã bảo hành)

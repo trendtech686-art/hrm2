@@ -146,8 +146,13 @@ export function useClaimedQuantities(
   const claimedProductTickets = React.useMemo(() => {
     const tickets: Record<string, string[]> = {};
     claimedProducts.forEach(p => {
-      tickets[p.productName.toLowerCase().trim()] = p.warrantyIds;
+      const key = p.productName.toLowerCase().trim();
+      tickets[key] = p.warrantyIds;
     });
+    // Debug log
+    if (Object.keys(tickets).length > 0) {
+      console.log('[useClaimedQuantities] claimedProductTickets:', JSON.stringify(tickets));
+    }
     return tickets;
   }, [claimedProducts]);
 

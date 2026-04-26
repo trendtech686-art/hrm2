@@ -145,6 +145,12 @@ export function checkMultipleProductsWarranty(
     // ✅ Lookup với key đã được lowercase để match với claimedQuantities
     const claimedQty = claimedQuantities[product.name.toLowerCase().trim()] || 0;
     const tickets = claimedProductTickets[product.name.toLowerCase().trim()] || [];
+    
+    // Debug: log tickets lookup
+    if (claimedQty > 0 && tickets.length === 0) {
+      console.log('[DEBUG checkMultipleProductsWarranty] found qty but NO tickets for:', product.name, '| claimedQty:', claimedQty, '| lookup key:', product.name.toLowerCase().trim(), '| available keys:', Object.keys(claimedProductTickets));
+    }
+    
     const checkResult = checkProductWarranty(customerName, product, 1, allOrders, claimedQty, tickets);
     results[product.name] = checkResult;
 
