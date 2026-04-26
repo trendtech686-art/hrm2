@@ -32,8 +32,9 @@ export interface WarrantyProductField {
   resolution: 'return' | 'replace' | 'out_of_stock';
   deductionAmount: number;
   productImages: string[];
-  thumbnailImage?: string; // ✅ Ảnh đại diện sản phẩm
-  productSystemId?: string; // ✅ SystemId của sản phẩm gốc để load ảnh
+  thumbnailImage?: string; // Ảnh đại diện sản phẩm
+  productSystemId?: string; // SystemId của sản phẩm gốc để load ảnh
+  claimedQuantity?: number; // Số lượng đã bảo hành trước đó
 }
 
 export interface ProductForSelection {
@@ -103,42 +104,49 @@ export function initializePermanentFiles(
 
 /**
  * Kiểm tra bảo hành cho một sản phẩm
+ * @param claimedQuantity Số lượng đã bảo hành trước đó
  */
 export function checkProductWarranty(
   customerName: string,
   product: ProductForSelection,
   quantity: number,
-  allOrders: Order[]
+  allOrders: Order[],
+  claimedQuantity: number = 0
 ): WarrantyCheckResult {
   return checkWarrantyStatus(
     customerName,
     product.name,
     quantity,
     allOrders,
-    product.warrantyPeriodMonths || 12
+    product.warrantyPeriodMonths || 12,
+    claimedQuantity
   );
 }
 
 /**
  * Kiểm tra bảo hành cho nhiều sản phẩm
+ * @param claimedQuantities Map của productName -> số lượng đã bảo hành trước đó
  */
 export function checkMultipleProductsWarranty(
   customerName: string,
   products: ProductForSelection[],
-  allOrders: Order[]
+  allOrders: Order[],
+  claimedQuantities: Record<string, number> = {}
 ): { results: Record<string, WarrantyCheckResult>; warnings: string[] } {
   const results: Record<string, WarrantyCheckResult> = {};
   const warnings: string[] = [];
-  
+
   products.forEach(product => {
-    const checkResult = checkProductWarranty(customerName, product, 1, allOrders);
+    const claimedQty = claimedQuantities[product.name] || 0;
+    console.log('[checkMultipleProductsWarranty] product.name:', product.name, '-> claimedQty:', claimedQty);
+    const checkResult = checkProductWarranty(customerName, product, 1, allOrders, claimedQty);
     results[product.name] = checkResult;
-    
+
     if (checkResult.warnings.length > 0) {
       warnings.push(`${product.name}: ${checkResult.warnings[0]}`);
     }
   });
-  
+
   return { results, warnings };
 }
 
