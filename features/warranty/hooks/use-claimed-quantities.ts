@@ -52,6 +52,10 @@ export function useClaimedQuantities(
 
   const warranties = React.useMemo(() => extractWarrantiesArray(data), [data]);
 
+  // Debug log
+  console.log('[useClaimedQuantities] warranties count:', warranties.length);
+  console.log('[useClaimedQuantities] sample warranty:', warranties[0]?.products);
+
   const claimedQuantities = React.useMemo(() => {
     const quantities: Record<string, number> = {};
 
@@ -69,6 +73,9 @@ export function useClaimedQuantities(
           // KHÔNG đếm 'out_of_stock' vì đó không phải BH thực sự
           const isWarrantyClaim = product.resolution === 'return' || product.resolution === 'replace';
 
+          // Debug
+          console.log('[useClaimedQuantities] product:', product.productName, 'resolution:', product.resolution, 'isWarrantyClaim:', isWarrantyClaim, 'qty:', product.quantity);
+
           if (product.productName && product.quantity && isWarrantyClaim) {
             const name = product.productName.toLowerCase().trim();
             quantities[name] = (quantities[name] || 0) + product.quantity;
@@ -77,6 +84,7 @@ export function useClaimedQuantities(
       }
     });
 
+    console.log('[useClaimedQuantities] final claimedQuantities:', quantities);
     return quantities;
   }, [warranties]);
 

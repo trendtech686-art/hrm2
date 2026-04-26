@@ -111,7 +111,13 @@ export function WarrantyProductsSection({
   const { data: customerOrders } = useCustomerOrders(customerSystemId);
 
   // ✅ Lấy số lượng đã bảo hành trước đó của khách hàng
-  const { claimedQuantities } = useClaimedQuantities(customerSystemId, customerName);
+  const { claimedQuantities, isLoading: isLoadingClaimed } = useClaimedQuantities(customerSystemId, customerName);
+
+  // Debug log
+  if (customerSystemId && customerName) {
+    console.log('[DEBUG] claimedQuantities:', claimedQuantities);
+    console.log('[DEBUG] isLoadingClaimed:', isLoadingClaimed);
+  }
   
   // Pricing policies
   const { data: pricingPolicies = [] } = useAllPricingPolicies();
@@ -252,7 +258,7 @@ export function WarrantyProductsSection({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         {/* Product search + controls row */}
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
           <div className="flex-1 min-w-0">
@@ -306,6 +312,8 @@ export function WarrantyProductsSection({
                 toast.warning('Vui lòng thêm ít nhất 1 sản phẩm để kiểm tra bảo hành');
                 return;
               }
+              console.log('[DEBUG] checkAllProductsWarranty - claimedQuantities:', claimedQuantities);
+              console.log('[DEBUG] checkAllProductsWarranty - products:', products.map(p => ({ name: p.productName, qty: p.quantity })));
               checkAllProductsWarranty(products, customerName, customerOrders || [], claimedQuantities);
             }}
             disabled={disabled}
