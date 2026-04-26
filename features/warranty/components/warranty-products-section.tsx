@@ -51,6 +51,13 @@ interface WarrantyProductsSectionProps {
     productSessionIds: Record<string, string>;
     productFilesToDelete: Record<string, string[]>;
   }) | null>;
+  // ✅ Ref để lấy warranty check results khi submit
+  getWarrantyCheckResultsRef?: React.MutableRefObject<Record<string, {
+    warnings: string[];
+    isValid: boolean;
+    totalClaimed: number;
+    availableQuantity: number;
+  }> | null>;
 }
 
 // Empty arrays for default values - memoized to avoid unnecessary re-renders
@@ -61,6 +68,7 @@ const EMPTY_STRINGS_ARRAY: string[] = [];
 export function WarrantyProductsSection({ 
   disabled = false, 
   getImagesStateRef,
+  getWarrantyCheckResultsRef,
 }: WarrantyProductsSectionProps) {
   const { control, watch, setValue, getValues } = useFormContext();
   const { fields, append, remove } = useFieldArray({
@@ -219,6 +227,18 @@ export function WarrantyProductsSection({
       }
     };
   }, [getImagesStateRef]); // Only depend on ref itself, function reads from refs
+
+  // ===== EXPOSE warrantyCheckResults VIA REF FOR PARENT TO CALL AT SUBMIT =====
+  React.useEffect(() => {
+    if (getWarrantyCheckResultsRef) {
+      getWarrantyCheckResultsRef.current = warrantyCheckResults;
+    }
+    return () => {
+      if (getWarrantyCheckResultsRef) {
+        getWarrantyCheckResultsRef.current = null;
+      }
+    };
+  }, [getWarrantyCheckResultsRef, warrantyCheckResults]);
 
   return (
     <Card className={cn(mobileBleedCardClass, 'flex flex-col')}>

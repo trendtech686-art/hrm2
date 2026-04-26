@@ -207,6 +207,14 @@ export function WarrantyFormPage() {
     filesToDelete: string[];
   }) | null>(null);
 
+  // ✅ Ref để lấy warranty check results khi submit
+  const getWarrantyCheckResultsRef = React.useRef<Record<string, {
+    warnings: string[];
+    isValid: boolean;
+    totalClaimed: number;
+    availableQuantity: number;
+  }> | null>(null);
+
   // ✅ Sync refs với state mới nhất
   React.useEffect(() => {
     getReceivedImagesStateRef.current = () => ({
@@ -411,6 +419,7 @@ export function WarrantyFormPage() {
     getProductImagesStateRef,
     getReceivedImagesStateRef,
     getProcessedImagesStateRef,
+    warrantyCheckResults: getWarrantyCheckResultsRef.current,
   });
 
   // ✅ Handler để submit form từ page header button
@@ -548,6 +557,7 @@ export function WarrantyFormPage() {
             <WarrantyProductsSection 
               disabled={isReadOnly} 
               getImagesStateRef={getProductImagesStateRef}
+              getWarrantyCheckResultsRef={getWarrantyCheckResultsRef}
             />
 
             {/* Hàng 4: Ghi chú (30%) + Thanh toán (70%) */}

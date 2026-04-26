@@ -65,6 +65,8 @@ export interface UseWarrantyFormSubmitOptions {
   // Legacy prop - kept for backward compatibility but not used
   productImagesState?: ProductImagesState;
   setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
+  // ✅ Warranty check results for validation
+  warrantyCheckResults?: Record<string, { warnings: string[]; isValid: boolean }>;
 }
 
 /**
@@ -92,6 +94,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     getProcessedImagesStateRef,
     setIsSubmitting,
     selectedEmployeeRef,
+    warrantyCheckResults,
   } = options;
   
   const router = useRouter();
@@ -150,6 +153,33 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       if (!validateWarrantyFormData(data, isEditing, allTickets)) {
         setIsSubmitting(false);
         return;
+      }
+
+      // ✅ Validate warranty check results - block if has critical warnings
+      if (warrantyCheckResults && Object.keys(warrantyCheckResults).length > 0) {
+        const products = data.products || [];
+        
+        for (const product of products) {
+          const result = warrantyCheckResults[product.productName];
+          if (result) {
+            // Check for critical warnings (❌)
+            const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
+            
+            if (hasCriticalWarning) {
+              // Check if user has explicitly acknowledged - if not, block submission
+              const hasAcknowledged = product.issueDescription?.includes('❌ Khách hàng chưa từng mua');
+              
+              if (!hasAcknowledged) {
+                toast.error('Cảnh báo bảo hành chưa được xử lý', {
+                  description: `Sản phẩm "${product.productName}" có cảnh báo nghiêm trọng. Vui lòng kiểm tra lại hoặc cập nhật ghi chú xác nhận.`,
+                  duration: 6000
+                });
+                setIsSubmitting(false);
+                return;
+              }
+            }
+          }
+        }
       }
 
       // ===== LOOKUP DATA =====
@@ -523,6 +553,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     router,
     user,
     queryClient,
+    warrantyCheckResults,
   ]);
   
   return { onSubmit };
