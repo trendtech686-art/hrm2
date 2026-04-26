@@ -60,8 +60,6 @@ interface WarrantyProductMobileCardProps {
   onSessionChange: (sessionId: string) => void;
   onRemove: () => void;
   warrantyCheckResult?: WarrantyCheckResult;
-  /** ✅ Callback khi click vào mã phiếu BH để mở chi tiết */
-  onViewWarranty?: (warrantyId: string) => void;
 }
 
 const formatCurrency = (value?: number) => {
@@ -345,19 +343,17 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
                     <>
                       {' ('}
                       {warrantyCheckResult.warrantyIds.map((wId, idx) => (
-                        <button
-                          key={wId}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onViewWarranty?.(wId);
-                          }}
-                          className="hover:underline hover:text-blue-800 font-medium"
-                          title="Xem chi tiết phiếu BH"
-                        >
-                          {wId}
+                        <React.Fragment key={wId}>
+                          <Link
+                            href={`/warranty/${wId}`}
+                            target="_blank"
+                            className="hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {wId}
+                          </Link>
                           {idx < warrantyCheckResult.warrantyIds.length - 1 ? ', ' : ''}
-                        </button>
+                        </React.Fragment>
                       ))}
                       {')'}
                     </>

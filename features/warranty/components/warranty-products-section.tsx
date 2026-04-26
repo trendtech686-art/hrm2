@@ -411,7 +411,6 @@ export function WarrantyProductsSection({
                         onSessionChange={(sessionId) => handleSessionChange(productSystemId, sessionId)}
                         onRemove={() => remove(index)}
                         warrantyCheckResult={checkResult}
-                        onViewWarranty={(id) => window.open(`/warranty/${id}`, '_blank')}
                       />
                     );
                   })}
@@ -443,7 +442,6 @@ export function WarrantyProductsSection({
                     onSessionChange={(sessionId) => handleSessionChange(productSystemId, sessionId)}
                     onRemove={() => remove(index)}
                     warrantyCheckResult={checkResult}
-                    onViewWarranty={(id) => window.open(`/warranties/${id}`, '_blank')}
                   />
                 );
               })}
