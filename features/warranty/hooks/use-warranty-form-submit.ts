@@ -160,27 +160,46 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         return;
       }
 
-      // ✅ Validate warranty check results - block if has critical warnings
+      // ✅ Validate warranty check results
       // Luôn lấy giá trị mới nhất từ ref khi submit (tránh stale closure)
       const currentWarrantyCheckResults = warrantyCheckResultsRef?.current;
+      const products = data.products || [];
       
-      if (currentWarrantyCheckResults && Object.keys(currentWarrantyCheckResults).length > 0) {
-        const products = data.products || [];
-        
-        for (const product of products) {
-          const result = currentWarrantyCheckResults[product.productName];
-          if (result) {
-            // Check for critical warnings (❌)
-            const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
-            
-            if (hasCriticalWarning) {
-              toast.error('Không thể tạo phiếu', {
-                description: `Sản phẩm "${product.productName}" có cảnh báo nghiêm trọng (khách chưa từng mua hoặc vượt quá số lượng). Vui lòng kiểm tra lại.`,
-                duration: 6000
-              });
-              setIsSubmitting(false);
-              return;
-            }
+      // Check 1: Nếu có sản phẩm nhưng chưa bấm kiểm tra BH (results empty)
+      if (products.length > 0 && (!currentWarrantyCheckResults || Object.keys(currentWarrantyCheckResults).length === 0)) {
+        toast.error('Chưa kiểm tra bảo hành', {
+          description: 'Vui lòng bấm "Kiểm tra BH" trước khi tạo phiếu.',
+          duration: 5000
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Check 2: Block nếu có sản phẩm chưa được check (không có trong results)
+      for (const product of products) {
+        if (!currentWarrantyCheckResults[product.productName]) {
+          toast.error('Chưa kiểm tra bảo hành', {
+            description: `Sản phẩm "${product.productName}" chưa được kiểm tra. Vui lòng bấm "Kiểm tra BH" trước.`,
+            duration: 5000
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Check 3: Block nếu có cảnh báo nghiêm trọng (❌)
+      for (const product of products) {
+        const result = currentWarrantyCheckResults[product.productName];
+        if (result) {
+          const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
+          
+          if (hasCriticalWarning) {
+            toast.error('Không thể tạo phiếu', {
+              description: `Sản phẩm "${product.productName}" có cảnh báo nghiêm trọng. Vui lòng kiểm tra lại.`,
+              duration: 6000
+            });
+            setIsSubmitting(false);
+            return;
           }
         }
       }
