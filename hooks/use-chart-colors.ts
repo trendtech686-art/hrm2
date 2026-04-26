@@ -70,7 +70,6 @@ function readColorsFromDOM(): ChartColors {
  * Get chart colors - LUÔN đọc fresh từ DOM
  */
 export function getChartColors(): ChartColors {
-  console.log('[DEBUG] getChartColors called')
   return readColorsFromDOM()
 }
 

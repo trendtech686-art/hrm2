@@ -410,17 +410,17 @@ export function OrderFormPage() {
     // Get default branch
     const defaultBranch = React.useMemo(() => branches.find(b => b.isDefault), [branches]);
     
-        const form = useForm<OrderFormValues>({
-      defaultValues: {
-                customer: null, branchSystemId: defaultBranch?.systemId || '', salespersonSystemId: '', orderDate: new Date(), source: '', notes: '', lineItems: [],
+    const form = useForm<OrderFormValues>({
+      defaultValues: async () => ({
+        customer: null, branchSystemId: defaultBranch?.systemId || '', salespersonSystemId: '', orderDate: new Date(), source: '', notes: '', lineItems: [],
         subtotal: 0, shippingFee: 0, tax: 0, grandTotal: 0, payments: [], packerId: '', trackingCode: '',
         shippingPartnerId: undefined, shippingServiceId: undefined, deliveryMethod: 'deliver-later', configuration: {},
-                orderDiscount: 0, orderDiscountType: 'fixed',
-                expectedPaymentMethod: '',
-                payer: 'Người nhận', // ✅ Default: khách hàng trả phí vận chuyển
-                referenceUrl: '', // ✅ Prevent undefined
-                externalReference: '', // ✅ Prevent undefined
-      }
+        orderDiscount: 0, orderDiscountType: 'fixed',
+        expectedPaymentMethod: '',
+        payer: 'Người nhận', // ✅ Default: khách hàng trả phí vận chuyển
+        referenceUrl: '', // ✅ Prevent undefined
+        externalReference: '', // ✅ Prevent undefined
+      })
     });
     const { handleSubmit, getValues, setValue, reset, control } = form;
     const { fields, append, prepend, remove, update: updateField } = useFieldArray({ control, name: "lineItems" });
@@ -600,7 +600,7 @@ export function OrderFormPage() {
                 // ✅ Lookup product to get correct SKU and thumbnailImage
                 const prod = findProductById(asSystemId(li.productSystemId));
                 return {
-                    id: `li_${li.productSystemId}_${Math.random()}`,
+                    id: generateTempId('li'),
                     systemId: '',
                     productSystemId: li.productSystemId,
                     productId: prod?.id || li.productId,
@@ -692,7 +692,7 @@ export function OrderFormPage() {
                 // ✅ API response includes product object with imageUrl - use it directly
                 const productFromApi = li.product;
                 return {
-                    id: `copy_${li.productSystemId}_${Math.random()}`,
+                    id: generateTempId('copy'),
                     systemId: '',
                     productSystemId: li.productSystemId,
                     // ✅ Use product.id from API (business ID / SKU), fallback to li.productId

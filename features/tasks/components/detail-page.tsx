@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
+import { useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { useTaskById, useTaskMutations } from '../hooks/use-tasks';
@@ -353,6 +354,11 @@ export function TaskDetailPage() {
     };
   }, [task?.priority, task?.startDate, slaSettings]);
 
+  const isOverdue = useMemo(() => {
+    if (!task?.dueDate) return false;
+    return new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
+  }, [task?.dueDate, task?.status]);
+
   const handleDelete = () => {
     if (task) {
       remove(task.systemId);
@@ -389,8 +395,6 @@ export function TaskDetailPage() {
       </div>
     );
   }
-
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
 
   return (
     <DetailPageShell gap="md">

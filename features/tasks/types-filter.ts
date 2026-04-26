@@ -86,7 +86,8 @@ export interface QuickFilterContext {
 }
 
 // Factory function to create quick filters with user context
-export function createQuickFilters(context: QuickFilterContext = {}): QuickFilter[] {
+// Accepts optional `now` parameter to avoid hydration mismatch (pass server time or use stable client time)
+export function createQuickFilters(context: QuickFilterContext = {}, now: Date = new Date()): QuickFilter[] {
   return [
     {
       id: 'my-tasks',
@@ -106,7 +107,7 @@ export function createQuickFilters(context: QuickFilterContext = {}): QuickFilte
         if (!task.dueDate || task.status === 'Hoàn thành' || task.status === 'Đã hủy') {
           return false;
         }
-        return new Date(task.dueDate) < new Date();
+        return new Date(task.dueDate) < now;
       },
     },
     {
@@ -130,12 +131,11 @@ export function createQuickFilters(context: QuickFilterContext = {}): QuickFilte
       color: 'purple',
       filter: (task) => {
         if (!task.dueDate) return false;
-        const today = new Date();
         const due = new Date(task.dueDate);
         return (
-          today.getDate() === due.getDate() &&
-          today.getMonth() === due.getMonth() &&
-          today.getFullYear() === due.getFullYear()
+          now.getDate() === due.getDate() &&
+          now.getMonth() === due.getMonth() &&
+          now.getFullYear() === due.getFullYear()
         );
       },
     },
@@ -146,11 +146,10 @@ export function createQuickFilters(context: QuickFilterContext = {}): QuickFilte
       color: 'indigo',
       filter: (task) => {
         if (!task.dueDate) return false;
-        const today = new Date();
-        const weekEnd = new Date(today);
-        weekEnd.setDate(today.getDate() + (7 - today.getDay()));
+        const weekEnd = new Date(now);
+        weekEnd.setDate(now.getDate() + (7 - now.getDay()));
         const due = new Date(task.dueDate);
-        return due >= today && due <= weekEnd;
+        return due >= now && due <= weekEnd;
       },
     },
     {

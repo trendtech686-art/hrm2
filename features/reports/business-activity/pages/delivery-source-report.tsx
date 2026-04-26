@@ -17,6 +17,7 @@ import { ReportHeaderActions, DELIVERY_REPORT_GLOSSARY } from '../components/rep
 import { formatCurrency } from '@/lib/format-utils';
 import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { useDeliverySourceReport } from '../hooks/use-delivery-report';
+import { useDefaultDateRange } from '../hooks/use-report-hooks';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,14 +26,6 @@ import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, DeliverySourceReportRow, ChartType } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { Globe, Truck, TrendingUp, Filter } from 'lucide-react';
-
-// ✅ FIX: Use useMemo to ensure consistent rendering
-export function useDefaultDateRange(): ReportDateRange {
-  return React.useMemo(() => ({
-    from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-    to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-  }), []);
-}
 
 const getColumns = (): ColumnDef<DeliverySourceReportRow & { systemId: string; _isSummary?: boolean }>[] => [
   {

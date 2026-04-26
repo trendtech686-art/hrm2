@@ -103,12 +103,6 @@ export function useOrder(id: string | null | undefined, initialData?: Order) {
 
 /**
  * Hook for searching orders with debounce
-    gcTime: 5 * 60 * 1000,
-  });
-}
-
-/**
- * Hook for searching orders with debounce
  * 
  * @example
  * ```tsx

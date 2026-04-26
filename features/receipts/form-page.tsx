@@ -55,9 +55,7 @@ export function ReceiptFormPage({ systemId, initialOptions }: ReceiptFormPagePro
   const formRef = React.useRef<HTMLFormElement>(null);
   
   const handleSaveClick = React.useCallback(() => {
-    console.log('🔵 Receipt Save button clicked');
     if (formRef.current) {
-      console.log('📝 Triggering receipt form submit via requestSubmit');
       formRef.current.requestSubmit();
     } else {
       console.error('❌ Receipt Form ref not found!');
@@ -162,19 +160,15 @@ export function ReceiptFormPage({ systemId, initialOptions }: ReceiptFormPagePro
   };
 
   const handleFormSubmit = (values: ReceiptFormValues) => {
-    console.log('✅ ReceiptFormPage handleFormSubmit called with values:', values);
-    
     // Determine category from payer type name
     const category = getCategoryFromPayerType(values.payerTypeName);
     
     if (receipt) {
-      console.log('Updating receipt...');
       update.mutate({
         systemId: receipt.systemId,
         data: { ...receipt, ...normalizeValues(values, receipt.createdBy), category }
       });
     } else {
-      console.log('Creating receipt with category:', category);
       const normalized = normalizeValues(values, currentUserSystemId);
       create.mutate({
         ...normalized,

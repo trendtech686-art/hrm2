@@ -109,18 +109,14 @@ export function ReportChart({
   const [, setTick] = React.useState(0)
 
   React.useEffect(() => {
-    console.log('[DEBUG] ReportChart: subscribing to theme changes')
     return subscribeToThemeChanges(() => {
-      console.log('[DEBUG] ReportChart: theme changed, forcing re-render')
       setTick(t => t + 1)
     })
   }, [])
 
   // Đọc colors fresh từ DOM mỗi lần render (sau khi tick tăng)
   const chart1 = React.useMemo(() => {
-    const c = getChartColors().chart1
-    console.log('[DEBUG] ReportChart reading chart1:', c)
-    return c
+    return getChartColors().chart1
   }, [])
   const chart2 = React.useMemo(() => getChartColors().chart2, [])
   const chart3 = React.useMemo(() => getChartColors().chart3, [])

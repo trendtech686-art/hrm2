@@ -343,8 +343,6 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }
 
   const handleSubmit = (data: PaymentFormValues) => {
-    console.log('✅ PaymentForm handleSubmit called with data:', data);
-    
     // Tự động điền tên từ systemId đã chọn
     const selectedType = paymentTypes.find(pt => pt.systemId === data.paymentReceiptTypeSystemId);
     const selectedBranch = branches.find(b => b.systemId === data.branchSystemId);
@@ -372,12 +370,12 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   };
 
   const handleInvalid = (errors: Record<string, unknown>) => {
-    console.error('❌ PaymentForm validation errors:', errors);
+    // Validation errors are handled by FormMessage components
   };
 
-  // Debug: native form submit handler
+  // Native form submit handler
   const handleNativeSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    console.log('🟢 Native form submit triggered');
+    // This is called before handleSubmit
   };
 
   return (

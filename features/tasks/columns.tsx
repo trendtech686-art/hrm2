@@ -116,7 +116,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
     cell: ({ row }) => {
       const isOverdue = new Date(row.dueDate) < new Date() && row.status !== 'Hoàn thành';
       return (
-        <span className={isOverdue ? "text-destructive font-semibold" : ""}>
+        <span className={isOverdue ? "text-destructive font-semibold" : ""} suppressHydrationWarning>
           {formatDateTime(row.dueDate)}
         </span>
       );

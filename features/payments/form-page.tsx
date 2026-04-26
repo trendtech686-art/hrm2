@@ -48,9 +48,7 @@ export function PaymentFormPage({ systemId, initialOptions }: PaymentFormPagePro
   const formRef = React.useRef<HTMLFormElement>(null);
   
   const handleSaveClick = React.useCallback(() => {
-    console.log('🔵 Save button clicked');
     if (formRef.current) {
-      console.log('📝 Triggering form submit via requestSubmit');
       formRef.current.requestSubmit();
     } else {
       console.error('❌ Form ref not found!');
@@ -102,16 +100,13 @@ export function PaymentFormPage({ systemId, initialOptions }: PaymentFormPagePro
   };
 
   const handleFormSubmit = (values: PaymentFormValues) => {
-    console.log('✅ PaymentFormPage handleFormSubmit called with values:', values);
     try {
       // Determine category from target group name
       const category = getCategoryFromTargetGroup(values.recipientTypeName);
       
       if (payment) {
-        console.log('Updating payment...');
         update.mutate({ systemId: payment.systemId, data: { ...payment, ...values, category } });
       } else {
-        console.log('Creating payment with category:', category);
         create.mutate({
           ...values,
           category,

@@ -14,6 +14,7 @@ import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
 import { useInventoryProductReport } from '../hooks/use-inventory-report';
+import { useDefaultDateRange } from '../hooks/use-report-hooks';
 import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

@@ -42,7 +42,7 @@ export async function getServerTheme(): Promise<ServerThemeData | null> {
         const value = preference.value as Record<string, unknown>
 
         // Parse customThemeConfig
-        let customThemeConfig: Record<string, string> = {}
+        const customThemeConfig: Record<string, string> = {}
         if (value.customThemeConfig && typeof value.customThemeConfig === 'object') {
             const raw = value.customThemeConfig as Record<string, unknown>
             for (const [key, val] of Object.entries(raw)) {

@@ -368,8 +368,6 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
   }
 
   const handleSubmit = (data: ReceiptFormValues) => {
-    console.log('✅ ReceiptForm handleSubmit called with data:', data);
-    
     // Tự động điền tên từ systemId đã chọn
     const selectedType = receiptTypes.find(rt => rt.systemId === data.paymentReceiptTypeSystemId);
     const selectedBranch = branches.find(b => b.systemId === data.branchSystemId);
@@ -397,7 +395,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
   };
   
   const handleInvalid = (errors: Record<string, unknown>) => {
-    console.error('❌ ReceiptForm validation errors:', errors);
+    // Validation errors are handled by FormMessage components
   };
 
   return (

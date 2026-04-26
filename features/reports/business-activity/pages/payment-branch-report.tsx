@@ -17,6 +17,7 @@ import { ReportHeaderActions, PAYMENT_REPORT_GLOSSARY } from '../components/repo
 import { formatCurrency } from '@/lib/format-utils';
 import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
 import { usePaymentBranchReport } from '../hooks/use-payment-report';
+import { useDefaultDateRange } from '../hooks/use-report-hooks';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,14 +26,6 @@ import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, PaymentBranchReportRow, ChartType } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { Building2, DollarSign, TrendingUp, CreditCard, Filter } from 'lucide-react';
-
-// ✅ FIX: Use useMemo to ensure consistent rendering
-export function useDefaultDateRange(): ReportDateRange {
-  return React.useMemo(() => ({
-    from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-    to: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-  }), []);
-}
 
 const getColumns = (): ColumnDef<PaymentBranchReportRow & { systemId: string; _isSummary?: boolean }>[] => [
   {

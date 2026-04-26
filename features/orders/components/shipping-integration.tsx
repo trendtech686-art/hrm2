@@ -22,6 +22,7 @@ import { useProvinces, useWards2Level } from '@/features/settings/provinces/hook
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { nanoid } from 'nanoid';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Product, Branch, Customer } from '@/lib/types/prisma-extended';
 import { logError } from '@/lib/logger'
@@ -70,8 +71,8 @@ interface ReturnAddressConfig {
 
 /**
  * Generate unique order ID for shipping partner
- * Format: DH + YYMMDD + random 5 digits
- * Example: DH2511021A3F7
+ * Format: DH + YYMMDD + nanoid (5 chars)
+ * Example: DH251102a1b2c
  */
 function generateShippingOrderId(): string {
   const now = new Date();
@@ -79,14 +80,10 @@ function generateShippingOrderId(): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   
-  // Generate random 5-character alphanumeric string (uppercase)
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let randomStr = '';
-  for (let i = 0; i < 5; i++) {
-    randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  // Generate unique suffix using nanoid (5 characters, uppercase for readability)
+  const randomSuffix = nanoid(5).toUpperCase();
   
-  return `DH${year}${month}${day}${randomStr}`;
+  return `DH${year}${month}${day}${randomSuffix}`;
 }
 
 /**

@@ -219,7 +219,10 @@ interface TaskCardProps {
 }
 
 function TaskCardItem({ task, onComplete, onStart, onViewDetails, onCameraCapture }: TaskCardProps) {
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành'
+  const isOverdue = useMemo(() => {
+    if (!task.dueDate) return false;
+    return new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
+  }, [task.dueDate, task.status]);
   const isCompleted = task.status === 'Hoàn thành'
   const isPendingApproval = task.approvalStatus === 'pending'
   const isRejected = task.approvalStatus === 'rejected'
@@ -466,7 +469,6 @@ export function UserTasksPage() {
 
   // Categorize
   const categorizedTasks = useMemo(() => {
-    const now = new Date()
     return {
       'not-started': myTasks.filter(
         (task) => task.status === 'Chưa bắt đầu' && task.approvalStatus !== 'pending',
@@ -478,7 +480,7 @@ export function UserTasksPage() {
       ),
       overdue: myTasks.filter((task) => {
         return (
-          new Date(task.dueDate) < now &&
+          new Date(task.dueDate) < new Date() &&
           task.status !== 'Hoàn thành' &&
           task.approvalStatus !== 'pending'
         )

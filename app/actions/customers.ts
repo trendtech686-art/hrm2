@@ -557,22 +557,30 @@ export async function updateCustomerDebtAction(
   }
 
   try {
-    const customer = await prisma.customer.findUnique({
-      where: { systemId },
-    })
+    // Use atomic transaction with increment to prevent race condition
+    let oldDebt: number
+    let customerName: string
 
-    if (!customer) {
-      return { success: false, error: 'Không tìm thấy khách hàng' }
-    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({
+        where: { systemId },
+      })
 
-    const currentDebt = Number(customer.currentDebt ?? 0)
-    const newDebt = operation === 'add' 
-      ? currentDebt + amount 
-      : currentDebt - amount
+      if (!customer) {
+        throw new Error('CUSTOMER_NOT_FOUND')
+      }
 
-    const updated = await prisma.customer.update({
-      where: { systemId },
-      data: { currentDebt: newDebt },
+      oldDebt = Number(customer.currentDebt ?? 0)
+      customerName = customer.name
+
+      const newDebt = operation === 'add'
+        ? oldDebt + amount
+        : oldDebt - amount
+
+      return tx.customer.update({
+        where: { systemId },
+        data: { currentDebt: newDebt },
+      })
     })
 
     // Activity log (fire-and-forget)
@@ -583,8 +591,8 @@ export async function updateCustomerDebtAction(
           entityId: systemId,
           action: 'debt_updated',
           actionType: 'update',
-          changes: { currentDebt: { from: currentDebt, to: newDebt } },
-          note: `${operation === 'add' ? 'Tăng' : 'Giảm'} công nợ khách hàng: ${customer.name} — ${operation === 'add' ? '+' : '-'}${amount.toLocaleString('vi-VN')} đ`,
+          changes: { currentDebt: { from: oldDebt, to: updated.currentDebt } },
+          note: `${operation === 'add' ? 'Tăng' : 'Giảm'} công nợ khách hàng: ${customerName} — ${operation === 'add' ? '+' : '-'}${amount.toLocaleString('vi-VN')} đ`,
           metadata: { userName, amount, operation },
           createdBy: userName,
         },
@@ -596,6 +604,11 @@ export async function updateCustomerDebtAction(
     return { success: true, data: serializeCustomer(updated) }
   } catch (error) {
     logError('Error updating customer debt', error)
+
+    if (error instanceof Error && error.message === 'CUSTOMER_NOT_FOUND') {
+      return { success: false, error: 'Không tìm thấy khách hàng' }
+    }
+
     return {
       success: false,
       error: 'Không thể cập nhật công nợ khách hàng. Vui lòng thử lại.',

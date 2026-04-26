@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useMemo } from 'react';
 import type { Task } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -41,7 +42,10 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 
 export function TaskCard({ task, onDelete }: TaskCardProps) {
   const router = useRouter();
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
+  const isOverdue = useMemo(() => {
+    if (!task.dueDate) return false;
+    return new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
+  }, [task.dueDate, task.status]);
   const dueDate = new Date(task.dueDate);
   const dueDateStr = format(dueDate, 'dd/MM', { locale: vi });
   const dueTimeRelative = isOverdue

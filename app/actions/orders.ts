@@ -809,6 +809,7 @@ async function callOrderApi(endpoint: string, method: string, body?: unknown) {
       'Cookie': cookieHeader,
     },
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(30000), // 30 second timeout
   })
   
   if (!res.ok) {

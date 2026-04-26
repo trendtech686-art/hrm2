@@ -38,7 +38,7 @@ export async function getUserPreferences(
     return { success: true, data: preferences };
   } catch (error) {
     logError('Failed to fetch user preferences', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ táº£i cÃ i Ä‘áº·t ngÆ°á»i dÃ¹ng' };
+    return { success: false, error: 'Không thể tải cài đặt người dùng' };
   }
 }
 
@@ -60,7 +60,7 @@ export async function getUserPreference(
     return { success: true, data: preference };
   } catch (error) {
     logError('Failed to fetch user preference', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ táº£i cÃ i Ä‘áº·t' };
+    return { success: false, error: 'Không thể tải cài đặt' };
   }
 }
 
@@ -72,6 +72,9 @@ export async function getUserPreferenceValue<T = unknown>(
   key: string,
   defaultValue?: T
 ): Promise<ActionResult<T>> {
+  const session = await getSessionFromCookie()
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
+
   try {
     const preference = await prisma.userPreference.findUnique({
       where: { userId_key: { userId, key } },
@@ -84,7 +87,7 @@ export async function getUserPreferenceValue<T = unknown>(
     return { success: true, data: preference.value as T };
   } catch (error) {
     logError('Failed to fetch user preference value', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ táº£i cÃ i Ä‘áº·t' };
+    return { success: false, error: 'Không thể tải cài đặt' };
   }
 }
 
@@ -119,7 +122,7 @@ export async function setUserPreference(
     return { success: true, data: preference };
   } catch (error) {
     logError('Failed to set user preference', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ lÆ°u cÃ i Ä‘áº·t' };
+    return { success: false, error: 'Không thể lưu cài đặt' };
   }
 }
 
@@ -156,7 +159,7 @@ export async function setUserPreferences(
     return { success: true, data: { count: preferences.length } };
   } catch (error) {
     logError('Failed to set user preferences', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ lÆ°u cÃ i Ä‘áº·t' };
+    return { success: false, error: 'Không thể lưu cài đặt' };
   }
 }
 
@@ -178,7 +181,7 @@ export async function deleteUserPreference(
     return { success: true, data: { deleted: true } };
   } catch (error) {
     logError('Failed to delete user preference', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ xÃ³a cÃ i Ä‘áº·t' };
+    return { success: false, error: 'Không thể xóa cài đặt' };
   }
 }
 
@@ -201,7 +204,7 @@ export async function clearUserPreferences(
     return { success: true, data: { count: result.count } };
   } catch (error) {
     logError('Failed to clear user preferences', error);
-    return { success: false, error: 'KhÃ´ng thá»ƒ xÃ³a táº¥t cáº£ cÃ i Ä‘áº·t' };
+    return { success: false, error: 'Không thể xóa tất cả cài đặt' };
   }
 }
 
