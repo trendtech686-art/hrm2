@@ -59,14 +59,19 @@ export interface UseWarrantyFormSubmitOptions {
   setProcessedFilesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
   // ✅ Use ref-based getter instead of state prop (avoids stale closure issues)
   getProductImagesStateRef?: React.MutableRefObject<GetProductImagesStateFn | null>;
-  // ✅ Ref-based getters for received/processed images
+  // ✅ Ref-based getter for received/processed images
   getReceivedImagesStateRef?: React.MutableRefObject<GetImagesStateFn | null>;
   getProcessedImagesStateRef?: React.MutableRefObject<GetImagesStateFn | null>;
   // Legacy prop - kept for backward compatibility but not used
   productImagesState?: ProductImagesState;
   setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
-  // ✅ Warranty check results for validation
-  warrantyCheckResults?: Record<string, { warnings: string[]; isValid: boolean }>;
+  // ✅ Ref để lấy warranty check results (luôn lấy giá trị mới nhất khi submit)
+  warrantyCheckResultsRef?: React.MutableRefObject<Record<string, {
+    warnings: string[];
+    isValid: boolean;
+    totalClaimed: number;
+    availableQuantity: number;
+  }> | null>;
 }
 
 /**
@@ -94,7 +99,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     getProcessedImagesStateRef,
     setIsSubmitting,
     selectedEmployeeRef,
-    warrantyCheckResults,
+    warrantyCheckResultsRef,
   } = options;
   
   const router = useRouter();
@@ -156,11 +161,13 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       }
 
       // ✅ Validate warranty check results - block if has critical warnings
-      if (warrantyCheckResults && Object.keys(warrantyCheckResults).length > 0) {
+      // Luôn lấy giá trị mới nhất từ ref khi submit (tránh stale closure)
+      const currentWarrantyCheckResults = warrantyCheckResultsRef?.current;
+      if (currentWarrantyCheckResults && Object.keys(currentWarrantyCheckResults).length > 0) {
         const products = data.products || [];
         
         for (const product of products) {
-          const result = warrantyCheckResults[product.productName];
+          const result = currentWarrantyCheckResults[product.productName];
           if (result) {
             // Check for critical warnings (❌)
             const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
@@ -553,7 +560,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     router,
     user,
     queryClient,
-    warrantyCheckResults,
+    warrantyCheckResultsRef,
   ]);
   
   return { onSubmit };

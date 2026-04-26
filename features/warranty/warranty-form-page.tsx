@@ -419,7 +419,7 @@ export function WarrantyFormPage() {
     getProductImagesStateRef,
     getReceivedImagesStateRef,
     getProcessedImagesStateRef,
-    warrantyCheckResults: getWarrantyCheckResultsRef.current,
+    warrantyCheckResultsRef: getWarrantyCheckResultsRef,
   });
 
   // ✅ Handler để submit form từ page header button
