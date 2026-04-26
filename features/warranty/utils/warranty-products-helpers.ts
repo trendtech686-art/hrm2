@@ -137,8 +137,8 @@ export function checkMultipleProductsWarranty(
   const warnings: string[] = [];
 
   products.forEach(product => {
-    const claimedQty = claimedQuantities[product.name] || 0;
-    console.log('[checkMultipleProductsWarranty] product.name:', product.name, '-> claimedQty:', claimedQty);
+    // ✅ Lookup với key đã được lowercase để match với claimedQuantities
+    const claimedQty = claimedQuantities[product.name.toLowerCase().trim()] || 0;
     const checkResult = checkProductWarranty(customerName, product, 1, allOrders, claimedQty);
     results[product.name] = checkResult;
 
