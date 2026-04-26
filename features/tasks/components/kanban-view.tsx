@@ -12,7 +12,7 @@ import { AssigneeAvatarGroup } from './AssigneeAvatarGroup';
 import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
-import { Clock, AlertCircle, Play, FileCheck, CheckCircle2, XCircle, GripVertical } from 'lucide-react';
+import { Clock, Play, FileCheck, CheckCircle2, XCircle, GripVertical } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority } from '../types';
 import { normalizeTaskPriority } from '../types';
 import { toast } from 'sonner';
@@ -128,9 +128,13 @@ function DraggableTaskCard({
             >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div 
-              className="text-sm font-semibold flex-1"
+            <div
+              className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
               onClick={() => onTaskClick(task)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onTaskClick(task); }}
+              tabIndex={0}
+              role="button"
+              aria-label={`Mở chi tiết công việc ${task.id}`}
             >
               {task.id}
             </div>
@@ -153,35 +157,48 @@ function DraggableTaskCard({
         </div>
 
         {/* Title */}
-        <div className="mb-2" onClick={() => onTaskClick(task)}>
+        <button
+          type="button"
+          className="mb-2 w-full text-left focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+          onClick={() => onTaskClick(task)}
+        >
           <div className="text-sm font-medium text-foreground line-clamp-2">
             {task.title}
           </div>
-        </div>
+        </button>
 
         {/* Progress Bar */}
-        <div className="mb-2" onClick={() => onTaskClick(task)}>
+        <button
+          type="button"
+          className="mb-2 w-full text-left focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+          onClick={() => onTaskClick(task)}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground">Tiến độ</span>
             <span className="text-xs font-medium">{task.progress}%</span>
           </div>
           <Progress value={task.progress} className="h-2" />
-        </div>
+        </button>
 
         {/* Timer Badge - Show if timer is running */}
         {task.timerRunning && (
-          <div 
-            className="mb-2 flex items-center gap-1.5 text-xs bg-success/15 text-success-foreground dark:bg-success/20 dark:text-success dark:border dark:border-success/30 px-2 py-1 rounded"
+          <button
+            type="button"
+            className="mb-2 flex items-center gap-1.5 text-xs bg-success/15 text-success-foreground dark:bg-success/20 dark:text-success dark:border dark:border-success/30 px-2 py-1 rounded w-full text-left focus:outline-none focus:ring-2 focus:ring-ring"
             onClick={() => onTaskClick(task)}
           >
             <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
             <Clock className="h-3 w-3" />
             <span className="font-medium">Đang đếm giờ</span>
-          </div>
+          </button>
         )}
 
         {/* SLA Timer */}
-        <div onClick={() => onTaskClick(task)}>
+        <button
+          type="button"
+          className="w-full text-left focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+          onClick={() => onTaskClick(task)}
+        >
           <SlaTimer
             startTime={task.startDate}
             targetMinutes={task.estimatedHours ? task.estimatedHours * 60 : 480}
@@ -189,14 +206,18 @@ function DraggableTaskCard({
             completedLabel="Đã hoàn thành"
             className="mb-2"
           />
-        </div>
+        </button>
 
         {/* Footer */}
-        <div className="flex items-center justify-between text-xs" onClick={() => onTaskClick(task)}>
+        <button
+          type="button"
+          className="flex items-center justify-between text-xs w-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+          onClick={() => onTaskClick(task)}
+        >
           <div className="flex items-center gap-2">
-            <AssigneeAvatarGroup 
-              assignees={task.assignees || []} 
-              maxVisible={2} 
+            <AssigneeAvatarGroup
+              assignees={task.assignees || []}
+              maxVisible={2}
               size="sm"
               showRoles={false}
             />
@@ -208,7 +229,7 @@ function DraggableTaskCard({
             {isOverdue && "⚠️ "}
             {formatDate(task.dueDate)}
           </div>
-        </div>
+        </button>
       </Card>
     </div>
   );

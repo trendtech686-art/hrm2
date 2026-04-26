@@ -7,11 +7,9 @@
  */
 
 import * as React from 'react';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
-import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';

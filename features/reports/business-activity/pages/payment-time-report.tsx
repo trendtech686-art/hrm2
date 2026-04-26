@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, PaymentTimeReportRow, ChartType, TimeGrouping } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import { Clock, CreditCard, TrendingUp, DollarSign, Filter } from 'lucide-react';
+import { CreditCard, TrendingUp, DollarSign, Filter } from 'lucide-react';
 
 // ✅ FIX: Use useMemo to ensure consistent rendering
 export function useDefaultDateRange(): ReportDateRange {

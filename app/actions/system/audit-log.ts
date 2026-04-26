@@ -40,7 +40,7 @@ export async function getActivityLogs(
   filters: ActivityLogFilters = {}
 ): Promise<ActionResult<PaginatedActivityLogs>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const {
@@ -104,7 +104,7 @@ export async function getEntityActivityLogs(
   limit: number = 50
 ): Promise<ActionResult<ActivityLog[]>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const logs = await prisma.activityLog.findMany({
@@ -128,7 +128,7 @@ export async function getUserActivityLogs(
   options: { limit?: number; entityType?: string } = {}
 ): Promise<ActionResult<ActivityLog[]>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const where: Record<string, unknown> = { createdBy: userId };
@@ -161,7 +161,7 @@ export async function createActivityLog(data: {
   createdBy?: string;
 }): Promise<ActionResult<ActivityLog>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const log = await prisma.activityLog.create({
@@ -189,7 +189,7 @@ export async function createActivityLog(data: {
  */
 export async function getActivityLogEntityTypes(): Promise<ActionResult<string[]>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const types = await prisma.activityLog.findMany({
@@ -212,7 +212,7 @@ export async function getActivityLogActions(
   entityType?: string
 ): Promise<ActionResult<string[]>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const where: Record<string, unknown> = {};
@@ -244,7 +244,7 @@ export async function getActivitySummary(
   recentUsers: { userId: string; count: number }[];
 }>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const where: Record<string, unknown> = {};
@@ -312,7 +312,7 @@ export async function deleteOldActivityLogs(
   olderThan: Date
 ): Promise<ActionResult<{ count: number }>> {
   const authResult = await requireActionPermission('edit_settings')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const result = await prisma.activityLog.deleteMany({
@@ -334,7 +334,7 @@ export async function getRecentActivities(
   entityTypes?: string[]
 ): Promise<ActionResult<ActivityLog[]>> {
   const authResult = await requireActionPermission('view_audit_log')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const where: Record<string, unknown> = {};

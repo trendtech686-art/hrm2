@@ -24,7 +24,7 @@ export async function getUserPreferences(
   category?: string
 ): Promise<ActionResult<UserPreference[]>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   try {
     const where: Record<string, unknown> = { userId };
@@ -50,7 +50,7 @@ export async function getUserPreference(
   key: string
 ): Promise<ActionResult<UserPreference | null>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   try {
     const preference = await prisma.userPreference.findUnique({
@@ -98,7 +98,7 @@ export async function setUserPreference(
   category?: string
 ): Promise<ActionResult<UserPreference>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   try {
     const preference = await prisma.userPreference.upsert({
@@ -131,7 +131,7 @@ export async function setUserPreferences(
   preferences: { key: string; value: unknown; category?: string }[]
 ): Promise<ActionResult<{ count: number }>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   try {
     await prisma.$transaction(
@@ -168,7 +168,7 @@ export async function deleteUserPreference(
   key: string
 ): Promise<ActionResult<{ deleted: boolean }>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
   try {
     await prisma.userPreference.delete({
       where: { userId_key: { userId, key } },
@@ -190,7 +190,7 @@ export async function clearUserPreferences(
   category?: string
 ): Promise<ActionResult<{ count: number }>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
   try {
     const where: Record<string, unknown> = { userId };
     if (category) where.category = category;
@@ -209,7 +209,7 @@ export async function clearUserPreferences(
 
 export async function getThemePreference(userId: string): Promise<ActionResult<'light' | 'dark' | 'system'>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   const result = await getUserPreferenceValue<'light' | 'dark' | 'system'>(userId, 'theme', 'system');
   return result;
@@ -217,14 +217,14 @@ export async function getThemePreference(userId: string): Promise<ActionResult<'
 
 export async function setThemePreference(userId: string, theme: 'light' | 'dark' | 'system') {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   return setUserPreference(userId, 'theme', theme, 'appearance');
 }
 
 export async function getLanguagePreference(userId: string): Promise<ActionResult<string>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   const result = await getUserPreferenceValue<string>(userId, 'language', 'vi');
   return result;
@@ -232,14 +232,14 @@ export async function getLanguagePreference(userId: string): Promise<ActionResul
 
 export async function setLanguagePreference(userId: string, language: string) {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   return setUserPreference(userId, 'language', language, 'general');
 }
 
 export async function getSidebarCollapsed(userId: string): Promise<ActionResult<boolean>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   const result = await getUserPreferenceValue<boolean>(userId, 'sidebar_collapsed', false);
   return result;
@@ -247,14 +247,14 @@ export async function getSidebarCollapsed(userId: string): Promise<ActionResult<
 
 export async function setSidebarCollapsed(userId: string, collapsed: boolean) {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   return setUserPreference(userId, 'sidebar_collapsed', collapsed, 'layout');
 }
 
 export async function getDefaultBranch(userId: string): Promise<ActionResult<string | null>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   const result = await getUserPreferenceValue<string | null>(userId, 'default_branch', null);
   return result;
@@ -262,7 +262,7 @@ export async function getDefaultBranch(userId: string): Promise<ActionResult<str
 
 export async function setDefaultBranch(userId: string, branchId: string) {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   return setUserPreference(userId, 'default_branch', branchId, 'general');
 }
@@ -277,7 +277,7 @@ export async function getTableSettings(
   sortOrder?: 'asc' | 'desc';
 }>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   const result = await getUserPreferenceValue<{
     columns?: string[];
@@ -299,7 +299,7 @@ export async function setTableSettings(
   }
 ) {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   return setUserPreference(userId, `table_${tableId}`, settings, 'table');
 }
@@ -308,7 +308,7 @@ export async function getDashboardLayout(
   userId: string
 ): Promise<ActionResult<{ widgets?: string[]; layout?: unknown }>> {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   const result = await getUserPreferenceValue<{ widgets?: string[]; layout?: unknown }>(
     userId,
@@ -323,7 +323,7 @@ export async function setDashboardLayout(
   layout: { widgets?: string[]; layout?: unknown }
 ) {
   const session = await getSessionFromCookie()
-  if (!session?.user) return { success: false, error: 'ChÆ°a Ä‘Äƒng nháº­p' } as any
+  if (!session?.user) return { success: false, error: 'Chưa đăng nhập' }
 
   return setUserPreference(userId, 'dashboard_layout', layout, 'dashboard');
 }

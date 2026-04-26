@@ -47,7 +47,12 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           {/* Checkbox */}
-          <div className="pt-1" onClick={handleCheckboxClick}>
+          <button
+            type="button"
+            className="pt-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+            onClick={handleCheckboxClick}
+            aria-label={isCompleted ? "Đã hoàn thành" : isPendingApproval ? "Đang chờ phê duyệt" : "Đánh dấu hoàn thành"}
+          >
             <Checkbox
               checked={isCompleted || isPendingApproval}
               disabled={isCompleted || isPendingApproval}
@@ -56,7 +61,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
                 isPendingApproval && "border-warning"
               )}
             />
-          </div>
+          </button>
 
           {/* Content */}
           <div className="flex-1 min-w-0">

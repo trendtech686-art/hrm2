@@ -25,7 +25,7 @@ import {
   type CreateTaskInput,
   type UpdateTaskInput,
 } from '@/app/actions/tasks';
-import type { TaskStatus, TaskPriority } from '@/lib/types/prisma-extended';
+import type { TaskStatus } from '@/lib/types/prisma-extended';
 import type { Task } from '@/generated/prisma/client';
 
 // Helper to convert legacy update format to flat format

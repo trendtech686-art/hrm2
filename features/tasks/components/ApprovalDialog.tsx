@@ -122,10 +122,12 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
               {/* Image thumbnails */}
               <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-3">
                 {evidence.images.slice(0, 5).map((imageUrl, index) => (
-                  <div
+                  <button
                     key={index}
-                    className="relative aspect-square cursor-pointer overflow-hidden rounded border hover:opacity-80 transition-opacity"
+                    type="button"
+                    className="relative aspect-square cursor-pointer overflow-hidden rounded border hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring"
                     onClick={() => setShowEvidenceViewer(true)}
+                    aria-label={`Xem bằng chứng ${index + 1}`}
                   >
                     <OptimizedImage
                       src={imageUrl}
@@ -139,7 +141,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
                         +{evidence.images.length - 5}
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
 

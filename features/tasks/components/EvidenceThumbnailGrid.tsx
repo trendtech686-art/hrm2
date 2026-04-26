@@ -74,13 +74,15 @@ export function EvidenceThumbnailGrid({
           {/* Thumbnail Grid */}
           <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
             {displayImages.map((imageData, idx) => (
-              <div 
+              <button
                 key={idx}
-                className="relative aspect-square rounded overflow-hidden border bg-muted group cursor-pointer"
+                type="button"
+                className="relative aspect-square rounded overflow-hidden border bg-muted group cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
                 onClick={onViewFullEvidence}
+                aria-label={`Xem bằng chứng ${idx + 1}`}
               >
-                <OptimizedImage 
-                  src={imageData} 
+                <OptimizedImage
+                  src={imageData}
                   alt={`Evidence ${idx + 1}`}
                   className="w-full h-full object-cover transition-transform group-hover:scale-110"
                   fill
@@ -89,20 +91,22 @@ export function EvidenceThumbnailGrid({
                 <div className="absolute inset-0 bg-black/50 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Eye className="h-5 w-5 text-white" />
                 </div>
-              </div>
+              </button>
             ))}
             
             {/* More indicator */}
             {remainingCount > 0 && (
-              <div 
-                className="relative aspect-square rounded border bg-muted/50 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
+              <button
+                type="button"
+                className="relative aspect-square rounded border bg-muted/50 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
                 onClick={onViewFullEvidence}
+                aria-label={`Xem thêm ${remainingCount} ảnh`}
               >
                 <div className="text-center">
                   <p className="text-h4 font-bold">+{remainingCount}</p>
                   <p className="text-xs text-muted-foreground">ảnh</p>
                 </div>
-              </div>
+              </button>
             )}
           </div>
 

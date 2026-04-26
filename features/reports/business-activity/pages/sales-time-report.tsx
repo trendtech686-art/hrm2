@@ -15,10 +15,9 @@ import { ROUTES } from '@/lib/router';
 import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
 import { ReportFilters } from '../components/report-filters';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
-import { formatCurrency, formatNumber } from '@/lib/format-utils';
+import { formatCurrency } from '@/lib/format-utils';
 import { useSalesTimeReport } from '../hooks/use-sales-report';
 import { ReportQueryBoundary, ReportEmptyState } from '../components/report-page-states';
-import { useDefaultDateRange } from '../hooks/use-report-hooks';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -144,7 +143,7 @@ export function SalesTimeReportPage() {
   const defaultRange = getDefaultDateRange();
   const [dateRange, setDateRange] = React.useState<ReportDateRange>(defaultRange);
   const [timeGrouping, setTimeGrouping] = React.useState<TimeGrouping>('day');
-  const [groupBy, setGroupBy] = React.useState<GroupByOption>('time');
+  const [groupBy, _setGroupBy] = React.useState<GroupByOption>('time');
   const [chartType, setChartType] = React.useState<ChartType>('combo');
   const [selectedChartOptions, setSelectedChartOptions] = React.useState<string[]>(['revenue', 'grossProfit']);
   
@@ -252,7 +251,7 @@ export function SalesTimeReportPage() {
   ], []);
   
   // Build query string for navigation
-  const buildReportUrl = React.useCallback((groupByValue: GroupByOption) => {
+  const buildReportUrl = React.useCallback((_groupByValue: GroupByOption) => {
     const params = new URLSearchParams();
     params.set('from', dateRange.from);
     params.set('to', dateRange.to);

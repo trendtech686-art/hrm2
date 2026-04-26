@@ -980,7 +980,7 @@ export function OrderDetailPage() {
         }
     };
     
-    const handleCancelGHTKShipment = async (packagingSystemId: SystemId, trackingCode: string) => {
+    const handleCancelGHTKShipment = React.useCallback(async (packagingSystemId: SystemId, trackingCode: string) => {
         if (!order) return;
         
         toast.info('Đang hủy vận đơn GHTK...', { description: 'Lưu ý: Chỉ có thể hủy khi đơn chưa được lấy hàng.' });
@@ -996,7 +996,7 @@ export function OrderDetailPage() {
         } catch (error: unknown) {
             toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Không thể hủy vận đơn'}`);
         }
-    };
+    }, [order, cancelGHTKShipment]);
 
 
     const handleRequestPackagingClick = React.useCallback(() => {
@@ -1355,7 +1355,7 @@ export function OrderDetailPage() {
     }, [order, isMobile, activePackaging, handleDispatch, handleCompleteDelivery, handleCancelDeliveryDirectly, handleInStorePickup, setCreateShipmentState, setCancelShipmentState, setCancelPackagingState, isAdmin, can, router, setIsCancelAlertOpen, handleCopyOrder, handlePrintOrder, handleCancelGHTKShipment]);
 
     // Get Vietnamese label for status (handles both enum values like 'PROCESSING' and legacy Vietnamese values)
-    const getStatusLabel = React.useCallback((status: string | undefined) => {
+    const _getStatusLabel = React.useCallback((status: string | undefined) => {
         if (!status) return undefined;
         // If it's an enum value (uppercase), convert to Vietnamese
         if (ORDER_STATUS_LABELS[status]) {
@@ -1562,7 +1562,7 @@ export function OrderDetailPage() {
                             <div className="space-y-3">
                                 {/* Tên và thông tin liên hệ */}
                                 <div>
-                                    <p className="font-semibold text-primary cursor-pointer hover:underline text-lg" onClick={() => customer?.systemId && router.push(`/customers/${customer.systemId}`)}>{order.customerName}</p>
+                                    <p className="font-semibold text-primary cursor-pointer hover:underline text-lg" onClick={() => { if (customer?.systemId) router.push(`/customers/${customer.systemId}`); }} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && customer?.systemId) router.push(`/customers/${customer.systemId}`); }}>{order.customerName}</p>
                                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
                                         {customer?.phone && (
                                             <span className="font-medium text-foreground inline-flex items-center gap-1">

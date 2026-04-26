@@ -116,7 +116,7 @@ export function TaskFormPage() {
         <><Save className="mr-2 h-4 w-4" />{isEdit ? 'Cập nhật' : 'Tạo mới'}</>
       )}
     </Button>
-  ], [handleCancel, isEdit]);
+  ], [handleCancel, isEdit, createMutation.isPending, updateMutation.isPending]);
 
   usePageHeader({
     title: isEdit ? 'Chỉnh sửa công việc' : 'Tạo công việc mới',

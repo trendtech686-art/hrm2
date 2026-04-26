@@ -283,7 +283,7 @@ export async function updateModuleSettingSection(
   data: unknown
 ): Promise<ActionResult<unknown>> {
   const authResult = await requireActionPermission('edit_settings')
-  if (!authResult.success) return authResult as any
+  if (!authResult.success) return { success: false, error: authResult.error }
 
   try {
     const config = MODULE_CONFIG[moduleName];

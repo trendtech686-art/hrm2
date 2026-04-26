@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, DeliveryCarrierReportRow, ChartType } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import { Truck, TrendingUp, CheckCircle, Filter } from 'lucide-react';
+import { Truck, TrendingUp, Filter } from 'lucide-react';
 
 // ✅ FIX: Use useMemo to ensure consistent rendering
 export function useDefaultDateRange(): ReportDateRange {

@@ -202,7 +202,7 @@ export function DeliveryTimeReportPage() {
     { title: 'Giao thành công', value: summary.deliveredCount, icon: CheckCircle },
     { title: 'Tỷ lệ giao', value: summary.deliveryRate.toFixed(1) + '%', icon: TrendingUp },
     { title: 'Tổng tiền', value: formatCurrency(summary.totalAmount), icon: Clock }
-  ], [data, summary]);
+  ], [summary]);
 
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions

@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, ReturnProductReportRow, ChartType } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import { Package, RotateCcw, DollarSign, TrendingDown, Filter } from 'lucide-react';
+import { Package, RotateCcw, DollarSign, Filter } from 'lucide-react';
 
 // ✅ FIX: Use useMemo to ensure consistent rendering
 export function useDefaultDateRange(): ReportDateRange {

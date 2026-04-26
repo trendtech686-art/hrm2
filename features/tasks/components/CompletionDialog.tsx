@@ -289,6 +289,7 @@ export function CompletionDialog({
               {QUICK_NOTE_OPTIONS.map((option) => (
                 <label
                   key={option}
+                  htmlFor={`radio-${option}`}
                   className={cn(
                     'flex items-center gap-3 rounded-md border p-3 cursor-pointer transition-colors text-sm',
                     note === option
@@ -296,11 +297,12 @@ export function CompletionDialog({
                       : 'border-border hover:bg-muted/50',
                   )}
                 >
-                  <RadioGroupItem value={option} disabled={isSubmitting} />
+                  <RadioGroupItem value={option} id={`radio-${option}`} disabled={isSubmitting} />
                   <span className="flex-1">{option}</span>
                 </label>
               ))}
               <label
+                htmlFor={`radio-${CUSTOM_NOTE_VALUE}`}
                 className={cn(
                   'flex items-center gap-3 rounded-md border p-3 cursor-pointer transition-colors text-sm',
                   radioValue === CUSTOM_NOTE_VALUE
@@ -308,7 +310,7 @@ export function CompletionDialog({
                     : 'border-border hover:bg-muted/50',
                 )}
               >
-                <RadioGroupItem value={CUSTOM_NOTE_VALUE} disabled={isSubmitting} />
+                <RadioGroupItem value={CUSTOM_NOTE_VALUE} id={`radio-${CUSTOM_NOTE_VALUE}`} disabled={isSubmitting} />
                 <span className="flex-1">Khác (tự nhập)</span>
               </label>
             </RadioGroup>

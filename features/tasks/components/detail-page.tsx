@@ -28,7 +28,7 @@ import { SlaTimer } from '@/components/SlaTimer';
 import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { asSystemId } from '@/lib/id-types';
 import { SectionHeading } from '@/components/shared/section-heading';
-import { ArrowLeft, Edit, Trash2, Calendar, Clock, User, Flag, CheckCircle, Eye, AlertCircle, Play, Loader2, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Calendar, Clock, User, Flag, CheckCircle, Play, Loader2, MoreHorizontal, AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import type { Task } from '@/lib/types/prisma-extended';
