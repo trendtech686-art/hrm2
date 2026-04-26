@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Loader2, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { triggerHaptic, type HapticType } from "@/hooks/use-haptics";
 
 type PullToRefreshProps = {
   /**
@@ -90,10 +91,14 @@ export function PullToRefresh({
     armed.current = false;
     startY.current = null;
     if (pull >= threshold && !refreshing) {
+      // Trigger haptic feedback when threshold reached
+      triggerHaptic('medium');
       setRefreshing(true);
       setPull(threshold); // lock indicator in place while refreshing
       try {
         await onRefresh();
+        // Trigger success haptic when refresh completes
+        triggerHaptic('success');
       } finally {
         setRefreshing(false);
         setPull(0);

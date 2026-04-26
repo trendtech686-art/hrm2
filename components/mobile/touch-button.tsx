@@ -2,6 +2,7 @@ import * as React from "react";
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
+import { triggerHaptic, type HapticType } from "@/hooks/use-haptics";
 
 const touchButtonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -36,6 +37,8 @@ export interface TouchButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof touchButtonVariants> {
   asChild?: boolean;
+  /** Haptic feedback type on click. Defaults to 'light'. Set to false to disable. */
+  haptic?: HapticType | false;
 }
 
 /**
@@ -43,11 +46,20 @@ export interface TouchButtonProps
  * Follows Apple HIG and Material Design guidelines for touch interfaces
  */
 const TouchButton = React.forwardRef<HTMLButtonElement, TouchButtonProps>(
-  ({ className, variant, size, asChild: _asChild = false, ...props }, ref) => {
+  ({ className, variant, size, haptic = 'light', asChild: _asChild = false, onClick, ...props }, ref) => {
+    
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+      if (haptic !== false) {
+        triggerHaptic(haptic);
+      }
+      onClick?.(e);
+    };
+
     return (
       <Button
         className={cn(touchButtonVariants({ variant, size, className }))}
         ref={ref}
+        onClick={handleClick}
         {...props}
       />
     );

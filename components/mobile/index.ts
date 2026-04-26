@@ -11,6 +11,7 @@ export { MobileNavbar } from "./mobile-navbar";
 export { MobileSheet } from "./mobile-sheet";
 export { MobileBottomNav } from "./mobile-bottom-nav";
 export { FAB } from "./fab";
+export { SwipeableRow, type SwipeAction } from "./swipeable-row";
 
 // Loading & Empty States
 export { 
