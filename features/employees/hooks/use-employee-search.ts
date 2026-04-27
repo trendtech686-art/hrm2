@@ -21,11 +21,11 @@ const COMBOBOX_PAGE_SIZE = 30;
  * const { data } = useEmployeeSearch({ enabled: true, limit: 50 });
  */
 export function useEmployeeSearch({ enabled = true, limit = 50, search = '' }: { enabled?: boolean; limit?: number; search?: string } = {}) {
-  const [employees, setEmployees] = React.useState<{ data: Array<{ systemId: string; fullName: string }> }>({ data: [] });
+  const [employees, setEmployees] = React.useState<Array<{ systemId: string; fullName: string }>>([]);
 
   React.useEffect(() => {
     if (!enabled) {
-      setEmployees({ data: [] });
+      setEmployees([]);
       return;
     }
 
@@ -38,8 +38,19 @@ export function useEmployeeSearch({ enabled = true, limit = 50, search = '' }: {
     fetch(`/api/employees?${params}`)
       .then(res => res.ok ? res.json() : null)
       .then(json => {
-        if (json?.items) {
-          setEmployees({ data: json.items });
+        if (json?.data?.items) {
+          // API returns { data: { items: [{ value, label }] } }
+          // Convert to { systemId, fullName } format
+          setEmployees(json.data.items.map((item: { value: string; label: string }) => ({
+            systemId: item.value,
+            fullName: item.label,
+          })));
+        } else if (json?.items) {
+          // Direct items array
+          setEmployees(json.items.map((item: { value: string; label: string }) => ({
+            systemId: item.value,
+            fullName: item.label,
+          })));
         }
       })
       .catch(() => {});

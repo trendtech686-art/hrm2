@@ -184,8 +184,7 @@ export function ComplaintFormPage() {
   // Fetch sales returns filtered by orderSystemId - server-side filter instead of loading all
   const { data: salesReturns } = useSalesReturnsByOrder(orderEntity?.systemId);
   // Employees for packaging employee dropdown - lazy load only first page (50 records)
-  const { data: employeesResult } = useEmployeeSearch({ enabled: true, limit: 50 });
-  const employees = employeesResult?.data?.data || [];
+  const { data: employees } = useEmployeeSearch({ enabled: true, limit: 50 });
   const { findById: findCustomerById } = useCustomerFinder();
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
