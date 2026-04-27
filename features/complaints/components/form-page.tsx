@@ -185,7 +185,7 @@ export function ComplaintFormPage() {
   const { data: salesReturns } = useSalesReturnsByOrder(orderEntity?.systemId);
   // Employees for packaging employee dropdown - lazy load only first page (50 records)
   const { data: employeesResult } = useEmployeeSearch({ enabled: true, limit: 50 });
-  const employees = employeesResult?.data || [];
+  const employees = employeesResult?.data?.data || [];
   const { findById: findCustomerById } = useCustomerFinder();
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
