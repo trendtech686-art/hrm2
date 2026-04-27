@@ -34,12 +34,17 @@ export async function GET(_request: Request, { params }: RouteParams) {
     // Fetch product images for all items in parallel with employee names
     const productIds = inventoryCheck.items
       .map(item => item.productId)
-      .filter((id): id is string => !!id);
+      .filter((id): id is string => !!id && id.trim() !== '');
+    
+    // Collect productSystemIds (UUIDs) - this is the primary reference
+    const productSystemIds = inventoryCheck.items
+      .map(item => item.productSystemId)
+      .filter((id): id is string => !!id && id.trim() !== '');
     
     // Also collect productSku for fallback lookup (old data may have business ID in productId)
     const productSkus = inventoryCheck.items
       .map(item => item.productSku)
-      .filter((sku): sku is string => !!sku);
+      .filter((sku): sku is string => !!sku && sku.trim() !== '');
 
     const empIds = [inventoryCheck.createdBy, inventoryCheck.balancedBy].filter(Boolean) as string[];
 
@@ -47,25 +52,35 @@ export async function GET(_request: Request, { params }: RouteParams) {
     type ProductData = { systemId: string; id: string | null; thumbnailImage: string | null; galleryImages: unknown; unit: string | null };
     type FileData = { entityId: string; filepath: string };
     type EmpData = { systemId: string; fullName: string | null };
+    type InventoryData = { productId: string; branchId: string; onHand: number };
 
-    const [products, files, emps] = await Promise.all([
-      // ✅ Fetch by both systemId and business ID for backwards compatibility
-      (productIds.length > 0 || productSkus.length > 0)
+    // Collect all unique product IDs for inventory lookup
+    const allProductIds = [
+      ...productIds,
+      ...productSkus,
+      ...productSystemIds,
+    ].filter((id, idx, arr) => id && arr.indexOf(id) === idx); // dedupe
+
+    const [products, files, emps, inventoryRecords] = await Promise.all([
+      // ✅ Fetch by systemId (UUID), productSystemId, id (business code), and productSku
+      allProductIds.length > 0
         ? prisma.product.findMany({
             where: { 
               OR: [
+                { systemId: { in: productSystemIds } },
                 { systemId: { in: productIds } },
+                { id: { in: productIds } },
                 { id: { in: productSkus } },
               ]
             },
             select: { systemId: true, id: true, thumbnailImage: true, galleryImages: true, unit: true },
           }) as Promise<ProductData[]>
         : Promise.resolve([] as ProductData[]),
-      productIds.length > 0
+      allProductIds.length > 0
         ? prisma.file.findMany({
             where: { 
               entityType: 'products', 
-              entityId: { in: productIds },
+              entityId: { in: allProductIds },
               status: 'permanent',
               mimetype: { startsWith: 'image/' },
             },
@@ -79,7 +94,25 @@ export async function GET(_request: Request, { params }: RouteParams) {
             select: { systemId: true, fullName: true },
           }) as Promise<EmpData[]>
         : Promise.resolve([] as EmpData[]),
+      // ✅ Fetch current inventory from product_inventory table
+      allProductIds.length > 0
+        ? prisma.productInventory.findMany({
+            where: {
+              productId: { in: allProductIds },
+              branchId: inventoryCheck.branchSystemId || undefined,
+            },
+            select: { productId: true, branchId: true, onHand: true },
+          }) as Promise<InventoryData[]>
+        : Promise.resolve([] as InventoryData[]),
     ]);
+
+    // ✅ Build inventory map by productId
+    const inventoryMap = new Map<string, number>();
+    for (const inv of inventoryRecords) {
+      // Sum up inventory across all branches if no specific branch
+      const current = inventoryMap.get(inv.productId) || 0;
+      inventoryMap.set(inv.productId, current + inv.onHand);
+    }
 
     // Build file image map (first image per product)
     const fileImageMap = new Map<string, string>();
@@ -114,23 +147,56 @@ export async function GET(_request: Request, { params }: RouteParams) {
       }
     }
 
-    // Map items with product images
+    // Map items with product images and ACTUAL inventory
     const mappedItems = inventoryCheck.items.map(item => {
-      // ✅ Try lookup by productSystemId/productId first, then by productSku
-      const productData = (item.productSystemId ? productDataMap.get(item.productSystemId) : null)
-        || (item.productId ? productDataMap.get(item.productId) : null) 
-        || (item.productSku ? productDataMap.get(item.productSku) : null);
+      // ✅ Try lookup by ALL possible fields: productSystemId, productId, productSku (non-empty only)
+      const lookupKeys = [
+        item.productSystemId,
+        item.productId,
+        item.productSku && item.productSku.trim() !== '' ? item.productSku : null,
+      ].filter(Boolean) as string[];
+      
+      let productData: typeof productDataMap extends Map<string, infer V> ? V : never | null = null;
+      for (const key of lookupKeys) {
+        productData = productDataMap.get(key) || null;
+        if (productData) break;
+      }
+      
+      // DEBUG: Log lookup result
+      console.log('[InventoryCheck] Item lookup:', {
+        productName: item.productName,
+        lookupKeys,
+        found: !!productData,
+        image: productData?.thumbnailImage,
+      });
+      
+      // ✅ Get ACTUAL current inventory from product_inventory
+      const inventoryLookupKeys = [
+        item.productSystemId,
+        item.productId,
+        item.productSku && item.productSku.trim() !== '' ? item.productSku : null,
+      ].filter(Boolean) as string[];
+      
+      let actualInventory: number | null = null;
+      for (const key of inventoryLookupKeys) {
+        actualInventory = inventoryMap.get(key) ?? null;
+        if (actualInventory !== null) break;
+      }
+      actualInventory = actualInventory ?? item.systemQty;
       
       return {
         // ✅ Use resolved systemId from product data, or fall back to stored values
         productSystemId: productData?.systemId || item.productSystemId || item.productId || item.productSku,
-        productId: productData?.productCode || item.productSku, // Use Product.id first, fallback to item.productSku
+        // ✅ Prefer productId (business code), then productSku as fallback
+        productId: item.productId || productData?.productCode || (item.productSku?.trim() ? item.productSku : null),
+        productSku: item.productSku?.trim() ? item.productSku : null, // Original SKU from inventory check item (only non-empty)
         productName: item.productName,
         productImage: productData?.thumbnailImage || null,
         unit: item.unit || productData?.unit || '',
-        systemQuantity: item.systemQty,
+        // ✅ Use ACTUAL inventory from product_inventory, not the stored systemQty
+        systemQuantity: actualInventory,
         actualQuantity: item.actualQty,
-        difference: item.difference,
+        difference: item.actualQty - actualInventory, // ✅ Recalculate difference based on actual inventory
         reason: item.reason || undefined,
         note: item.notes,
       };

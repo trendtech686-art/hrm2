@@ -217,7 +217,7 @@ export function ProductsPage({ initialStats }: ProductsPageProps = {}) {
   const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
   const [productToLink, setProductToLink] = React.useState<Product | null>(null);
 
-  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('products', { visibility: { origin: false, usageGuide: false, importerName: false }, pinned: ['select', 'actions'] });
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('products', { visibility: { id: true, origin: false, usageGuide: false, importerName: false }, pinned: ['select', 'actions'] });
   const [tableState, setTableState] = useUrlTableState(defaultTableState);
 
   const headerActions = React.useMemo(() => [

@@ -125,6 +125,9 @@ export const getColumns = (
                 {row.type === 'combo' && (
                   <Badge variant="secondary" className="text-xs">Combo</Badge>
                 )}
+                {row.status?.toString().toLowerCase() === 'discontinued' && (
+                  <Badge variant="destructive" className="text-xs">Ngừng KD</Badge>
+                )}
                 {row.pkgxId && (
                   <Badge variant="secondary" className="text-xs">
                     <Globe className="h-3 w-3" />
@@ -142,6 +145,9 @@ export const getColumns = (
               {row.name}
               {row.type === 'combo' && (
                 <Badge variant="secondary" className="text-xs">Combo</Badge>
+              )}
+              {row.status?.toString().toLowerCase() === 'discontinued' && (
+                <Badge variant="destructive" className="text-xs">Ngừng KD</Badge>
               )}
               {row.pkgxId && (
                 <Badge variant="secondary" className="text-xs">

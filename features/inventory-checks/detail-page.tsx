@@ -605,19 +605,27 @@ export function InventoryCheckDetailPage() {
                       <div className="space-y-0.5">
                         <div className="font-medium">{item.productName}</div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <span>Hàng hóa</span>
-                          <span>-</span>
-                          <Link 
-                            href={`/products/${item.productSystemId}`}
-                            className="text-primary hover:underline font-medium"
-                          >
-                            {item.productId}
-                          </Link>
+                          {item.productId ? (
+                            <Link 
+                              href={`/products/${item.productSystemId}`}
+                              className="text-primary hover:underline font-medium"
+                            >
+                              {item.productId}
+                            </Link>
+                          ) : item.productSku ? (
+                            <span className="italic text-muted-foreground/60">{item.productSku}</span>
+                          ) : (
+                            <span className="italic text-muted-foreground/40">Chưa có SKU</span>
+                          )}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">-</TableCell>
-                    <TableCell className="text-right">{item.systemQuantity ?? '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={item.systemQuantity < 0 ? 'text-red-600 font-semibold' : ''}>
+                        {item.systemQuantity ?? '-'}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right">{item.actualQuantity ?? '-'}</TableCell>
                     <TableCell className="text-right">
                       <span className={item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}>
@@ -674,11 +682,17 @@ export function InventoryCheckDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{item.productName}</div>
                     <div className="text-sm text-muted-foreground">
-                      <Link href={`/products/${item.productSystemId}`}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        {item.productId}
-                      </Link>
+                      {item.productId ? (
+                        <Link href={`/products/${item.productSystemId}`}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          {item.productId}
+                        </Link>
+                      ) : item.productSku ? (
+                        <span className="italic text-muted-foreground/60">{item.productSku}</span>
+                      ) : (
+                        <span className="italic text-muted-foreground/40">Chưa có SKU</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -686,7 +700,9 @@ export function InventoryCheckDetailPage() {
                 <MobileCardBody className="grid grid-cols-3 gap-2 text-center">
                   <div>
                     <div className="text-xs text-muted-foreground">Hệ thống</div>
-                    <div className="font-medium">{item.systemQuantity}</div>
+                    <div className={`font-medium ${item.systemQuantity < 0 ? 'text-red-600' : ''}`}>
+                      {item.systemQuantity}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Thực tế</div>
