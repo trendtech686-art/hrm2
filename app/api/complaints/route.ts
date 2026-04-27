@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
+import type { Prisma as PrismaTypes } from '@/generated/prisma/client'
 import { ComplaintStatus, ComplaintPriority } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createComplaintSchema } from './validation'
@@ -208,12 +209,13 @@ export async function POST(request: Request) {
           priority: (body.priority || 'MEDIUM') as ComplaintPriority,
           status: (body.status || 'OPEN') as ComplaintStatus,
           assigneeId: body.assigneeId || body.assignedTo,
-          images: processedImages,
-          employeeImages: processedEmployeeImages,
-          affectedProducts: body.affectedProducts,
+          // Cast images array to JSON for Prisma
+          images: processedImages as unknown as PrismaTypes.InputJsonValue,
+          employeeImages: processedEmployeeImages as unknown as PrismaTypes.InputJsonValue,
+          affectedProducts: body.affectedProducts as PrismaTypes.InputJsonValue | undefined,
           verification: body.verification || 'pending-verification',
           isVerifiedCorrect: body.isVerifiedCorrect,
-          timeline: body.timeline,
+          timeline: (body.timeline || []) as unknown as PrismaTypes.InputJsonValue,
           createdBy: body.createdBy || session.user?.employeeId,
         },
         include: {

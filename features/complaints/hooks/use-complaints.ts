@@ -39,7 +39,6 @@ function toUpdateComplaintInput(input: UpdateComplaintInput | LegacyUpdateInput)
     return {
       systemId: legacy.systemId,
       description: d.description as string | undefined,
-      subject: d.subject as string | undefined,
       title: d.title as string | undefined,
       status: d.status as string | undefined,
       priority: d.priority as string | undefined,

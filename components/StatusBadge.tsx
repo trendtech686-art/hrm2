@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 
-export type StatusVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline';
+export type StatusVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline' | 'info';
 
 export interface StatusConfig {
   label: string;
@@ -180,6 +180,9 @@ export const COMPLAINT_STATUS_MAP: Record<string, StatusConfig> = {
   'cancelled': { label: 'Đã hủy', variant: 'destructive' },
   'ended': { label: 'Kết thúc', variant: 'secondary' },
   'open': { label: 'Mở', variant: 'warning' },
+  // Additional mappings for frontend status
+  'in_progress': { label: 'Đang xử lý', variant: 'info' },
+  'info': { label: 'Thông tin', variant: 'default' },
 };
 
 /**

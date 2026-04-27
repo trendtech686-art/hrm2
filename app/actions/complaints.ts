@@ -263,15 +263,15 @@ export async function createComplaintAction(
           status: 'OPEN',
           publicTrackingCode: trackingCode,
           createdBy: input.createdBy || authResult.session.user?.employeeId,
-          // ⭐ NEW: Save images as JSON array
-          images: processedImages.length > 0 ? processedImages : undefined,
-          employeeImages: processedEmployeeImages.length > 0 ? processedEmployeeImages : undefined,
+          // ⭐ NEW: Save images as JSON array (cast to Prisma JSON type)
+          images: processedImages.length > 0 ? processedImages as unknown as Prisma.InputJsonValue : undefined,
+          employeeImages: processedEmployeeImages.length > 0 ? processedEmployeeImages as unknown as Prisma.InputJsonValue : undefined,
           orderCode: input.orderCode,
           orderValue: input.orderValue ? input.orderValue : undefined,
           affectedProducts: processedAffectedProducts.length > 0 ? processedAffectedProducts as unknown as Prisma.InputJsonValue : undefined,
           verification: input.verification || 'pending-verification',
           isVerifiedCorrect: input.isVerifiedCorrect,
-          timeline: input.timeline,
+          timeline: (input.timeline || []) as unknown as Prisma.InputJsonValue,
         },
       })
 
@@ -502,7 +502,7 @@ export async function updateComplaintAction(
       changedFields.push(`người xử lý → ${data.assigneeName || data.assigneeId || 'Chưa giao'}`)
     }
     if (data.resolution !== undefined) changedFields.push(`kết quả xử lý`)
-    if (data.subject !== undefined || data.title !== undefined) changedFields.push('tiêu đề')
+    if (data.title !== undefined) changedFields.push('tiêu đề')
     if (data.description !== undefined) changedFields.push('mô tả')
     if (data.images !== undefined) changedFields.push('hình ảnh khách hàng')
     if (data.employeeImages !== undefined) changedFields.push('hình ảnh nhân viên')
