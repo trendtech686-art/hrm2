@@ -62,6 +62,109 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 
+// ============================================================================
+// Memoized Table Row Component
+// ============================================================================
+interface InventoryCheckItemRowProps {
+  item: {
+    productSystemId: string;
+    productId: string | null;
+    productSku: string | null;
+    productName: string;
+    productImage?: string | null;
+    systemQuantity: number;
+    actualQuantity: number;
+    difference: number;
+    reason?: string;
+    note?: string;
+  };
+  globalIndex: number;
+  onPreviewImage: (url: string, title: string) => void;
+}
+
+const InventoryCheckItemRow = React.memo(function InventoryCheckItemRow({
+  item,
+  globalIndex,
+  onPreviewImage,
+}: InventoryCheckItemRowProps) {
+  const imageUrl = item.productImage || null;
+  
+  const reasonLabel = item.reason === 'damaged' ? 'Hư Hỏng' :
+    item.reason === 'wear' ? 'Hao Mòn' :
+    item.reason === 'return' ? 'Trả Hàng' :
+    item.reason === 'transfer' ? 'Chuyển Hàng' :
+    item.reason === 'production' ? 'Sản Xuất' :
+    item.reason === 'other' ? 'Khác' : '';
+
+  return (
+    <TableRow>
+      <TableCell>
+        {imageUrl ? (
+          <div
+            className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
+            onClick={() => onPreviewImage(imageUrl, item.productName)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onPreviewImage(imageUrl, item.productName); }}
+            role="button"
+            tabIndex={0}
+          >
+            <OptimizedImage 
+              src={imageUrl} 
+              alt={item.productName} 
+              className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" 
+              width={48} 
+              height={40} 
+            />
+            <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">
+              <Eye className="w-4 h-4 text-white drop-shadow-md" />
+            </div>
+          </div>
+        ) : (
+          <div className="w-12 h-10 bg-muted rounded flex items-center justify-center">
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="space-y-0.5">
+          <div className="font-medium">{item.productName}</div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {item.productId ? (
+              <Link 
+                href={`/products/${item.productSystemId}`}
+                className="text-primary hover:underline font-medium"
+              >
+                {item.productId}
+              </Link>
+            ) : item.productSku ? (
+              <span className="italic text-muted-foreground/60">{item.productSku}</span>
+            ) : (
+              <span className="italic text-muted-foreground/40">Chưa có SKU</span>
+            )}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="text-muted-foreground text-sm">-</TableCell>
+      <TableCell className="text-right">
+        <span className={item.systemQuantity < 0 ? 'text-red-600 font-semibold' : ''}>
+          {item.systemQuantity ?? '-'}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">{item.actualQuantity ?? '-'}</TableCell>
+      <TableCell className="text-right">
+        <span className={item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}>
+          {item.difference > 0 ? '+' : ''}{item.difference}
+        </span>
+      </TableCell>
+      <TableCell>{reasonLabel}</TableCell>
+      <TableCell>{item.note}</TableCell>
+    </TableRow>
+  );
+});
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export function InventoryCheckDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
@@ -569,79 +672,13 @@ export function InventoryCheckDetailPage() {
               <TableBody>
                 {paginatedItems.map((item, idx) => {
                   const globalIndex = (currentPage - 1) * itemsPerPage + idx;
-                  // Get image from API response (productImage field)
-                  const itemAny = item as typeof item & { productImage?: string };
-                  const imageUrl = itemAny.productImage;
-                  
                   return (
-                  <TableRow key={globalIndex}>
-                    <TableCell>
-                      {imageUrl ? (
-                        <div
-                          className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
-                          onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
-                          onKeyDown={(e) => { if (e.key === 'Enter') setPreviewImage({ url: imageUrl, title: item.productName }); }}
-                          role="button"
-                          tabIndex={0}
-                        >
-                          <OptimizedImage 
-                            src={imageUrl} 
-                            alt={item.productName} 
-                            className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" 
-                            width={48} 
-                            height={40} 
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">
-                            <Eye className="w-4 h-4 text-white drop-shadow-md" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-12 h-10 bg-muted rounded flex items-center justify-center">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-0.5">
-                        <div className="font-medium">{item.productName}</div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          {item.productId ? (
-                            <Link 
-                              href={`/products/${item.productSystemId}`}
-                              className="text-primary hover:underline font-medium"
-                            >
-                              {item.productId}
-                            </Link>
-                          ) : item.productSku ? (
-                            <span className="italic text-muted-foreground/60">{item.productSku}</span>
-                          ) : (
-                            <span className="italic text-muted-foreground/40">Chưa có SKU</span>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">-</TableCell>
-                    <TableCell className="text-right">
-                      <span className={item.systemQuantity < 0 ? 'text-red-600 font-semibold' : ''}>
-                        {item.systemQuantity ?? '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">{item.actualQuantity ?? '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}>
-                        {item.difference > 0 ? '+' : ''}{item.difference}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {item.reason === 'damaged' ? 'Hư Hỏng' : 
-                       item.reason === 'wear' ? 'Hao Mòn' :
-                       item.reason === 'return' ? 'Trả Hàng' :
-                       item.reason === 'transfer' ? 'Chuyển Hàng' :
-                       item.reason === 'production' ? 'Sản Xuất' :
-                       item.reason === 'other' ? 'Khác' : ''}
-                    </TableCell>
-                    <TableCell>{item.note}</TableCell>
-                  </TableRow>
+                    <InventoryCheckItemRow
+                      key={globalIndex}
+                      item={item}
+                      globalIndex={globalIndex}
+                      onPreviewImage={(url, title) => setPreviewImage({ url, title })}
+                    />
                   );
                 })}
               </TableBody>

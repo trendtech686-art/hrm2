@@ -162,14 +162,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
         if (productData) break;
       }
       
-      // DEBUG: Log lookup result
-      console.log('[InventoryCheck] Item lookup:', {
-        productName: item.productName,
-        lookupKeys,
-        found: !!productData,
-        image: productData?.thumbnailImage,
-      });
-      
       // ✅ Get ACTUAL current inventory from product_inventory
       const inventoryLookupKeys = [
         item.productSystemId,
