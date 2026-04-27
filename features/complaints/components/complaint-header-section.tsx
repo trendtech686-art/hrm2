@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react';
 import { usePageHeaderDispatch } from "../../../contexts/page-header-context";
 import type { Complaint } from '../types';

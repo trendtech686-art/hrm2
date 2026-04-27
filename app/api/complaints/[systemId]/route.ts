@@ -292,12 +292,35 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (body.title !== undefined) updateData.title = body.title
     if (body.description !== undefined) updateData.description = body.description
     if (body.category !== undefined) updateData.category = body.category
+    if (body.type !== undefined) updateData.type = body.type
     if (body.priority !== undefined) updateData.priority = body.priority
     if (body.status !== undefined) updateData.status = body.status
     if (body.assigneeId !== undefined) updateData.assigneeId = body.assigneeId
     if (body.assignedTo !== undefined) updateData.assigneeId = body.assignedTo
     if (body.resolution !== undefined) updateData.resolution = body.resolution
     if (body.resolvedAt !== undefined) updateData.resolvedAt = body.resolvedAt ? new Date(body.resolvedAt) : null
+
+    // ⭐ NEW: Update order & customer fields
+    if (body.orderSystemId !== undefined) updateData.orderId = body.orderSystemId
+    if (body.orderCode !== undefined) updateData.orderCode = body.orderCode
+    if (body.orderValue !== undefined) updateData.orderValue = body.orderValue
+    if (body.branchSystemId !== undefined) updateData.branchSystemId = body.branchSystemId
+    if (body.branchName !== undefined) updateData.branchName = body.branchName
+    if (body.customerSystemId !== undefined) updateData.customerId = body.customerSystemId
+    if (body.customerName !== undefined) updateData.customerName = body.customerName
+    if (body.customerPhone !== undefined) updateData.customerPhone = body.customerPhone
+
+    // ⭐ NEW: Update image fields
+    if (body.images !== undefined) updateData.images = body.images
+    if (body.employeeImages !== undefined) updateData.employeeImages = body.employeeImages
+
+    // ⭐ NEW: Update affected products
+    if (body.affectedProducts !== undefined) updateData.affectedProducts = body.affectedProducts
+
+    // ⭐ NEW: Update verification fields
+    if (body.verification !== undefined) updateData.verification = body.verification
+    if (body.isVerifiedCorrect !== undefined) updateData.isVerifiedCorrect = body.isVerifiedCorrect
+    if (body.timeline !== undefined) updateData.timeline = body.timeline
 
     const complaint = await prisma.complaint.update({
       where: { systemId },

@@ -232,7 +232,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
         productSystemId: product.systemId,
         productId: product.id,
         productName: product.name,
-        productImage: product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0] || '',
+        productImage: product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0] || '',
         oldPrice: currentPrice,
         newPrice: currentPrice, // Default to same as old
       });

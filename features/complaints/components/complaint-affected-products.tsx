@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import { OptimizedImage } from "../../../components/ui/optimized-image";
 import { mobileBleedCardClass } from '@/components/layout/page-section';
+import { cn } from '@/lib/utils';
 import { useProductFinder } from "../../products/hooks/use-all-products";
 import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
 import { Package, Eye } from 'lucide-react';
@@ -45,12 +46,12 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
   return (
     <>
       {/* Card: Sản phẩm bị ảnh hưởng */}
-      <Card className={mobileBleedCardClass}>
+      <Card className={cn(mobileBleedCardClass, "overflow-hidden")}>
         <CardHeader>
           <CardTitle size="lg">Sản phẩm bị ảnh hưởng</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg overflow-x-auto">
+        <CardContent className="overflow-x-auto">
+          <div className="border rounded-lg min-w-[600px]">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b">
                 <tr>
@@ -78,7 +79,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                     ? getProductTypeName((enrichedItem.productTypeSystemId || product?.productTypeSystemId) as SystemId)
                     : 'Hàng hóa';
                   // ✅ Use enriched image from API, then fall back to product finder
-                  const imageUrl = enrichedItem.productImage || product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  const imageUrl = enrichedItem.productImage || product?.thumbnailImage || product?.imageUrl || product?.galleryImages?.[0] || product?.images?.[0];
                   // ✅ Show actual business ID (e.g. "ZP8"), not systemId (e.g. "PROD112654")
                   const displayId = enrichedItem.productBusinessId || product?.id || null;
                   // ✅ Correct systemId for product link navigation

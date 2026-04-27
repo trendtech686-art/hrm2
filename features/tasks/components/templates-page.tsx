@@ -69,7 +69,7 @@ export function TaskTemplatesPage() {
   const router = useRouter();
   const { data: templates, getMostUsed, search } = useAllTaskTemplates();
   const { incrementUsage } = useTaskTemplateMutations();
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { data: tasksData } = useTasks();
   const _tasks = tasksData?.data ?? [];
   const { create: createTaskMutation } = useTaskMutations({

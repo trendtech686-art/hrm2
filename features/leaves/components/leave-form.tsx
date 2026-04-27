@@ -54,7 +54,7 @@ const calculateBusinessDays = (start?: Date, end?: Date): number => {
 
 
 export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: LeaveFormProps) {
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { data: settings } = useEmployeeSettings();
   
   const employeeOptions: ComboboxOption[] = React.useMemo(() => 

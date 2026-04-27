@@ -61,7 +61,7 @@ export function ProductImage({
     if (storeGallery) return storeGallery;
     // 2. Ảnh từ product data (mock/seed)
     if (!productData) return undefined;
-    return productData.thumbnailImage || productData.galleryImages?.[0] || productData.images?.[0];
+    return productData.thumbnailImage || productData.imageUrl || productData.galleryImages?.[0] || productData.images?.[0];
   }, [storeThumbnail, storeGallery, productData]);
 
   // Fetch image from server if not yet fetched (uses batch queue)
@@ -129,6 +129,6 @@ export function useProductImage(
     if (storeGallery) return storeGallery;
     // 2. Ảnh từ product data
     if (!productData) return undefined;
-    return productData.thumbnailImage || productData.galleryImages?.[0] || productData.images?.[0];
+    return productData.thumbnailImage || productData.imageUrl || productData.galleryImages?.[0] || productData.images?.[0];
   }, [storeThumbnail, storeGallery, productData]);
 }

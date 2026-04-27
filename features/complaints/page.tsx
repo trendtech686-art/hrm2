@@ -77,7 +77,7 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
     },
     onError: (err) => toast.error(err.message)
   });
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
 
 
   // ✅ Settings from React Query (DB via server actions)

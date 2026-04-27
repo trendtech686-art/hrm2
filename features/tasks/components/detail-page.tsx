@@ -96,7 +96,7 @@ export function TaskDetailPage() {
   
   const { isAdmin, employee, can } = useAuth();
   const { isMobile } = useBreakpoint();
-  const { data: allEmployees } = useAllEmployees();
+  const { data: allEmployees } = useAllEmployees({ enabled: false });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = React.useState(false);
   const [showEvidenceViewer, setShowEvidenceViewer] = React.useState(false);

@@ -75,7 +75,7 @@ export function AttendancePage() {
   const { isMobile } = useBreakpoint();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { data: departments } = useAllDepartments();
   const { data: rawSettings } = useEmployeeSettings();
   const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;

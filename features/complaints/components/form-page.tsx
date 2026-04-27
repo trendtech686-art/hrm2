@@ -585,12 +585,25 @@ export function ComplaintFormPage() {
   // ⭐ Copy from existing complaint - populate form with source complaint data
   React.useEffect(() => {
     // Skip if editing (already handled above) or no copy source
-    if (isEditing || !copyFromSystemId || !copySourceComplaint) return;
+    if (isEditing || !copyFromSystemId) return;
+    
+    // ⭐ Fix: Wait for copySourceComplaint to actually have data
+    if (!copySourceComplaint) return;
+    
+    // ⭐ Fix: Check if data has been processed (not just ID check)
+    // Check if orderSystemId or customerName exists - indicates data was loaded
+    const hasData = copySourceComplaint.orderSystemId || 
+                    copySourceComplaint.orderCode || 
+                    copySourceComplaint.customerName;
+    
+    if (!hasData) return;
     
     // Skip if already copied for this specific copyFromSystemId
-    if (hasCopiedRef.current === copyFromSystemId) return;
+    // ⭐ Fix: Reset ref when copyFromSystemId changes (e.g., copy from different complaint)
+    if (hasCopiedRef.current === `copied-${copyFromSystemId}`) return;
     
-    hasCopiedRef.current = copyFromSystemId;
+    // Mark as being processed (use unique key to prevent double-processing)
+    hasCopiedRef.current = `copied-${copyFromSystemId}`;
     setIsLoadingComplaint(true);
     
     // Copy form values
@@ -652,20 +665,72 @@ export function ComplaintFormPage() {
     }
     
     // Load the source order for display
+    // ⭐ Fix: Use relatedOrder from complaint API if available (avoids extra API call)
     const orderIdToFind = copySourceComplaint.orderSystemId || copySourceComplaint.orderCode;
-    if (orderIdToFind) {
+    
+    if (copySourceComplaint.relatedOrder) {
+      // Use inline order data from complaint API
+      console.log('[Copy] Using inline order data from complaint:', copySourceComplaint.relatedOrder.id);
+      const order = copySourceComplaint.relatedOrder as unknown as Order;
+      setOrderEntity(order);
+      setSelectedOrder({
+        value: order.systemId,
+        label: `${order.id} - ${order.customerName}`,
+        subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+      });
+    } else if (orderIdToFind) {
+      // Fallback: fetch order separately
+      console.log('[Copy] relatedOrder not available, fetching order:', orderIdToFind);
       let cancelled = false;
-      fetchOrder(orderIdToFind).then(order => {
-        if (cancelled) return;
-        
-        setOrderEntity(order);
-        setSelectedOrder({
-          value: order.systemId,
-          label: `${order.id} - ${order.customerName}`,
-          subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
-        });
-      }).catch(() => {});
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      const loadOrder = async () => {
+        try {
+          const order = await fetchOrder(orderIdToFind);
+          console.log('[Copy] Order loaded successfully:', order.id);
+          if (!cancelled) {
+            setOrderEntity(order);
+            setSelectedOrder({
+              value: order.systemId,
+              label: `${order.id} - ${order.customerName}`,
+              subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+            });
+          }
+        } catch (err) {
+          console.log('[Copy] Order fetch failed, retry:', retryCount, err);
+          if (cancelled) return;
+          
+          if (retryCount < maxRetries) {
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!cancelled) loadOrder();
+          } else {
+            if (copySourceComplaint.orderCode && copySourceComplaint.orderCode !== orderIdToFind) {
+              console.log('[Copy] Trying orderCode:', copySourceComplaint.orderCode);
+              try {
+                const orderByCode = await fetchOrder(copySourceComplaint.orderCode);
+                console.log('[Copy] Order loaded via orderCode:', orderByCode.id);
+                if (!cancelled) {
+                  setOrderEntity(orderByCode);
+                  setSelectedOrder({
+                    value: orderByCode.systemId,
+                    label: `${orderByCode.id} - ${orderByCode.customerName}`,
+                    subtitle: `${formatDateForDisplay(orderByCode.orderDate)} • ${orderByCode.grandTotal?.toLocaleString('vi-VN')} đ`,
+                  });
+                }
+              } catch (err2) {
+                console.error('[Copy] OrderCode fetch also failed:', err2);
+              }
+            }
+          }
+        }
+      };
+      
+      loadOrder();
       return () => { cancelled = true; };
+    } else {
+      console.log('[Copy] No order ID found to load');
     }
     
     const timer = setTimeout(() => {
@@ -1064,6 +1129,102 @@ export function ComplaintFormPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Card: Thông tin khách hàng — style giống order detail page */}
+        {selectedOrder && customerSystemId && (
+          <Card className={mobileBleedCardClass}>
+            <CardHeader>
+              <CardTitle>Thông tin khách hàng</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingStats ? (
+                <p className="text-sm text-muted-foreground">Đang tải...</p>
+              ) : (() => {
+                const customer = customerStats.customer;
+                const formatMoney = (v?: number) => (v ?? 0).toLocaleString('vi-VN');
+                return (
+                  <div className="space-y-3">
+                    {/* Tên + SĐT */}
+                    <div>
+                      <p className="font-semibold text-lg">{customer?.name || watch('customerName')}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {customer?.phone || watch('customerPhone') || 'Chưa có SĐT'}
+                      </p>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="text-sm space-y-1.5 border-t pt-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nhóm KH:</span>
+                        <span className="font-medium">{customerStats.customerGroupName || '---'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">NV phụ trách:</span>
+                        <span className="font-medium">{customer?.accountManagerName || '---'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Công nợ/Hạn mức:</span>
+                        <div className="text-right">
+                          <span className={`font-medium ${customerStats.financial.currentDebt > 0 ? 'text-red-500' : ''}`}>
+                            {formatMoney(customerStats.financial.currentDebt)}
+                          </span>
+                          <span className="text-muted-foreground mx-1">/</span>
+                          <span className="font-medium">{formatMoney(customer?.maxDebt)}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tổng chi tiêu:</span>
+                        <span className="font-medium">{formatMoney(customerStats.financial.totalSpent)}</span>
+                      </div>
+
+                      <div className="border-t border-dashed my-2" />
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tổng số đơn đặt:</span>
+                        <span className="font-medium">{customerStats.orders.total}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-right -mt-1">
+                        {customerStats.orders.pending} đặt hàng, {customerStats.orders.inProgress} đang giao dịch, {customerStats.orders.completed} hoàn thành, {customerStats.orders.cancelled} đã hủy
+                      </p>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Bảo hành (đã trả/tổng):</span>
+                        <span className="font-medium">
+                          {customerStats.warranties.total > 0
+                            ? `${customerStats.warranties.total - customerStats.warranties.active}/${customerStats.warranties.total}`
+                            : '0'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Khiếu nại (đã xử lý/tổng):</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {customerStats.complaints.total > 0
+                              ? `${customerStats.complaints.total - customerStats.complaints.active}/${customerStats.complaints.total}`
+                              : '0'}
+                          </span>
+                          {customerStats.complaints.active > 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-medium">
+                              {customerStats.complaints.active} chưa xử lý
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Lần đặt đơn gần nhất:</span>
+                        <span className="font-medium">
+                          {customerStats.orders.lastOrderDate ? formatDateForDisplay(customerStats.orders.lastOrderDate) : '---'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Card: Thông tin đơn hàng */}
         {selectedOrder && orderEntity && (() => {
@@ -1738,102 +1899,6 @@ export function ComplaintFormPage() {
                   );
                 })()}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Card: Thông tin khách hàng — style giống order detail page */}
-        {selectedOrder && customerSystemId && (
-          <Card className={mobileBleedCardClass}>
-            <CardHeader>
-              <CardTitle>Thông tin khách hàng</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingStats ? (
-                <p className="text-sm text-muted-foreground">Đang tải...</p>
-              ) : (() => {
-                const customer = customerStats.customer;
-                const formatMoney = (v?: number) => (v ?? 0).toLocaleString('vi-VN');
-                return (
-                  <div className="space-y-3">
-                    {/* Tên + SĐT */}
-                    <div>
-                      <p className="font-semibold text-lg">{customer?.name || watch('customerName')}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {customer?.phone || watch('customerPhone') || 'Chưa có SĐT'}
-                      </p>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="text-sm space-y-1.5 border-t pt-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nhóm KH:</span>
-                        <span className="font-medium">{customerStats.customerGroupName || '---'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">NV phụ trách:</span>
-                        <span className="font-medium">{customer?.accountManagerName || '---'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Công nợ/Hạn mức:</span>
-                        <div className="text-right">
-                          <span className={`font-medium ${customerStats.financial.currentDebt > 0 ? 'text-red-500' : ''}`}>
-                            {formatMoney(customerStats.financial.currentDebt)}
-                          </span>
-                          <span className="text-muted-foreground mx-1">/</span>
-                          <span className="font-medium">{formatMoney(customer?.maxDebt)}</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tổng chi tiêu:</span>
-                        <span className="font-medium">{formatMoney(customerStats.financial.totalSpent)}</span>
-                      </div>
-
-                      <div className="border-t border-dashed my-2" />
-
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tổng số đơn đặt:</span>
-                        <span className="font-medium">{customerStats.orders.total}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-right -mt-1">
-                        {customerStats.orders.pending} đặt hàng, {customerStats.orders.inProgress} đang giao dịch, {customerStats.orders.completed} hoàn thành, {customerStats.orders.cancelled} đã hủy
-                      </p>
-
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bảo hành (đã trả/tổng):</span>
-                        <span className="font-medium">
-                          {customerStats.warranties.total > 0
-                            ? `${customerStats.warranties.total - customerStats.warranties.active}/${customerStats.warranties.total}`
-                            : '0'}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Khiếu nại (đã xử lý/tổng):</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {customerStats.complaints.total > 0
-                              ? `${customerStats.complaints.total - customerStats.complaints.active}/${customerStats.complaints.total}`
-                              : '0'}
-                          </span>
-                          {customerStats.complaints.active > 0 && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-medium">
-                              {customerStats.complaints.active} chưa xử lý
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Lần đặt đơn gần nhất:</span>
-                        <span className="font-medium">
-                          {customerStats.orders.lastOrderDate ? formatDateForDisplay(customerStats.orders.lastOrderDate) : '---'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
             </CardContent>
           </Card>
         )}

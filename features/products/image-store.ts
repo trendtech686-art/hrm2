@@ -243,7 +243,7 @@ async function executeBatchFetch(): Promise<void> {
  * 2. Ảnh từ product data (mock/seed data)
  */
 export function getProductImageUrl(
-  product: { thumbnailImage?: string; galleryImages?: string[]; images?: string[] } | null | undefined,
+  product: { thumbnailImage?: string; imageUrl?: string; galleryImages?: string[]; images?: string[] } | null | undefined,
   serverThumbnail?: string,
   serverGallery?: string
 ): string | undefined {
@@ -253,5 +253,5 @@ export function getProductImageUrl(
   
   // Ưu tiên 2: Ảnh từ product data
   if (!product) return undefined;
-  return product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
+  return product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0];
 }

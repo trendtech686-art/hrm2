@@ -39,7 +39,7 @@ export function TaskFormPage() {
     }
   });
   
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { isAdmin, employee: authEmployee } = useAuth();
   
   // Redirect non-admin users

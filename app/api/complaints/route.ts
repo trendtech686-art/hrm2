@@ -4,6 +4,7 @@ import { ComplaintStatus, ComplaintPriority } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createComplaintSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { generateSubEntityId } from '@/lib/id-utils'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { notifyComplaintCreated } from '@/lib/complaint-notifications'
@@ -120,8 +121,23 @@ export async function GET(request: Request) {
       employees.forEach(e => assigneeMap.set(e.systemId, e.fullName))
     }
 
+    // ⭐ Map Prisma status to frontend values (same logic as detail API)
+    const mapStatusFromPrisma = (status: string, cancelledAt: Date | null, endedAt: Date | null): string => {
+      switch (status) {
+        case 'OPEN': return 'pending';
+        case 'IN_PROGRESS': return 'investigating';
+        case 'RESOLVED': return 'resolved';
+        case 'CLOSED':
+          if (cancelledAt) return 'cancelled';
+          if (endedAt) return 'ended';
+          return 'cancelled';
+        default: return status;
+      }
+    };
+
     const mappedComplaints = complaints.map(c => ({
       ...c,
+      status: mapStatusFromPrisma(c.status as string, c.cancelledAt, c.endedAt), // ⭐ Map status for frontend
       assignedTo: c.assigneeId, // Map assigneeId -> assignedTo for frontend
       assignedToName: c.assigneeId ? assigneeMap.get(c.assigneeId) || null : null,
       orderSystemId: c.orderId,
@@ -156,18 +172,49 @@ export async function POST(request: Request) {
         body.id?.trim() || undefined
       );
 
+      // Process images if present
+      const processedImages = body.images?.map(img => ({
+        id: img.id || generateSubEntityId('IMG'),
+        url: img.url,
+        uploadedBy: img.uploadedBy || session.user?.employeeId,
+        uploadedAt: img.uploadedAt ? new Date(img.uploadedAt) : new Date(),
+        type: img.type || 'initial',
+      })) || [];
+
+      // Process employee images if present
+      const processedEmployeeImages = body.employeeImages?.map(img => ({
+        id: img.id || generateSubEntityId('IMG'),
+        url: img.url,
+        uploadedBy: img.uploadedBy || session.user?.employeeId,
+        uploadedAt: img.uploadedAt ? new Date(img.uploadedAt) : new Date(),
+      })) || [];
+
       return tx.complaint.create({
         data: {
           systemId,
           id: businessId,
-          customerId: body.customerId,
-          orderId: body.orderId,
-          title: body.title,
+          customerId: body.customerId || body.customerSystemId,
+          orderId: body.orderId || body.orderSystemId,
+          orderCode: body.orderCode,
+          orderValue: body.orderValue,
+          branchSystemId: body.branchSystemId,
+          branchName: body.branchName,
+          customerName: body.customerName,
+          customerPhone: body.customerPhone,
+          title: body.title || `Khiếu nại đơn ${body.orderCode || body.orderSystemId || ''}`,
           description: body.description,
           category: body.category,
+          type: body.type,
           priority: (body.priority || 'MEDIUM') as ComplaintPriority,
           status: (body.status || 'OPEN') as ComplaintStatus,
           assigneeId: body.assigneeId || body.assignedTo,
+          images: processedImages,
+          employeeImages: processedEmployeeImages,
+          affectedProducts: body.affectedProducts,
+          verification: body.verification || 'pending-verification',
+          isVerifiedCorrect: body.isVerifiedCorrect,
+          timeline: body.timeline,
+          createdBy: body.createdBy || session.user?.employeeId,
         },
         include: {
           customer: true,

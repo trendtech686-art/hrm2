@@ -56,6 +56,7 @@ import { useComplaintHandlers } from "../hooks/use-complaint-handlers";
 import { useVerificationHandlers } from "../hooks/use-verification-handlers";
 import { useCompensationHandlers } from "../hooks/use-compensation-handlers";
 import { useInventoryHandlers } from "../hooks/use-inventory-handlers";
+import { useCorrectVerificationHandler } from "../hooks/use-correct-verification-handler";
 import { logError } from '@/lib/logger'
 
 /**
@@ -70,7 +71,8 @@ export function ComplaintDetailPage() {
     // Toast messages are already shown in verification handlers
     onError: (err) => toast.error(err.message)
   });
-  const { data: employees } = useAllEmployees({ enabled: false });
+  // Load employees for selectors - bật enabled để fetch khi cần
+  const { data: employees } = useAllEmployees({ enabled: true });
   // REMOVED: Payments/receipts loaded separately in components that need them
 
   // ✅ Use dedicated query for single complaint - auto-refreshes after mutation
@@ -203,6 +205,16 @@ export function ComplaintDetailPage() {
     employee,
   });
 
+  // ✅ NEW: Extract correct verification handler
+  const { handleCorrectVerification } = useCorrectVerificationHandler({
+    complaint: complaint ?? null,
+    currentUser,
+    assignedEmployee,
+    relatedOrder,
+    employee,
+    updateComplaint,
+  });
+
   // ==========================================
   // Event Handlers (Legacy - will be replaced)
   // ==========================================
@@ -236,7 +248,26 @@ export function ComplaintDetailPage() {
   // REPLACED: handleConfirmCorrect → verificationHandlers.handleConfirmCorrect
   const handleConfirmCorrect = verificationHandlers.handleConfirmCorrect;
 
-  // NEW: Handler for "Xử lý tồn kho" button  
+  // ✅ REPLACED: handleSubmitCorrectResolution → useCorrectVerificationHandler
+  const handleSubmitCorrectResolution = React.useCallback(async (
+    method: "refund" | "replace", 
+    cost: number, 
+    incurredCost: number, 
+    reason: string,
+    confirmedQuantities?: Record<SystemId, number>,
+    inventoryAdjustments?: Record<SystemId, number>
+  ) => {
+    await handleCorrectVerification({
+      method,
+      cost,
+      incurredCost,
+      reason,
+      confirmedQuantities,
+      inventoryAdjustments,
+    });
+  }, [handleCorrectVerification]);
+
+  // NEW: Handler for "Xử lý tồn kho" button
   const handleProcessInventory = React.useCallback(() => {
     if (!complaint) return;
     
@@ -247,15 +278,12 @@ export function ComplaintDetailPage() {
   }, [complaint, inventoryHandlers]);
 
   // NEW: Handler for inventory adjustment submission
-  // REPLACED: handleInventoryAdjustment → inventoryHandlers.handleInventoryAdjustment
   const handleInventoryAdjustment = inventoryHandlers.handleInventoryAdjustment;
 
-
-
+  // NEW: Handler for "Xác nhận sai" button
   const handleVerifyIncorrect = React.useCallback(() => {
     if (!complaint) return;
     
-    //  Permission check
     if (!permissions.canVerify) {
       toast.error(permissions.reason || "Bạn không có quyền xác minh khiếu nại");
       return;
@@ -264,271 +292,6 @@ export function ComplaintDetailPage() {
     setVerificationMode("incorrect");
     setVerificationDialogOpen(true);
   }, [complaint, permissions, setVerificationMode, setVerificationDialogOpen]);
-
-  const handleSubmitCorrectResolution = React.useCallback(async (
-    method: "refund" | "replace", 
-    cost: number, 
-    incurredCost: number, 
-    reason: string,
-    confirmedQuantities?: Record<SystemId, number>, //  NEW: Số lượng thiếu thực tế đã xác minh
-    inventoryAdjustments?: Record<SystemId, number> //  NEW: Số lượng muốn điều chỉnh kho (nhập tay)
-  ) => {
-    if (!complaint) return;
-    if (cost <= 0) {
-      toast.error("Vui lòng nhập số tiền bù trừ");
-      return;
-    }
-    if (!reason.trim()) {
-      toast.error("Vui lòng nhập lý do bù trừ");
-      return;
-    }
-    
-    // Lấy thông tin nhân viên phụ trách (nếu có chi phí phát sinh)
-    // ⚡ OPTIMIZE: Use pre-memoized assignedEmployee instead of searching
-    let responsibleEmployee;
-    if (incurredCost > 0) {
-      if (!complaint.assignedTo) {
-        toast.error("Không tìm thấy nhân viên phụ trách để tạo phiếu thu chi phí phát sinh");
-        return;
-      }
-      responsibleEmployee = assignedEmployee;
-      if (!responsibleEmployee) {
-        toast.error(`Không tìm thấy thông tin nhân viên phụ trách (ID: ${complaint.assignedTo})`);
-        return;
-      }
-    }
-    
-    // TAO 2 PHIEU: CHI (bu tru khach - CHI KHI HOAN TIEN) + THU (phat nhan vien)
-    try {
-      // LAZY LOAD: Import Server Actions for all operations
-      const { fetchCashAccounts } = await import('@/features/settings/cash-accounts/api/cash-accounts-api');
-      const { fetchPaymentTypes } = await import('@/features/settings/payments/types/api/payment-types-api');
-      const { fetchReceiptTypes } = await import('@/features/settings/receipt-types/api/receipt-types-api');
-      const { fetchPaymentMethods } = await import('@/features/settings/payments/methods/api/payment-methods-api');
-      const { createPaymentAction } = await import('@/app/actions/payments');
-      const { createReceiptAction } = await import('@/app/actions/receipts');
-      const { updateProductInventoryAction } = await import('@/app/actions/products');
-      
-      // Fetch settings data from DB
-      const [cashAccountsResult, paymentTypesResult, receiptTypesResult, paymentMethodsResult] = await Promise.all([
-        fetchCashAccounts({ isActive: true }),
-        fetchPaymentTypes({ isActive: true }),
-        fetchReceiptTypes({ isActive: true }),
-        fetchPaymentMethods({ isActive: true }),
-      ]);
-      
-      const accounts = cashAccountsResult.data ?? [];
-      const paymentTypes = paymentTypesResult.data ?? [];
-      const receiptTypes = receiptTypesResult.data ?? [];
-      const paymentMethodsFromApi = paymentMethodsResult.data ?? [];
-      
-      // ✅ Find default accounts by type
-      const defaultCashAccount = accounts.find(acc => acc.isDefault && acc.type === 'CASH') || accounts.find(acc => acc.type === 'CASH');
-      const defaultBankAccount = accounts.find(acc => acc.isDefault && acc.type === 'BANK') || accounts.find(acc => acc.type === 'BANK');
-      
-      if (!defaultCashAccount && !defaultBankAccount) {
-        toast.error("Không tìm thấy tài khoản quỹ mặc định");
-        return;
-      }
-      
-      // ✅ Find payment methods by name (support both Vietnamese and English)
-      const cashMethod = paymentMethodsFromApi.find(m => (m.name.toLowerCase().includes('tiền mặt') || m.name.toLowerCase().includes('cash')) && m.isActive);
-      const bankMethod = paymentMethodsFromApi.find(m => (m.name.toLowerCase().includes('chuyển khoản') || m.name.toLowerCase().includes('bank') || m.name.toLowerCase().includes('transfer')) && m.isActive);
-      
-      // 1. TAO PHIEU CHI - CHI KHI HOAN TIEN
-      let paymentSystemId: SystemId | undefined;
-      let paymentId: BusinessId | undefined;
-      
-      if (method === 'refund') {
-        const complaintPaymentType = paymentTypes.find(pt => 
-          pt.name.toLowerCase().includes('bù trừ') || 
-          pt.name.toLowerCase().includes('khiếu nại')
-        );
-        
-        if (!complaintPaymentType) {
-          toast.error(MSG.ERROR.PAYMENT_TYPE_NOT_FOUND);
-          return;
-        }
-        
-        const paymentData = {
-          amount: cost,
-          description: `Hoàn tiền khiếu nại ${complaint.id}\n${reason}`,
-          category: 'complaint_refund' as const,
-          branchId: (employee?.branchSystemId || 'default_branch') as string,
-          branchSystemId: employee?.branchSystemId || asSystemId('default_branch'),
-          branchName: 'Chi nhánh',
-          // ✅ Use bank account for bank transfer, cash account for cash
-          accountSystemId: defaultBankAccount?.systemId || defaultCashAccount?.systemId || asSystemId(''),
-          paymentMethodSystemId: bankMethod?.systemId || cashMethod?.systemId || asSystemId(''),
-          paymentMethodName: bankMethod?.name || cashMethod?.name || 'Chuyển khoản',
-          recipientTypeSystemId: asSystemId('KHACHHANG'),
-          recipientTypeName: 'Khách hàng',
-          recipientName: complaint.customerName,
-          recipientSystemId: complaint.customerId ? asSystemId(complaint.customerId) : undefined,
-          paymentReceiptTypeSystemId: complaintPaymentType.systemId,
-          paymentReceiptTypeName: complaintPaymentType.name,
-          linkedComplaintSystemId: complaint.systemId,
-        };
-        
-        // ✅ Use Server Action to persist to database
-        const paymentResult = await createPaymentAction(paymentData);
-        if (!paymentResult.success) {
-          toast.error(paymentResult.error || 'Lỗi tạo phiếu chi');
-          return;
-        }
-        const addedPayment = paymentResult.data as { systemId: string; id: string } | undefined;
-        paymentSystemId = addedPayment?.systemId as SystemId | undefined;
-        paymentId = addedPayment?.id as BusinessId | undefined;
-        
-      } else {
-        // Đổi hàng - KHÔNG tạo phiếu chi
-      }
-      
-      // 2. TAO PHIEU THU - CHI PHI PHAT SINH TU NHAN VIEN
-      let receiptSystemId: SystemId | undefined;
-      let receiptId: BusinessId | undefined;
-      if (incurredCost > 0 && responsibleEmployee) {
-        const incurredCostReceiptType = receiptTypes.find(pt => 
-          pt.name.toLowerCase().includes('chi phí phát sinh') || 
-          pt.name.toLowerCase().includes('phạt')
-        );
-        
-        if (!incurredCostReceiptType) {
-          toast.error(MSG.ERROR.RECEIPT_TYPE_NOT_FOUND);
-          return;
-        }
-        
-        const receiptData = {
-          amount: incurredCost,
-          description: `Thu chi phí phát sinh từ lỗi khiếu nại ${complaint.id}\nNhân viên: ${responsibleEmployee.fullName}\n${reason}`,
-          category: 'complaint_penalty' as const,
-          branchId: (employee?.branchSystemId || 'default_branch') as string,
-          branchSystemId: employee?.branchSystemId || asSystemId('default_branch'),
-          branchName: 'Chi nhánh',
-          // ✅ Use cash account with cash method for penalty collection
-          accountSystemId: defaultCashAccount?.systemId || defaultBankAccount?.systemId || asSystemId(''),
-          paymentMethodSystemId: cashMethod?.systemId || bankMethod?.systemId || asSystemId(''),
-          paymentMethodName: cashMethod?.name || bankMethod?.name || 'Tiền mặt',
-          payerTypeSystemId: asSystemId('NHANVIEN'),
-          payerTypeName: 'Nhân viên',
-          payerName: responsibleEmployee.fullName,
-          payerSystemId: responsibleEmployee.systemId,
-          paymentReceiptTypeSystemId: incurredCostReceiptType.systemId,
-          paymentReceiptTypeName: incurredCostReceiptType.name,
-          linkedComplaintSystemId: complaint.systemId,
-        };
-        
-        // ✅ Use Server Action to persist to database
-        const receiptResult = await createReceiptAction(receiptData);
-        if (!receiptResult.success) {
-          toast.error(receiptResult.error || 'Lỗi tạo phiếu thu');
-          return;
-        }
-        const addedReceipt = receiptResult.data as { systemId: string; id: string } | undefined;
-        receiptSystemId = addedReceipt?.systemId as SystemId | undefined;
-        receiptId = addedReceipt?.id as BusinessId | undefined;
-      }
-      
-      // ĐIỀU CHỈNH KHO THEO SỐ LƯỢNG NHẬP TỪ NGƯỜI XÁC MINH
-      let inventoryAdjustment;
-      if (complaint.affectedProducts && complaint.affectedProducts.length > 0) {
-        // ⚡ OPTIMIZE: Use pre-memoized relatedOrder instead of searching
-        const branchSystemId = relatedOrder?.branchSystemId || employee?.branchSystemId || asSystemId('default_branch');
-        
-        // Dung inventoryAdjustments - so luong nhap tay tu user (+ hoac -)
-        const adjustedItems = complaint.affectedProducts
-          .map(p => {
-            // Lấy số lượng điều chỉnh kho (user nhập, có thể âm hoặc dương)
-            const adjustQuantity = inventoryAdjustments?.[p.productSystemId] ?? 0;
-            if (adjustQuantity === 0) return null; // Bỏ qua nếu không điều chỉnh
-            
-            const issueLabel = p.issueType === 'missing' ? 'Thiếu' : p.issueType === 'excess' ? 'Thừa' : p.issueType === 'defective' ? 'Hỏng' : 'Khác';
-            const adjustLabel = adjustQuantity > 0 ? `+${adjustQuantity}` : adjustQuantity;
-            return {
-              productSystemId: p.productSystemId,
-              productId: p.productId,
-              productName: p.productName,
-              quantityAdjusted: adjustQuantity,
-              reason: `Điều chỉnh kho khiếu nại ${complaint.id} (${issueLabel}: ${adjustLabel})`,
-              branchSystemId: branchSystemId,
-            };
-          })
-          .filter((item): item is NonNullable<typeof item> => Boolean(item));
-        
-        // ✅ Use Server Action to update inventory in database (parallel)
-        await Promise.all(adjustedItems.map(item =>
-          updateProductInventoryAction(
-            item.productSystemId,
-            item.branchSystemId,
-            Math.abs(item.quantityAdjusted),
-            item.quantityAdjusted > 0 ? 'add' : 'subtract'
-          )
-        ));
-        
-        if (adjustedItems.length > 0) {
-          inventoryAdjustment = {
-            adjusted: true,
-            adjustedBy: currentUser.systemId,
-            adjustedAt: new Date(),
-            adjustmentNote: `Điều chỉnh kho theo xác minh khiếu nại - ${adjustedItems.length} sản phẩm`,
-            items: adjustedItems,
-          };
-          
-          toast.success(MSG.SUCCESS.INVENTORY_ADJUSTED(adjustedItems.length));
-        }
-      }
-      
-      const penaltyEmployeeName = responsibleEmployee?.fullName;
-
-      const newAction: ComplaintAction = {
-        id: asSystemId(generateSubEntityId('ACTION')),
-        actionType: "verified-correct",
-        performedBy: currentUser.systemId,
-        performedAt: new Date(),
-        note: `Phương án: ${method === "refund" ? "Hoàn tiền" : "Bù trả hàng"}${method === "refund" ? `\nSố tiền hoàn trả: ${cost.toLocaleString("vi-VN")} đ` : ''}\nChi phí phát sinh: ${incurredCost.toLocaleString("vi-VN")} đ\nLý do: ${reason}${paymentId ? `\nĐã tạo phiếu chi: ${paymentId}` : ''}${incurredCost > 0 && receiptId ? `\nĐã tạo phiếu thu: ${receiptId}${penaltyEmployeeName ? ` (Thu từ ${penaltyEmployeeName})` : ''}` : ''}${inventoryAdjustment ? `\nĐã điều chỉnh kho: ${inventoryAdjustment.items.length} sản phẩm` : ''}`,
-        metadata: {
-          method,
-          cost,
-          incurredCost,
-          reason,
-          paymentSystemId,
-          receiptSystemId,
-        },
-      };
-      
-      // DEBUG: Log metadata duoc luu
-      
-      // Update affectedProducts voi so luong da xac minh
-      const updatedAffectedProducts = complaint.affectedProducts?.map(p => ({
-        ...p,
-        quantityMissing: confirmedQuantities?.[p.productSystemId] ?? p.quantityMissing, // Update voi so luong xac minh
-      }));
-      
-      updateComplaint(complaint.systemId, {
-        isVerifiedCorrect: true,
-        verification: "verified-correct",
-        resolution: method === "refund" ? "refund" : "replacement",
-        resolutionNote: method === "refund" 
-          ? `Hoàn tiền: ${cost.toLocaleString("vi-VN")} đ\nChi phí phát sinh: ${incurredCost.toLocaleString("vi-VN")} đ\nLý do: ${reason}`
-          : `Bù trả hàng cho khách\nChi phí phát sinh: ${incurredCost.toLocaleString("vi-VN")} đ\nLý do: ${reason}`,
-        compensationAmount: cost,
-        incurredCost: incurredCost,
-        compensationReason: reason,
-        affectedProducts: updatedAffectedProducts, // Luu so luong da xac minh
-        inventoryAdjustment: inventoryAdjustment, // Luu thong tin dieu chinh kho
-        timeline: [...(complaint.timeline || []), newAction],
-      } as Partial<Complaint>);
-      
-      const successMessage = method === "refund" 
-        ? "Đã xác nhận khiếu nại đúng và tạo phiếu hoàn tiền"
-        : "Đã xác nhận khiếu nại đúng, ghi nhận bù trả hàng cho khách";
-      complaintNotifications.onVerified(successMessage);
-    } catch (error) {
-      logError('Error creating payment/receipt', error);
-      toast.error("Có lỗi khi tạo phiếu chi");
-    }
-  }, [complaint, updateComplaint, employee, currentUser, assignedEmployee, relatedOrder]);
-  // ⚡ OPTIMIZED: Removed employees, orders arrays from deps - use memoized assignedEmployee, relatedOrder instead
 
   // REPLACED: handleSubmitIncorrectEvidence → verificationHandlers.handleSubmitIncorrectEvidence
   const handleSubmitIncorrectEvidence = verificationHandlers.handleSubmitIncorrectEvidence;

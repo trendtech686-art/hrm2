@@ -94,10 +94,23 @@ export function useInventoryHandlers({
         const productResult = await getProductAction(productSystemId);
         const product = productResult.success ? productResult.data : null;
         
-        // Get inventory for branch from inventoryByBranch JSON field
-        const inventoryByBranch = (product?.inventoryByBranch as Record<string, number>) ?? {};
-        const systemQuantity = inventoryByBranch[branchSystemId] || 0;
-        const actualQuantity = systemQuantity + quantityAdjusted;
+      // Get inventory for branch from inventoryByBranch JSON field
+      const inventoryByBranch = (product?.inventoryByBranch as Record<string, number>) ?? {};
+      // Use Math.max to prevent negative inventory from causing issues
+      // If key doesn't exist, use 0; if value is negative, treat as 0
+      const systemQuantity = Math.max(0, inventoryByBranch[branchSystemId] || 0);
+      const actualQuantity = systemQuantity + quantityAdjusted;
+      
+      // Get allowNegativeStockOut setting to decide validation
+      const { fetchSalesSettingsFromService } = await import('@/features/settings/sales/sales-management-service');
+      const salesSettings = await fetchSalesSettingsFromService();
+      const allowNegativeStockOut = salesSettings?.allowNegativeStockOut ?? true;
+      
+      // Validate: actualQuantity không được âm CHỈ KHI không cho phép tồn kho âm
+      if (!allowNegativeStockOut && actualQuantity < 0) {
+        toast.error(`Số lượng sau điều chỉnh không được âm cho sản phẩm ${affectedProduct.productName}. Tồn kho hiện tại: ${systemQuantity}. Nếu cần tồn kho âm, bật setting "Cho phép xuất kho âm" trong Settings > Sales.`);
+        return;
+      }
         
         inventoryCheckItems.push({
           productSystemId,
@@ -120,6 +133,7 @@ export function useInventoryHandlers({
         checkDate: new Date().toISOString(),
         description: `Kiểm kê từ khiếu nại ${complaint.id}: ${reason}`,
         createdBy: currentUser.systemId,
+        linkedComplaintSystemId: complaint.systemId, // Link to complaint for reference
         items: inventoryCheckItems.map(item => ({
           productId: item.productId,
           productSystemId: item.productSystemId,

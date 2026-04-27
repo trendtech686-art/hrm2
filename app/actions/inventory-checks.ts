@@ -25,6 +25,7 @@ export type CreateInventoryCheckInput = {
   description?: string
   createdBy?: string
   items?: CreateInventoryCheckItemInput[]
+  linkedComplaintSystemId?: string
 }
 
 export type CreateInventoryCheckItemInput = {
@@ -43,7 +44,8 @@ export type CreateInventoryCheckItemInput = {
 export type UpdateInventoryCheckInput = {
   systemId: string
   checkDate?: string | Date
-  description?: string
+  note?: string // Changed from description to note
+  status?: string
   updatedBy?: string
 }
 
@@ -76,6 +78,9 @@ export async function createInventoryCheckAction(
         notes: input.description,
         status: 'DRAFT',
         createdBy: input.createdBy,
+        ...(input.linkedComplaintSystemId && {
+          linkedComplaint: { connect: { systemId: input.linkedComplaintSystemId } }
+        }),
         items: input.items?.length ? {
           create: input.items.map((item) => ({
             productId: item.productId,
@@ -145,14 +150,15 @@ export async function updateInventoryCheckAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Chỉ phiếu ở trạng thái NHÁP mới có thể cập nhật',
+        error: 'Chỉ phiếu ở trạng thái DRAFT mới có thể cập nhật',
       }
     }
 
     const updateData: Record<string, unknown> = {}
     
     if (data.checkDate !== undefined) updateData.checkDate = new Date(data.checkDate)
-    if (data.description !== undefined) updateData.description = data.description
+    if (data.note !== undefined) updateData.notes = data.note // Map note to notes field
+    if (data.status !== undefined) updateData.status = data.status.toUpperCase() // Normalize to uppercase
     if (data.updatedBy !== undefined) updateData.updatedBy = data.updatedBy
 
     const inventoryCheck = await prisma.inventoryCheck.update({
@@ -170,8 +176,8 @@ export async function updateInventoryCheckAction(
     if (data.checkDate !== undefined && String(existing.checkDate) !== String(new Date(data.checkDate))) {
       changes['Ngày kiểm kê'] = { from: existing.checkDate?.toISOString().split('T')[0], to: String(data.checkDate).split('T')[0] }
     }
-    if (data.description !== undefined && data.description !== existing.notes) {
-      changes['Ghi chú'] = { from: existing.notes, to: data.description }
+    if (data.note !== undefined && data.note !== existing.notes) {
+      changes['Ghi chú'] = { from: existing.notes, to: data.note }
     }
     if (Object.keys(changes).length > 0) {
       const changeFields = Object.keys(changes).join(', ')
@@ -215,7 +221,7 @@ export async function deleteInventoryCheckAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Chỉ phiếu ở trạng thái NHÁP mới có thể xóa',
+        error: 'Chỉ phiếu ở trạng thái DRAFT mới có thể xóa',
       }
     }
 
@@ -306,7 +312,7 @@ export async function addInventoryCheckItemAction(
     if (inventoryCheck.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Chỉ phiếu ở trạng thái NHÁP mới có thể thêm sản phẩm',
+        error: 'Chỉ phiếu ở trạng thái NHÁP/DRAFT mới có thể thêm sản phẩm',
       }
     }
 
@@ -360,7 +366,7 @@ export async function updateInventoryCheckItemAction(
     if (item.inventoryCheck.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Chỉ sản phẩm trong phiếu ở trạng thái NHÁP mới có thể cập nhật',
+        error: 'Chỉ sản phẩm trong phiếu ở trạng thái NHÁP/DRAFT mới có thể cập nhật',
       }
     }
 
@@ -408,7 +414,7 @@ export async function removeInventoryCheckItemAction(
     if (item.inventoryCheck.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Chỉ sản phẩm trong phiếu ở trạng thái NHÁP mới có thể xóa',
+        error: 'Chỉ sản phẩm trong phiếu ở trạng thái NHÁP/DRAFT mới có thể xóa',
       }
     }
 
@@ -451,7 +457,7 @@ export async function syncInventoryCheckItemsAction(
     if (existing.status !== 'DRAFT' && existing.status !== 'PENDING') {
       return {
         success: false,
-        error: 'Chỉ phiếu ở trạng thái NHÁP hoặc CHỜ DUYỆT mới có thể cập nhật sản phẩm',
+        error: 'Chỉ phiếu ở trạng thái NHÁP/DRAFT hoặc PENDING/CHỜ DUYỆT mới có thể cập nhật sản phẩm',
       }
     }
 
@@ -520,7 +526,7 @@ export async function balanceInventoryCheckAction(
     if (currentStatus !== 'DRAFT' && currentStatus !== 'PENDING') {
       return {
         success: false,
-        error: `Chỉ phiếu ở trạng thái NHÁP hoặc CHỜ DUYỆT mới có thể cân bằng (hiện tại: ${existing.status})`,
+        error: `Chỉ phiếu ở trạng thái NHÁP/DRAFT hoặc PENDING/CHỜ DUYỆT mới có thể cân bằng (hiện tại: ${existing.status})`,
       }
     }
 
@@ -735,7 +741,7 @@ export async function cancelInventoryCheckAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Chỉ phiếu ở trạng thái NHÁP mới có thể hủy',
+        error: 'Chỉ phiếu ở trạng thái NHÁP/DRAFT mới có thể hủy',
       }
     }
 

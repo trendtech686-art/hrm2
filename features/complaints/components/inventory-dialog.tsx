@@ -80,12 +80,48 @@ export function InventoryDialog({
     }
   }, [open, complaint]);
 
+  // Validation: actualQuantity không được < 0
+  const validationErrors = React.useMemo(() => {
+    if (!complaint?.affectedProducts) return {};
+    const errors: Record<string, string> = {};
+    
+    complaint.affectedProducts.forEach((p, idx) => {
+      const key = `${p.productSystemId || p.productId || 'unknown'}_${idx}`;
+      const adjustQty = inventoryAdjustments[key as SystemId] ?? 0;
+      // If negative adjustment and we can't determine stock, warn user
+      if (adjustQty < 0) {
+        const product = productsMap.get(p.productSystemId);
+        if (product) {
+          const inventoryByBranch = (product?.inventoryByBranch as Record<string, number>) ?? {};
+          // Calculate total inventory (can be negative)
+          const totalStock = Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
+          const newQty = totalStock + adjustQty;
+          if (newQty < 0) {
+            errors[key] = `Số lượng sau điều chỉnh không được âm (tồn kho hiện tại: ${totalStock})`;
+          }
+        } else {
+          // Can't verify - will be checked in handler
+          errors[key] = 'Không thể xác minh tồn kho - sẽ kiểm tra khi tạo phiếu';
+        }
+      }
+    });
+    
+    return errors;
+  }, [inventoryAdjustments, complaint?.affectedProducts, productsMap]);
+
   const handleSubmit = () => {
     // Check if any adjustment is made
     const hasAdjustments = Object.values(inventoryAdjustments).some(qty => qty !== 0);
     
     if (!hasAdjustments) {
       toast.error("Vui lòng nhập số lượng điều chỉnh cho ít nhất 1 sản phẩm");
+      return;
+    }
+
+    // Check validation errors
+    if (Object.keys(validationErrors).length > 0) {
+      const firstError = Object.values(validationErrors)[0];
+      toast.error(firstError);
       return;
     }
 
@@ -134,6 +170,7 @@ export function InventoryDialog({
                       <th className="p-3 text-left font-medium">Sản phẩm</th>
                       <th className="p-3 text-center font-medium">Vấn đề</th>
                       <th className="p-3 text-center font-medium">SL báo</th>
+                      <th className="p-3 text-center font-medium">Tồn kho</th>
                       <th className="p-3 text-center font-medium w-32">Điều chỉnh kho</th>
                       <th className="p-3 text-left font-medium">Ghi chú</th>
                     </tr>
@@ -171,6 +208,21 @@ export function InventoryDialog({
                           </td>
                           <td className="p-3 text-center text-muted-foreground font-medium">
                             {customerReported || 0}
+                          </td>
+                          <td className="p-3 text-center">
+                            {(() => {
+                      const product = productsMap.get(item.productSystemId);
+                      if (product) {
+                        const inventoryByBranch = (product?.inventoryByBranch as Record<string, number>) ?? {};
+                        const totalStock = Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
+                        return (
+                          <span className={`font-semibold ${totalStock < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                            {totalStock}
+                          </span>
+                        );
+                      }
+                              return <span className="text-muted-foreground italic">-</span>;
+                            })()}
                           </td>
                           <td className="p-3">
                             <Input

@@ -88,7 +88,7 @@ const formatAddress = (parts: AddressParts): string =>
     .join(', ');
 
 export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel, formRef }: SupplierFormProps) {
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
 
   // Address dialog state — fallback: khi addressData null nhưng có text address, dùng text làm street
   const [addressParts, setAddressParts] = React.useState<AddressParts>(() => {

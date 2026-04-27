@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchComplaints } from '../api/complaints-api';
 import { complaintKeys } from './use-complaints';
 import type { SystemId } from '@/lib/id-types';
+import type { Complaint } from '@/lib/types/prisma-extended';
 
 export function useAllComplaints(options?: { enabled?: boolean }) {
   const query = useQuery({
@@ -28,9 +29,18 @@ export function useAllComplaints(options?: { enabled?: boolean }) {
   };
 }
 
+/**
+ * useComplaintFinder - Cache-only finder for complaint by ID
+ * 
+ * Uses useAllComplaints with enabled: false to subscribe to cache without triggering fetch.
+ * If no other component has loaded complaints, getComplaintById will return null.
+ */
 export function useComplaintFinder() {
-  const { data } = useAllComplaints();
-  const getComplaintById = (systemId: SystemId) =>
+  // Cache-only: subscribe to query cache but never trigger a fetch
+  const { data } = useAllComplaints({ enabled: false });
+  
+  const getComplaintById = (systemId: SystemId): Complaint | null =>
     data.find((c) => c.systemId === systemId) ?? null;
+  
   return { getComplaintById };
 }

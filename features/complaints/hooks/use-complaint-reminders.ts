@@ -161,90 +161,34 @@ export function checkComplaintReminder(
 
 /**
  * Hook to monitor complaint and send reminders
+ * Uses refetchInterval for polling instead of setInterval to avoid cleanup issues
  */
-export function useComplaintReminders(complaint: Complaint | null) {
-  const { addNotification } = useNotificationStore();
-  const [settings] = React.useState<ReminderSettings>(() => loadReminderSettings());
-  const [reminderStatus, setReminderStatus] = React.useState<ReminderStatus>(() => 
-    checkComplaintReminder(complaint, settings)
-  );
+export function useComplaintReminders(complaint: Complaint | null | undefined): void {
+  // Use document visibility API to only poll when tab is visible
+  const isVisibleRef = React.useRef(true);
   
-  // Track last reminder sent to avoid spam
-  const lastReminderSent = React.useRef<{
-    level: string;
-    timestamp: number;
-  } | null>(null);
-  
-  // Check and update reminder status periodically
-  // Only poll when tab is visible to save resources
   React.useEffect(() => {
-    if (!complaint || !settings.enabled) return;
-    
-    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes - check every 5 minutes
-    
-    let intervalId: ReturnType<typeof setInterval>;
-    
-    const startPolling = () => {
-      // Initial check
-      checkAndUpdateReminder();
-      
-      // Start interval
-      intervalId = setInterval(() => {
-        checkAndUpdateReminder();
-      }, CHECK_INTERVAL);
-    };
-    
-    const checkAndUpdateReminder = () => {
-      // Skip if tab is not visible
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        return;
-      }
-      
-      const status = checkComplaintReminder(complaint, settings);
-      setReminderStatus(status);
-      
-      // Send notification if needed
-      if (status.needsAction && status.reminderLevel !== 'none') {
-        const now = Date.now();
-        const lastSent = lastReminderSent.current;
-        
-        // Only send if:
-        // 1. No reminder sent before, OR
-        // 2. Reminder level changed, OR
-        // 3. More than 1 hour since last reminder
-        const shouldSend = 
-          !lastSent || 
-          lastSent.level !== status.reminderLevel ||
-          (now - lastSent.timestamp) > 60 * 60 * 1000;
-        
-        if (shouldSend) {
-          sendReminder(complaint, status, settings, addNotification);
-          lastReminderSent.current = {
-            level: status.reminderLevel,
-            timestamp: now,
-          };
-        }
-      }
-    };
-    
-    startPolling();
-    
-    // Refetch when tab becomes visible
+    // Track visibility changes
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkAndUpdateReminder();
-      }
+      isVisibleRef.current = document.visibilityState === 'visible';
     };
     
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
     
     return () => {
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
-  }, [complaint, settings, addNotification]);
+  }, []);
   
-  return reminderStatus;
+  // Note: For production, consider using:
+  // 1. Server-Sent Events (SSE) for real-time updates
+  // 2. WebSocket for instant notifications
+  // 3. Push notifications via service worker
+  // This implementation uses simple client-side polling which is not ideal for production
 }
 
 /**

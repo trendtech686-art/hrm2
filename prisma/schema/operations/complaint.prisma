@@ -82,6 +82,7 @@ model Complaint {
   // === RELATIONS ===
   employees Employee? @relation(fields: [assigneeId], references: [systemId])
   customer  Customer? @relation(fields: [customerId], references: [systemId])
+  inventoryChecks InventoryCheck[]
 
   @@index([customerId])
   @@index([status])

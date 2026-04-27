@@ -25,6 +25,7 @@ import {
 import { Complaint, complaintTypeLabels } from './types';
 import { checkOverdue } from './sla-utils';
 import type { ComplaintType } from '@/features/settings/complaints/types';
+import { StatusBadge, COMPLAINT_STATUS_MAP } from '../../components/StatusBadge';
 import { formatDate } from '../../lib/date-utils';
 
 export const getColumns = (
@@ -182,20 +183,12 @@ export const getColumns = (
     header: 'Trạng thái',
     cell: ({ row }) => {
       const status = row.status;
-      const statusLabels: Record<string, string> = {
-        pending: 'Chờ xử lý',
-        investigating: 'Đang kiểm tra',
-        resolved: 'Đã giải quyết',
-        cancelled: 'Đã hủy',
-        ended: 'Kết thúc',
-        open: 'Mở',
-        // Prisma enum values
-        OPEN: 'Chờ xử lý',
-        IN_PROGRESS: 'Đang xử lý',
-        RESOLVED: 'Đã giải quyết',
-        CLOSED: 'Đã đóng',
-      };
-      return <span>{statusLabels[status] || status}</span>;
+      return (
+        <StatusBadge
+          status={status}
+          statusMap={COMPLAINT_STATUS_MAP}
+        />
+      );
     },
     size: 140,
     meta: {
@@ -435,6 +428,9 @@ export const getColumns = (
     cell: ({ row }) => {
       const complaint = row;
       const isResolved = complaint.status === 'resolved';
+      const isEnded = complaint.status === 'ended';
+      const isCancelled = complaint.status === 'cancelled';
+      const canReopen = isResolved || isEnded; // Chỉ mở lại được khi resolved hoặc ended, không phải cancelled
       
       return (
         <div className="flex justify-end">
@@ -448,32 +444,40 @@ export const getColumns = (
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onEdit(complaint.systemId)}>
-                Sửa
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => onGetLink(complaint.systemId)}
-              >
-                Get Tracking
-              </DropdownMenuItem>
+              {!isCancelled && (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(complaint.systemId)}>
+                    Sửa
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onGetLink(complaint.systemId)}
+                  >
+                    Get Tracking
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
-              {!isResolved && (
+              {!isResolved && !isCancelled && (
                 <DropdownMenuItem onClick={() => onFinish(complaint.systemId)}>
                   Kết thúc
                 </DropdownMenuItem>
               )}
-              {isResolved && (
+              {canReopen && (
                 <DropdownMenuItem onClick={() => onOpen(complaint.systemId)}>
                   Mở
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => onCancel(complaint.systemId)}
-                className="text-destructive focus:text-destructive"
-              >
-                Hủy
-              </DropdownMenuItem>
+              {!isCancelled && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => onCancel(complaint.systemId)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    Hủy
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

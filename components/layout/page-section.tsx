@@ -342,7 +342,7 @@ export function DetailPageShell({
   return (
     <div
       className={cn(
-        'flex w-full flex-col',
+        'flex w-full max-w-[100vw] flex-col overflow-hidden',
         gap === 'sm' && 'gap-2 md:gap-3',
         gap === 'md' && 'gap-3 md:gap-4',
         gap === 'lg' && 'gap-4 md:gap-6',

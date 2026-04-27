@@ -13,7 +13,6 @@ import { generateIdWithPrefix } from '@/lib/id-generator'
 import { generateSubEntityId } from '@/lib/id-utils'
 import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
-import { createComplaintSchema, updateComplaintSchema } from '@/features/complaints/validation'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getSessionUserName } from '@/lib/get-user-name'
@@ -26,9 +25,9 @@ type Complaint = Awaited<ReturnType<typeof prisma.complaint.findFirst>>
 // TYPES
 // ====================================
 
-// Image type for complaint
+// Image type for complaint (stored as JSON in DB)
 export type ComplaintImageInput = {
-  id: string
+  id?: string
   url: string
   uploadedBy?: string
   uploadedAt?: Date | string
@@ -37,13 +36,31 @@ export type ComplaintImageInput = {
 
 // Employee image type
 export type EmployeeImageInput = {
-  id: string
+  id?: string
   url: string
   uploadedBy?: string
   uploadedAt?: Date | string
 }
 
+// Affected product input
+export type AffectedProductInput = {
+  productSystemId: string
+  productId?: string
+  productName: string
+  unitPrice?: number
+  quantityOrdered?: number
+  quantityReceived?: number
+  quantityMissing?: number
+  quantityDefective?: number
+  quantityExcess?: number
+  issueType?: 'excess' | 'missing' | 'defective' | 'other'
+  note?: string
+  resolutionType?: 'refund' | 'replacement' | 'ignore'
+  lineItemIndex?: number
+}
+
 export type CreateComplaintInput = {
+  id?: string
   orderId?: string
   orderSystemId?: string
   customerId?: string
@@ -53,7 +70,6 @@ export type CreateComplaintInput = {
   type: string
   priority?: string
   description?: string
-  subject?: string
   title?: string
   branchId?: string
   branchSystemId?: string
@@ -61,16 +77,20 @@ export type CreateComplaintInput = {
   assigneeId?: string
   assigneeSystemId?: string
   assigneeName?: string
-  dueDate?: string | Date
+  assignedTo?: string
+  assignedAt?: Date | string
   createdBy?: string
   // ⭐ NEW: Image fields
   images?: ComplaintImageInput[]
   employeeImages?: EmployeeImageInput[]
-  affectedProducts?: unknown[]
+  affectedProducts?: AffectedProductInput[]
   orderCode?: string
   orderValue?: number
-  assignedTo?: string
-  assignedAt?: Date | string
+  // ⭐ NEW: Verification fields
+  verification?: string
+  isVerifiedCorrect?: boolean
+  // ⭐ NEW: Timeline
+  timeline?: unknown[]
 }
 
 export type UpdateComplaintInput = {
@@ -78,26 +98,45 @@ export type UpdateComplaintInput = {
   type?: string
   priority?: string
   description?: string
-  subject?: string
   title?: string
   status?: string
   assigneeId?: string
   assigneeSystemId?: string
   assigneeName?: string
+  assignedTo?: string
   dueDate?: string | Date | null
   resolution?: string
   resolvedAt?: string | Date | null
+  resolvedBy?: string
   endedAt?: string | Date | null
+  endedBy?: string
+  cancelledAt?: string | Date | null
+  cancelledBy?: string
   updatedBy?: string
+  // ⭐ NEW: Order & Customer fields
+  orderSystemId?: string
+  orderCode?: string
+  orderValue?: number
+  branchSystemId?: string
+  branchName?: string
+  customerSystemId?: string
+  customerName?: string
+  customerPhone?: string
   // ⭐ NEW: Image fields
   images?: ComplaintImageInput[]
   employeeImages?: EmployeeImageInput[]
-  affectedProducts?: unknown[]
-  orderCode?: string
-  orderValue?: number
+  affectedProducts?: AffectedProductInput[]
   // ⭐ NEW: Verification fields
   verification?: string | null
   isVerifiedCorrect?: boolean | null
+  // ⭐ NEW: Resolution & Compensation fields
+  resolutionNote?: string
+  compensationAmount?: number | null
+  incurredCost?: number | null
+  penaltyAmount?: number | null
+  compensationReason?: string | null
+  inventoryAdjustment?: unknown
+  // ⭐ NEW: Timeline for history
   timeline?: unknown[]
 }
 
@@ -171,11 +210,6 @@ export async function createComplaintAction(
   const authResult = await requireActionPermission('create_complaints')
   if (!authResult.success) return authResult
 
-  const validated = createComplaintSchema.safeParse(input)
-  if (!validated.success) {
-    return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
-  }
-
   try {
     const result = await prisma.$transaction(async (tx) => {
       const systemId = await generateIdWithPrefix('KN', tx)
@@ -183,10 +217,30 @@ export async function createComplaintAction(
       // Generate tracking code  
       const trackingCode = generateSubEntityId('TK')
 
-      // ⭐ Extract image URLs for database storage
-      const imageUrls = (input.images || [])
+      // ⭐ Process images - store full image objects as JSON
+      const processedImages = (input.images || [])
         .filter(img => img && img.url)
-        .map(img => img.url)
+        .map(img => ({
+          id: img.id || generateSubEntityId('IMG'),
+          url: img.url,
+          uploadedBy: img.uploadedBy || authResult.session.user?.employeeId,
+          uploadedAt: img.uploadedAt ? new Date(img.uploadedAt) : new Date(),
+          type: img.type || 'initial',
+        }))
+
+      // ⭐ Process employee images
+      const processedEmployeeImages = (input.employeeImages || [])
+        .filter(img => img && img.url)
+        .map(img => ({
+          id: img.id || generateSubEntityId('IMG'),
+          url: img.url,
+          uploadedBy: img.uploadedBy || authResult.session.user?.employeeId,
+          uploadedAt: img.uploadedAt ? new Date(img.uploadedAt) : new Date(),
+        }))
+
+      // ⭐ Process affected products
+      const processedAffectedProducts = (input.affectedProducts || [])
+        .filter(p => p && p.productSystemId)
 
       const complaint = await tx.complaint.create({
         data: {
@@ -199,7 +253,7 @@ export async function createComplaintAction(
           type: input.type,
           priority: (input.priority || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
           description: input.description,
-          title: input.subject || input.title || 'Khiếu nại',
+          title: input.title || `Khiếu nại đơn ${input.orderCode || input.orderSystemId || ''}`,
           branchId: input.branchId,
           branchSystemId: input.branchSystemId,
           branchName: input.branchName,
@@ -208,17 +262,16 @@ export async function createComplaintAction(
           assignedAt: input.assignedAt ? new Date(input.assignedAt as string) : undefined,
           status: 'OPEN',
           publicTrackingCode: trackingCode,
-          createdBy: input.createdBy,
-          // ⭐ NEW: Save images
-          images: imageUrls,
-          employeeImages: input.employeeImages && input.employeeImages.length > 0 
-            ? input.employeeImages 
-            : undefined,
+          createdBy: input.createdBy || authResult.session.user?.employeeId,
+          // ⭐ NEW: Save images as JSON array
+          images: processedImages.length > 0 ? processedImages : undefined,
+          employeeImages: processedEmployeeImages.length > 0 ? processedEmployeeImages : undefined,
           orderCode: input.orderCode,
           orderValue: input.orderValue ? input.orderValue : undefined,
-          affectedProducts: input.affectedProducts && input.affectedProducts.length > 0
-            ? (input.affectedProducts as Prisma.InputJsonValue)
-            : undefined,
+          affectedProducts: processedAffectedProducts.length > 0 ? processedAffectedProducts as unknown as Prisma.InputJsonValue : undefined,
+          verification: input.verification || 'pending-verification',
+          isVerifiedCorrect: input.isVerifiedCorrect,
+          timeline: input.timeline,
         },
       })
 
@@ -276,11 +329,6 @@ export async function updateComplaintAction(
   const authResult = await requireActionPermission('edit_complaints')
   if (!authResult.success) return authResult
 
-  const validated = updateComplaintSchema.safeParse(input)
-  if (!validated.success) {
-    return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
-  }
-
   try {
     const { systemId, ...data } = input
 
@@ -297,7 +345,7 @@ export async function updateComplaintAction(
     if (data.type !== undefined) updateData.type = data.type
     if (data.priority !== undefined) updateData.priority = data.priority
     if (data.description !== undefined) updateData.description = data.description
-    if (data.subject !== undefined) updateData.title = data.subject
+    if (data.title !== undefined) updateData.title = data.title
     if (data.status !== undefined) updateData.status = mapStatusToPrisma(data.status)
     if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId
     if (data.assigneeName !== undefined) updateData.assigneeName = data.assigneeName
@@ -310,28 +358,65 @@ export async function updateComplaintAction(
     }
     if (data.updatedBy !== undefined) updateData.updatedBy = data.updatedBy
     
-    // ⭐ NEW: Handle images
-    if (data.images !== undefined) {
-      updateData.images = (data.images || [])
-        .filter(img => img && img.url)
-        .map(img => img.url)
-    }
-    if (data.employeeImages !== undefined) {
-      updateData.employeeImages = data.employeeImages && data.employeeImages.length > 0 
-        ? data.employeeImages 
-        : null
-    }
-    if (data.affectedProducts !== undefined) {
-      updateData.affectedProducts = data.affectedProducts && data.affectedProducts.length > 0
-        ? data.affectedProducts
-        : null
-    }
+    // ⭐ NEW: Handle order & customer fields
+    if (data.orderSystemId !== undefined) updateData.orderId = data.orderSystemId
     if (data.orderCode !== undefined) updateData.orderCode = data.orderCode
     if (data.orderValue !== undefined) updateData.orderValue = data.orderValue
+    if (data.branchSystemId !== undefined) updateData.branchSystemId = data.branchSystemId
+    if (data.branchName !== undefined) updateData.branchName = data.branchName
+    if (data.customerSystemId !== undefined) updateData.customerId = data.customerSystemId
+    if (data.customerName !== undefined) updateData.customerName = data.customerName
+    if (data.customerPhone !== undefined) updateData.customerPhone = data.customerPhone
+    
+    // ⭐ NEW: Handle images
+    if (data.images !== undefined) {
+      const processedImages = (data.images || [])
+        .filter(img => img && img.url)
+        .map(img => ({
+          id: img.id || generateSubEntityId('IMG'),
+          url: img.url,
+          uploadedBy: img.uploadedBy || authResult.session.user?.employeeId,
+          uploadedAt: img.uploadedAt ? new Date(img.uploadedAt) : new Date(),
+          type: img.type || 'initial',
+        }))
+      updateData.images = processedImages.length > 0 ? processedImages : null
+    }
+    if (data.employeeImages !== undefined) {
+      const processedEmployeeImages = (data.employeeImages || [])
+        .filter(img => img && img.url)
+        .map(img => ({
+          id: img.id || generateSubEntityId('IMG'),
+          url: img.url,
+          uploadedBy: img.uploadedBy || authResult.session.user?.employeeId,
+          uploadedAt: img.uploadedAt ? new Date(img.uploadedAt) : new Date(),
+        }))
+      updateData.employeeImages = processedEmployeeImages.length > 0 ? processedEmployeeImages : null
+    }
+    if (data.affectedProducts !== undefined) {
+      const processedAffectedProducts = (data.affectedProducts || [])
+        .filter(p => p && p.productSystemId)
+      updateData.affectedProducts = processedAffectedProducts.length > 0 
+        ? processedAffectedProducts as unknown as Prisma.InputJsonValue 
+        : null
+    }
     
     // ⭐ NEW: Handle verification fields
     if (data.verification !== undefined) updateData.verification = data.verification
     if (data.isVerifiedCorrect !== undefined) updateData.isVerifiedCorrect = data.isVerifiedCorrect
+    // ⭐ NEW: Handle resolution & compensation fields
+    if (data.resolutionNote !== undefined) updateData.resolutionNote = data.resolutionNote
+    if (data.compensationAmount !== undefined) updateData.compensationAmount = data.compensationAmount
+    if (data.incurredCost !== undefined) updateData.incurredCost = data.incurredCost
+    if (data.penaltyAmount !== undefined) updateData.penaltyAmount = data.penaltyAmount
+    if (data.compensationReason !== undefined) updateData.compensationReason = data.compensationReason
+    if (data.inventoryAdjustment !== undefined) updateData.inventoryAdjustment = data.inventoryAdjustment
+    // ⭐ NEW: Handle cancelled fields
+    if (data.cancelledAt !== undefined) updateData.cancelledAt = data.cancelledAt ? new Date(data.cancelledAt as string) : null
+    if (data.cancelledBy !== undefined) updateData.cancelledBy = data.cancelledBy
+    // ⭐ NEW: Handle resolvedBy field
+    if (data.resolvedBy !== undefined) updateData.resolvedBy = data.resolvedBy
+    if (data.endedBy !== undefined) updateData.endedBy = data.endedBy
+    // ⭐ NEW: Timeline for history
     if (data.timeline !== undefined) updateData.timeline = data.timeline
 
     const complaint = await prisma.complaint.update({

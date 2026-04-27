@@ -242,7 +242,9 @@ export type DifferenceReason =
 export type InventoryCheckItem = {
   productSystemId: SystemId;
   productId: BusinessId;
+  productSku?: string; // Original SKU from inventory check item
   productName: string;
+  productImage?: string | null; // Image URL from product lookup
   unit: string;
   systemQuantity: number;
   actualQuantity: number;

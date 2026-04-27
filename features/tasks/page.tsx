@@ -95,7 +95,7 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
     // Timer restoration logic if needed
   }, []);
   
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { isMobile } = useBreakpoint();
   const { isAdmin, employee, can } = useAuth();
   const router = useRouter();

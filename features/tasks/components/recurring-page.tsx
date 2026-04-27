@@ -54,7 +54,7 @@ export function RecurringTasksPage() {
     onSuccess: () => toast.success('Đã cập nhật'),
     onError: (error) => toast.error(error.message),
   });
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
 
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [formData, setFormData] = React.useState({

@@ -135,8 +135,8 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
     !isClosed &&
     complaint.verification !== 'pending-verification';
 
-  // REOPEN: Chỉ admin khi đã đóng
-  const canReopen = isAdmin && isClosed;
+  // REOPEN: Chỉ admin khi đã resolved hoặc ended, KHÔNG cho cancelled
+  const canReopen = isAdmin && (isResolved || isEnded);
 
   // COMMENT: Mọi người liên quan (creator, assignee, responsible, admin)
   const canComment = isCreator || isAssignee || isResponsible || isAdmin;

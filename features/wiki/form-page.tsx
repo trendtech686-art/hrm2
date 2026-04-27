@@ -41,8 +41,8 @@ export function WikiFormPage() {
       toast.error('Lỗi', { description: error.message });
     }
   });
-  
-  const { data: employees } = useAllEmployees();
+
+  const { data: employees } = useAllEmployees({ enabled: false });
   
   const article = articleFromQuery;
   const isEdit = Boolean(article);
