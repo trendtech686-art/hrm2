@@ -5,12 +5,48 @@
  * fetch only when the user interacts:
  * - useEmployeeComboboxSearch: Async paginated search for Combobox (30 per page, infinite scroll)
  * - useEmployeeFetchMentions: Async search for @mention in Comments (10 results)
+ * - useEmployeeSearch: Simple search hook for dropdown lists (50 records per page)
  */
 
 import * as React from 'react';
 import type { ComboboxOption } from '@/components/ui/combobox';
 
 const COMBOBOX_PAGE_SIZE = 30;
+
+/**
+ * Simple employee search hook for dropdown lists.
+ * Fetches first page of employees with optional search.
+ * 
+ * @example
+ * const { data } = useEmployeeSearch({ enabled: true, limit: 50 });
+ */
+export function useEmployeeSearch({ enabled = true, limit = 50, search = '' }: { enabled?: boolean; limit?: number; search?: string } = {}) {
+  const [employees, setEmployees] = React.useState<{ data: Array<{ systemId: string; fullName: string }> }>({ data: [] });
+
+  React.useEffect(() => {
+    if (!enabled) {
+      setEmployees({ data: [] });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      select: 'combobox',
+      limit: String(limit),
+    });
+    if (search) params.set('search', search);
+
+    fetch(`/api/employees?${params}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(json => {
+        if (json?.items) {
+          setEmployees({ data: json.items });
+        }
+      })
+      .catch(() => {});
+  }, [enabled, limit, search]);
+
+  return { data: employees };
+}
 
 /**
  * Returns an `onSearch` callback for async Combobox.
