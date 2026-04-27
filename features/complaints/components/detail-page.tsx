@@ -70,7 +70,7 @@ export function ComplaintDetailPage() {
     // Toast messages are already shown in verification handlers
     onError: (err) => toast.error(err.message)
   });
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   // REMOVED: Payments/receipts loaded separately in components that need them
 
   // ✅ Use dedicated query for single complaint - auto-refreshes after mutation
@@ -720,8 +720,9 @@ export function ComplaintDetailPage() {
   // relatedOrder already memoized above (line 170)
 
   return (
-    <DetailPageShell gap="lg" className="h-full">
-        <ComplaintHeaderSection complaint={complaint} timeTracking={timeTracking} headerActions={headerActions} leftActions={leftHeaderActions} />
+    <DetailPageShell gap="lg" className="h-full overflow-hidden max-w-full">
+      {/* Page Header - renders via context, returns null */}
+      <ComplaintHeaderSection complaint={complaint} timeTracking={timeTracking} headerActions={headerActions} leftActions={leftHeaderActions} />
       {/* Verification Card - Full Width at Top */}
       {!isVerified && complaint.status !== "cancelled" && (
         <Card className={cn("border-2 border-primary/20", mobileBleedCardClass)}>
@@ -758,10 +759,10 @@ export function ComplaintDetailPage() {
         onProcessInventory={handleProcessInventory}
       />
 
-      {/* Info Row - Mobile: stacked, Desktop: 2 cols (70% | 30%) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[70%_1fr] gap-4 lg:gap-6">
-        {/* Column 1: Info cards stacked */}
-        <div className="space-y-4">
+      {/* Info Row - Mobile: stacked, Desktop: 2 cols - Left: Info cards, Right: Workflow */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 lg:gap-6 overflow-x-hidden">
+        {/* Column 1: Info cards stacked (Left side) */}
+        <div className="space-y-4 min-w-0 overflow-x-hidden">
           {/* Complaint Details Card - includes badges + tracking link */}
           <ComplaintDetailsCard
             complaint={complaint}
@@ -776,32 +777,32 @@ export function ComplaintDetailPage() {
             }}
           />
 
-        {/* Customer Info Card - below complaint details */}
-        <ComplaintCustomerInfoCard
-          complaint={complaint}
-          orderCustomerSystemId={(relatedOrder as Record<string, unknown> | null)?.customerSystemId as string | undefined}
-        />
-
-        {/* Order Information Card */}
-        <ComplaintOrderInfo
-          complaint={complaint}
-          relatedOrder={relatedOrder ?? undefined}
-          employees={employees}
-        />
+          {/* Order Information Card */}
+          <ComplaintOrderInfo
+            complaint={complaint}
+            relatedOrder={relatedOrder ?? undefined}
+            employees={employees}
+          />
         </div>
 
-        {/* Column 2: Workflow - Mobile: on top, Desktop: sidebar */}
-        <div className="space-y-4 lg:order-first">
+        {/* Column 2: Workflow + Customer Info (Right side - sticky on desktop) */}
+        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <ComplaintWorkflowSection
             complaint={complaint}
             currentUser={currentUser}
             updateComplaint={updateComplaint}
           />
+
+          {/* Customer Info Card - moved to workflow column */}
+          <ComplaintCustomerInfoCard
+            complaint={complaint}
+            orderCustomerSystemId={(relatedOrder as Record<string, unknown> | null)?.customerSystemId as string | undefined}
+          />
         </div>
       </div>
 
-          {/* Card: Sản phẩm bị ảnh hưởng */}
-          <ComplaintAffectedProducts complaint={complaint} />
+      {/* Card: Sản phẩm bị ảnh hưởng */}
+      <ComplaintAffectedProducts complaint={complaint} />
 
       {/* Images Row - 2 columns: Customer (50%) | Employee (50%) */}
       <ComplaintImagesSection 
