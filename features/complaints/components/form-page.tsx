@@ -668,15 +668,15 @@ export function ComplaintFormPage() {
     // ⭐ Fix: Use relatedOrder from complaint API if available (avoids extra API call)
     const orderIdToFind = copySourceComplaint.orderSystemId || copySourceComplaint.orderCode;
     
-    if (copySourceComplaint.relatedOrder) {
+    if ((copySourceComplaint as unknown as { relatedOrder?: unknown }).relatedOrder) {
       // Use inline order data from complaint API
-      console.log('[Copy] Using inline order data from complaint:', copySourceComplaint.relatedOrder.id);
-      const order = copySourceComplaint.relatedOrder as unknown as Order;
-      setOrderEntity(order);
+      const relatedOrder = (copySourceComplaint as unknown as { relatedOrder: Order }).relatedOrder;
+      console.log('[Copy] Using inline order data from complaint:', relatedOrder.id);
+      setOrderEntity(relatedOrder);
       setSelectedOrder({
-        value: order.systemId,
-        label: `${order.id} - ${order.customerName}`,
-        subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+        value: relatedOrder.systemId,
+        label: `${relatedOrder.id} - ${relatedOrder.customerName}`,
+        subtitle: `${formatDateForDisplay(relatedOrder.orderDate)} • ${relatedOrder.grandTotal?.toLocaleString('vi-VN')} đ`,
       });
     } else if (orderIdToFind) {
       // Fallback: fetch order separately

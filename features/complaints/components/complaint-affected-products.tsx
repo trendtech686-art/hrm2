@@ -79,7 +79,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                     ? getProductTypeName((enrichedItem.productTypeSystemId || product?.productTypeSystemId) as SystemId)
                     : 'Hàng hóa';
                   // ✅ Use enriched image from API, then fall back to product finder
-                  const imageUrl = enrichedItem.productImage || product?.thumbnailImage || product?.imageUrl || product?.galleryImages?.[0] || product?.images?.[0];
+                  const imageUrl = enrichedItem.productImage || product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
                   // ✅ Show actual business ID (e.g. "ZP8"), not systemId (e.g. "PROD112654")
                   const displayId = enrichedItem.productBusinessId || product?.id || null;
                   // ✅ Correct systemId for product link navigation

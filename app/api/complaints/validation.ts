@@ -51,6 +51,7 @@ const employeeImageSchema = z.object({
 export const createComplaintSchema = z.object({
   id: z.string().optional(),
   // ⭐ NEW: Order & Customer fields (required for new flow)
+  orderId: z.string().optional(),
   orderSystemId: z.string().optional(),
   orderCode: z.string().optional(),
   orderValue: z.number().optional(),

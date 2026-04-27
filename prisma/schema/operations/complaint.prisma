@@ -12,7 +12,7 @@ model Complaint {
   priority      ComplaintPriority @default(MEDIUM)
   assigneeId    String?
   branchId      String?
-  images        String[]
+  images        Json?             // Array of ComplaintImage objects stored as JSON
   resolution    String?
   resolvedAt    DateTime?
   createdAt     DateTime          @default(now())
