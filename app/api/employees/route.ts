@@ -93,7 +93,17 @@ export const GET = apiHandler(async (request) => {
     if (searchWhere) Object.assign(where, searchWhere)
 
     if (status) {
-      where.employmentStatus = status as EmploymentStatus
+      // Map common status values to Prisma enum
+      const statusMap: Record<string, EmploymentStatus> = {
+        'active': 'ACTIVE',
+        'on_leave': 'ON_LEAVE',
+        'terminated': 'TERMINATED',
+        'ACTIVE': 'ACTIVE',
+        'ON_LEAVE': 'ON_LEAVE',
+        'TERMINATED': 'TERMINATED',
+      };
+      const parsedStatus = statusMap[status.toLowerCase()] || status.toUpperCase() as EmploymentStatus;
+      where.employmentStatus = parsedStatus;
     }
 
     if (departmentSystemId) {

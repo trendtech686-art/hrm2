@@ -225,7 +225,7 @@ export function PurchaseOrderDetailPage() {
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findBranchById } = useBranchFinder();
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
     const productType = findProductTypeById(asSystemId(productTypeSystemId));

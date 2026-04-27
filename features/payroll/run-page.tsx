@@ -414,8 +414,8 @@ function getEmployeeSelectionColumns(
 
 export function PayrollRunPage() {
   const router = useRouter();
-  const { data: employeeData = [] } = useAllEmployees();
-  const { data: activeEmployees = [] } = useActiveEmployees();
+  const { data: employeeData = [] } = useAllEmployees({ enabled: false });
+  const { data: activeEmployees = [] } = useActiveEmployees({ enabled: false });
   const { lockedMonths, getLatestLockedMonth } = useAttendanceLocks();
   const templates = useAllPayrollTemplates();
   const { getDefault } = usePayrollTemplateFinder();

@@ -246,7 +246,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
   type BatchWithItems = PayrollBatch & { items?: Payslip[]; auditLogs?: PayrollAuditLog[] };
   const payslips = React.useMemo(() => (batch as BatchWithItems | undefined)?.items ?? [], [batch]);
   const templates = useAllPayrollTemplates();
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { data: departmentsData } = useDepartments();
   const departments = React.useMemo(() => departmentsData?.data ?? [], [departmentsData?.data]);
 

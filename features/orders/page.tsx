@@ -247,8 +247,8 @@ useEffect(() => {
     [productInfinite.data]
   );
 
-  // Employees for filter dropdown + dialogs
-  const { data: employees } = useAllEmployees();
+  // Employees for filter dropdown + dialogs - lazy load only when filter panel opens
+  const { data: employees } = useAllEmployees({ enabled: filterPanelOpen });
 
   const { data: branches } = useAllBranches();
   const { printActions, handleBulkPrintConfirm } = useOrderPrintHandlers();

@@ -56,6 +56,7 @@ export const salesReturnKeys = {
   details: () => [...salesReturnKeys.all, 'detail'] as const,
   detail: (id: string) => [...salesReturnKeys.details(), id] as const,
   stats: () => [...salesReturnKeys.all, 'stats'] as const,
+  byOrder: (orderSystemId: string) => [...salesReturnKeys.all, 'byOrder', orderSystemId] as const,
 };
 
 export function useSalesReturns(params: SalesReturnsParams = {}) {

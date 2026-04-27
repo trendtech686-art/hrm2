@@ -212,7 +212,7 @@ const LineItemRow = memo(({
         if (storeGallery) return storeGallery;
         // 2. Ảnh từ product data (mock/seed)
         if (product) {
-            const productImage = product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
+            const productImage = product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0];
             if (productImage) return productImage;
         }
         // 3. ✅ Fallback to item.thumbnailImage (từ copy hoặc API)
@@ -620,7 +620,7 @@ const LineItemMobileCard = memo(({
         if (storeThumbnail) return storeThumbnail;
         if (storeGallery) return storeGallery;
         if (product) {
-            const productImage = product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
+            const productImage = product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0];
             if (productImage) return productImage;
         }
         return item.thumbnailImage;

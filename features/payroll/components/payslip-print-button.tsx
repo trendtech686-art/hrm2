@@ -69,10 +69,10 @@ export function PayslipPrintButton({
   const payslip = payslipData || storePayslip;
   const batch = batchData || storeBatch;
   
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { data: departments } = useAllDepartments();
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
-  
+
   // Print hook
   const { print } = usePrint();
 
@@ -178,7 +178,7 @@ export function BatchPrintButton({
   // Stores
   const batch: PayrollBatch | undefined = undefined;
   const payslips = React.useMemo<Payslip[]>(() => [], []);
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { data: departments } = useAllDepartments();
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
   

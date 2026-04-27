@@ -297,7 +297,7 @@ export function OrderFormPage() {
     // React Query for copy source order - fetch with full data
     const { data: copySourceOrderFromQuery } = useOrder(copyOrderSystemId || undefined);
     
-    const { data: employees } = useAllEmployees();
+    const { data: employees } = useAllEmployees({ enabled: false });
     const { data: orderFormBundle, getDefaultSale } = useOrderFormSettingsData();
     const branches = useMemo(
       () => (orderFormBundle?.branches ?? []) as import('@/lib/types/prisma-extended').Branch[],
