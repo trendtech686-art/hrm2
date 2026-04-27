@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from "react";
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { asSystemId, asBusinessId, type BusinessId } from '@/lib/id-types';
@@ -17,7 +17,7 @@ import { complaintNotifications } from "../notification-utils";
 
 // Product image & type
 import { useProductImage } from '@/features/products/components/product-image';
-import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { useCustomerStats } from '@/features/customers/hooks/use-customer-stats';
 import { OptimizedImage } from '@/components/ui/optimized-image';
@@ -52,10 +52,9 @@ import { usePageHeader } from "@/contexts/page-header-context";
 import { searchOrders } from "@/features/orders/order-search-api";
 import { fetchOrder } from "@/features/orders/api/orders-api";
 import type { Order } from "@/lib/types/prisma-extended";
-import { useAllSalesReturns } from "@/features/sales-returns/hooks/use-all-sales-returns";
-import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
-import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
-import { useAllCustomers } from "@/features/customers/hooks/use-all-customers";
+import { useSalesReturnsByOrder } from "@/features/sales-returns/hooks/use-sales-returns-by-order";
+import { useEmployeeSearch } from "@/features/employees/hooks/use-employee-search";
+import { useCustomerFinder } from "@/features/customers/hooks/use-all-customers";
 import { useNotificationStore } from "@/components/ui/notification-center";
 import { FileUploadAPI } from "@/lib/file-upload-api";
 import { useAuth } from "@/contexts/auth-context";
@@ -155,9 +154,12 @@ const ProductThumbnailCell = ({
 export function ComplaintFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setPageHeader } = usePageHeader();
   
   const isEditing = !!systemId;
+  const copyFromSystemId = searchParams.get('copyFrom');
+  const { data: copySourceComplaint } = useComplaint(copyFromSystemId || undefined);
   const { create: createMutation, update: updateMutation } = useComplaintMutations({
     onCreateSuccess: (complaint) => {
       toast.success('Đã tạo khiếu nại mới');
@@ -179,15 +181,15 @@ export function ComplaintFormPage() {
   const [orderSearchPage, setOrderSearchPage] = React.useState(1);
   const [hasMoreOrders, setHasMoreOrders] = React.useState(false);
   const [orderEntity, setOrderEntity] = React.useState<Order | null>(null);
-  const { data: salesReturns } = useAllSalesReturns();
-  const { data: _branches } = useAllBranches();
-  const { data: employees } = useAllEmployees();
-  const { data: customers = [] } = useAllCustomers();
+  // Fetch sales returns filtered by orderSystemId - server-side filter instead of loading all
+  const { data: salesReturns } = useSalesReturnsByOrder(orderEntity?.systemId);
+  // Employees for packaging employee dropdown - lazy load only first page (50 records)
+  const { data: employeesResult } = useEmployeeSearch({ enabled: true, limit: 50 });
+  const employees = employeesResult?.data || [];
+  const { findById: findCustomerById } = useCustomerFinder();
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
   
-  // Product & ProductType for image/type display — fetch enabled to ensure images load
-  useAllProducts();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   
@@ -414,7 +416,7 @@ export function ComplaintFormPage() {
       setValue("customerSystemId", orderEntity.customerSystemId);
       setValue("customerName", orderEntity.customerName);
       
-      const customer = customers.find(c => c.systemId === orderEntity.customerSystemId);
+      const customer = findCustomerById(orderEntity.customerSystemId);
       setValue("customerPhone", customer?.phone || "");
       
       setValue("orderValue", orderEntity.grandTotal || 0);
@@ -430,66 +432,50 @@ export function ComplaintFormPage() {
         }
       }
     }
-  }, [orderEntity, customers, setValue, isLoadingComplaint]);
+  }, [orderEntity, findCustomerById, setValue, isLoadingComplaint]);
   
-  // Track if complaint data has been initialized
-  const hasInitializedRef = React.useRef(false);
-  const hasSetOrderRef = React.useRef(false);
+  // Track if complaint data has been initialized - use systemId as key to reset when navigating between complaints
+  const hasInitializedRef = React.useRef<string | null>(null);
+  const hasSetOrderRef = React.useRef<string | null>(null);
+  const hasCopiedRef = React.useRef(false);
   
-  // Load complaint data for editing - only once
+  // Load complaint data for editing - only once per complaint
   React.useEffect(() => {
-    if (complaint && !hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      setIsLoadingComplaint(true); // Bật flag để tránh auto-fill override data
+    // Skip if not editing or no complaint data yet
+    if (!isEditing || !complaint || !systemId) return;
+    
+    // Skip if already initialized for this complaint
+    if (hasInitializedRef.current === systemId) return;
+    
+    // Mark as being processed
+    hasInitializedRef.current = systemId;
+    hasSetOrderRef.current = systemId;
+    
+    setIsLoadingComplaint(true); // Bật flag để tránh auto-fill override data
+    
+    setValue("id", complaint.id);
+    setValue("orderSystemId", complaint.orderSystemId); // ⭐ Load systemId
+    setValue("branchSystemId", complaint.branchSystemId || ""); // ⭐ Load branchSystemId
+    setValue("branchName", complaint.branchName || ""); // ⭐ Load branchName
+    setValue("customerSystemId", complaint.customerSystemId); // ⭐ Load customerSystemId
+    setValue("customerName", complaint.customerName);
+    setValue("customerPhone", complaint.customerPhone);
+    setValue("type", complaint.type);
+    setValue("description", complaint.description);
+    setValue("priority", complaint.priority);
+    setValue("orderValue", complaint.orderValue || 0);
+    
+    // Set customer images (hình từ khách hàng) - filter by type 'initial'
+    if (complaint.images && complaint.images.length > 0) {
+      const customerImages = complaint.images.filter(img => img.type === 'initial');
       
-      setValue("id", complaint.id);
-      setValue("orderSystemId", complaint.orderSystemId); // ⭐ Load systemId
-      setValue("branchSystemId", complaint.branchSystemId || ""); // ⭐ Load branchSystemId
-      setValue("branchName", complaint.branchName || ""); // ⭐ Load branchName
-      setValue("customerSystemId", complaint.customerSystemId); // ⭐ Load customerSystemId
-      setValue("customerName", complaint.customerName);
-      setValue("customerPhone", complaint.customerPhone);
-      setValue("type", complaint.type);
-      setValue("description", complaint.description);
-      setValue("priority", complaint.priority);
-      setValue("orderValue", complaint.orderValue || 0);
-      
-      // Set customer images (hình từ khách hàng) - filter by type 'initial'
-      if (complaint.images && complaint.images.length > 0) {
-        const customerImages = complaint.images.filter(img => img.type === 'initial');
-        
-        if (customerImages.length > 0) {
-          const stagingFiles: StagingFile[] = customerImages.map((img, idx) => ({
-            id: img.id || `existing-customer-${idx}`,
-            name: img.url.split('/').pop() || `image_${idx}.jpg`,
-            originalName: img.url.split('/').pop() || `image_${idx}.jpg`,
-            slug: img.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `image-${idx}`,
-            filename: img.url.split('/').pop() || `image_${idx}.jpg`,
-            size: 0,
-            type: 'image/jpeg',
-            url: img.url,
-            status: 'permanent' as const,
-            sessionId: '',
-            uploadedAt: typeof img.uploadedAt === 'string' 
-              ? img.uploadedAt 
-              : img.uploadedAt instanceof Date 
-                ? img.uploadedAt.toISOString() 
-                : new Date().toISOString(),
-            metadata: '',
-          }));
-          setCustomerPermanentFiles(stagingFiles);
-        }
-      }
-      
-      // Set employee images (hình từ nhân viên) - from employeeImages field
-      if ((complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages && (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.length > 0) {
-        
-        const stagingFiles: StagingFile[] = (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.map((img: EmployeeImageFile, idx: number) => ({
-          id: img.id || `existing-employee-${idx}`,
-          name: img.url.split('/').pop() || `employee_${idx}.jpg`,
-          originalName: img.url.split('/').pop() || `employee_${idx}.jpg`,
-          slug: img.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `employee-${idx}`,
-          filename: img.url.split('/').pop() || `employee_${idx}.jpg`,
+      if (customerImages.length > 0) {
+        const stagingFiles: StagingFile[] = customerImages.map((img, idx) => ({
+          id: img.id || `existing-customer-${idx}`,
+          name: img.url.split('/').pop() || `image_${idx}.jpg`,
+          originalName: img.url.split('/').pop() || `image_${idx}.jpg`,
+          slug: img.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `image-${idx}`,
+          filename: img.url.split('/').pop() || `image_${idx}.jpg`,
           size: 0,
           type: 'image/jpeg',
           url: img.url,
@@ -502,41 +488,72 @@ export function ComplaintFormPage() {
               : new Date().toISOString(),
           metadata: '',
         }));
-        setEmployeePermanentFiles(stagingFiles);
+        setCustomerPermanentFiles(stagingFiles);
       }
-      
-      // Set packaging employee if assigned
-      if (complaint.assignedTo) {
-        const emp = employees.find(e => e.systemId === complaint.assignedTo);
-        if (emp) {
-          setPackagingEmployee(emp.systemId);
-          setPackagingEmployeeName(emp.fullName);
-        }
-      }
-      
-      // Cleanup timeout on unmount or when complaint changes
-      const timer = setTimeout(() => {
-        setIsLoadingComplaint(false);
-      }, 100);
-      return () => clearTimeout(timer);
     }
-  }, [complaint, setValue, employees]);
+    
+    // Set employee images (hình từ nhân viên) - from employeeImages field
+    if ((complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages && (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.length > 0) {
+      
+      const stagingFiles: StagingFile[] = (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.map((img: EmployeeImageFile, idx: number) => ({
+        id: img.id || `existing-employee-${idx}`,
+        name: img.url.split('/').pop() || `employee_${idx}.jpg`,
+        originalName: img.url.split('/').pop() || `employee_${idx}.jpg`,
+        slug: img.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `employee-${idx}`,
+        filename: img.url.split('/').pop() || `employee_${idx}.jpg`,
+        size: 0,
+        type: 'image/jpeg',
+        url: img.url,
+        status: 'permanent' as const,
+        sessionId: '',
+        uploadedAt: typeof img.uploadedAt === 'string' 
+          ? img.uploadedAt 
+          : img.uploadedAt instanceof Date 
+            ? img.uploadedAt.toISOString() 
+            : new Date().toISOString(),
+        metadata: '',
+      }));
+      setEmployeePermanentFiles(stagingFiles);
+    }
+    
+    // Set packaging employee if assigned
+    if (complaint.assignedTo) {
+      const emp = employees.find(e => e.systemId === complaint.assignedTo);
+      if (emp) {
+        setPackagingEmployee(emp.systemId);
+        setPackagingEmployeeName(emp.fullName);
+      }
+    }
+    
+    // Reset loading flag after a short delay
+    const timer = setTimeout(() => {
+      setIsLoadingComplaint(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isEditing, complaint, systemId, setValue, employees]);
   
   // ⭐ Separate effect for setting order and affected products when editing
   React.useEffect(() => {
-    if (!complaint || hasSetOrderRef.current) return;
+    // Skip if not editing or no complaint data yet
+    if (!isEditing || !complaint || !systemId) return;
+    
+    // Check if already initialized for this complaint
+    if (hasSetOrderRef.current === systemId) return;
+    
+    // Mark as being processed
+    hasSetOrderRef.current = systemId;
     
     const orderIdToFind = complaint.orderSystemId || (complaint as unknown as { orderId?: string }).orderId || complaint.orderCode;
     
     if (!orderIdToFind) {
-      hasSetOrderRef.current = true;
+      // No order to load, done
       return;
     }
     
     let cancelled = false;
     fetchOrder(orderIdToFind).then(order => {
-      if (cancelled || hasSetOrderRef.current) return;
-      hasSetOrderRef.current = true;
+      if (cancelled) return;
+      if (hasSetOrderRef.current !== systemId) return; // Skip if unmounted or changed
       
       setOrderEntity(order);
       setSelectedOrder({
@@ -564,7 +581,99 @@ export function ComplaintFormPage() {
       }
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [complaint]);
+  }, [isEditing, complaint, systemId]);
+
+  // ⭐ Copy from existing complaint - populate form with source complaint data
+  React.useEffect(() => {
+    // Skip if editing (already handled above) or no copy source
+    if (isEditing || !copyFromSystemId || !copySourceComplaint) return;
+    
+    // Skip if already copied for this specific copyFromSystemId
+    if (hasCopiedRef.current === copyFromSystemId) return;
+    
+    hasCopiedRef.current = copyFromSystemId;
+    setIsLoadingComplaint(true);
+    
+    // Copy form values
+    setValue("orderSystemId", copySourceComplaint.orderSystemId || "");
+    setValue("branchSystemId", copySourceComplaint.branchSystemId || "");
+    setValue("branchName", copySourceComplaint.branchName || "");
+    setValue("customerSystemId", copySourceComplaint.customerSystemId || "");
+    setValue("customerName", copySourceComplaint.customerName);
+    setValue("customerPhone", copySourceComplaint.customerPhone || "");
+    setValue("type", copySourceComplaint.type);
+    setValue("description", copySourceComplaint.description);
+    setValue("priority", copySourceComplaint.priority || "MEDIUM");
+    setValue("orderValue", copySourceComplaint.orderValue || 0);
+    
+    // Copy customer images (type 'initial')
+    if (copySourceComplaint.images && copySourceComplaint.images.length > 0) {
+      const customerImages = copySourceComplaint.images.filter(img => img.type === 'initial');
+      
+      if (customerImages.length > 0) {
+        const stagingFiles: StagingFile[] = customerImages.map((img, idx) => ({
+          id: `copy-customer-${idx}`,
+          name: img.url.split('/').pop() || `image_${idx}.jpg`,
+          originalName: img.url.split('/').pop() || `image_${idx}.jpg`,
+          slug: img.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `image-${idx}`,
+          filename: img.url.split('/').pop() || `image_${idx}.jpg`,
+          size: 0,
+          type: 'image/jpeg',
+          url: img.url,
+          status: 'permanent' as const,
+          sessionId: '',
+          uploadedAt: typeof img.uploadedAt === 'string' 
+            ? img.uploadedAt 
+            : img.uploadedAt instanceof Date 
+              ? img.uploadedAt.toISOString() 
+              : new Date().toISOString(),
+          metadata: '',
+        }));
+        setCustomerPermanentFiles(stagingFiles);
+      }
+    }
+    
+    // Copy affected products
+    if (copySourceComplaint.affectedProducts && copySourceComplaint.affectedProducts.length > 0) {
+      setAffectedProducts(copySourceComplaint.affectedProducts.map((p, idx) => ({
+        lineItemIndex: idx,
+        productSystemId: p.productSystemId,
+        productId: p.productId || "",
+        productName: p.productName,
+        unitPrice: p.unitPrice || 0,
+        quantityOrdered: p.quantityOrdered || 0,
+        quantityReceived: p.quantityReceived || 0,
+        quantityMissing: p.quantityMissing || 0,
+        quantityDefective: p.quantityDefective || 0,
+        quantityExcess: p.quantityExcess || 0,
+        issueType: p.issueType || 'missing',
+        note: p.note || '',
+        resolutionType: p.resolutionType || 'ignore',
+      })));
+    }
+    
+    // Load the source order for display
+    const orderIdToFind = copySourceComplaint.orderSystemId || copySourceComplaint.orderCode;
+    if (orderIdToFind) {
+      let cancelled = false;
+      fetchOrder(orderIdToFind).then(order => {
+        if (cancelled) return;
+        
+        setOrderEntity(order);
+        setSelectedOrder({
+          value: order.systemId,
+          label: `${order.id} - ${order.customerName}`,
+          subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+        });
+      }).catch(() => {});
+      return () => { cancelled = true; };
+    }
+    
+    const timer = setTimeout(() => {
+      setIsLoadingComplaint(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [copyFromSystemId, copySourceComplaint, isEditing, setValue]);
   
   // ⚠️ REMOVED: Không cleanup trong useEffect unmount
   // Lý do: Nếu cleanup chạy trước khi confirm → 404 error
@@ -617,7 +726,7 @@ export function ComplaintFormPage() {
     >
       {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
     </Button>,
-  ]), [isEditing, isSubmitting, router, hasSelectedOrder]);
+  ]), [isEditing, isSubmitting, hasSelectedOrder]);
 
   const headerSubtitle = React.useMemo(() => {
     if (complaint) {
@@ -625,6 +734,13 @@ export function ComplaintFormPage() {
         `Phiếu ${complaint.id}`,
         complaint.customerName && `Khách ${complaint.customerName}`,
         (complaint.orderCode || complaint.orderSystemId) && `Đơn ${complaint.orderCode || complaint.orderSystemId}`,
+      ].filter(Boolean).join(' • ');
+    }
+    if (copySourceComplaint) {
+      return [
+        `Sao chép từ ${copySourceComplaint.id || copyFromSystemId}`,
+        copySourceComplaint.customerName && `Khách ${copySourceComplaint.customerName}`,
+        (copySourceComplaint.orderCode || copySourceComplaint.orderSystemId) && `Đơn ${copySourceComplaint.orderCode || copySourceComplaint.orderSystemId}`,
       ].filter(Boolean).join(' • ');
     }
     if (selectedOrderEntity) {
@@ -635,7 +751,7 @@ export function ComplaintFormPage() {
       ].filter(Boolean).join(' • ');
     }
     return 'Điền thông tin đơn hàng, khách hàng và ảnh bằng chứng theo checklist.';
-  }, [complaint, selectedOrderEntity]);
+  }, [complaint, copySourceComplaint, copyFromSystemId, selectedOrderEntity]);
 
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
     if (complaint) {
@@ -656,15 +772,16 @@ export function ComplaintFormPage() {
   }, [complaint]);
 
   React.useEffect(() => {
+    const isCopying = !!copyFromSystemId && !isEditing;
     setPageHeader({
-      title: complaint ? "Chỉnh sửa khiếu nại" : "Tạo khiếu nại",
+      title: complaint ? "Chỉnh sửa khiếu nại" : isCopying ? "Sao chép khiếu nại" : "Tạo khiếu nại",
       subtitle: headerSubtitle,
       breadcrumb,
       showBackButton: true,
       backPath: ROUTES.INTERNAL.COMPLAINTS,
       actions: headerActions,
     });
-  }, [breadcrumb, complaint, headerActions, headerSubtitle, setPageHeader]);
+  }, [breadcrumb, complaint, copyFromSystemId, isEditing, headerActions, headerSubtitle, setPageHeader]);
   
   // Submit handler
   const onSubmit = handleSubmit(async (data) => {
@@ -1245,13 +1362,17 @@ export function ComplaintFormPage() {
                           ? (affected.quantityMissing + affected.quantityDefective + affected.quantityExcess) * item.unitPrice
                           : 0;
                         
-                        const product = findProductById(item.productSystemId);
-                        const productTypeLabel = getProductTypeLabel(product);
-                        const isCombo = !!(product?.type === 'combo' && product.comboItems?.length);
+                        const productData = item.product;
+                        const productTypeSystemId = productData?.productTypeSystemId;
+                        // ✅ Get product type label from embedded product data or finder
+                        const productTypeLabel = productTypeSystemId 
+                          ? getProductTypeLabel({ productTypeSystemId, type: productData?.type } as Product | null)
+                          : getProductTypeLabel(null);
+                        const isCombo = productData?.type === 'combo';
                         const uniqueKey = `${item.productSystemId}-${idx}`;
                         
-                        // ✅ Get product image URL like warranty module
-                        const productImageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                        // ✅ Get product image URL from embedded product data (already included from API)
+                        const productImageUrl = item.thumbnailImage || productData?.imageUrl;
                         
                         return (
                           <TableRow key={uniqueKey} className="hover:bg-muted/30">
@@ -1462,8 +1583,9 @@ export function ComplaintFormPage() {
                       const remainingQty = item.quantity - returnedQty;
                       const affected = affectedProducts.find(p => p.lineItemIndex === idx);
                       const isSelected = !!affected;
-                      const product = findProductById(item.productSystemId);
-                      const productImageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                      // ✅ Get product data from embedded product (API already includes it)
+                      const productData = item.product;
+                      const productImageUrl = item.thumbnailImage || productData?.imageUrl;
 
                       return (
                         <div
