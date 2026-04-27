@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+﻿import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Users2, PlusCircle, X, Copy } from 'lucide-react';
 import Link from 'next/link';
@@ -75,11 +75,11 @@ const getBadgeToneClass = (tone?: 'destructive' | 'warning') => {
 
 export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const { control, setValue } = useFormContext();
-    const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const [searchQuery, setSearchQuery] = React.useState('');
-    const [selectedCustomerId, setSelectedCustomerId] = React.useState<string | null>(null);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
     // ⚡ Track if user has interacted with combobox
-    const [hasInteracted, setHasInteracted] = React.useState(false);
+    const [hasInteracted, setHasInteracted] = useState(false);
     
     // ✅ Use Meilisearch for fast search (< 50ms) - shows 30 default results when empty
     // ✅ Infinite scroll support - load more on scroll
@@ -100,7 +100,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const { data: fullCustomerData } = useCustomer(selectedCustomerId);
     
     // ✅ Search results from Meilisearch - flatten all pages
-    const searchResults = React.useMemo(() => {
+    const searchResults = useMemo(() => {
         return searchData?.pages.flatMap(page => page.data) || [];
     }, [searchData]);
     
@@ -113,7 +113,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const { data: customerStats } = useCustomerStats(selectedCustomer?.systemId);
     
     // ✅ Update form when full customer data is loaded
-    React.useEffect(() => {
+    useEffect(() => {
         if (fullCustomerData && selectedCustomerId) {
             // Guard against stale/cached data from a previous query
             if (fullCustomerData.systemId !== selectedCustomerId) return;
@@ -159,7 +159,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     }, [fullCustomerData, selectedCustomerId, setValue]);
     
     // ✅ Convert search results to options for VirtualizedCombobox
-    const customerOptions: ComboboxOption[] = React.useMemo(() => {
+    const customerOptions: ComboboxOption[] = useMemo(() => {
         return searchResults.map(c => {
             return {
                 value: c.systemId,
@@ -188,7 +188,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         }
     };
 
-    const handleCopy = React.useCallback((value: string, label: string) => {
+    const handleCopy = useCallback((value: string, label: string) => {
         if (!value) return;
         navigator.clipboard.writeText(value);
         toast.success(`Đã sao chép ${label}`);
@@ -196,7 +196,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
 
     // ⚡ PERFORMANCE: Stats come from server-side aggregation — no client-side filtering needed
 
-    const customerOrderStats = React.useMemo(() => {
+    const customerOrderStats = useMemo(() => {
         if (!selectedCustomer) {
             return {
                 totalOrders: 0,
@@ -216,7 +216,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     }, [selectedCustomer, customerStats]);
 
     // ✅ Lấy công nợ trực tiếp từ customer - đã được tính sẵn trong DB
-    const customerDebtBalance = React.useMemo(() => {
+    const customerDebtBalance = useMemo(() => {
         if (!selectedCustomer) return 0;
         return Number(selectedCustomer.currentDebt) || 0;
     }, [selectedCustomer]);
@@ -228,14 +228,14 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const customerComplaintCount = customerStats.complaints.total;
     const activeComplaintCount = customerStats.complaints.active;
 
-    const orderBreakdown = React.useMemo(() => ({
+    const orderBreakdown = useMemo(() => ({
         pending: customerStats.orders.pending,
         inProgress: customerStats.orders.inProgress,
         completed: customerStats.orders.completed,
         cancelled: customerStats.orders.cancelled,
     }), [customerStats]);
 
-    const slaDisplay = React.useMemo(() => {
+    const slaDisplay = useMemo(() => {
         // SLA removed - use comments instead
         return {
             title: 'Bình thường',
@@ -247,12 +247,12 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     // ✅ Customer group name resolved server-side in stats API
     const customerGroupName = customerStats.customerGroupName;
 
-    const getEmployeeName = React.useCallback((id?: string) => {
+    const getEmployeeName = useCallback((id?: string) => {
         if (!id) return undefined;
         return undefined; // accountManagerName is used directly from customer data
     }, []);
 
-    const customerBaseInfo = React.useMemo(() => {
+    const customerBaseInfo = useMemo(() => {
         if (!selectedCustomer) return [];
         
         // Debug log to check actual values
@@ -270,7 +270,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         ];
     }, [selectedCustomer, customerGroupName, getEmployeeName, customerDebtBalance, customerOrderStats.totalSpent, customerOrderStats.totalOrders, orderBreakdown]);
 
-    const customerMetrics = React.useMemo(() => {
+    const customerMetrics = useMemo(() => {
         if (!selectedCustomer) return [];
         const metrics: Array<{
             key: string;
@@ -336,7 +336,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
 
     return (
         // FIX: Wrapped component in a React.Fragment to resolve a TypeScript error related to JSX element types when using dialogs and other components together.
-        <React.Fragment>
+        <Fragment>
             <Card className={`flex flex-col ${mobileBleedCardClass}`}>
                 <CardHeader className="shrink-0 pb-3"><CardTitle>Thông tin khách hàng</CardTitle></CardHeader>
                 <CardContent className="flex-1 md:overflow-y-auto space-y-3">
@@ -394,7 +394,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                     </div>
                                 </div>
                                 {!disabled && (
-                                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" type="button" onClick={() => handleSelect(null)}>
+                                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" type="button" onClick={() => handleSelect(null)} aria-label="Xóa lựa chọn">
                                         <X className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                 )}
@@ -509,6 +509,6 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                 </CardContent>
             </Card>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}><DialogContent mobileFullScreen className="sm:max-w-3xl"><DialogHeader><DialogTitle>Thêm khách hàng mới</DialogTitle></DialogHeader><CustomerForm initialData={null} onSubmit={handleFormSubmit} onCancel={() => setIsFormOpen(false)} /></DialogContent></Dialog>
-        </React.Fragment>
+        </Fragment>
     );
 }

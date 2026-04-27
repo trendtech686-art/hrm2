@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useState, useCallback } from "react";
 import { Share2, Check, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,9 +44,9 @@ export function ShareButton({
   label = "Chia sẻ",
   disabled,
 }: ShareButtonProps) {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleShare = React.useCallback(async () => {
+  const handleShare = useCallback(async () => {
     const resolvedUrl = url ?? (typeof window !== "undefined" ? window.location.href : "");
     const sharePayload: ShareData = { title, url: resolvedUrl };
     if (text) sharePayload.text = text;

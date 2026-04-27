@@ -23,6 +23,7 @@ import type {
 } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { REPORTS_QUERY_GC_MS, REPORTS_QUERY_STALE_MS } from '../lib/reports-query-config';
+import { reportKeys } from './report-keys';
 
 const EMPTY_SALES_SUMMARY: SalesReportSummary = {
   orderCount: 0,
@@ -45,16 +46,13 @@ export function useSalesTimeReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-time-series',
-      dateRange.from,
-      dateRange.to,
-      timeGrouping,
-      filters?.branchIds,
-      filters?.employeeIds,
-      filters?.sourceIds,
-    ],
+    queryKey: reportKeys.sales.timeSeries({
+      dateRange,
+      grouping: timeGrouping,
+      branchIds: filters?.branchIds,
+      employeeIds: filters?.employeeIds,
+      sourceIds: filters?.sourceIds,
+    }),
     queryFn: () =>
       fetchSalesTimeSeries({
         dateRange,
@@ -87,14 +85,7 @@ export function useSalesEmployeeReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-by-dimension',
-      'employee',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-    ],
+    queryKey: reportKeys.sales.byEmployee({ dateRange, branchIds: filters?.branchIds }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'employee',
@@ -124,15 +115,11 @@ export function useSalesProductReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-by-dimension',
-      'product',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-      filters?.categoryIds,
-    ],
+    queryKey: reportKeys.sales.byProduct({
+      dateRange,
+      branchIds: filters?.branchIds,
+      categoryIds: filters?.categoryIds,
+    }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'product',
@@ -157,7 +144,7 @@ export function useSalesProductReport(
 // Hook: Báo cáo bán hàng theo chi nhánh
 export function useSalesBranchReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'sales-by-dimension', 'branch', dateRange.from, dateRange.to],
+    queryKey: reportKeys.sales.byBranch({ dateRange }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'branch',
@@ -186,15 +173,11 @@ export function useSalesCustomerReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-by-dimension',
-      'customer',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-      filters?.customerGroupIds,
-    ],
+    queryKey: reportKeys.sales.byCustomer({
+      dateRange,
+      branchIds: filters?.branchIds,
+      customerGroupIds: filters?.customerGroupIds,
+    }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'customer',
@@ -224,14 +207,7 @@ export function useSalesSourceReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-by-dimension',
-      'source',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-    ],
+    queryKey: reportKeys.sales.bySource({ dateRange, branchIds: filters?.branchIds }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'source',
@@ -261,15 +237,11 @@ export function useSalesCustomerGroupReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-by-dimension',
-      'customer_group',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-      filters?.customerGroupIds,
-    ],
+    queryKey: reportKeys.sales.byCustomerGroup({
+      dateRange,
+      branchIds: filters?.branchIds,
+      customerGroupIds: filters?.customerGroupIds,
+    }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'customer_group',
@@ -299,14 +271,7 @@ export function useSalesTaxReport(
   },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'sales-by-dimension',
-      'tax',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-    ],
+    queryKey: reportKeys.sales.byTax({ dateRange, branchIds: filters?.branchIds }),
     queryFn: () =>
       fetchSalesByDimension({
         dimension: 'tax',

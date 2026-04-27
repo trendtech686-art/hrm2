@@ -72,7 +72,7 @@ export function calculateDaysRemaining(expiryDate: string): number {
 const purchaseHistoryCache = new Map<string, { data: ProductWarrantyInfo[], _cachedAt: number }>();
 const CACHE_TTL = 5000; // 5 seconds
 
-interface CachedPurchaseHistory {
+interface _CachedPurchaseHistory {
   data: ProductWarrantyInfo[];
   _cachedAt: number;
 }
@@ -225,7 +225,7 @@ export function checkWarrantyStatus(
     if (remainingToCheck <= 0) break;
 
     const qtyToCheck = Math.min(remainingToCheck, purchase.quantity);
-    const purchaseDateDisplay = formatDisplayDate(purchase.orderDate);
+    const _purchaseDateDisplay = formatDisplayDate(purchase.orderDate);
 
     if (!purchase.isExpired) {
       stillAvailable += qtyToCheck;

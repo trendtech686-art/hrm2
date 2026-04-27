@@ -7,6 +7,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { randomUUID } from 'crypto';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { cancelOrderSchema } from './validation';
 import { logError } from '@/lib/logger'
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     return apiError(validation.error, 400);
   }
 
-  const requestId = Math.random().toString(36).substring(2, 11);
+  const requestId = randomUUID();
 
   try {
     const { trackingCode, apiToken, partnerCode } = validation.data;

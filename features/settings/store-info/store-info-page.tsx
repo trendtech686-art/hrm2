@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import * as React from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
@@ -83,8 +83,8 @@ export function StoreInfoPage() {
     const { data: branches } = branchStore;
     const { create: addBranchMutation, update: updateBranchMutation, remove: removeBranchMutation, makeDefault: setDefaultBranchMutation } = useBranchMutations();
     const addBranch = (data: Omit<Branch, 'systemId' | 'createdAt' | 'updatedAt'>) => addBranchMutation.mutate(data as unknown as Parameters<typeof addBranchMutation.mutate>[0]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateBranch = (systemId: SystemId, data: Partial<Branch>) => updateBranchMutation.mutate({ systemId: String(systemId), data } as any);
+    // Type assertion needed for react-hook-form compatibility with complex generic types
+    const updateBranch = (systemId: SystemId, data: Partial<Branch>) => updateBranchMutation.mutate({ systemId: String(systemId), data } as unknown as Parameters<typeof updateBranchMutation.mutate>[0]);
     const removeBranch = (systemId: SystemId) => removeBranchMutation.mutate(systemId as unknown as string);
     const setDefaultBranch = (systemId: SystemId) => setDefaultBranchMutation.mutate(systemId as unknown as string);
     const { data: employees } = useAllEmployees();
@@ -107,27 +107,27 @@ export function StoreInfoPage() {
     
     // Administrative units (2-level: Province -> Ward)
     const { data: provinces = [] } = useProvinces();
-    const [selectedProvinceId, setSelectedProvinceId] = React.useState<string | undefined>(undefined);
+    const [selectedProvinceId, setSelectedProvinceId] = useState<string | undefined>(undefined);
     const { data: wards = [] } = useWards2Level(selectedProvinceId);
     
     // Memoize combobox options for provinces and wards
     // Use systemId as value (guaranteed unique) instead of business id
-    const provinceOptions: ComboboxOption[] = React.useMemo(() => 
+    const provinceOptions: ComboboxOption[] = useMemo(() => 
         provinces.map(p => ({
             value: p.systemId, // Use systemId as unique value
             label: p.name,
         })), [provinces]);
     
-    const wardOptions: ComboboxOption[] = React.useMemo(() => 
+    const wardOptions: ComboboxOption[] = useMemo(() => 
         wards.map(w => ({
             value: w.systemId, // Use systemId as unique value  
             label: w.name,
         })), [wards]);
     
-    const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const [editingBranch, setEditingBranch] = React.useState<Branch | null>(null);
-    const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-    const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [idToDelete, setIdToDelete] = useState<SystemId | null>(null);
 
     const form = useForm<StoreGeneralInfoFormValues>({
         resolver: zodResolver(generalInfoSchema),
@@ -135,7 +135,7 @@ export function StoreInfoPage() {
         mode: 'onBlur',
     });
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (info) {
             form.reset(mapInfoToFormValues(info));
             // Set selected province based on stored province name
@@ -149,13 +149,13 @@ export function StoreInfoPage() {
     }, [info, form, provinces]);
 
     const currentUserSystemId = authEmployee?.systemId;
-    const currentUserName = React.useMemo(() => {
+    const currentUserName = useMemo(() => {
         if (authEmployee?.fullName) return authEmployee.fullName;
         if (!currentUserSystemId) return undefined;
         return employees.find((e) => e.systemId === currentUserSystemId)?.fullName;
     }, [authEmployee, currentUserSystemId, employees]);
 
-    const lastUpdatedLabel = React.useMemo(() => {
+    const lastUpdatedLabel = useMemo(() => {
         if (!info?.updatedAt) return 'Chưa có lần cập nhật';
         return formatDateTimeForDisplay(new Date(info.updatedAt));
     }, [info?.updatedAt]);

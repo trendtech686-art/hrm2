@@ -24,6 +24,9 @@ export const DistrictItem = React.memo(function DistrictItem({
   return (
     <div
       onClick={() => onSelect(district.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(district.id); }}
+      role="button"
+      tabIndex={0}
       className={cn(
         'group flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:bg-muted/50',
         isActive ? 'bg-primary/5 border-primary/20' : 'hover:border/50'

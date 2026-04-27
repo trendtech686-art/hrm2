@@ -77,9 +77,12 @@ export const getColumns = (
       />
     ),
     cell: ({ row }) => (
-      <div 
-        className="font-medium text-primary cursor-pointer hover:underline whitespace-nowrap" 
+      <div
+        role="button"
+        tabIndex={0}
+        className="font-medium text-primary cursor-pointer hover:underline whitespace-nowrap"
         onClick={() => navigate(`/warranty/${row.systemId}`)}
+        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/warranty/${row.systemId}`); }}
       >
         {row.id}
       </div>
@@ -219,9 +222,12 @@ export const getColumns = (
       // Use order data from API include (no need to load ALL orders)
       const orderBusinessId = (row as WarrantyTicket & { order?: { id: string } }).order?.id;
       return (
-        <div 
-          className="font-medium text-primary cursor-pointer hover:underline whitespace-nowrap" 
+        <div
+          role="button"
+          tabIndex={0}
+          className="font-medium text-primary cursor-pointer hover:underline whitespace-nowrap"
           onClick={() => navigate(`/orders/${row.linkedOrderSystemId}`)}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/orders/${row.linkedOrderSystemId}`); }}
         >
           {orderBusinessId || row.linkedOrderSystemId}
         </div>

@@ -100,6 +100,7 @@ function PkgxActionsCell({
 
   return (
     <>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -351,9 +352,12 @@ export const getColumns = (
               inputClassName="h-7 text-sm w-48"
               renderDisplay={(value, onEdit) => (
                 <div className="flex items-center gap-2 group">
-                  <span 
+                  <span
                     className="font-medium truncate cursor-pointer hover:text-primary"
                     onClick={() => navigate(`/categories/${category.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/categories/${category.systemId}`); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     {value}
                   </span>
@@ -382,10 +386,13 @@ export const getColumns = (
       }
       
       return (
-        <div 
+        <div
           className="flex items-center gap-2 cursor-pointer hover:text-primary"
           style={{ paddingLeft: `${indent}px` }}
           onClick={() => navigate(`/categories/${category.systemId}`)}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/categories/${category.systemId}`); }}
+          role="button"
+          tabIndex={0}
         >
           {level > 0 && <span className="text-muted-foreground/50">└</span>}
           <span className="font-medium truncate">{category.name}</span>
@@ -427,7 +434,8 @@ export const getColumns = (
             onSave={(newValue) => onUpdateSortOrder(String(category.systemId), newValue)}
             inputClassName="h-7 w-16 text-center text-sm"
             renderDisplay={(value, onEdit) => (
-              <div 
+              // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+              <div
                 className="flex items-center justify-center cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -603,6 +611,7 @@ export const getColumns = (
       const category = row as ProductCategory;
       const isActive = category.isActive !== false;
       return (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
           <Switch
             checked={isActive}

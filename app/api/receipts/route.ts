@@ -12,7 +12,7 @@ import { getUserNameFromDb } from '@/lib/get-user-name'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
 
 // GET /api/receipts - List all receipts (phiếu thu)
-export const GET = apiHandler(async (request, { session }) => {
+export const GET = apiHandler(async (request) => {
 
   try {
     const { searchParams } = new URL(request.url)

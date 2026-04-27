@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -46,6 +46,7 @@ import { WarrantyReopenFromCancelledDialog } from './components/dialogs/warranty
 import { WarrantyReopenFromReturnedDialog } from './components/dialogs/warranty-reopen-from-returned-dialog';
 import { WarrantyReturnMethodDialog } from './components/dialogs/warranty-return-method-dialog';
 import { WarrantyUploadProcessedImagesDialog } from './components/dialogs/warranty-upload-processed-images-dialog';
+import { WarrantyOrderSelectionDialog } from './components/dialogs/warranty-order-selection-dialog';
 
 import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking';
 import { useWarrantySLATargets } from './hooks/use-warranty-sla-targets';
@@ -91,7 +92,7 @@ export function WarrantyDetailPage() {
   // ✅ React Query for single ticket
   const { data: ticketFromQuery, isLoading } = useWarranty(systemId);
 
-  const currentUserSystemId = React.useMemo(() => {
+  const currentUserSystemId = useMemo(() => {
     if (employee?.systemId) {
       return employee.systemId;
     }
@@ -101,7 +102,7 @@ export function WarrantyDetailPage() {
     return asSystemId('SYSTEM');
   }, [employee?.systemId, user?.employeeId]);
 
-  const currentUser = React.useMemo(() => ({
+  const currentUser = useMemo(() => ({
     name: employee?.fullName || user?.name || 'Hệ thống',
     systemId: currentUserSystemId,
   }), [employee?.fullName, user?.name, currentUserSystemId]);
@@ -116,23 +117,34 @@ export function WarrantyDetailPage() {
   });
   
   // Wrapper functions for legacy hooks that expect sync functions
-  const update = React.useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
+  const update = useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
     updateMutation.mutate({ systemId, data });
   }, [updateMutation]);
   
-  const updateStatus = React.useCallback((systemId: string, status: WarrantyTicket['status'], reason?: string) => {
+  const updateStatus = useCallback((systemId: string, status: WarrantyTicket['status'], reason?: string) => {
     updateMutation.mutate({ systemId, data: { status, ...(reason && { statusReason: reason }) } });
   }, [updateMutation]);
-  
+
   // ✅ Ưu tiên React Query, fallback to findById if needed
-  const ticket = React.useMemo<WarrantyTicket | null>(() => {
+  const ticket = useMemo<WarrantyTicket | null>(() => {
     if (systemId && ticketFromQuery) {
       return ticketFromQuery as WarrantyTicket;
     }
     return null;
   }, [systemId, ticketFromQuery]);
-  
-  const addHistory = React.useCallback((systemId: string, entry: unknown) => {
+
+  // Handler to link/unlink order from warranty
+  const handleOrderLinked = useCallback((orderSystemId: string | null) => {
+    if (!ticket) return;
+    updateMutation.mutate({
+      systemId: ticket.systemId,
+      data: { 
+        linkedOrderSystemId: orderSystemId ? asSystemId(orderSystemId) : undefined 
+      },
+    });
+  }, [ticket, updateMutation]);
+
+  const addHistory = useCallback((systemId: string, entry: unknown) => {
     // This would need the current ticket's history array
     if (!ticket?.history) return;
     const newHistory = [...ticket.history, entry as WarrantyHistory];
@@ -149,14 +161,15 @@ export function WarrantyDetailPage() {
 
 
 
-  const [showCancelDialog, setShowCancelDialog] = React.useState(false);
-  const [showReopenDialog, setShowReopenDialog] = React.useState(false);
-  const [showReopenReturnedDialog, setShowReopenReturnedDialog] = React.useState(false);
-  const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
-  const [previewImages, setPreviewImages] = React.useState<string[]>([]);
-  const [previewIndex, setPreviewIndex] = React.useState(0);
-  const [showImagePreview, setShowImagePreview] = React.useState(false);
-  const [showUploadProcessedImagesDialog, setShowUploadProcessedImagesDialog] = React.useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
+  const [showReopenReturnedDialog, setShowReopenReturnedDialog] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [showUploadProcessedImagesDialog, setShowUploadProcessedImagesDialog] = useState(false);
+  const [showOrderSelectionDialog, setShowOrderSelectionDialog] = useState(false);
 
   const {
     isOpen: isReturnDialogOpen,
@@ -181,7 +194,7 @@ export function WarrantyDetailPage() {
     currentUserName: currentUser.name,
   });
 
-  const publicTrackingUrl = React.useMemo(() => {
+  const publicTrackingUrl = useMemo(() => {
     if (!ticket) return '';
     const code = ticket.publicTrackingCode || ticket.systemId || ticket.id;
     if (!code) return '';
@@ -215,7 +228,7 @@ export function WarrantyDetailPage() {
   const slaTargets = useWarrantySLATargets();
   const timeMetrics = useWarrantyTimeTracking(ticket, slaTargets);
 
-  const slaStatus = React.useMemo(() => {
+  const slaStatus = useMemo(() => {
     if (!ticket) return null;
     const status = checkWarrantyOverdue(ticket, slaTargets);
     if (status.isOverdueReturn || status.isOverdueProcessing || status.isOverdueResponse) {
@@ -230,17 +243,17 @@ export function WarrantyDetailPage() {
 
 
 
-  const responseTemplates = React.useMemo(() => RESPONSE_TEMPLATES, []);
+  const responseTemplates = useMemo(() => RESPONSE_TEMPLATES, []);
   const isReturned = ticket?.status === 'RETURNED';
 
-  const handleImagePreview = React.useCallback((images: string[], index: number) => {
+  const handleImagePreview = useCallback((images: string[], index: number) => {
     setPreviewImages(images);
     setPreviewIndex(index);
     setShowImagePreview(true);
   }, []);
 
   // Callback khi upload ảnh xử lý xong → tự động chuyển trạng thái Hoàn tất
-  const handleProcessedImagesUploaded = React.useCallback(async () => {
+  const handleProcessedImagesUploaded = useCallback(async () => {
     invalidateRelated(queryClient, 'warranties');
     queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
     // Skip image validation vì ảnh vừa được upload
@@ -248,7 +261,7 @@ export function WarrantyDetailPage() {
   }, [handleStatusChange, queryClient]);
 
   // Page header actions - Calculate directly for reactivity
-  const actions = React.useMemo(() => {
+  const actions = useMemo(() => {
     const actionButtons: React.ReactElement[] = [];
 
     // Template button (LEFT SIDE) - available when ticket exists and not cancelled
@@ -456,7 +469,7 @@ export function WarrantyDetailPage() {
   ) : null;
 
   // Mobile: 3-dot menu with all actions
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!ticket || !isMobile) return null;
 
     const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
@@ -508,7 +521,7 @@ export function WarrantyDetailPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0">
+          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Tùy chọn">
             <MoreHorizontal className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
@@ -524,7 +537,7 @@ export function WarrantyDetailPage() {
   }, [ticket, isMobile, isAdmin, router, systemId, handleStatusChange, openReturnDialog, handleCompleteTicket, isReturned, setTemplateDialogOpen, setShowReopenDialog, setShowReopenReturnedDialog, setShowCancelDialog, setShowUploadProcessedImagesDialog]);
 
   // Desktop: Full buttons
-  const allActions = React.useMemo(() => actions, [actions]);
+  const allActions = useMemo(() => actions, [actions]);
 
   const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
 
@@ -609,6 +622,7 @@ export function WarrantyDetailPage() {
                 warrantyId={ticket.id}
                 warrantySystemId={ticket.systemId}
                 customer={{
+                  systemId: ticket.customerSystemId,
                   name: ticket.customerName,
                   phone: ticket.customerPhone,
                 }}
@@ -631,6 +645,7 @@ export function WarrantyDetailPage() {
                 onGenerateTrackingCode={handleGenerateTrackingCode}
                 onNavigateEmployee={handleNavigateEmployee}
                 onNavigateOrder={linkedOrder ? handleNavigateOrder : undefined}
+                onEditLinkedOrder={() => setShowOrderSelectionDialog(true)}
               />
 
               {/* Right: Quy trình xử lý */}
@@ -805,7 +820,14 @@ export function WarrantyDetailPage() {
         title="Hình ảnh bảo hành"
       />
 
-      {/* Order Selection Dialog - TODO: Implement WarrantyOrderSelectionDialog component */}
+      {/* Order Selection Dialog */}
+      <WarrantyOrderSelectionDialog
+        open={showOrderSelectionDialog}
+        onOpenChange={setShowOrderSelectionDialog}
+        ticket={ticket}
+        currentOrderId={ticket?.linkedOrderSystemId}
+        onOrderLinked={handleOrderLinked}
+      />
 
       {/* Upload Processed Images Dialog */}
       {ticket && (

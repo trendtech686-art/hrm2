@@ -25,6 +25,7 @@ export function FilterListBox({ title, items, activeValue, onValueChange }: Filt
           const isActive = activeValue === value;
           
           return (
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- filter item
             <div
               key={value}
               onClick={() => onValueChange(value)}

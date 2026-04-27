@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '@/lib/date-utils';
@@ -56,12 +56,12 @@ export function PurchaseReturnDetailPage() {
   const { findById: findPurchaseOrder } = usePurchaseOrderFinder();
   const { findById: findSupplier } = useSupplierFinder();
   const { findById: findProductById } = useProductFinder();
-  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = React.useState(false);
-  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const { employee: authEmployee } = useAuth();
-  const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
 
-  const systemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : undefined), [systemIdParam]);
+  const _systemId = useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : undefined), [systemIdParam]);
 
   // purchaseReturn comes directly from usePurchaseReturn hook (API call)
 
@@ -73,7 +73,7 @@ export function PurchaseReturnDetailPage() {
   } = useComments('purchase_return', systemIdParam || '');
   
   type PurchaseReturnComment = CommentType<SystemId>;
-  const comments = React.useMemo<PurchaseReturnComment[]>(() => 
+  const comments = useMemo<PurchaseReturnComment[]>(() => 
     dbComments.map(c => ({
       id: asSystemId(c.systemId),
       content: c.content,
@@ -88,36 +88,36 @@ export function PurchaseReturnDetailPage() {
     [dbComments]
   );
 
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+  const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
   }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+  const handleUpdateComment = useCallback((_commentId: string, _content: string) => {
   }, []);
 
-  const handleDeleteComment = React.useCallback((commentId: string) => {
+  const handleDeleteComment = useCallback((commentId: string) => {
     dbDeleteComment(commentId);
   }, [dbDeleteComment]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
     name: authEmployee?.fullName || 'Hệ thống',
     avatar: authEmployee?.avatar,
   }), [authEmployee]);
 
-  const purchaseOrder = React.useMemo(() => {
+  const purchaseOrder = useMemo(() => {
     if (!purchaseReturn) return null;
     return findPurchaseOrder(purchaseReturn.purchaseOrderSystemId);
   }, [purchaseReturn, findPurchaseOrder]);
   
-  const supplier = React.useMemo(() => {
+  const supplier = useMemo(() => {
     if (!purchaseReturn) return null;
     return findSupplier(purchaseReturn.supplierSystemId);
   }, [purchaseReturn, findSupplier]);
 
   const { data: supplierStats } = useSupplierStats(purchaseReturn?.supplierSystemId);
 
-  const totalQuantity = React.useMemo(() => {
+  const totalQuantity = useMemo(() => {
     return purchaseReturn?.items.reduce((sum, item) => sum + item.returnQuantity, 0) || 0;
   }, [purchaseReturn]);
 
@@ -125,7 +125,7 @@ export function PurchaseReturnDetailPage() {
   const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(purchaseReturn?.branchSystemId);
 
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = useCallback(() => {
     if (!purchaseReturn) return;
 
     const branch = purchaseReturn.branchSystemId ? findBranchById(purchaseReturn.branchSystemId) : undefined;
@@ -150,7 +150,7 @@ export function PurchaseReturnDetailPage() {
     });
   }, [purchaseReturn, purchaseOrder, supplier, storeInfo, print, findBranchById]);
 
-  const headerActions = React.useMemo(() => [
+  const headerActions = useMemo(() => [
     <Button
       key="back"
       variant="outline"
@@ -182,7 +182,7 @@ export function PurchaseReturnDetailPage() {
     backPath: ROUTES.PROCUREMENT.PURCHASE_RETURNS
   });
 
-  const handleConfirmPrint = React.useCallback(() => {
+  const handleConfirmPrint = useCallback(() => {
     if (!purchaseReturn) return;
     toast.success('Đã gửi lệnh in', {
       description: `Phiếu trả ${purchaseReturn.id} đang được chuẩn bị để in.`
@@ -308,7 +308,7 @@ export function PurchaseReturnDetailPage() {
                         productSystemId={item.productSystemId}
                         product={product}
                         productName={item.productName}
-                        itemThumbnailImage={item.imageUrl || (item as any).thumbnailImage}
+                        itemThumbnailImage={item.imageUrl || (item as { thumbnailImage?: string }).thumbnailImage}
                         onPreview={(url, title) => setPreviewImage({ url, title })}
                       />
                       <div className="min-w-0">
@@ -381,7 +381,7 @@ export function PurchaseReturnDetailPage() {
                       productSystemId={item.productSystemId}
                       product={product}
                       productName={item.productName}
-                      itemThumbnailImage={item.imageUrl || (item as any).thumbnailImage}
+                      itemThumbnailImage={item.imageUrl || (item as { thumbnailImage?: string }).thumbnailImage}
                       onPreview={(url, title) => setPreviewImage({ url, title })}
                     />
                     <div className="min-w-0 flex-1">

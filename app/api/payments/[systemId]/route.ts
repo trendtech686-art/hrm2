@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiNotFound, apiError } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import type { Prisma } from '@/generated/prisma/client'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
@@ -14,15 +14,6 @@ function toNumber(val: Decimal | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return val;
   return Number(val);
-}
-
-// Treats null, undefined, "", [], {} as equivalent "empty"
-function isEmptyValue(val: unknown): boolean {
-  if (val == null) return true
-  if (typeof val === 'string' && val.trim() === '') return true
-  if (Array.isArray(val) && val.length === 0) return true
-  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return true
-  return false
 }
 
 // Normalizes empty-ish values to a canonical form for comparison
@@ -64,23 +55,8 @@ function hasValueChanged(oldVal: unknown, newVal: unknown): boolean {
   return normalizedOld !== normalizedNew
 }
 
-// Serialize a value for storage in the activity log
-function serializeValue(val: unknown): unknown {
-  if (val == null) return null
-  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
-    return (val as { toNumber: () => number }).toNumber()
-  }
-  if (val instanceof Date) {
-    return val.getTime()
-  }
-  if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
-    return JSON.parse(JSON.stringify(val))
-  }
-  return val
-}
-
 // GET /api/payments/[systemId]
-export const GET = apiHandler(async (_request, { session, params }) => {
+export const GET = apiHandler(async (_request, { params }) => {
   try {
     const { systemId } = params
 

@@ -1,8 +1,5 @@
 import type { Complaint } from './types';
 
-// Storage key
-const _STORAGE_KEY = 'complaints-sla-settings';
-
 // Default SLA settings - ✅ Match Prisma ComplaintPriority enum
 export const defaultSLA = {
   LOW: { responseTime: 240, resolveTime: 48 },

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
@@ -766,7 +766,7 @@ export function PurchaseOrderDetailPage() {
     return findSupplierById(supplierId as unknown as import('@/lib/id-types').SystemId);
   }, [purchaseOrder, findSupplierById]);
 
-  const handlePrintPayment = React.useCallback(async (e: React.MouseEvent, item: { type: 'payment' | 'refund'; amount: number; id: string; date: string; method: string; creator: string; description: string }) => {
+  const handlePrintPayment = React.useCallback(async (e: React.MouseEvent, item: { type: 'payment' | 'refund'; systemId: string; amount: number; id: string; date: string; method: string; creator: string; description: string }) => {
       if (!purchaseOrder) return;
       e.stopPropagation();
       

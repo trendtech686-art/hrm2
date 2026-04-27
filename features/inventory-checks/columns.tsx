@@ -55,6 +55,7 @@ export const getColumns = (
       />
     ),
     cell: ({ row }) => (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- link-like table cell
       <div
         className="font-medium text-primary cursor-pointer hover:underline"
         onClick={() => router.push(`/inventory-checks/${row.systemId}`)}

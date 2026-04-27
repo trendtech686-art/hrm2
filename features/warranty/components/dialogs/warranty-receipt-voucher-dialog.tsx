@@ -211,10 +211,10 @@ export function WarrantyReceiptVoucherDialog({
         amount: values.amount,
         
         // Payer info (TargetGroup)
-        payerTypeSystemId: asSystemId('KHACHHANG'), // TODO: Get KHACHHANG systemId from TargetGroup
+        payerTypeSystemId: asSystemId('KHACHHANG'), // TargetGroup ID for Customer classification
         payerTypeName: 'Khách hàng',
         payerName: customer.name,
-        payerSystemId: undefined, // TODO: Get customer systemId if needed
+        payerSystemId: customer.systemId ? asSystemId(customer.systemId) : undefined,
         
         description: `Thu phí bảo hành ${warrantyId} - ${customer.name}`,
         

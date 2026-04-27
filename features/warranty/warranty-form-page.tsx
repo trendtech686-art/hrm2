@@ -333,7 +333,7 @@ export function WarrantyFormPage() {
       receivedImages: src.receivedImages || [],
       products: (src.products || []).map((p: WarrantyProduct) => ({
         ...p,
-        systemId: `dup-${Math.random().toString(36).substr(2, 8)}`,
+        systemId: `dup-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`,
       })),
       processedImages: src.processedImages || [],
       status: 'RECEIVED' as const,

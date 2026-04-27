@@ -104,8 +104,13 @@ export function ServiceConfigForm({ service, availableServices, onServiceChange,
   const [loadingSpecificAddresses, setLoadingSpecificAddresses] = React.useState(false);
   const [specificAddressError, setSpecificAddressError] = React.useState<string>('');
   
-  const [pickDate, setPickDate] = React.useState<Date>(new Date()); // ✅ Default to today
+  const [pickDate, setPickDate] = React.useState<Date | undefined>(undefined); // ✅ Hydration-safe
   const [deliverDate, setDeliverDate] = React.useState<Date>();
+
+  // Initialize pickDate on client to avoid hydration mismatch
+  React.useEffect(() => {
+    setPickDate(new Date());
+  }, []);
   const [openPickAddress, setOpenPickAddress] = React.useState(false);
   const [openSpecificAddress, setOpenSpecificAddress] = React.useState(false);
   const [openPickDate, setOpenPickDate] = React.useState(false);
@@ -587,7 +592,7 @@ export function ServiceConfigForm({ service, availableServices, onServiceChange,
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-100 p-0 !z-[9999]">
+              <PopoverContent className="w-100 p-0 z-9999!">
                 <Command>
                   <CommandInput placeholder="Tìm kho..." />
                   <CommandList>
@@ -651,7 +656,7 @@ export function ServiceConfigForm({ service, availableServices, onServiceChange,
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-100 p-0 !z-[9999]" align="start">
+              <PopoverContent className="w-100 p-0 z-9999!" align="start">
                 <Command>
                   <CommandList>
                     <CommandGroup>
@@ -789,7 +794,7 @@ export function ServiceConfigForm({ service, availableServices, onServiceChange,
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-100 p-0 !z-[9999]">
+              <PopoverContent className="w-100 p-0 z-9999!">
                 <Command>
                   <CommandInput placeholder="Tìm địa chỉ..." />
                   <CommandList>
@@ -845,7 +850,7 @@ export function ServiceConfigForm({ service, availableServices, onServiceChange,
                   {pickDate ? format(pickDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 !z-[9999]">
+              <PopoverContent className="w-auto p-0 z-9999!">
                 <Calendar
                   mode="single"
                   selected={pickDate}
@@ -881,7 +886,7 @@ export function ServiceConfigForm({ service, availableServices, onServiceChange,
                   {deliverDate ? format(deliverDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 !z-[9999]">
+              <PopoverContent className="w-auto p-0 z-9999!">
                 <Calendar
                   mode="single"
                   selected={deliverDate}

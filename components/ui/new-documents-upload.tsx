@@ -1,6 +1,6 @@
-import * as React from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { useDropzone, FileRejection, FileError } from 'react-dropzone';
+import { useDropzone, type FileRejection, type FileError } from 'react-dropzone';
 import { toast } from 'sonner';
 import { Upload, X, Eye, AlertCircle, File as FileIcon, Download, ClipboardPaste } from 'lucide-react';
 import { Button } from './button';
@@ -127,20 +127,20 @@ const compressImage = (file: File, quality: number = 0.75): Promise<File> => {
  * Uses next/image for /uploads/ and /api/ URLs, falls back to <img> for blob:/data:.
  */
 function RetryImage({ src, alt }: { src: string; alt: string }) {
-  const [retryCount, setRetryCount] = React.useState(0);
-  const computedSrc = React.useMemo(() => {
+  const [retryCount, setRetryCount] = useState(0);
+  const computedSrc = useMemo(() => {
     if (retryCount === 0) return src;
     const separator = src.includes('?') ? '&' : '?';
     return `${src}${separator}retry=${Date.now()}-${retryCount}`;
   }, [src, retryCount]);
 
-  const handleError = React.useCallback(() => {
+  const handleError = useCallback(() => {
     if (retryCount >= 4) return;
     const delay = (retryCount + 1) * 400;
     setTimeout(() => setRetryCount(prev => prev + 1), delay);
   }, [retryCount]);
 
-  const handleLoad = React.useCallback(() => {
+  const handleLoad = useCallback(() => {
     setRetryCount(0);
   }, []);
 
@@ -198,30 +198,28 @@ export function NewDocumentsUpload({
   compact = false,
 }: NewDocumentsUploadProps) {
   const files = value; // Simple controlled component
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
-  const [fileToDelete, setFileToDelete] = React.useState<StagingFile | null>(null);
-  
-
+  const [isUploading, setIsUploading] = useState(false);
+  const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<StagingFile | null>(null);
   
   // Get session ID: từ prop → từ existing files → tạo mới
-  const getInitialSessionId = React.useCallback(() => {
+  const getInitialSessionId = useCallback(() => {
     if (sessionId) return sessionId;
     if (files.length > 0 && files[0].sessionId) return files[0].sessionId;
     return '';
   }, [sessionId, files]);
   
-  const [currentSessionId, setCurrentSessionId] = React.useState(getInitialSessionId);
+  const [currentSessionId, setCurrentSessionId] = useState(getInitialSessionId);
   
   // Update currentSessionId when sessionId prop or files change
-  React.useEffect(() => {
+  useEffect(() => {
     const newSessionId = getInitialSessionId();
     if (newSessionId && newSessionId !== currentSessionId) {
       setCurrentSessionId(newSessionId);
     }
   }, [sessionId, files, currentSessionId, getInitialSessionId]);
 
-  const onDrop = React.useCallback(async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     // Handle rejected files first (format/size issues)
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(rejection => {
@@ -259,7 +257,7 @@ export function NewDocumentsUpload({
     
     
     if (currentFileCount >= maxFiles) {
-      toast.error(`🚫 Đã đạt giới hạn ${maxFiles} file`, {
+      toast.error(`Đã đạt giới hạn ${maxFiles} file`, {
         description: `Không thể thêm file mới. Hiện có ${existingFileCount} file vĩnh viễn + ${files.length} file tạm thời.`
       });
       return;
@@ -268,7 +266,7 @@ export function NewDocumentsUpload({
     if (totalFilesDropped > remainingSlots) {
       const rejectedCount = totalFilesDropped - remainingSlots;
       
-      toast.error(`⚠️ Không thể thêm ${totalFilesDropped} file`, {
+      toast.error(`Không thể thêm ${totalFilesDropped} file`, {
         description: `Chỉ có thể thêm tối đa ${remainingSlots} file nữa (hiện có ${currentFileCount}/${maxFiles}). Đã loại bỏ ${rejectedCount} file cuối.`
       });
       
@@ -276,7 +274,7 @@ export function NewDocumentsUpload({
       acceptedFiles = acceptedFiles.slice(0, remainingSlots);
       
       if (acceptedFiles.length > 0) {
-        toast.info(`📁 Đã chọn ${acceptedFiles.length} file đầu tiên`, {
+        toast.info(`Đã chọn ${acceptedFiles.length} file đầu tiên`, {
           description: 'Xóa file cũ để thêm file mới'
         });
       }
@@ -291,7 +289,7 @@ export function NewDocumentsUpload({
 
     if (proposedTotalSize > maxTotalSize) {
       const availableSize = maxTotalSize - currentTotalSize;
-      toast.error(`📊 Vượt quá giới hạn tổng dung lượng`, {
+      toast.error(`Vượt quá giới hạn tổng dung lượng`, {
         description: `Tối đa ${formatFileSize(maxTotalSize)} cho loại tài liệu này. Còn trống: ${formatFileSize(availableSize)}`
       });
       
@@ -310,7 +308,7 @@ export function NewDocumentsUpload({
       }
       
       acceptedFiles = fittingFiles;
-      toast.info(`📁 Đã chọn ${acceptedFiles.length} file phù hợp`, {
+      toast.info(`Đã chọn ${acceptedFiles.length} file phù hợp`, {
         description: `Tổng dung lượng: ${formatFileSize(runningSize)}`
       });
     }
@@ -353,13 +351,13 @@ export function NewDocumentsUpload({
       const updatedFiles = [...files, ...result.files];
       onChange?.(updatedFiles);
 
-      toast.success(`✓ Đã tải lên ${result.files.length} file`, {
-        description: '🔄 File tạm - Sẽ lưu vĩnh viễn khi bạn bấm Lưu',
+      toast.success(`Đã tải lên ${result.files.length} file`, {
+        description: 'File tạm - Sẽ lưu vĩnh viễn khi bạn bấm Lưu',
         id: uploadToastId
       });
     } catch (error) {
       logError('Upload failed', error);
-      toast.error('❌ Lỗi khi tải file', {
+      toast.error('Lỗi khi tải file', {
         description: error instanceof Error ? error.message : 'Vui lòng thử lại',
         id: uploadToastId
       });
@@ -379,9 +377,9 @@ export function NewDocumentsUpload({
   });
 
   // Ctrl+V paste support — dedicated handler for the paste button
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handlePasteFromClipboard = React.useCallback(async () => {
+  const handlePasteFromClipboard = useCallback(async () => {
     if (disabled || isUploading) return;
 
     try {
@@ -415,7 +413,7 @@ export function NewDocumentsUpload({
   }, [disabled, isUploading, onDrop]);
 
   // Also support Ctrl+V when focus is on the container (not in an input)
-  React.useEffect(() => {
+  useEffect(() => {
     if (disabled || isUploading) return;
 
     const handlePaste = (e: ClipboardEvent) => {
@@ -447,12 +445,12 @@ export function NewDocumentsUpload({
   }, [disabled, isUploading, onDrop]);
 
   // Check if accept includes images (show paste button only for image uploads)
-  const acceptsImages = React.useMemo(() => {
+  const acceptsImages = useMemo(() => {
     if (!accept) return true;
     return Object.keys(accept).some(k => k.startsWith('image'));
   }, [accept]);
 
-  const removeFile = React.useCallback(async (fileId: string) => {
+  const removeFile = useCallback(async (fileId: string) => {
     const fileToRemove = files.find(f => f.id === fileId);
     if (!fileToRemove) return;
 
@@ -460,7 +458,7 @@ export function NewDocumentsUpload({
     setDeleteAlertOpen(true);
   }, [files]);
 
-  const confirmDeleteFile = React.useCallback(async () => {
+  const confirmDeleteFile = useCallback(async () => {
     if (!fileToDelete) return;
 
     const deleteToastId = toast.loading('Đang xóa file...');
@@ -483,13 +481,13 @@ export function NewDocumentsUpload({
       const updated = files.filter(f => f.id !== fileToDelete.id);
       onChange?.(updated);
 
-      toast.success('✓ Đã xóa file', {
+      toast.success('Đã xóa file', {
         description: fileToDelete.originalName || fileToDelete.name,
         id: deleteToastId
       });
     } catch (error) {
       logError('Failed to delete', error);
-      toast.error('❌ Không thể xóa file', {
+      toast.error('Không thể xóa file', {
         id: deleteToastId
       });
     } finally {
@@ -515,17 +513,17 @@ export function NewDocumentsUpload({
   };
 
   // Image preview state
-  const [previewOpen, setPreviewOpen] = React.useState(false);
-  const [previewIndex, setPreviewIndex] = React.useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
   
   // Get all image files for the preview dialog carousel
-  const imageFiles = React.useMemo(() => 
+  const imageFiles = useMemo(() => 
     files.filter(f => f.type && typeof f.type === 'string' && f.type.startsWith('image/')),
     [files]
   );
 
   // Non-image preview state
-  const [nonImagePreviewFile, setNonImagePreviewFile] = React.useState<StagingFile | null>(null);
+  const [nonImagePreviewFile, setNonImagePreviewFile] = useState<StagingFile | null>(null);
 
   const handlePreview = (file: StagingFile) => {
     const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');

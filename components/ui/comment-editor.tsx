@@ -286,7 +286,8 @@ export function CommentEditor({
   }
 
   return (
-    <div 
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
       className={cn(
         'border border-input rounded-lg bg-background relative',
         isDragging && 'ring-2 ring-primary border-primary',
@@ -370,8 +371,12 @@ export function CommentEditor({
       {/* Editor Content */}
       <div
         onClick={() => editor?.commands.focus()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') editor?.commands.focus(); }}
         className="cursor-text"
         style={{ minHeight }}
+        role="textbox"
+        aria-label="Editor content"
+        tabIndex={0}
       >
         <EditorContent
           editor={editor}

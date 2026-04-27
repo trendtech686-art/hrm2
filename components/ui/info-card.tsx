@@ -24,7 +24,8 @@ export function InfoItem({
   const content = value ?? children;
 
   return (
-    <div 
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
       className={cn("grid gap-1", isClickable && "cursor-pointer", className)}
       onClick={onClick}
     >

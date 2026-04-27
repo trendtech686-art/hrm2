@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { cn } from '../../lib/utils';
 
 interface StickyScrollbarProps {
@@ -17,13 +17,13 @@ interface StickyScrollbarProps {
  * the table's horizontal scroll.
  */
 export function StickyScrollbar({ targetRef, dataLength = 0, className }: StickyScrollbarProps) {
-  const scrollbarRef = React.useRef<HTMLDivElement>(null);
-  const [scrollbarStyle, setScrollbarStyle] = React.useState<React.CSSProperties>({});
-  const [contentWidth, setContentWidth] = React.useState(0);
-  const [isVisible, setIsVisible] = React.useState(false);
-  const isScrollingRef = React.useRef(false);
+  const scrollbarRef = useRef<HTMLDivElement>(null);
+  const [scrollbarStyle, setScrollbarStyle] = useState<CSSProperties>({});
+  const [contentWidth, setContentWidth] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+  const isScrollingRef = useRef(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const targetElement = targetRef.current;
     const scrollbarElement = scrollbarRef.current;
     

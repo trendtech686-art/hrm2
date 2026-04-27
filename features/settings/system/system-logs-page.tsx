@@ -500,7 +500,13 @@ export function SystemLogsPage() {
 
   // Mobile card renderer
   const renderMobileCard = (log: ActivityLog) => (
-    <div className="p-4 space-y-3" onClick={() => handleRowClick(log)}>
+    <div
+      className="p-4 space-y-3 cursor-pointer"
+      onClick={() => handleRowClick(log)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleRowClick(log); }}
+    >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           {getEntityIcon(log.entityType)}

@@ -11,17 +11,17 @@
  */
 
 import { NextRequest } from 'next/server';
+import { randomUUID, createHash } from 'crypto';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
-import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
   const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 11);
+  const requestId = randomUUID();
 
   try {
     const body = await request.json();
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     // Generate signature: base64(md5(data_param + key))
     const dataSign = Buffer.from(
-      crypto.createHash('md5').update(dataParam + key).digest('hex')
+      createHash('md5').update(dataParam + key).digest('hex')
     ).toString('base64');
 
     // J&T uses x-www-form-urlencoded

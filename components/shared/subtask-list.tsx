@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { Input } from '../ui/input';
@@ -90,8 +90,8 @@ function SortableSubtask<T>({
   readonly,
   compact,
 }: SortableSubtaskProps<T>) {
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editValue, setEditValue] = React.useState(subtask.title);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(subtask.title);
 
   const {
     attributes,
@@ -142,6 +142,13 @@ function SortableSubtask<T>({
           onToggleComplete(subtask.id, !subtask.completed);
         }
       }}
+      onKeyDown={(e) => {
+        if (!isEditing && onToggleComplete && e.key === 'Enter' && e.target === e.currentTarget) {
+          onToggleComplete(subtask.id, !subtask.completed);
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       {/* Drag Handle */}
       {!readonly && (
@@ -157,7 +164,7 @@ function SortableSubtask<T>({
       )}
 
       {/* Checkbox */}
-      <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+      <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
         <Checkbox
           checked={subtask.completed}
           onCheckedChange={(checked) =>
@@ -177,7 +184,12 @@ function SortableSubtask<T>({
         if (isEditing) {
           e.stopPropagation();
         }
-      }}>
+      }}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+      }}
+      role="presentation"
+      >
         {isEditing ? (
           <div className="flex items-center gap-2">
             <Input
@@ -221,6 +233,13 @@ function SortableSubtask<T>({
                     onToggleComplete(subtask.id, !subtask.completed);
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && onToggleComplete) {
+                    onToggleComplete(subtask.id, !subtask.completed);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 {subtask.title}
               </p>
@@ -245,7 +264,7 @@ function SortableSubtask<T>({
 
       {/* Assignee */}
       {showAssignee && subtask.assigneeName && (
-        <div className="flex items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
           <Avatar className={compact ? 'h-5 w-5' : 'h-6 w-6'}>
             <AvatarFallback className={`text-xs font-medium bg-primary/10 text-primary`}>
               {getInitials(subtask.assigneeName)}
@@ -261,7 +280,7 @@ function SortableSubtask<T>({
 
       {/* Actions */}
       {!readonly && !isEditing && (
-        <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
           {!isNested && onAddNested && (
             <Button
               size="sm"
@@ -314,13 +333,13 @@ export function SubtaskList<T = unknown>({
   compact = false,
   emptyMessage = 'Chưa có subtask nào',
 }: SubtaskListProps<T>) {
-  const [newSubtaskTitle, setNewSubtaskTitle] = React.useState('');
-  const [isAdding, setIsAdding] = React.useState(false);
-  const [addingParentId, setAddingParentId] = React.useState<string | undefined>();
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addingParentId, setAddingParentId] = useState<string | undefined>();
   
   // Fix hydration mismatch: only render DndContext after mount
-  const [isMounted, setIsMounted] = React.useState(false);
-  React.useEffect(() => {
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
     setIsMounted(true);
   }, []);
 
@@ -332,12 +351,12 @@ export function SubtaskList<T = unknown>({
   );
 
   // Separate parent and nested subtasks
-  const parentSubtasks = React.useMemo(
+  const parentSubtasks = useMemo(
     () => subtasks.filter((s) => !s.parentId).sort((a, b) => a.order - b.order),
     [subtasks]
   );
 
-  const getNestedSubtasks = React.useCallback(
+  const getNestedSubtasks = useCallback(
     (parentId: string) =>
       subtasks
         .filter((s) => s.parentId === parentId)
@@ -346,15 +365,15 @@ export function SubtaskList<T = unknown>({
   );
 
   // Calculate progress
-  const progress = React.useMemo(() => {
+  const progress = useMemo(() => {
     if (subtasks.length === 0) return 0;
     const completed = subtasks.filter((s) => s.completed).length;
     return Math.round((completed / subtasks.length) * 100);
   }, [subtasks]);
 
   // Track previous progress to only fire onAllCompleted on transition to 100
-  const prevProgressRef = React.useRef<number | null>(null);
-  React.useEffect(() => {
+  const prevProgressRef = useRef<number | null>(null);
+  useEffect(() => {
     if (
       subtasks.length > 0 &&
       progress === 100 &&

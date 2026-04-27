@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
-import { apiSuccess, apiError, apiPaginated, validateBody, parsePagination } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiPaginated, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
 import { logError } from '@/lib/logger'

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { orderKeys } from './use-orders'
 
 export interface UnpaidOrder {
   systemId: string
@@ -16,7 +17,7 @@ export interface UnpaidOrder {
  */
 export function useUnpaidOrders(customerSystemId: string | undefined) {
   return useQuery<UnpaidOrder[]>({
-    queryKey: ['orders', 'unpaid', customerSystemId],
+    queryKey: orderKeys.unpaid(customerSystemId ?? ''),
     queryFn: async () => {
       if (!customerSystemId) return []
       const res = await fetch(`/api/orders/unpaid?customerSystemId=${encodeURIComponent(customerSystemId)}`)

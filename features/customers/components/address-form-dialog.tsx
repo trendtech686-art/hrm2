@@ -231,7 +231,7 @@ export function AddressFormDialog({
           inputLevel: '2-level',
         });
       }
-  }, [isOpen, editingAddress, isProvincesReady, hasInitialized, isLoadingProvinces, provinces2Level, provinces3Level, allDistricts]);
+  }, [isOpen, editingAddress, isProvincesReady, hasInitialized, isLoadingProvinces, provinces2Level, provinces3Level, allDistricts, forcedAddressLevel, setAddressLevel, setFormData]);
 
   // Ward query hooks (enabled after province/district selection is set)
   const { data: wards2Level = [] } = useWards2Level(

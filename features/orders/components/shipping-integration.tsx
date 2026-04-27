@@ -493,6 +493,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     const province = provinces.find(p => p.name === customer.shippingAddress_province);
     // Use legacyWards from useWards2Level hook (fetched above based on legacyProvinceId)
     const ward = legacyWards.find(w => w.name === customer.shippingAddress_ward);
+    // District: use separate shippingAddress_district field if available
+    const district = legacyWards.find(w => w.name === customer.shippingAddress_district);
 
     const result = {
       name: customer.name,
@@ -500,8 +502,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       address: customer.shippingAddress_street || '',
       province: customer.shippingAddress_province || '',
       provinceId: province ? parseInt(province.id) : 0, // ✅ Allow 0 if province not found
-      district: customer.shippingAddress_ward || '', // FIXME: Need district separate field
-      districtId: 0, // FIXME: Need district ID mapping
+      district: customer.shippingAddress_district || customer.shippingAddress_ward || '',
+      districtId: district ? parseInt(district.id) : 0, // District ID from wards list (uses same table)
       ward: customer.shippingAddress_ward,
       wardCode: ward?.id
     };

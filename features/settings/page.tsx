@@ -299,7 +299,7 @@ const settingsTableData: SettingsTableItem[] = settingsSections.flatMap((section
 export function SettingsPage() {
   // Permission checks
   const { can } = useAuth();
-  const canEdit = can('edit_settings');
+  const _canEdit = can('edit_settings');
   const [searchQuery, setSearchQuery] = React.useState('');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const router = useRouter();

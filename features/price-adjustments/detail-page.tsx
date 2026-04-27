@@ -38,7 +38,7 @@ import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import type { PriceAdjustmentStatus, PriceAdjustment } from './types';
+import type { PriceAdjustmentStatus } from './types';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertPriceAdjustmentForPrint, 
@@ -271,7 +271,7 @@ export function PriceAdjustmentDetailPage() {
         )}
       </div>
     );
-  }, [adjustment, handlePrint, handleCopy, router, systemId]);
+  }, [adjustment, handlePrint, handleCopy, router, systemId, isAdmin, can]);
 
   const mobileHeaderActions = React.useMemo(() => {
     if (!isMobile || !adjustment) return null;

@@ -10,43 +10,55 @@ import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types'
  * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
  */
 
-// ===== CATEGORY HELPERS - Using Prisma queries =====
-// NOTE: These helpers are commented out because they require Prisma (server-only)
-// If needed, move to separate server-side utils file
-/*
-const getAllCategories = async () => {
-  return await prisma.category.findMany({
-    where: { isDeleted: false },
-  });
-};
+// ===== PRELOADED DATA CACHE =====
+export interface CategoryImportCache {
+  categories: Array<{
+    systemId: string;
+    id: string;
+    name: string;
+    path?: string;
+  }>;
+}
 
-const getParentCategorySystemId = async (value: string): Promise<string | null> => {
+// Build cache from preloaded data (called in dialog before preview)
+export function buildCategoryImportCache(preloadedData: Record<string, unknown>): CategoryImportCache {
+  return {
+    categories: (preloadedData.categories as CategoryImportCache['categories']) || [],
+  };
+}
+
+// Helper: Get category systemId from name using cache (sync)
+function getCategorySystemIdByNameFromCache(
+  value: string,
+  cache: CategoryImportCache
+): string | null {
   if (!value || String(value).trim() === '') return null;
   
-  const categories = await getAllCategories();
   const normalizedValue = String(value).trim().toLowerCase();
   
-  const byName = categories.find(c => 
+  const byName = cache.categories.find(c => 
     c.name.toLowerCase() === normalizedValue ||
     c.id.toLowerCase() === normalizedValue
   );
   if (byName) return byName.systemId;
   
-  const byPath = categories.find(c => 
+  const byPath = cache.categories.find(c => 
     c.path?.toLowerCase() === normalizedValue
   );
   if (byPath) return byPath.systemId;
   
   return null;
-};
+}
 
-const getParentCategoryName = async (systemId: string | undefined): Promise<string> => {
+// Helper: Get category name from systemId using cache (sync) - reserved for future use
+function _getCategoryNameByIdFromCache(
+  systemId: string,
+  cache: CategoryImportCache
+): string {
   if (!systemId) return '';
-  const categories = await getAllCategories();
-  const parent = categories.find(c => c.systemId === systemId);
-  return parent?.name || '';
-};
-*/
+  const category = cache.categories.find(c => c.systemId === systemId);
+  return category?.name || '';
+}
 
 // Field definitions for ProductCategory import/export
 export const categoryFields: FieldConfig<ProductCategory>[] = [
@@ -100,16 +112,8 @@ export const categoryFields: FieldConfig<ProductCategory>[] = [
     exportGroup: 'Phân cấp',
     exportable: true,
     example: 'Điện tử',
-    // TODO: importTransform and exportTransform need async support or preloaded data cache
-    // importTransform: async (value) => {
-    //   if (!value) return undefined;
-    //   const systemId = await getParentCategorySystemId(String(value));
-    //   return systemId || undefined;
-    // },
-    // exportTransform: async (value) => {
-    //   // Value is the parentId systemId
-    //   return await getParentCategoryName(value as string);
-    // }
+    // NOTE: Transform logic đã được di chuyển vào postTransformRow
+    // sử dụng preloadedDataCache từ dialog để lookup async
   },
   {
     key: 'path',
@@ -269,7 +273,11 @@ export const categoryImportExportConfig: ImportExportConfig<ProductCategory> = {
   maxRows: 500,
   
   // Row-level transform after all field transforms
-  postTransformRow: (row: Partial<ProductCategory>) => {
+  // NOTE: preloadedDataCache chứa categories được truyền qua context
+  postTransformRow: (row: Partial<ProductCategory>, _index?: number, context?: string | Record<string, unknown>) => {
+    // Cast context to Record if it's an object
+    const ctx = typeof context === 'object' && context !== null ? context as Record<string, unknown> : null;
+    
     // Ensure isActive defaults to true for new categories
     if (row.isActive === undefined) {
       row.isActive = true;
@@ -292,6 +300,15 @@ export const categoryImportExportConfig: ImportExportConfig<ProductCategory> = {
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
         .trim();
+    }
+    
+    // Transform parentId from name to systemId using preloadedDataCache
+    if (row.parentId && typeof row.parentId === 'string' && ctx?.preloadedData) {
+      const cache = ctx.preloadedData as CategoryImportCache;
+      const parentSystemId = getCategorySystemIdByNameFromCache(row.parentId as string, cache);
+      if (parentSystemId) {
+        row.parentId = parentSystemId;
+      }
     }
     
     return row;

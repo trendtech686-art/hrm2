@@ -73,7 +73,7 @@ export function TasksTab({ employee }: TasksTabProps) {
         <div className="flex items-center justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11">
+              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Tùy chọn">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

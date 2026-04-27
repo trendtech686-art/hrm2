@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useInfiniteMeiliProductSearch } from "../../hooks/use-meilisearch";
 import { Package, Search } from "lucide-react";
 import {
@@ -41,10 +41,10 @@ export function BulkProductSelectorDialog({
   description,
   branchSystemId: _branchSystemId,
 }: BulkProductSelectorDialogProps) {
-  const [search, setSearch] = React.useState("");
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [selectedProducts, setSelectedProducts] = React.useState<Map<string, Product>>(new Map());
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedProducts, setSelectedProducts] = useState<Map<string, Product>>(new Map());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ✅ Use Meilisearch for fast product search with infinite scroll
   const { data: searchResult, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMeiliProductSearch({ 
@@ -53,7 +53,7 @@ export function BulkProductSelectorDialog({
   });
 
   // Reset state when dialog closes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) {
       setSearch("");
       setSelectedIds(new Set());
@@ -62,13 +62,13 @@ export function BulkProductSelectorDialog({
   }, [open]);
 
   // Get search results (exclude already excluded products) - flatten all pages
-  const filteredProducts = React.useMemo(() => {
+  const filteredProducts = useMemo(() => {
     const products = searchResult?.pages.flatMap(page => page.data) || [];
     return products.filter(p => !excludeProductIds.includes(p.systemId));
   }, [searchResult, excludeProductIds]);
   
   // Infinite scroll handler
-  const handleScroll = React.useCallback(() => {
+  const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
     
@@ -210,6 +210,9 @@ export function BulkProductSelectorDialog({
                         isSelected && "bg-primary/5"
                       )}
                       onClick={() => handleToggleProduct(product.systemId, product)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleToggleProduct(product.systemId, product)}
+                      role="button"
+                      tabIndex={0}
                     >
                       <Checkbox
                         checked={isSelected}

@@ -15,6 +15,7 @@ export type ComboboxOption = {
 };
 
 type VirtualizedComboboxProps = {
+  id?: string;
   value: ComboboxOption | null;
   onChange: (value: ComboboxOption | null) => void;
   options: ComboboxOption[];

@@ -5,9 +5,8 @@
  * Supports left swipe (reveal actions on right) and right swipe (reveal actions on left).
  */
 
-import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useSwipeGesture, type SwipeDirection } from "@/hooks/use-swipe-gesture";
+import { useSwipeGesture } from "@/hooks/use-swipe-gesture";
 import { triggerHaptic, type HapticType } from "@/hooks/use-haptics";
 
 export type SwipeAction = {
@@ -42,10 +41,6 @@ export function SwipeableRow({
     direction: "horizontal",
     disabledOnDesktop: true,
   });
-
-  // Determine which actions to show based on swipe direction
-  const showLeftActions = direction === "left" && leftActions.length > 0;
-  const showRightActions = direction === "right" && rightActions.length > 0;
 
   // Calculate translateX for the content
   const maxLeftTranslate = leftActions.length * ACTION_WIDTH;

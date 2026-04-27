@@ -13,6 +13,13 @@ import { fetchComplaints } from '@/features/complaints/api/complaints-api';
 import { fetchReceipts } from '@/features/receipts/api/receipts-api';
 import { fetchPayments } from '@/features/payments/api/payments-api';
 import { fetchSalesReturns } from '@/features/sales-returns/api/sales-returns-api';
+import { customerKeys } from './use-customers';
+import { orderKeys } from '@/features/orders/hooks/use-orders';
+import { warrantyKeys } from '@/features/warranty/hooks/use-warranties';
+import { complaintKeys } from '@/features/complaints/hooks/use-complaints';
+import { receiptKeys } from '@/features/receipts/hooks/use-receipts';
+import { paymentKeys } from '@/features/payments/hooks/use-payments';
+import { salesReturnKeys } from '@/features/sales-returns/hooks/use-sales-returns';
 import type { Order, Receipt, Payment, SalesReturn } from '@/lib/types/prisma-extended';
 import type { WarrantyTicket as Warranty } from '@/lib/types/prisma-extended';
 import type { Complaint } from '@/lib/types/prisma-extended';
@@ -30,7 +37,7 @@ const EMPTY_SALES_RETURNS: SalesReturn[] = [];
  */
 export function useCustomerOrders(customerId: string | undefined | null) {
   const query = useQuery({
-    queryKey: ['orders', 'customer', customerId],
+    queryKey: orderKeys.customer(customerId!),
     queryFn: async () => {
       const res = await fetchOrders({ customerId: customerId!, limit: 0 });
       return res.data;
@@ -57,7 +64,7 @@ export function useCustomerOrders(customerId: string | undefined | null) {
  */
 export function useCustomerWarranties(customerId: string | undefined | null, options?: { enabled?: boolean }) {
   const query = useQuery({
-    queryKey: ['warranties', 'customer', customerId],
+    queryKey: [...warrantyKeys.all, 'customer', customerId],
     queryFn: async () => {
       const res = await fetchWarranties({ customerId: customerId!, limit: 0 });
       return res.data;
@@ -83,7 +90,7 @@ export function useCustomerWarranties(customerId: string | undefined | null, opt
  */
 export function useCustomerComplaints(customerId: string | undefined | null, options?: { enabled?: boolean }) {
   const query = useQuery({
-    queryKey: ['complaints', 'customer', customerId],
+    queryKey: [...complaintKeys.all, 'customer', customerId],
     queryFn: async () => {
       const res = await fetchComplaints({ customerId: customerId!, limit: 0 });
       return res.data;
@@ -109,7 +116,7 @@ export function useCustomerComplaints(customerId: string | undefined | null, opt
  */
 export function useCustomerReceiptsHook(customerSystemId: string | undefined | null) {
   const query = useQuery({
-    queryKey: ['receipts', 'customer', customerSystemId],
+    queryKey: [...receiptKeys.all, 'customer', customerSystemId],
     queryFn: async () => {
       const res = await fetchReceipts({ customerSystemId: customerSystemId!, limit: 0 });
       return res.data;
@@ -135,7 +142,7 @@ export function useCustomerReceiptsHook(customerSystemId: string | undefined | n
  */
 export function useCustomerPaymentsHook(customerSystemId: string | undefined | null) {
   const query = useQuery({
-    queryKey: ['payments', 'customer', customerSystemId],
+    queryKey: [...paymentKeys.all, 'customer', customerSystemId],
     queryFn: async () => {
       const res = await fetchPayments({ customerSystemId: customerSystemId!, limit: 0 });
       return res.data;
@@ -161,7 +168,7 @@ export function useCustomerPaymentsHook(customerSystemId: string | undefined | n
  */
 export function useCustomerSalesReturns(customerId: string | undefined | null) {
   const query = useQuery({
-    queryKey: ['sales-returns', 'customer', customerId],
+    queryKey: [...salesReturnKeys.all, 'customer', customerId],
     queryFn: async () => {
       const res = await fetchSalesReturns({ customerId: customerId!, limit: 0 });
       return res.data;
@@ -188,7 +195,7 @@ export function useCustomerSalesReturns(customerId: string | undefined | null) {
  */
 export function useCustomerReceiptsBroad(customerSystemId: string | undefined | null, customerName: string | undefined | null, options?: { enabled?: boolean }) {
   const query = useQuery({
-    queryKey: ['receipts', 'customer-broad', customerSystemId, customerName],
+    queryKey: [...receiptKeys.all, 'customer-broad', customerSystemId, customerName],
     queryFn: async () => {
       const res = await fetchReceipts({
         customerSystemId: customerSystemId!,
@@ -221,7 +228,7 @@ export function useCustomerReceiptsBroad(customerSystemId: string | undefined | 
  */
 export function useCustomerPaymentsBroad(customerSystemId: string | undefined | null, customerName: string | undefined | null, options?: { enabled?: boolean }) {
   const query = useQuery({
-    queryKey: ['payments', 'customer-broad', customerSystemId, customerName],
+    queryKey: [...paymentKeys.all, 'customer-broad', customerSystemId, customerName],
     queryFn: async () => {
       const res = await fetchPayments({
         customerSystemId: customerSystemId!,
@@ -278,7 +285,7 @@ export function useCustomerOrdersPaginated(
   const [pageSize, setPageSize] = React.useState(options?.initialPageSize || 20);
 
   const query = useQuery({
-    queryKey: ['orders', 'customer-paginated', customerId, page, pageSize],
+    queryKey: [...orderKeys.all, 'customer-paginated', customerId, page, pageSize],
     queryFn: async () => {
       const res = await fetchOrders({ customerId: customerId!, page, limit: pageSize });
       return res;
@@ -316,7 +323,7 @@ export function useCustomerSalesReturnsPaginated(
   const [pageSize, setPageSize] = React.useState(options?.initialPageSize || 20);
 
   const query = useQuery({
-    queryKey: ['sales-returns', 'customer-paginated', customerId, page, pageSize],
+    queryKey: [...salesReturnKeys.all, 'customer-paginated', customerId, page, pageSize],
     queryFn: async () => {
       const res = await fetchSalesReturns({ customerId: customerId!, page, limit: pageSize });
       return res;
@@ -354,7 +361,7 @@ export function useCustomerWarrantiesPaginated(
   const [pageSize, setPageSize] = React.useState(options?.initialPageSize || 20);
 
   const query = useQuery({
-    queryKey: ['warranties', 'customer-paginated', customerId, page, pageSize],
+    queryKey: [...warrantyKeys.all, 'customer-paginated', customerId, page, pageSize],
     queryFn: async () => {
       const res = await fetchWarranties({ customerId: customerId!, page, limit: pageSize });
       return res;
@@ -392,7 +399,7 @@ export function useCustomerComplaintsPaginated(
   const [pageSize, setPageSize] = React.useState(options?.initialPageSize || 20);
 
   const query = useQuery({
-    queryKey: ['complaints', 'customer-paginated', customerId, page, pageSize],
+    queryKey: [...complaintKeys.all, 'customer-paginated', customerId, page, pageSize],
     queryFn: async () => {
       const res = await fetchComplaints({ customerId: customerId!, page, limit: pageSize });
       return res;
@@ -455,7 +462,7 @@ export function useCustomerProductsPaginated(
   const [pageSize, setPageSize] = React.useState(options?.initialPageSize || 20);
 
   const query = useQuery({
-    queryKey: ['customer-products', customerId, page, pageSize],
+    queryKey: customerKeys.products(customerId!),
     queryFn: async (): Promise<CustomerProductsResponse> => {
       const params = new URLSearchParams({
         page: String(page),
@@ -470,8 +477,8 @@ export function useCustomerProductsPaginated(
     gcTime: 5 * 60 * 1000,
   });
 
-  const emptyProducts: CustomerProduct[] = [];
-  const data = React.useMemo(() => query.data?.data || emptyProducts, [query.data]);
+  const emptyProducts = React.useMemo(() => [] as CustomerProduct[], []);
+  const data = React.useMemo(() => query.data?.data || emptyProducts, [query.data, emptyProducts]);
   const pagination = React.useMemo(() => ({
     page: query.data?.pagination?.page || 1,
     pageSize: query.data?.pagination?.limit || pageSize,
@@ -531,7 +538,7 @@ export function useCustomerDebtPaginated(
   const [pageSize, setPageSize] = React.useState(options?.initialPageSize || 20);
 
   const query = useQuery({
-    queryKey: ['customer-debt', customerId, customerName, page, pageSize],
+    queryKey: customerKeys.debtTransactions(customerId!, page, pageSize),
     queryFn: async (): Promise<CustomerDebtResponse> => {
       const params = new URLSearchParams({
         page: String(page),
@@ -547,8 +554,8 @@ export function useCustomerDebtPaginated(
     gcTime: 5 * 60 * 1000,
   });
 
-  const emptyDebt: CustomerDebtTransaction[] = [];
-  const data = React.useMemo(() => query.data?.data || emptyDebt, [query.data]);
+  const emptyDebt = React.useMemo(() => [] as CustomerDebtTransaction[], []);
+  const data = React.useMemo(() => query.data?.data || emptyDebt, [query.data, emptyDebt]);
   const pagination = React.useMemo(() => ({
     page: query.data?.pagination?.page || 1,
     pageSize: query.data?.pagination?.limit || pageSize,

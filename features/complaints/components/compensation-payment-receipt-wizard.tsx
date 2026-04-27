@@ -91,9 +91,14 @@ export function CompensationPaymentReceiptWizard({
   const [complaintPenaltyTypes, setComplaintPenaltyTypes] = React.useState<PenaltyType[]>([]);
   
   // NEW: Additional fields
-  const [recognitionDate, setRecognitionDate] = React.useState<Date>(new Date());
-  const [paymentMethodId, setPaymentMethodId] = React.useState<string>(""); // Changed from paymentMethod string to ID
+  const [recognitionDate, setRecognitionDate] = React.useState<Date | undefined>(undefined);
+  const [paymentMethodId, setPaymentMethodId] = React.useState<string>("");
   const [selectedAccountId, setSelectedAccountId] = React.useState<string>("");
+
+  // Hydration-safe initialization
+  React.useEffect(() => {
+    setRecognitionDate(new Date());
+  }, []);
 
   // Lazy-load accounts from API if not provided
   // OPTIMIZED: Load all required data in parallel when dialog opens
@@ -453,7 +458,7 @@ export function CompensationPaymentReceiptWizard({
             employeeName: targetEmployee.fullName,
             reason: `Thu hồi chi phí phát sinh từ khiếu nại ${complaint.id}: ${resolutionReason}`,
             amount: incurredCost,
-            date: recognitionDate.toISOString().split('T')[0],
+            date: (recognitionDate ?? new Date()).toISOString().split('T')[0],
             status: 'pending',
             issuerName: currentIssuerName,
             issuerSystemId: currentIssuerSystemId,
@@ -482,7 +487,7 @@ export function CompensationPaymentReceiptWizard({
             employeeName: targetEmployee.fullName,
             reason: `Phạt lỗi từ khiếu nại ${complaint.id}: ${selectedPenaltyType.name} - ${resolutionReason}`,
             amount: selectedPenaltyType.defaultAmount,
-            date: recognitionDate.toISOString().split('T')[0],
+            date: (recognitionDate ?? new Date()).toISOString().split('T')[0],
             status: 'pending',
             issuerName: currentIssuerName,
             issuerSystemId: currentIssuerSystemId,

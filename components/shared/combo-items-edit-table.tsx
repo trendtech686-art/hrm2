@@ -55,8 +55,11 @@ const ProductThumbnailCell = ({
     if (imageUrl) {
         return (
             <div
+                role="button"
+                tabIndex={0}
                 className={`group/thumbnail relative w-10 h-10 rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onPreview?.(imageUrl, productName); }}
             >
                 <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={40} height={40} />
                 {onPreview && (

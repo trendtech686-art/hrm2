@@ -165,7 +165,7 @@ export function PkgxBrandLinkDialog({
 
           {/* PKGX Brand Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Chọn thương hiệu PKGX</label>
+            <label htmlFor="pkgx-brand-select" className="text-sm font-medium">Chọn thương hiệu PKGX</label>
             <VirtualizedCombobox
               value={selectedPkgxBrand}
               onChange={setSelectedPkgxBrand}

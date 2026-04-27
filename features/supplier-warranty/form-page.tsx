@@ -26,6 +26,7 @@ import { useSupplierStats } from '@/features/suppliers/hooks/use-supplier-stats'
 import { useAllBranches, useDefaultBranch } from '@/features/settings/branches/hooks/use-all-branches'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Save, Loader2, PackageOpen, ArrowLeft } from 'lucide-react'
+import Image from 'next/image'
 import { asSystemId } from '@/lib/id-types'
 import { WarrantyShippingCard, type WarrantyShippingCardRef } from './components/warranty-shipping-card'
 import type { DeliveryMethod } from '@/lib/types/prisma-extended'
@@ -375,10 +376,11 @@ export function SupplierWarrantyFormPage({ systemId }: SupplierWarrantyFormPageP
                             <div className="flex items-start gap-3">
                               {form.watch(`items.${index}.productImage`) ? (
                                 <div className="w-12 h-12 shrink-0 rounded-md overflow-hidden border border-muted">
-                                  <img
+                                  <Image
                                     src={form.watch(`items.${index}.productImage`) || ''}
                                     alt=""
-                                    className="w-full h-full object-cover"
+                                    fill
+                                    className="object-cover"
                                   />
                                 </div>
                               ) : (

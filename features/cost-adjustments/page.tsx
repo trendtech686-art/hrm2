@@ -10,6 +10,7 @@ import { useCostAdjustments, useCostAdjustmentMutations } from './hooks/use-cost
 import { useAllCostAdjustments } from './hooks/use-all-cost-adjustments';
 import { useCostAdjustmentImportHandler } from './hooks/use-cost-adjustment-import-handler';
 import { getColumns } from './columns';
+import { useDebounce } from '@/hooks/use-debounce';
 import { ROUTES } from '@/lib/router';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -47,8 +48,8 @@ export function CostAdjustmentListPage() {
   });
   const {  employee, can } = useAuth();
   const canCreate = can('create_cost_adjustments');
-  const canApprove = can('approve_cost_adjustments');
-  const canEditSettings = can('edit_settings');
+  const _canApprove = can('approve_cost_adjustments');
+  const _canEditSettings = can('edit_settings');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const { print, printMultiple } = usePrint();
   const { data: branches } = useAllBranches();
@@ -62,7 +63,7 @@ export function CostAdjustmentListPage() {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
-  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
+  const debouncedGlobalFilter = useDebounce(globalFilter, 300);
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
@@ -102,8 +103,6 @@ export function CostAdjustmentListPage() {
 
   const columnLayoutDefaults = React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []);
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('cost-adjustments', columnLayoutDefaults);
-
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
   const handleSinglePrint = React.useCallback(async (adj: CostAdjustment) => {
     const { storeInfo } = await fetchPrintData();

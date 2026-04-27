@@ -95,7 +95,7 @@ export function PkgxBrandActionsCell({
   
   return (
     <>
-      <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button 

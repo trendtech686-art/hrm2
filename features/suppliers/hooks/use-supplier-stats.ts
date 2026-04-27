@@ -12,6 +12,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import type { Supplier } from '@/lib/types/prisma-extended'
+import { supplierKeys } from './use-suppliers'
 
 export interface SupplierStats {
   supplier: Supplier | null
@@ -84,7 +85,7 @@ async function fetchSupplierStats(systemId: string): Promise<SupplierStats> {
 
 export function useSupplierStats(supplierId: string | undefined | null) {
   const query = useQuery({
-    queryKey: ['suppliers', 'stats', supplierId],
+    queryKey: supplierKeys.statsById(supplierId!),
     queryFn: () => fetchSupplierStats(supplierId!),
     enabled: !!supplierId,
     staleTime: 60_000,

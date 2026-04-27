@@ -119,7 +119,7 @@ export function WarrantyProductsSection({
   const { data: customerOrders } = useCustomerOrders(customerSystemId);
 
   // ✅ Lấy số lượng đã bảo hành trước đó của khách hàng
-  const { claimedQuantities, claimedProductTickets, isLoading: isLoadingClaimed } = useClaimedQuantities(customerSystemId, customerName);
+  const { claimedQuantities, claimedProductTickets } = useClaimedQuantities(customerSystemId, customerName);
   
   // Pricing policies
   const { data: pricingPolicies = [] } = useAllPricingPolicies();

@@ -126,15 +126,37 @@ export function ImportExportLogsContent() {
     return (data?.data ?? []).some(log => log.status === 'pending' || log.status === 'processing');
   }, [data?.data]);
   
-  // Polling effect for active jobs
+  // Polling effect for active jobs - only poll when tab is visible
   React.useEffect(() => {
     if (!hasActiveJobs) return;
     
-    const interval = setInterval(() => {
-      refetch();
-    }, 2000); // Refresh every 2 seconds
+    // Don't poll when tab is not visible
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
     
-    return () => clearInterval(interval);
+    const POLL_INTERVAL = 15_000; // 15 seconds - less aggressive polling
+    
+    const interval = setInterval(() => {
+      // Check visibility before refetching
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refetch();
+      }
+    }, POLL_INTERVAL);
+    
+    // Also refetch when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetch();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [hasActiveJobs, refetch]);
   
   // Entity display names
@@ -497,7 +519,13 @@ export function ImportExportLogsContent() {
 
   // Mobile card renderer
   const renderMobileCard = (log: CombinedLog) => (
-    <div className="p-4 space-y-3" onClick={() => handleRowClick(log)}>
+    <div
+      className="p-4 space-y-3 cursor-pointer"
+      onClick={() => handleRowClick(log)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleRowClick(log); }}
+    >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           {getEntityIcon(log.entityType)}

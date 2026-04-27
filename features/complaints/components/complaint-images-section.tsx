@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ProgressiveImage } from "../../../components/ui/progressive-image";
 import { mobileBleedCardClass } from '@/components/layout/page-section';
-import type { Complaint, ComplaintImage } from '../types';
+import type { Complaint } from '../types';
 
 interface NormalizedImage {
   id: string;
@@ -56,10 +56,13 @@ function ImageGrid({ images, altPrefix, onImagePreview }: {
     <>
       <div className="grid grid-cols-5 gap-2">
         {images.map((img, idx) => (
-          <div 
-            key={img.id} 
+          <div
+            key={img.id}
             className="relative group aspect-square cursor-pointer"
             onClick={() => onImagePreview(imageUrls, idx)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onImagePreview(imageUrls, idx); }}
+            role="button"
+            tabIndex={0}
           >
             <ProgressiveImage
               src={img.url}
@@ -89,7 +92,7 @@ export const ComplaintImagesSection: React.FC<Props> = React.memo(({ complaint, 
   );
   const employeeImages = React.useMemo(
     () => normalizeImageArray((complaint as ComplaintWithEmployeeImages).employeeImages, 'emp-img'),
-    [(complaint as ComplaintWithEmployeeImages).employeeImages]
+    [complaint]
   );
 
   return (

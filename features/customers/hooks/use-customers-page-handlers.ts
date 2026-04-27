@@ -10,7 +10,6 @@ import type { Customer } from '@/lib/types/prisma-extended';
 import { type SystemId } from '@/lib/id-types';
 import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from '../customer-service';
 import { useCustomerMutations, useBulkCustomerMutations, useTrashMutations } from './use-customers';
-import { useDefaultPageSize } from '@/features/settings/global/hooks/use-global-settings';
 
 const TABLE_STATE_STORAGE_KEY = 'customers-table-state';
 

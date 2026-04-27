@@ -280,17 +280,27 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     const symbols = '!@#$%^&*';
     const allChars = uppercase + lowercase + numbers + symbols;
     
+    const getRandomIndex = (max: number) => {
+      return crypto.getRandomValues(new Uint8Array(1))[0] % max;
+    };
+    
     let pass = '';
-    pass += uppercase[Math.floor(Math.random() * uppercase.length)];
-    pass += lowercase[Math.floor(Math.random() * lowercase.length)];
-    pass += numbers[Math.floor(Math.random() * numbers.length)];
-    pass += symbols[Math.floor(Math.random() * symbols.length)];
+    pass += uppercase[getRandomIndex(uppercase.length)];
+    pass += lowercase[getRandomIndex(lowercase.length)];
+    pass += numbers[getRandomIndex(numbers.length)];
+    pass += symbols[getRandomIndex(symbols.length)];
     
     for (let i = pass.length; i < length; i++) {
-      pass += allChars[Math.floor(Math.random() * allChars.length)];
+      pass += allChars[getRandomIndex(allChars.length)];
     }
     
-    return pass.split('').sort(() => Math.random() - 0.5).join('');
+    // Shuffle using Fisher-Yates
+    const arr = pass.split('');
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = crypto.getRandomValues(new Uint8Array(1))[0] % (i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.join('');
   };
 
   const handleGeneratePassword = () => {

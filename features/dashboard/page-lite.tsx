@@ -66,7 +66,7 @@ import { useWarrantyStats } from '@/features/warranty/hooks/use-warranties'
 import { useComplaintStats } from '@/features/complaints/hooks/use-complaints'
 import { useLeaves } from '@/features/leaves/hooks/use-leaves'
 import { DynamicReportChart as ReportChart } from '@/features/reports/business-activity/components/dynamic-report-chart'
-import type { ChartDataPoint, ChartType } from '@/features/reports/business-activity/types'
+import type { ChartType } from '@/features/reports/business-activity/types'
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -140,29 +140,36 @@ const fmt = (d: Date) => format(d, 'yyyy-MM-dd')
 const fmtDisplay = (d: Date) => format(d, 'dd/MM/yyyy')
 
 function getPresets(): Array<{ label: string; range: () => DateRange }> {
-  const today = new Date()
   return [
-    { label: 'Hôm nay', range: () => ({ from: fmt(today), to: fmt(today), label: 'Hôm nay' }) },
-    { label: 'Hôm qua', range: () => { const d = subDays(today, 1); return { from: fmt(d), to: fmt(d), label: 'Hôm qua' } } },
-    { label: '7 ngày qua', range: () => ({ from: fmt(subDays(today, 6)), to: fmt(today), label: '7 ngày qua' }) },
-    { label: '30 ngày qua', range: () => ({ from: fmt(subDays(today, 29)), to: fmt(today), label: '30 ngày qua' }) },
-    { label: 'Tháng trước', range: () => { const m = subMonths(today, 1); return { from: fmt(startOfMonth(m)), to: fmt(endOfMonth(m)), label: 'Tháng trước' } } },
-    { label: 'Tháng này', range: () => ({ from: fmt(startOfMonth(today)), to: fmt(today), label: 'Tháng này' }) },
-    { label: 'Năm trước', range: () => { const y = subYears(today, 1); return { from: fmt(startOfYear(y)), to: fmt(endOfYear(y)), label: 'Năm trước' } } },
-    { label: 'Năm nay', range: () => ({ from: fmt(startOfYear(today)), to: fmt(today), label: 'Năm nay' }) },
+    { label: 'Hôm nay', range: () => { const today = new Date(); return { from: fmt(today), to: fmt(today), label: 'Hôm nay' } } },
+    { label: 'Hôm qua', range: () => { const today = new Date(); const d = subDays(today, 1); return { from: fmt(d), to: fmt(d), label: 'Hôm qua' } } },
+    { label: '7 ngày qua', range: () => { const today = new Date(); return { from: fmt(subDays(today, 6)), to: fmt(today), label: '7 ngày qua' } } },
+    { label: '30 ngày qua', range: () => { const today = new Date(); return { from: fmt(subDays(today, 29)), to: fmt(today), label: '30 ngày qua' } } },
+    { label: 'Tháng trước', range: () => { const today = new Date(); const m = subMonths(today, 1); return { from: fmt(startOfMonth(m)), to: fmt(endOfMonth(m)), label: 'Tháng trước' } } },
+    { label: 'Tháng này', range: () => { const today = new Date(); return { from: fmt(startOfMonth(today)), to: fmt(today), label: 'Tháng này' } } },
+    { label: 'Năm trước', range: () => { const today = new Date(); const y = subYears(today, 1); return { from: fmt(startOfYear(y)), to: fmt(endOfYear(y)), label: 'Năm trước' } } },
+    { label: 'Năm nay', range: () => { const today = new Date(); return { from: fmt(startOfYear(today)), to: fmt(today), label: 'Năm nay' } } },
   ]
 }
 
-const DEFAULT_CHART_RANGE: DateRange = {
-  from: fmt(subDays(new Date(), 6)),
-  to: fmt(new Date()),
-  label: '7 ngày qua',
+// Helper to get default chart range - computed lazily inside component
+function getDefaultChartRange(): DateRange {
+  const today = new Date()
+  return {
+    from: fmt(subDays(today, 6)),
+    to: fmt(today),
+    label: '7 ngày qua',
+  }
 }
 
-const DEFAULT_TOP_PRODUCT_RANGE: DateRange = {
-  from: fmt(subDays(new Date(), 6)),
-  to: fmt(new Date()),
-  label: '7 ngày qua',
+// Helper to get default top product range - computed lazily inside component
+function getDefaultTopProductRange(): DateRange {
+  const today = new Date()
+  return {
+    from: fmt(subDays(today, 6)),
+    to: fmt(today),
+    label: '7 ngày qua',
+  }
 }
 
 /**
@@ -227,8 +234,8 @@ export function DashboardPageLite(_props: DashboardPageLiteProps) {
 function AdminDashboard() {
   const router = useRouter()
   const [branchId, setBranchId] = React.useState<string | null>(null)
-  const [chartRange, setChartRange] = React.useState<DateRange>(DEFAULT_CHART_RANGE)
-  const [topProductRange, setTopProductRange] = React.useState<DateRange>(DEFAULT_TOP_PRODUCT_RANGE)
+  const [chartRange, setChartRange] = React.useState<DateRange>(getDefaultChartRange)
+  const [topProductRange, setTopProductRange] = React.useState<DateRange>(getDefaultTopProductRange)
   const [chartType, setChartType] = React.useState<ChartType>('bar')
 
   // KPI & main data query - không auto refetch

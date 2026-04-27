@@ -185,14 +185,6 @@ function PublicProductsTable({ products, onImageClick }: {
   products: PublicWarrantyProduct[];
   onImageClick: (images: string[], index: number) => void;
 }) {
-  if (products.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground text-sm">
-        Chưa có sản phẩm nào
-      </div>
-    );
-  }
-
   const getResolutionBadge = (resolution: string) => {
     const variants: Record<string, string> = {
       return: 'bg-success/15 text-success-foreground',
@@ -202,6 +194,19 @@ function PublicProductsTable({ products, onImageClick }: {
     };
     return variants[resolution] || 'bg-muted text-foreground';
   };
+
+  // Memoized image click handler - stable reference to avoid re-renders
+  const handleImageClick = React.useCallback((images: string[], idx: number) => {
+    onImageClick(images, idx);
+  }, [onImageClick]);
+
+  if (products.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground text-sm">
+        Chưa có sản phẩm nào
+      </div>
+    );
+  }
 
   return (
     <>
@@ -259,7 +264,7 @@ function PublicProductsTable({ products, onImageClick }: {
                       {warrantyImages.slice(0, 3).map((url, imgIdx) => (
                         <button
                           key={imgIdx}
-                          onClick={() => onImageClick(warrantyImages, imgIdx)}
+                          onClick={() => handleImageClick(warrantyImages, imgIdx)}
                           className="relative w-14 h-14 shrink-0 rounded border border-border overflow-hidden hover:ring-2 ring-primary transition-all"
                         >
                           <OptimizedImage src={url} alt={`SP ${index + 1}`} width={56} height={56} className="w-full h-full object-cover" />
@@ -365,7 +370,7 @@ function PublicProductsTable({ products, onImageClick }: {
                         {warrantyImages.slice(0, 2).map((url, imgIdx) => (
                           <button
                             key={imgIdx}
-                            onClick={() => onImageClick(warrantyImages, imgIdx)}
+                            onClick={() => handleImageClick(warrantyImages, imgIdx)}
                             className="relative w-9 h-9 shrink-0 rounded border border-border overflow-hidden hover:ring-2 ring-primary transition-all"
                           >
                             <OptimizedImage src={url} alt={`SP ${index + 1}`} width={36} height={36} className="w-full h-full object-cover" />
@@ -431,6 +436,11 @@ function ImageGalleryCard({ title, images, onImageClick }: {
 }) {
   if (!images || images.length === 0) return null;
 
+  // Memoized image click handler - stable reference to avoid re-renders
+  const handleImageClick = React.useCallback((imagesArr: string[], idx: number) => {
+    onImageClick(imagesArr, idx);
+  }, [onImageClick]);
+
   return (
     <Card className={mobileBleedCardClass}>
       <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
@@ -443,7 +453,7 @@ function ImageGalleryCard({ title, images, onImageClick }: {
           {images.map((url, idx) => (
             <button
               key={idx}
-              onClick={() => onImageClick(images, idx)}
+              onClick={() => handleImageClick(images, idx)}
               className="group relative aspect-square rounded-lg overflow-hidden border border-border transition-colors hover:border-primary"
             >
               <OptimizedImage

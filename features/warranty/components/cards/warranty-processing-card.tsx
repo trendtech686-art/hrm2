@@ -53,9 +53,9 @@ export function WarrantyProcessingCard({
   React.useEffect(() => {
   }, [settlementState, totalPayment]);
 
-  // Get current user name and current time
+  // Get current user name and current time (lazy init to avoid hydration mismatch)
   const currentUserName = user?.name || 'Người dùng';
-  const _currentTime = formatDateTimeForDisplay(new Date());
+  const _currentTime = React.useMemo(() => formatDateTimeForDisplay(new Date()), []);
 
   const transactionGroups = useWarrantyTransactionGroups({
     ticket,

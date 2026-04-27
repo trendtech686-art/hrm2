@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { formatDateCustom, getCurrentDate, toISODate, addMonths, subtractMonths, formatMonthYear as _formatMonthYear, getStartOfMonth, getEndOfMonth, parseDate } from '../../../lib/date-utils';
+import { formatDateCustom, getCurrentDate, toISODate, addMonths, subtractMonths, getStartOfMonth, getEndOfMonth, parseDate } from '../../../lib/date-utils';
 import { excelSerialToTime } from '../utils';
 // XLSX is lazy loaded in handlers to reduce bundle size (~500KB)
 import type { Range as XLSXRange } from 'xlsx';
@@ -642,7 +642,10 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                     "flex flex-col items-center justify-center w-full max-w-md h-36 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted/75 transition-colors",
                                     isDragging && "border-primary bg-primary/10"
                                 )}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => fileInputRef.current?.click()}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
                                 onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                                 onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
                                 onDragOver={(e) => e.preventDefault()}
@@ -764,7 +767,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                                         <TableCell className="text-right p-2">
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Tùy chọn">
                                                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                                                     </Button>
                                                                 </DropdownMenuTrigger>
@@ -831,7 +834,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                                         </div>
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-11 w-11">
+                                                                <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Tùy chọn">
                                                                     <MoreHorizontal className="h-4 w-4" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>

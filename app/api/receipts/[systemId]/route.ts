@@ -8,15 +8,6 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 
-// Treats null, undefined, "", [], {} as equivalent "empty"
-function isEmptyValue(val: unknown): boolean {
-  if (val == null) return true
-  if (typeof val === 'string' && val.trim() === '') return true
-  if (Array.isArray(val) && val.length === 0) return true
-  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return true
-  return false
-}
-
 // Normalizes empty-ish values to a canonical form for comparison
 function normalizeValue(val: unknown): unknown {
   if (val == null) return null
@@ -54,21 +45,6 @@ function hasValueChanged(oldVal: unknown, newVal: unknown): boolean {
   }
 
   return normalizedOld !== normalizedNew
-}
-
-// Serialize a value for storage in the activity log
-function serializeValue(val: unknown): unknown {
-  if (val == null) return null
-  if (typeof val === 'object' && val !== null && 'toNumber' in val) {
-    return (val as { toNumber: () => number }).toNumber()
-  }
-  if (val instanceof Date) {
-    return val.getTime()
-  }
-  if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
-    return JSON.parse(JSON.stringify(val))
-  }
-  return val
 }
 
 // Helper to recalculate and update PurchaseOrder refundStatus
@@ -123,7 +99,7 @@ async function updatePurchaseOrderRefundStatus(purchaseOrderSystemId: string) {
 }
 
 // GET /api/receipts/[systemId]
-export const GET = apiHandler(async (_request, { session, params }) => {
+export const GET = apiHandler(async (_request, { params }) => {
   try {
     const { systemId } = params
 

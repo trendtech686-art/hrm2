@@ -40,7 +40,7 @@ import {
   ListChecks,
   Rocket,
 } from 'lucide-react';
-import type { TaskTemplate, UseTemplateOptions as _UseTemplateOptions } from '../template-types';
+import type { TaskTemplate } from '../template-types';
 import type { TaskAssignee } from '../types';
 import { toast } from 'sonner';
 

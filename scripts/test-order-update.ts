@@ -174,10 +174,11 @@ async function testUpdate() {
       select: { systemId: true, id: true, invoiceInfo: true },
     });
     console.log('Test 5 OK:', JSON.stringify(r5));
-  } catch (e: any) {
-    console.error('Test 5 FAILED:', e.message);
-    console.error('Code:', e.code);
-    console.error('Meta:', JSON.stringify(e.meta));
+  } catch (e: unknown) {
+    const error = e instanceof Error ? e : new Error(String(e));
+    console.error('Test 5 FAILED:', error.message);
+    console.error('Code:', (error as { code?: string }).code);
+    console.error('Meta:', JSON.stringify((error as { meta?: unknown }).meta));
   }
 
   // Test 6: Simulate with JSON-serialized data (as API would receive)
@@ -199,9 +200,10 @@ async function testUpdate() {
       select: { systemId: true, id: true },
     });
     console.log('Test 6 OK:', JSON.stringify(r6));
-  } catch (e2: any) {
-    console.error('Test 6 FAILED:', e2.message);
-    console.error('Code:', e2.code);
+  } catch (e2: unknown) {
+    const error = e2 instanceof Error ? e2 : new Error(String(e2));
+    console.error('Test 6 FAILED:', error.message);
+    console.error('Code:', (error as { code?: string }).code);
   }
 
   // Test 7: Full transaction with lineItems deleteMany + createMany
@@ -243,10 +245,11 @@ async function testUpdate() {
       });
     });
     console.log(`Test 7 OK: ${r7.lineItems.length} line items`);
-  } catch (e7: any) {
-    console.error('Test 7 FAILED:', e7.message);
-    console.error('Code:', e7.code);
-    console.error('Meta:', JSON.stringify(e7.meta));
+  } catch (e7: unknown) {
+    const error = e7 instanceof Error ? e7 : new Error(String(e7));
+    console.error('Test 7 FAILED:', error.message);
+    console.error('Code:', (error as { code?: string }).code);
+    console.error('Meta:', JSON.stringify((error as { meta?: unknown }).meta));
   }
 
   // Test 8: Simulate JSON-serialized line items (exact API format)
@@ -302,10 +305,11 @@ async function testUpdate() {
     });
     console.log(`Test 8 OK: ${r8.lineItems.length} line items`);
     r8.lineItems.forEach(li => console.log(`  - ${li.productName}: total=${li.total}`));
-  } catch (e8: any) {
-    console.error('Test 8 FAILED:', e8.message);
-    console.error('Code:', e8.code);
-    console.error('Meta:', JSON.stringify(e8.meta));
+  } catch (e8: unknown) {
+    const error = e8 instanceof Error ? e8 : new Error(String(e8));
+    console.error('Test 8 FAILED:', error.message);
+    console.error('Code:', (error as { code?: string }).code);
+    console.error('Meta:', JSON.stringify((error as { meta?: unknown }).meta));
   }
 
   // Test 9: Verify specific decimal string values are accepted
@@ -321,14 +325,16 @@ async function testUpdate() {
       select: { systemId: true, voucherAmount: true, orderDiscount: true },
     });
     console.log('Test 9 OK:', JSON.stringify(r9));
-  } catch (e9: any) {
-    console.error('Test 9 FAILED:', e9.message);
+  } catch (e9: unknown) {
+    const error = e9 instanceof Error ? e9 : new Error(String(e9));
+    console.error('Test 9 FAILED:', error.message);
   }
 
-  } catch (e: any) {
-    console.error('FAILED:', e.message);
-    console.error('Code:', e.code);
-    console.error('Meta:', JSON.stringify(e.meta));
+  } catch (e: unknown) {
+    const error = e instanceof Error ? e : new Error(String(e));
+    console.error('FAILED:', error.message);
+    console.error('Code:', (error as { code?: string }).code);
+    console.error('Meta:', JSON.stringify((error as { meta?: unknown }).meta));
   } finally {
     await prisma.$disconnect();
   }

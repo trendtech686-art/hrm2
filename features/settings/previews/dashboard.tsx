@@ -8,8 +8,13 @@ import { Input } from '../../../components/ui/input';
 import { ArrowUpRight, ArrowDownRight, Users, CreditCard, Activity, DollarSign, Plus, Minus, Send } from 'lucide-react';
 
 export function PreviewDashboard() {
-  const [date, setDate] = React.useState<Date | undefined>(new Date());
+  const [date, setDate] = React.useState<Date | undefined>(undefined);
   const [moveGoal, setMoveGoal] = React.useState(350);
+
+  // Hydration-safe initialization
+  React.useEffect(() => {
+    setDate(new Date());
+  }, []);
 
   return (
     <div className="space-y-4">

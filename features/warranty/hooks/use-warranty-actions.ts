@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { calculateWarrantyProcessingState } from '../components/logic/processing';
 import type { WarrantyTicket, WarrantyStatus } from '../types';
 import type { Order } from '../../orders/types';
 import { fetchPayments } from '../../payments/api/payments-api';
@@ -34,8 +33,6 @@ export function useWarrantyActions({
   currentUser,
   linkedOrder,
   publicTrackingUrl,
-  totalSettlementAmount,
-  remainingSettlementAmount,
   update,
   updateStatus: _updateStatus,
   addHistory,
@@ -46,7 +43,7 @@ export function useWarrantyActions({
   const queryClient = useQueryClient();
 
   // Fetch payments & receipts linked to this warranty via React Query
-  const { data: warrantyPayments = [] } = useQuery({
+  const { data: _warrantyPayments = [] } = useQuery({
     queryKey: ['payments', 'warranty-actions', ticket?.systemId],
     queryFn: async () => {
       const res = await fetchPayments({ linkedWarrantySystemId: ticket!.systemId });
@@ -56,7 +53,7 @@ export function useWarrantyActions({
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
   });
-  const { data: warrantyReceipts = [] } = useQuery({
+  const { data: _warrantyReceipts = [] } = useQuery({
     queryKey: ['receipts', 'warranty-actions', ticket?.systemId],
     queryFn: async () => {
       const res = await fetchReceipts({ linkedWarrantySystemId: ticket!.systemId });
@@ -233,7 +230,7 @@ export function useWarrantyActions({
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let code = '';
     for (let i = 0; i < 10; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      code += chars[crypto.getRandomValues(new Uint8Array(1))[0] % chars.length];
     }
 
     update(currentTicket.systemId, { publicTrackingCode: code });

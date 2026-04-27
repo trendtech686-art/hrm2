@@ -26,8 +26,11 @@ export function WarrantyImageGalleryCard({ title, images, emptyMessage, footnote
               {validImages.map((url, idx) => (
                 <div
                   key={idx}
+                  role="button"
+                  tabIndex={0}
                   className="relative group cursor-pointer h-40 w-40 shrink-0"
                   onClick={() => onPreview(validImages, idx)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') onPreview(validImages, idx); }}
                 >
                   <LazyImage
                     src={url}

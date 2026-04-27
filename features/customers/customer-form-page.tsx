@@ -1,18 +1,12 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useCustomer, useCustomerMutations } from './hooks/use-customers';
 import { useCustomerStats } from './hooks/use-customer-stats';
 import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form';
 import { usePageHeader } from '../../contexts/page-header-context';
-import {
-  Card,
-  CardContent,
-  CardDescription as _CardDescription,
-  CardHeader as _CardHeader,
-  CardTitle as _CardTitle,
-} from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
@@ -31,7 +25,7 @@ export function CustomerFormPage() {
   const { create, update, isCreating, isUpdating } = useCustomerMutations();
 
   const isEditMode = !!customer;
-  const [isSaving, setIsSaving] = React.useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const isBusy = isSaving || isCreating || isUpdating;
 
   const handleSubmit = async (values: CustomerFormSubmitPayload) => {
@@ -72,18 +66,18 @@ export function CustomerFormPage() {
     }
   };
 
-  const handleCancel = React.useCallback(() => {
+  const handleCancel = useCallback(() => {
     router.push('/customers');
   }, [router]);
 
-  const handleSaveClick = React.useCallback(() => {
+  const handleSaveClick = useCallback(() => {
     const form = document.getElementById('customer-form') as HTMLFormElement | null;
     if (form) {
       form.requestSubmit();
     }
   }, []);
 
-  const headerActions = React.useMemo(() => [
+  const headerActions = useMemo(() => [
     <Button key="cancel" type="button" variant="outline" size="sm" className="hidden md:inline-flex" onClick={handleCancel} disabled={isBusy}>Hủy</Button>,
     <Button key="save" type="button" size="sm" className="hidden md:inline-flex" onClick={handleSaveClick} disabled={isBusy}>
       {isBusy ? (

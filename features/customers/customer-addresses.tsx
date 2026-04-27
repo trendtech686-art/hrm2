@@ -180,7 +180,7 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
     setIsDeleteDialogOpen(true);
   };
 
-  const handleSetDefault = (id: string, type: 'shipping') => {
+  const handleSetDefault = (id: string, _type: 'shipping') => {
     const address = addresses.find(addr => addr.id === id);
     if (!address) return;
 

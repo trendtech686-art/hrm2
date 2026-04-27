@@ -15,7 +15,7 @@
 
 'use client'
 
-import * as React from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -73,30 +73,30 @@ export function TipTapEditor({
   onSessionChange,
   onStagingFilesChange,
 }: TipTapEditorProps) {
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const dragCounterRef = React.useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
   
   // Image editing dialog state
-  const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
-  const [editingImageSrc, setEditingImageSrc] = React.useState('');
-  const [editingImageAlt, setEditingImageAlt] = React.useState('');
-  const [editingImageTitle, setEditingImageTitle] = React.useState('');
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [editingImageSrc, setEditingImageSrc] = useState('');
+  const [editingImageAlt, setEditingImageAlt] = useState('');
+  const [editingImageTitle, setEditingImageTitle] = useState('');
   
   // Staging state
-  const [internalSessionId, setInternalSessionId] = React.useState<string | undefined>(externalSessionId);
-  const [stagingFiles, setStagingFiles] = React.useState<StagingFile[]>([]);
+  const [internalSessionId, setInternalSessionId] = useState<string | undefined>(externalSessionId);
+  const [stagingFiles, setStagingFiles] = useState<StagingFile[]>([]);
   
   const currentSessionId = externalSessionId || internalSessionId;
 
   // Notify parent of staging files changes
-  React.useEffect(() => {
+  useEffect(() => {
     onStagingFilesChange?.(stagingFiles);
   }, [stagingFiles, onStagingFilesChange]);
 
   // Upload to staging
-  const uploadToStaging = React.useCallback(async (file: File): Promise<string> => {
+  const uploadToStaging = useCallback(async (file: File): Promise<string> => {
     const result = await FileUploadAPI.uploadEditorImageToStaging(file, currentSessionId);
     
     // Update session ID if new
@@ -112,7 +112,7 @@ export function TipTapEditor({
   }, [currentSessionId, onSessionChange]);
 
   // Validate and upload image - editor is accessed via closure at call time
-  const handleImageFile = React.useCallback(
+  const handleImageFile = useCallback(
     async (file: File, source: 'select' | 'paste' | 'drop') => {
       if (!file.type.startsWith('image/')) {
         toast.error('Chỉ chấp nhận file ảnh');
@@ -179,7 +179,7 @@ export function TipTapEditor({
   });
 
   // Handle click on image to edit alt/title
-  React.useEffect(() => {
+  useEffect(() => {
     if (!editor) return;
     
     const handleClick = (event: MouseEvent) => {
@@ -241,7 +241,7 @@ export function TipTapEditor({
   };
 
   // Handle paste image
-  React.useEffect(() => {
+  useEffect(() => {
     if (!editor) return;
 
     const handlePaste = async (event: ClipboardEvent) => {
@@ -268,7 +268,7 @@ export function TipTapEditor({
   }, [editor, handleImageFile]);
 
   // Handle drag & drop image
-  const handleDragEnter = React.useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current++;
@@ -277,7 +277,7 @@ export function TipTapEditor({
     }
   }, []);
 
-  const handleDragLeave = React.useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current--;
@@ -286,12 +286,12 @@ export function TipTapEditor({
     }
   }, []);
 
-  const handleDragOver = React.useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
   }, []);
 
-  const handleDrop = React.useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -306,7 +306,7 @@ export function TipTapEditor({
   }, [handleImageFile]);
 
   // Sync content prop with editor state
-  React.useEffect(() => {
+  useEffect(() => {
     if (!editor) return;
     const currentContent = editor.getHTML();
     if (content !== currentContent) {
@@ -315,7 +315,7 @@ export function TipTapEditor({
   }, [editor, content]);
 
   // Reset staging when content is cleared (new form)
-  React.useEffect(() => {
+  useEffect(() => {
     if (content === '' || content === '<p></p>') {
       setStagingFiles([]);
       setInternalSessionId(undefined);
@@ -327,7 +327,8 @@ export function TipTapEditor({
   }
 
   return (
-    <div 
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
       className={cn(
         'border rounded-lg bg-background relative overflow-hidden',
         isDragging && 'ring-2 ring-primary border-primary',
@@ -629,8 +630,12 @@ export function TipTapEditor({
       {/* Editor Content */}
       <div
         onClick={() => editor?.commands.focus()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') editor?.commands.focus(); }}
         className="cursor-text"
         style={{ minHeight }}
+        role="textbox"
+        aria-label="Editor content"
+        tabIndex={0}
       >
         <EditorContent
           editor={editor}

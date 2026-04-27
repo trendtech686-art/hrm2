@@ -97,22 +97,78 @@ export async function POST(request: Request, { params }: RouteParams) {
         },
       })
 
-      // TODO: Stock uncommitment logic would go here
-      // Since the current Prisma schema doesn't have ProductWarehouse model,
-      // this would need to be added when the schema is updated
-      //
-      // Example pseudo-code:
-      // if (warranty has replacement products && stock was committed) {
-      //   await tx.productWarehouse.update({
-      //     where: { productSystemId_warehouseId: {...} },
-      //     data: {
-      //       committedQuantity: { decrement: quantity }
-      //     }
-      //   })
-      // }
+      // Cancel related payments linked to this warranty
+      await tx.payment.updateMany({
+        where: {
+          linkedWarrantySystemId: systemId,
+          cancelledAt: null,
+          status: { not: 'cancelled' },
+        },
+        data: {
+          cancelledAt: now,
+          status: 'cancelled',
+        },
+      });
 
-      // TODO: Cancel related vouchers if any
-      // This would depend on the voucher/payment system implementation
+      // Cancel related receipts linked to this warranty
+      await tx.receipt.updateMany({
+        where: {
+          linkedWarrantySystemId: systemId,
+          cancelledAt: null,
+          status: { not: 'cancelled' },
+        },
+        data: {
+          cancelledAt: now,
+          status: 'cancelled',
+        },
+      });
+
+      // ============================================================
+      // STOCK UNCOMMITMENT: Release reserved stock when warranty is cancelled
+      // Only uncommit if stock was committed (reserved) but not yet deducted
+      // If stock was already deducted (COMPLETED), do not rollback
+      // ============================================================
+      if (warranty.replacementProductSystemId && warranty.replacementQuantity && !warranty.stockDeducted) {
+        const replacementProductId = warranty.replacementProductSystemId;
+        const replacementQty = warranty.replacementQuantity;
+        const branchSystemId = warranty.branchSystemId || '';
+
+        if (branchSystemId && replacementQty > 0) {
+          // Get replacement product with current committed inventory
+          const replacementProduct = await tx.product.findUnique({
+            where: { systemId: replacementProductId },
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              inventoryByBranch: true,
+              committedByBranch: true,
+              totalCommitted: true,
+              totalAvailable: true,
+            },
+          });
+
+          if (replacementProduct) {
+            // Release committed quantity
+            const currentCommittedByBranch = (replacementProduct.committedByBranch as Record<string, number>) || {};
+            const currentCommitted = currentCommittedByBranch[branchSystemId] || 0;
+            const newCommitted = Math.max(0, currentCommitted - replacementQty);
+
+            // Update product committed inventory
+            await tx.product.update({
+              where: { systemId: replacementProductId },
+              data: {
+                committedByBranch: {
+                  ...currentCommittedByBranch,
+                  [branchSystemId]: newCommitted,
+                },
+                totalCommitted: Math.max(0, (replacementProduct.totalCommitted ?? 0) - replacementQty),
+                totalAvailable: (replacementProduct.totalAvailable ?? 0) + replacementQty,
+              },
+            });
+          }
+        }
+      }
 
       return updatedWarranty
     })

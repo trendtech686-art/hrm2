@@ -79,6 +79,9 @@ const ProductThumbnail = ({
             <div
                 className="group relative w-10 h-9 rounded overflow-hidden border border-muted cursor-pointer"
                 onClick={() => onPreview(imageUrl, product.name)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onPreview(imageUrl, product.name); }}
+                role="button"
+                tabIndex={0}
             >
                 <Image
                     src={imageUrl}
@@ -116,6 +119,9 @@ const ComboChildImage = ({
             <div
                 className="group relative w-8 h-7 rounded overflow-hidden border border-muted cursor-pointer"
                 onClick={() => onPreview(imageUrl, product?.name || '')}
+                onKeyDown={(e) => { if (e.key === 'Enter') onPreview(imageUrl, product?.name || ''); }}
+                role="button"
+                tabIndex={0}
             >
                 <Image
                     src={imageUrl}
@@ -1019,6 +1025,9 @@ export function ProductSelectionCard({
                         <div
                           className="group relative h-12 w-12 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
                           onClick={() => handlePreview(imageUrl, item.product.name)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handlePreview(imageUrl, item.product.name); }}
+                          role="button"
+                          tabIndex={0}
                         >
                           <Image
                             src={imageUrl}

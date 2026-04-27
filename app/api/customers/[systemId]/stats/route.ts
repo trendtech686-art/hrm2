@@ -16,7 +16,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiError } from '@/lib/api-utils'
+import { apiSuccess } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 
 export const dynamic = 'force-dynamic'

@@ -770,7 +770,7 @@ export function ComplaintDetailPage() {
             trackingEnabled={trackingEnabled}
             timeTracking={timeTracking}
             onGenerateTrackingCode={async () => {
-              const code = Math.random().toString(36).substring(2, 12);
+              const code = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
               await updateComplaint(complaint.systemId, { publicTrackingCode: code } as Partial<Complaint>);
               toast.success('Đã tạo mã tracking công khai');
             }}

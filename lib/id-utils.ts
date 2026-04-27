@@ -19,7 +19,7 @@ export type { EntityType } from './id-config-constants';
  */
 export function generateSubEntityId(prefix: string): string {
   const timestamp = Date.now().toString(36); // Base36 for compactness
-  const random = Math.random().toString(36).slice(2, 8); // 6 random chars
+  const random = crypto.randomUUID().replace(/-/g, '').slice(0, 6); // 6 random chars from UUID
   return `${prefix.toLowerCase()}-${timestamp}-${random}`;
 }
 

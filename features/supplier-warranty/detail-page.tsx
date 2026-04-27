@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import { useState, useMemo, useCallback, useRef, Fragment, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -100,7 +100,7 @@ function WarrantyStatusStepper({ warranty }: { warranty: SupplierWarranty }) {
         const isCurrent = index === currentStepIndex
         const isCancelledStep = isCancelled && isCurrent
         return (
-          <React.Fragment key={step.name}>
+          <Fragment key={step.name}>
             <div className="flex flex-col items-center text-center min-w-[70px] w-20">
               <div className={cn(
                 'flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-xs',
@@ -122,7 +122,7 @@ function WarrantyStatusStepper({ warranty }: { warranty: SupplierWarranty }) {
                 index < currentStepIndex ? 'bg-primary' : 'bg-border',
               )} />
             )}
-          </React.Fragment>
+          </Fragment>
         )
       })}
     </div>
@@ -148,29 +148,29 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
   const { print } = usePrint(warranty?.branchSystemId || undefined)
 
   // Complete dialog state
-  const [showCompleteDialog, setShowCompleteDialog] = React.useState(false)
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false)
 
   // Pack dialog state
-  const [showPackDialog, setShowPackDialog] = React.useState(false)
-  const [packDeliveryMethod, setPackDeliveryMethod] = React.useState<DeliveryMethod>(
+  const [showPackDialog, setShowPackDialog] = useState(false)
+  const [packDeliveryMethod, setPackDeliveryMethod] = useState<DeliveryMethod>(
     (warranty?.deliveryMethod as DeliveryMethod) || 'deliver-later'
   )
-  const [isPackSubmitting, setIsPackSubmitting] = React.useState(false)
-  const shippingCardRef = React.useRef<WarrantyShippingCardRef>(null)
+  const [isPackSubmitting, setIsPackSubmitting] = useState(false)
+  const shippingCardRef = useRef<WarrantyShippingCardRef>(null)
 
   // Cancel pack dialog state
-  const [showCancelPackDialog, setShowCancelPackDialog] = React.useState(false)
+  const [showCancelPackDialog, setShowCancelPackDialog] = useState(false)
 
   // Receipt expanded state
-  const [expandedReceiptId, setExpandedReceiptId] = React.useState<string | null>(null)
+  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
 
   // Receipt creation dialog state
-  const [showReceiptDialog, setShowReceiptDialog] = React.useState(false)
-  const [selectedAccountId, setSelectedAccountId] = React.useState<string>('')
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('')
   const { accounts } = useAllCashAccounts()
 
   // Workflow subtasks
-  const subtasks = React.useMemo((): Subtask[] => {
+  const subtasks = useMemo((): Subtask[] => {
     if (warranty?.subtasks && warranty.subtasks.length > 0) {
       return warranty.subtasks.map((s, index) => ({
         id: s.id,
@@ -184,7 +184,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     return []
   }, [warranty?.subtasks])
 
-  const handleSubtasksChange = React.useCallback((newSubtasks: Subtask[]) => {
+  const handleSubtasksChange = useCallback((newSubtasks: Subtask[]) => {
     if (!warranty) return
     update.mutate({ systemId, data: { subtasks: newSubtasks } }, {
       onError: (err) => toast.error(err.message),
@@ -192,13 +192,13 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
   }, [systemId, warranty, update])
 
   // Active receipts (not cancelled)
-  const activeReceipts = React.useMemo(
+  const activeReceipts = useMemo(
     () => receipts.filter(r => r.status !== 'cancelled'),
     [receipts]
   )
   const hasReceipt = activeReceipts.length > 0
 
-  const handleCancel = React.useCallback(() => {
+  const handleCancel = useCallback(() => {
     if (!window.confirm('Bạn có chắc muốn hủy phiếu BH này?')) return
     cancel.mutate(systemId, {
       onSuccess: () => toast.success('Đã hủy phiếu BH'),
@@ -206,7 +206,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     })
   }, [systemId, cancel])
 
-  const handleDelete = React.useCallback(() => {
+  const handleDelete = useCallback(() => {
     if (!window.confirm('Bạn có chắc muốn xóa phiếu BH này?')) return
     remove.mutate(systemId, {
       onSuccess: () => {
@@ -217,7 +217,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     })
   }, [systemId, remove, router])
 
-  const handleComplete = React.useCallback(() => {
+  const handleComplete = useCallback(() => {
     complete.mutate({
       systemId,
       data: {},
@@ -230,12 +230,12 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     })
   }, [systemId, complete])
 
-  const handleCreateReceipt = React.useCallback(() => {
+  const handleCreateReceipt = useCallback(() => {
     setSelectedAccountId('')
     setShowReceiptDialog(true)
   }, [])
 
-  const handleConfirmCreateReceipt = React.useCallback(() => {
+  const handleConfirmCreateReceipt = useCallback(() => {
     createReceipt.mutate({ systemId, data: { accountSystemId: selectedAccountId || undefined } }, {
       onSuccess: () => {
         toast.success('Đã tạo phiếu thu')
@@ -245,7 +245,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     })
   }, [systemId, createReceipt, selectedAccountId])
 
-  const handlePrintReceipt = React.useCallback(async (receipt: import('@/lib/types/prisma-extended').Receipt) => {
+  const handlePrintReceipt = useCallback(async (receipt: import('@/lib/types/prisma-extended').Receipt) => {
     if (!warranty) return
     const branch = warranty.branchSystemId ? findBranchById(warranty.branchSystemId) : null
     const { storeInfo } = await fetchPrintData()
@@ -284,18 +284,18 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     print('receipt', { data: printData })
   }, [warranty, findBranchById, print])
 
-  const handleApprove = React.useCallback(() => {
+  const handleApprove = useCallback(() => {
     approve.mutate({ systemId, data: {} }, {
       onSuccess: () => toast.success('Đã duyệt phiếu BH'),
       onError: (err) => toast.error(err.message),
     })
   }, [systemId, approve])
 
-  const handlePack = React.useCallback(() => {
+  const handlePack = useCallback(() => {
     setShowPackDialog(true)
   }, [])
 
-  const handlePackSubmit = React.useCallback(async () => {
+  const handlePackSubmit = useCallback(async () => {
     setIsPackSubmitting(true)
     try {
       let trackingNumber: string | undefined
@@ -337,21 +337,21 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     }
   }, [systemId, pack, packDeliveryMethod])
 
-  const handleCancelPack = React.useCallback((reason: string) => {
+  const handleCancelPack = useCallback((reason: string) => {
     cancelPack.mutate({ systemId, data: { reason } }, {
       onSuccess: () => toast.success('Đã hủy đóng gói'),
       onError: (err) => toast.error(err.message),
     })
   }, [systemId, cancelPack])
 
-  const handleExport = React.useCallback(() => {
+  const handleExport = useCallback(() => {
     exportWarranty.mutate({ systemId, data: {} }, {
       onSuccess: () => toast.success('Đã xuất kho'),
       onError: (err) => toast.error(err.message),
     })
   }, [systemId, exportWarranty])
 
-  const handleDeliver = React.useCallback(() => {
+  const handleDeliver = useCallback(() => {
     deliver.mutate({ systemId, data: {} }, {
       onSuccess: () => toast.success('Giao hàng thành công'),
       onError: (err) => toast.error(err.message),
@@ -359,18 +359,18 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
   }, [systemId, deliver])
 
   // ===== PRINT HANDLERS =====
-  const branch = React.useMemo(() => 
+  const branch = useMemo(() => 
     warranty?.branchSystemId ? findBranchById(warranty.branchSystemId) : null
   , [warranty?.branchSystemId, findBranchById])
 
-  const storeSettings = React.useMemo(() => ({
+  const storeSettings = useMemo(() => ({
     name: branch?.name || '',
     address: branch?.address || '',
     phone: branch?.phone || '',
     province: branch?.province || '',
   }), [branch])
 
-  const handlePrintPacking = React.useCallback((packaging?: { id?: string; createdAt?: string | Date; confirmDate?: string | Date | null; requestingEmployeeName?: string | null; status?: string; notes?: string | null }) => {
+  const handlePrintPacking = useCallback((packaging?: { id?: string; createdAt?: string | Date; confirmDate?: string | Date | null; requestingEmployeeName?: string | null; status?: string; notes?: string | null }) => {
     if (!warranty) return
     const pkg = packaging
     const packingData = {
@@ -403,7 +403,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     print('packing', { data: printData, lineItems })
   }, [warranty, branch, supplierStats, storeSettings, print])
 
-  const handlePrintShippingLabel = React.useCallback((packaging?: { createdAt?: string | Date; requestingEmployeeName?: string | null; status?: string; trackingCode?: string | null; carrier?: string | null; service?: string | null }) => {
+  const handlePrintShippingLabel = useCallback((packaging?: { createdAt?: string | Date; requestingEmployeeName?: string | null; status?: string; trackingCode?: string | null; carrier?: string | null; service?: string | null }) => {
     if (!warranty) return
     const pkg = packaging
     const labelData = {
@@ -429,7 +429,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
   }, [warranty, branch, supplierStats, storeSettings, print])
 
   // Page header — badge + actions on same line as title (like order detail)
-  const headerBadge = React.useMemo(() => {
+  const headerBadge = useMemo(() => {
     if (!warranty) return undefined
     const statusConfig = STATUS_MAP[warranty.status] || { label: warranty.status, variant: 'secondary' as const }
     return (
@@ -447,9 +447,9 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     )
   }, [warranty, can, router])
 
-  const headerActions = React.useMemo(() => {
+  const headerActions = useMemo(() => {
     if (!warranty) return null
-    const actions: React.ReactNode[] = []
+    const actions: ReactNode[] = []
 
     // Edit (DRAFT, APPROVED)
     if (['DRAFT', 'APPROVED'].includes(warranty.status) && can('edit_supplier_warranty')) {
@@ -513,7 +513,7 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
     return actions
   }, [warranty, can, systemId, router, handleCancel, handleDelete, handleApprove, handlePack, approve.isPending, pack.isPending])
 
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!isMobile || !warranty) return []
     return [
       <DropdownMenuUI key="mobile-actions">
@@ -839,10 +839,11 @@ export function SupplierWarrantyDetailPage({ systemId }: SupplierWarrantyDetailP
                           className="h-11 w-11 ml-2 shrink-0"
                           onClick={(e) => { e.stopPropagation(); handlePrintReceipt(receipt) }}
                           title="In phiếu thu"
+                          aria-label="In phiếu thu"
                         >
                           <Printer className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label={isExpanded ? "Thu gọn" : "Mở rộng"}>
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
                       </div>

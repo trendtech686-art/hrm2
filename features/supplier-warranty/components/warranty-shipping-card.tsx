@@ -317,7 +317,7 @@ export const WarrantyShippingCard = React.forwardRef<WarrantyShippingCardRef, Wa
         const dd = String(now.getDate()).padStart(2, '0')
         const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         let rnd = ''
-        for (let i = 0; i < 5; i++) rnd += chars.charAt(Math.floor(Math.random() * chars.length))
+        for (let i = 0; i < 5; i++) rnd += chars[crypto.getRandomValues(new Uint8Array(1))[0] % chars.length]
         const orderId = `BH${yy}${mm}${dd}${rnd}`
 
         // GHTK: gửi 1 sản phẩm chung "Hàng bảo hành" thay vì toàn bộ danh sách

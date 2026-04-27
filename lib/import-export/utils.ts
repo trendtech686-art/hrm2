@@ -59,8 +59,17 @@ export function previewImportData<T>(
     let transformedData = transformImportRow<T>(normalizedRawData, config.fields);
 
     // 1.5. Apply postTransformRow if defined (enrich data, lookup IDs, etc.)
+    // Pass preloadedDataCache in context if available
     if (config.postTransformRow) {
-      transformedData = config.postTransformRow(transformedData, index, branchSystemId);
+      const context = typeof branchSystemId === 'object' ? branchSystemId : undefined;
+      const enrichedContext = config.preloadedDataCache 
+        ? { ...(typeof context === 'object' ? context : {}), preloadedData: config.preloadedDataCache }
+        : context;
+      transformedData = config.postTransformRow(
+        transformedData, 
+        index, 
+        enrichedContext ?? branchSystemId
+      );
     }
 
     // 2. Pre-check if record exists (needed to skip required for update/upsert)

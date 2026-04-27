@@ -18,6 +18,7 @@ import type {
   PaymentBranchReportRow,
 } from '../types';
 import { REPORTS_QUERY_GC_MS, REPORTS_QUERY_STALE_MS } from '../lib/reports-query-config';
+import { reportKeys } from './report-keys';
 
 const EMPTY_TIME_SUMMARY = {
   transactionCount: 0,
@@ -33,14 +34,10 @@ export function usePaymentTimeReport(
   timeGrouping: TimeGrouping = 'day',
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'payments-aggregate',
-      'time-series',
-      dateRange.from,
-      dateRange.to,
-      timeGrouping,
-    ],
+    queryKey: reportKeys.payments.timeSeries({
+      dateRange,
+      grouping: timeGrouping,
+    }),
     queryFn: () => fetchPaymentsTimeSeries({ dateRange, grouping: timeGrouping }),
     enabled: Boolean(dateRange.from && dateRange.to),
     staleTime: REPORTS_QUERY_STALE_MS,
@@ -59,7 +56,7 @@ export function usePaymentTimeReport(
 // Hook: Thanh toán theo phương thức
 export function usePaymentMethodReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'payments-aggregate', 'method', dateRange.from, dateRange.to],
+    queryKey: reportKeys.payments.byMethod({ dateRange }),
     queryFn: () => fetchPaymentsByMethod(dateRange),
     enabled: Boolean(dateRange.from && dateRange.to),
     staleTime: REPORTS_QUERY_STALE_MS,
@@ -78,7 +75,7 @@ export function usePaymentMethodReport(dateRange: ReportDateRange) {
 // Hook: Thanh toán theo chi nhánh
 export function usePaymentBranchReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'payments-aggregate', 'branch', dateRange.from, dateRange.to],
+    queryKey: reportKeys.payments.byBranch({ dateRange }),
     queryFn: () => fetchPaymentsByBranch(dateRange),
     enabled: Boolean(dateRange.from && dateRange.to),
     staleTime: REPORTS_QUERY_STALE_MS,

@@ -935,9 +935,10 @@ async function systemHealthCheck() {
 
   // 6. Database pool
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const metrics = await (prisma as any).$metrics?.json()
-    const activeConns = metrics?.gauges?.find((g: { key: string }) => g.key === 'prisma_pool_connections_open')
+    // Access Prisma metrics if available (requires metrics to be enabled in Prisma config)
+    type PrismaClientWithMetrics = typeof prisma & { $metrics?: { json: () => Promise<unknown> } };
+    const metrics = await (prisma as unknown as PrismaClientWithMetrics).$metrics?.json() as { gauges?: Array<{ key: string; value: number }> } | undefined;
+    const activeConns = metrics?.gauges?.find((g) => g.key === 'prisma_pool_connections_open')
     checks['db-pool'] = { status: 'ok', detail: `${activeConns?.value ?? '?'} connections` }
   } catch {
     checks['db-pool'] = { status: 'ok', detail: 'Metrics chưa bật' }
@@ -1052,8 +1053,9 @@ async function exportDbBackup() {
 
   const counts: Record<string, number> = {}
   for (const table of tables) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    counts[table] = await (prisma as any)[table].count()
+    // Access Prisma model dynamically by name
+    const model = (prisma as unknown as Record<string, { count: () => Promise<number> }>)[table];
+    counts[table] = model ? await model.count() : 0;
   }
 
   const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0)

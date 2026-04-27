@@ -1,9 +1,10 @@
-﻿'use client'
+'use client'
 
-import * as React from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePageHeader } from '@/contexts/page-header-context'
-import { useReconciliationSheets, useConfirmSheet, useDeleteSheet } from './hooks/use-reconciliation-sheets'
+import { useReconciliationSheets } from './hooks/use-reconciliation-sheets'
+import { useConfirmSheet, useDeleteSheet } from './hooks/use-reconciliation-sheets'
 import type { ReconciliationSheet, ReconciliationSheetStatus } from './api/reconciliation-sheets-api'
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table'
 import { getSheetColumns } from './columns'
@@ -37,10 +38,10 @@ export function ReconciliationPage() {
   const canCreate = can('create_reconciliation')
   const { isMobile } = useBreakpoint()
 
-  const [statusTab, setStatusTab] = React.useState<StatusTab>('all')
-  const [globalFilter, setGlobalFilter] = React.useState('')
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 })
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true })
+  const [statusTab, setStatusTab] = useState<StatusTab>('all')
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 })
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true })
 
   // Server-side pagination query
   const { data: sheetsResponse, isLoading, isFetching } = useReconciliationSheets({
@@ -50,27 +51,29 @@ export function ReconciliationPage() {
     status: statusTab !== 'all' ? statusTab as ReconciliationSheetStatus : undefined,
   })
 
-  const sheets = sheetsResponse?.data ?? []
-  const totalCount = sheetsResponse?.pagination?.total ?? 0
-  const pageCount = sheetsResponse?.pagination?.totalPages ?? 0
-
-  const confirmSheet = useConfirmSheet()
-  const deleteSheet = useDeleteSheet()
+  // Move sheets inside useMemo to avoid logical expression in dependencies
+  const sheets = useMemo(() => sheetsResponse?.data ?? [], [sheetsResponse?.data]);
+  const totalCount = sheetsResponse?.pagination?.total ?? 0;
+  const pageCount = sheetsResponse?.pagination?.totalPages ?? 0;
 
   // Row selection for bulk actions
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
-  const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const selectedSheets = React.useMemo(
+  // Hooks for bulk actions
+  const confirmSheet = useConfirmSheet();
+  const deleteSheet = useDeleteSheet();
+
+  const selectedSheets = useMemo(
     () => sheets.filter(s => rowSelection[s.systemId]),
     [sheets, rowSelection],
-  )
+  );
 
   // Column visibility
-  const columns = React.useMemo(() => getSheetColumns(), [])
+  const columns = useMemo(() => getSheetColumns(), [])
 
-  const defaultColumnVisibility = React.useMemo(() => {
+  const defaultColumnVisibility = useMemo(() => {
     const initial: Record<string, boolean> = {}
     columns.forEach(c => { if (c.id) initial[c.id] = true })
     return initial
@@ -80,7 +83,7 @@ export function ReconciliationPage() {
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('reconciliation-sheets')
 
   // Row click → navigate to detail
-  const handleRowClick = React.useCallback((sheet: ReconciliationSheet) => {
+  const handleRowClick = useCallback((sheet: ReconciliationSheet) => {
     router.push(`/reconciliation/${sheet.systemId}`)
   }, [router])
 
@@ -90,7 +93,7 @@ export function ReconciliationPage() {
     for (const sheet of drafts) {
       confirmSheet.mutate(sheet.systemId, {
         onSuccess: () => toast.success(`Đã xác nhận phiếu ${sheet.id}`),
-        onError: (err) => toast.error(`Lỗi xác nhận ${sheet.id}: ${err.message}`),
+        onError: (err: Error) => toast.error(`Lỗi xác nhận ${sheet.id}: ${err.message}`),
       })
     }
     setRowSelection({})
@@ -103,7 +106,7 @@ export function ReconciliationPage() {
     for (const sheet of drafts) {
       deleteSheet.mutate(sheet.systemId, {
         onSuccess: () => toast.success(`Đã xóa phiếu ${sheet.id}`),
-        onError: (err) => toast.error(`Lỗi xóa ${sheet.id}: ${err.message}`),
+        onError: (err: Error) => toast.error(`Lỗi xóa ${sheet.id}: ${err.message}`),
       })
     }
     setRowSelection({})
@@ -111,30 +114,30 @@ export function ReconciliationPage() {
   }
 
   // Bulk action handlers
-  const handleBulkConfirmClick = React.useCallback(() => {
+  const handleBulkConfirmClick = useCallback(() => {
     const drafts = selectedSheets.filter(s => s.status === 'DRAFT')
     if (!drafts.length) { toast.info('Không có phiếu nháp nào để xác nhận'); return }
     setConfirmDialogOpen(true)
   }, [selectedSheets])
 
-  const handleBulkDeleteClick = React.useCallback(() => {
+  const handleBulkDeleteClick = useCallback(() => {
     const drafts = selectedSheets.filter(s => s.status === 'DRAFT')
     if (!drafts.length) { toast.info('Không có phiếu nháp nào để xóa'); return }
     setDeleteDialogOpen(true)
   }, [selectedSheets])
 
-  const bulkActions = React.useMemo(() => [
+  const bulkActions = useMemo(() => [
     { label: 'Xác nhận', icon: CheckCircle2, onSelect: handleBulkConfirmClick },
     { label: 'Xóa phiếu', icon: Trash2, onSelect: handleBulkDeleteClick, variant: 'destructive' as const },
   ], [handleBulkConfirmClick, handleBulkDeleteClick])
 
-  const selectedCount = React.useMemo(() => Object.keys(rowSelection).length, [rowSelection])
-  const draftSelectedCount = React.useMemo(
+  const _selectedCount = useMemo(() => Object.keys(rowSelection).length, [rowSelection])
+  const draftSelectedCount = useMemo(
     () => selectedSheets.filter(s => s.status === 'DRAFT').length,
     [selectedSheets],
   )
 
-  usePageHeader(React.useMemo(() => ({
+  usePageHeader(useMemo(() => ({
     title: 'Đối soát COD',
     breadcrumb: [
       { label: 'Trang chủ', href: ROUTES.ROOT },
@@ -165,8 +168,8 @@ export function ReconciliationPage() {
   }), [canCreate, draftSelectedCount]))
 
   // Column defaults
-  const columnDefaultsInitialized = React.useRef(false)
-  React.useEffect(() => {
+  const columnDefaultsInitialized = useRef(false)
+  useEffect(() => {
     if (columnDefaultsInitialized.current) return
     if (columns.length === 0) return
     const initialVisibility: Record<string, boolean> = {}

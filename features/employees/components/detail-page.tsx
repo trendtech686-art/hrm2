@@ -1,10 +1,11 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { useBreakpoint } from '@/contexts/breakpoint-context';
 import { formatDate, getMonthsDiff } from '@/lib/date-utils';
@@ -153,7 +154,7 @@ export function EmployeeDetailPage() {
   const { data: branches } = useAllBranches();
   const { employee: authEmployee, can, isAdmin } = useAuth();
 
-  const employee = React.useMemo(() => {
+  const employee = useMemo(() => {
     if (systemId) return employeeFromQuery || null;
     return null;
   }, [systemId, employeeFromQuery]);
@@ -171,7 +172,7 @@ export function EmployeeDetailPage() {
     deleteComment: dbDeleteComment 
   } = useComments('employee', systemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId as unknown as SystemId,
       content: c.content,
@@ -186,23 +187,23 @@ export function EmployeeDetailPage() {
     [dbComments]
   );
 
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+  const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
   }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+  const handleUpdateComment = useCallback((_commentId: string, _content: string) => {
   }, []);
 
-  const handleDeleteComment = React.useCallback((commentId: string) => {
+  const handleDeleteComment = useCallback((commentId: string) => {
     dbDeleteComment(commentId);
   }, [dbDeleteComment]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  const branchName = React.useMemo(() => {
+  const branchName = useMemo(() => {
     // Support both branchSystemId and branchId (Prisma foreign key), and branch object from API
     type EmployeeWithBranch = Employee & { 
       branchId?: string; 
@@ -222,7 +223,7 @@ export function EmployeeDetailPage() {
   }, [employee, branches]);
 
     // Actions for detail page
-    const headerActions = React.useMemo(() => {
+    const headerActions = useMemo(() => {
         const actions: React.ReactNode[] = [
             <Button key="back" variant="outline" size="sm" onClick={() => router.push('/employees')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -241,7 +242,7 @@ export function EmployeeDetailPage() {
     }, [router, systemId, isAdmin, can]);
 
   // ✅ Auto-generate breadcrumb
-  const breadcrumb = React.useMemo(() => {
+  const breadcrumb = useMemo(() => {
     if (!employee) return [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Nhân viên', href: '/employees', isCurrent: false },
@@ -254,7 +255,7 @@ export function EmployeeDetailPage() {
     ];
   }, [employee]);
 
-    const headerBadge = React.useMemo(() => renderEmploymentStatusBadge(employee?.employmentStatus), [employee?.employmentStatus]);
+    const headerBadge = useMemo(() => renderEmploymentStatusBadge(employee?.employmentStatus), [employee?.employmentStatus]);
 
   usePageHeader({
         title: employee?.fullName || 'Chi tiết Nhân viên',
@@ -326,14 +327,7 @@ export function EmployeeDetailPage() {
 
   const handlePullRefresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['employee', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['employees'] }),
-      queryClient.invalidateQueries({ queryKey: ['task-stats', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['tasks'] }),
-      queryClient.invalidateQueries({ queryKey: ['payroll'] }),
-      queryClient.invalidateQueries({ queryKey: ['leaves'] }),
-      queryClient.invalidateQueries({ queryKey: ['penalties'] }),
-      queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+      invalidateRelated(queryClient, 'employees'),
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
     ]);
   };

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma'
 import { Prisma, WarrantyStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
@@ -179,7 +180,7 @@ export async function POST(request: Request) {
       // Generate tracking code
       // Use provided trackingCode or generate new one
       const trackingCode = body.trackingCode || generateSubEntityId('WAR')
-      const publicTrackingCode = body.publicTrackingCode || `${businessId}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+      const publicTrackingCode = body.publicTrackingCode || `${businessId}-${randomUUID().substring(0, 6).toUpperCase()}`
 
       // Create warranty
       const newWarranty = await tx.warranty.create({
@@ -242,7 +243,11 @@ export async function POST(request: Request) {
           
           // Order linking
           linkedOrderSystemId: body.linkedOrderSystemId,
-          
+
+          // Replacement product tracking
+          replacementProductSystemId: body.replacementProductSystemId,
+          replacementQuantity: body.replacementQuantity || 0,
+
           // Audit
           createdBy: body.createdBy || session.user?.email || 'system',
           createdBySystemId: body.createdBySystemId || session.user?.id,
@@ -257,44 +262,55 @@ export async function POST(request: Request) {
         },
       })
 
-      // TODO: Stock commitment logic would go here
-      // Since the current Prisma schema doesn't have ProductWarehouse model,
-      // this would need to be added when the schema is updated
-      //
-      // Example pseudo-code for replacement warranty:
-      // if (body.isReplacement && body.replacementProductId) {
-      //   const product = await tx.product.findUnique({
-      //     where: { systemId: body.replacementProductId }
-      //   })
-      //   
-      //   // Check availability
-      //   const warehouse = await tx.productWarehouse.findUnique({
-      //     where: {
-      //       productSystemId_warehouseId: {
-      //         productSystemId: body.replacementProductId,
-      //         warehouseId: body.branchSystemId
-      //       }
-      //     }
-      //   })
-      //   
-      //   const available = (warehouse?.onHand || 0) - (warehouse?.committedQuantity || 0)
-      //   if (available < body.replacementQuantity) {
-      //     throw new Error('INSUFFICIENT_STOCK')
-      //   }
-      //   
-      //   // Commit stock (reserve for warranty)
-      //   await tx.productWarehouse.update({
-      //     where: {
-      //       productSystemId_warehouseId: {
-      //         productSystemId: body.replacementProductId,
-      //         warehouseId: body.branchSystemId
-      //       }
-      //     },
-      //     data: {
-      //       committedQuantity: { increment: body.replacementQuantity }
-      //     }
-      //   })
-      // }
+      // ============================================================
+      // STOCK COMMITMENT: Reserve replacement product for warranty
+      // ============================================================
+      if (body.replacementProductSystemId && body.replacementQuantity && body.replacementQuantity > 0) {
+        const replacementProductId = body.replacementProductSystemId;
+        const replacementQty = body.replacementQuantity;
+        const branchSystemId = body.branchSystemId || '';
+
+        // Get replacement product with current inventory
+        const replacementProduct = await tx.product.findUnique({
+          where: { systemId: replacementProductId },
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            inventoryByBranch: true,
+            totalCommitted: true,
+            totalInventory: true,
+            totalAvailable: true,
+          },
+        });
+
+        if (!replacementProduct) {
+          throw new Error('REPLACEMENT_PRODUCT_NOT_FOUND');
+        }
+
+        // Calculate available stock at branch
+        const branchInventory = (replacementProduct.inventoryByBranch as Record<string, number>) ?? {};
+        const currentOnHand = branchInventory[branchSystemId] ?? 0;
+        const currentCommitted = (replacementProduct.totalCommitted ?? 0) + replacementQty;
+
+        // Check if enough stock available
+        if (currentOnHand < replacementQty) {
+          throw new Error('INSUFFICIENT_STOCK');
+        }
+
+        // Update committed count
+        await tx.product.update({
+          where: { systemId: replacementProductId },
+          data: {
+            committedByBranch: {
+              ...(replacementProduct.inventoryByBranch as Record<string, number> || {}),
+              [branchSystemId]: replacementQty,
+            },
+            totalCommitted: currentCommitted,
+            totalAvailable: (replacementProduct.totalInventory ?? 0) - currentCommitted,
+          },
+        });
+      }
 
       return newWarranty
     })

@@ -127,6 +127,7 @@ export function ShipmentSelectionDialog({
         {/* Table */}
         <div className="border border-border rounded-lg overflow-hidden flex-1 flex flex-col">
           {/* Select all header */}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- select all checkbox row */}
           <div
             className="bg-muted/50 border-b border-border px-4 py-2 flex items-center gap-4 cursor-pointer hover:bg-muted/70 transition-colors"
             onClick={() => handleSelectAll(!allSelected)}
@@ -163,6 +164,7 @@ export function ShipmentSelectionDialog({
                 {allShipments.map(s => {
                   const isSelected = selectedIds.has(s.systemId)
                   return (
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- shipment row
                     <div
                       key={s.systemId}
                       className={cn(

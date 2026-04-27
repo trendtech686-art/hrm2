@@ -160,6 +160,7 @@ export function EmployeePayrollTab({
                       {salaryComponents.map((component) => {
                         const checked = selectedValues.has(component.systemId);
                         return (
+                          // eslint-disable-next-line jsx-a11y/label-has-associated-control -- RadioGroup pattern
                           <label
                             key={component.systemId}
                             className="flex items-start justify-between gap-4 rounded-lg border p-3"
@@ -226,6 +227,7 @@ export function EmployeePayrollTab({
                   value={(field.value as 'bank_transfer' | 'cash') ?? 'bank_transfer'}
                   className="grid gap-3 md:grid-cols-2"
                 >
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- RadioGroup pattern */}
                   <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
                     <RadioGroupItem value="bank_transfer" />
                     <div className="space-y-1">
@@ -235,6 +237,7 @@ export function EmployeePayrollTab({
                       </p>
                     </div>
                   </label>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- RadioGroup pattern */}
                   <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
                     <RadioGroupItem value="cash" />
                     <div className="space-y-1">

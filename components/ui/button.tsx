@@ -1,6 +1,6 @@
 "use client"
 
-import * as React from "react"
+import { forwardRef, useState, useEffect, useCallback, useRef, type ButtonHTMLAttributes, type MouseEvent } from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -36,7 +36,7 @@ const buttonVariants = cva(
 )
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
   /**
@@ -50,14 +50,14 @@ export interface ButtonProps
   loadingText?: string
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild: _asChild = false, debounceMs = 1500, loadingText: _loadingText, onClick, disabled, children, type, ...props }, ref) => {
     const Comp = _asChild ? Slot : "button"
-    const lockRef = React.useRef(false)
-    const [isLocked, setIsLocked] = React.useState(false)
+    const lockRef = useRef(false)
+    const [isLocked, setIsLocked] = useState(false)
     
     // Auto-unlock after debounce period
-    React.useEffect(() => {
+    useEffect(() => {
       if (isLocked && debounceMs > 0) {
         const timer = setTimeout(() => {
           lockRef.current = false
@@ -67,7 +67,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       }
     }, [isLocked, debounceMs])
     
-    const handleClick = React.useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const handleClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {
       if (!onClick) return
       // Ref = sync guard — blocks second click instantly in same JS frame
       if (debounceMs > 0 && lockRef.current) {

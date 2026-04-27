@@ -178,8 +178,11 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
       <MobileCardHeader className="items-start justify-between gap-3">
         {productImageUrl ? (
           <div
+            role="button"
+            tabIndex={0}
             className="group relative h-12 w-12 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
             onClick={() => handlePreviewImage(productImageUrl, field.productName)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handlePreviewImage(productImageUrl, field.productName); }}
           >
             <LazyImage
               src={productImageUrl}

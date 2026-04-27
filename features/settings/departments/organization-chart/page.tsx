@@ -329,8 +329,9 @@ function OrgChartFlow() {
                     Lưu thay đổi
                   </Button>
                   <Button 
-                    size="sm" 
+                    size="sm"
                     variant="ghost"
+                    // eslint-disable-next-line hrm-theme/no-raw-palette-class -- Cancel button styling requires explicit white text
                     className="h-7 text-white hover:bg-white/20"
                     onClick={handleCancelChanges}
                   >

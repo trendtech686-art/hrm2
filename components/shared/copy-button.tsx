@@ -1,4 +1,5 @@
-import * as React from 'react';
+import { useState } from 'react';
+import type { MouseEvent } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -27,9 +28,9 @@ export function CopyButton({
   toastMessage = 'Đã copy vào clipboard',
   size = 'sm',
 }: CopyButtonProps) {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleCopy = async (e: React.MouseEvent) => {
+  const handleCopy = async (e: MouseEvent) => {
     e.stopPropagation();
     if (!value) return;
 
@@ -110,12 +111,16 @@ export function CopyableText({ label, value, onClick, className }: CopyableTextP
     <div className={cn('space-y-1', className)}>
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="flex items-center gap-1">
-        <span 
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <span
           className={cn(
             'text-sm font-medium',
             onClick && 'text-primary hover:underline cursor-pointer'
           )}
           onClick={onClick}
+          onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
+          role={onClick ? "button" : undefined}
+          tabIndex={onClick ? 0 : undefined}
         >
           {value}
         </span>

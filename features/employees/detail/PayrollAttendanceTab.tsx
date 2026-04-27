@@ -144,7 +144,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
       header: '', 
       size: 50,
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div role="button" tabIndex={0} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-11 w-11">
@@ -337,7 +337,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
     { 
       id: 'actions', header: '', size: 50,
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div role="button" tabIndex={0} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-11 w-11">

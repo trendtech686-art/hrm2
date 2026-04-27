@@ -576,6 +576,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     user,
     queryClient,
     warrantyCheckResultsRef,
+    selectedEmployeeRef,
   ]);
   
   return { onSubmit };

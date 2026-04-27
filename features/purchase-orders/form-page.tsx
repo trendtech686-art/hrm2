@@ -409,7 +409,7 @@ export function PurchaseOrderFormPage() {
     discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const _totalShippingFees = shippingFees.reduce((sum, fee) => sum + fee.amount, 0);
   const _totalOtherFees = otherFees.reduce((sum, fee) => sum + fee.amount, 0);
-  const grandTotal = subtotal - discountAmount;
+  const _grandTotal = subtotal - discountAmount;
 
   const handleSave = async (receiveImmediately: boolean = false) => {
     // Use ref to get latest values
@@ -720,7 +720,7 @@ export function PurchaseOrderFormPage() {
               description: payment.note || `Thanh toán đơn nhập hàng ${finalOrderId}`,
               paymentMethodSystemId: asSystemId(payment.paymentMethodSystemId || 'BANK_TRANSFER'),
               paymentMethodName: payment.paymentMethodName || 'Chuyển khoản',
-              accountSystemId: asSystemId(''), // TODO: Add accountSystemId to PaymentRecord
+              accountSystemId: asSystemId(payment.accountSystemId || ''), // Use account from PaymentRecord
               paymentReceiptTypeSystemId: asSystemId(paymentCategory?.systemId || ''),
               paymentReceiptTypeName: paymentCategory?.name || 'Thanh toán cho đơn nhập hàng',
               branchSystemId: asSystemId(branchSystemId),

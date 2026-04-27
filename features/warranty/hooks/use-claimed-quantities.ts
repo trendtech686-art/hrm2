@@ -45,7 +45,7 @@ function extractWarrantiesArray(data: unknown): WarrantyTicket[] {
  */
 export function useClaimedQuantities(
   customerSystemId: string | null | undefined,
-  customerName: string | null | undefined
+  _customerName: string | null | undefined
 ): UseClaimedQuantitiesResult {
   // Lấy tất cả warranties của khách hàng (chỉ completed)
   const { data, isLoading } = useWarrantiesByCustomer(customerSystemId, {
@@ -55,8 +55,8 @@ export function useClaimedQuantities(
   const warranties = React.useMemo(() => extractWarrantiesArray(data), [data]);
 
   // Debug log
-  console.log('[useClaimedQuantities] warranties count:', warranties.length);
-  console.log('[useClaimedQuantities] sample warranty:', warranties[0]?.products);
+  console.warn('[useClaimedQuantities] warranties count:', warranties.length);
+  console.warn('[useClaimedQuantities] sample warranty:', warranties[0]?.products);
 
   const claimedQuantities = React.useMemo(() => {
     const quantities: Record<string, number> = {};
@@ -86,7 +86,7 @@ export function useClaimedQuantities(
       }
     });
 
-    console.log('[useClaimedQuantities] final claimedQuantities:', JSON.stringify(quantities));
+    console.warn('[useClaimedQuantities] final claimedQuantities:', JSON.stringify(quantities));
     return quantities;
   }, [warranties]);
 
@@ -146,7 +146,7 @@ export function useClaimedQuantities(
     });
     // Debug log
     if (Object.keys(tickets).length > 0) {
-      console.log('[useClaimedQuantities] claimedProductTickets:', JSON.stringify(tickets));
+      console.warn('[useClaimedQuantities] claimedProductTickets:', JSON.stringify(tickets));
     }
     return tickets;
   }, [claimedProducts]);

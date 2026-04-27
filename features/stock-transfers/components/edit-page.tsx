@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { z } from 'zod';
 import { useStockTransfer, useStockTransferMutations } from '../hooks/use-stock-transfers';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
@@ -99,7 +99,7 @@ export function StockTransferEditPage() {
   
   const { data: branches } = useAllBranches();
   const { findById: findProductById } = useProductFinder();
-  const { user, employee: currentEmployee } = useAuth();
+  const { employee: currentEmployee } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);

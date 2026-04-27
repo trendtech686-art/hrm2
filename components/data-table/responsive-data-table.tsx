@@ -1,4 +1,17 @@
-import * as React from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  type ReactNode,
+  type ComponentType,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type KeyboardEvent,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { ChevronDown, ChevronsRight, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { MobileCard, MobileCardBody, MobileCardHeader } from "../mobile/mobile-card";
@@ -44,7 +57,7 @@ function SortableHeaderCell({
   title: string;
   columnId: string;
   sorting: { id: string; desc: boolean };
-  setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
+  setSorting: (updater: SetStateAction<{ id: string; desc: boolean }>) => void;
 }) {
   const isSorted = sorting.id === columnId;
   const handleClick = () => {
@@ -72,7 +85,7 @@ function SortableHeaderCell({
 
 export interface BulkAction<TData> {
   label: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   onSelect: (selectedRows: TData[]) => void;
 }
 
@@ -95,9 +108,9 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   showBulkDeleteButton?: boolean | undefined;
   bulkActions?: BulkAction<TData>[] | undefined;
   pkgxBulkActions?: BulkAction<TData>[] | undefined;
-  bulkActionButtons?: React.ReactNode | undefined;
+  bulkActionButtons?: ReactNode | undefined;
   allSelectedRows: TData[];
-  renderSubComponent?: ((row: TData) => React.ReactNode) | undefined;
+  renderSubComponent?: ((row: TData) => ReactNode) | undefined;
   expanded: Record<string, boolean>;
   setExpanded: (updater: React.SetStateAction<Record<string, boolean>>) => void;
   sorting: { id: string; desc: boolean };
@@ -107,10 +120,10 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   columnOrder: string[];
   setColumnOrder: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   pinnedColumns: string[];
-  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
+  setPinnedColumns: Dispatch<SetStateAction<string[]>> | ((value: string[]) => void);
   onRowClick?: ((row: TData) => void) | undefined;
   onRowHover?: ((row: TData) => void) | undefined;
-  getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
+  getRowStyle?: ((row: TData) => CSSProperties) | undefined;
   className?: string | undefined;
 }
 
@@ -120,7 +133,7 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   data: TData[];
   
   // Mobile-specific
-  renderMobileCard?: ((row: TData, index: number) => React.ReactNode) | undefined;
+  renderMobileCard?: ((row: TData, index: number) => ReactNode) | undefined;
   mobileCardClassName?: string | undefined;
   autoGenerateMobileCards?: boolean | undefined;
   mobileVirtualized?: boolean | undefined;
@@ -164,14 +177,14 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   sorting: { id: string; desc: boolean };
   setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
   columnVisibility?: Record<string, boolean> | undefined;
-  setColumnVisibility?: (React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void)) | undefined;
+  setColumnVisibility?: (Dispatch<SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void)) | undefined;
   columnOrder?: string[] | undefined;
   setColumnOrder?: (React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void)) | undefined;
   pinnedColumns?: string[] | undefined;
-  setPinnedColumns?: (React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void)) | undefined;
+  setPinnedColumns?: (Dispatch<SetStateAction<string[]>> | ((value: string[]) => void)) | undefined;
   onRowClick?: ((row: TData) => void) | undefined;
   onRowHover?: ((row: TData) => void) | undefined;
-  getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
+  getRowStyle?: ((row: TData) => CSSProperties) | undefined;
   className?: string | undefined;
 }
 
@@ -255,7 +268,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   className,
 }: ResponsiveDataTableProps<TData>) {
   const { isMobile } = useBreakpoint();
-  const autoCardColumns = React.useMemo(() => {
+  const autoCardColumns = useMemo(() => {
     return columns
       .filter(column => {
         if (!column.id) return false;
@@ -268,14 +281,14 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
       .slice(0, 6);
   }, [columns, columnVisibility]);
 
-  const getColumnLabel = React.useCallback((column: ColumnDef<TData>) => {
+  const getColumnLabel = useCallback((column: ColumnDef<TData>) => {
     if (typeof column.header === 'string') return column.header;
     const meta = column.meta as ColumnMeta | undefined;
     if (meta?.displayName) return meta.displayName;
     return column.id || '';
   }, []);
 
-  const renderColumnValue = React.useCallback((column: ColumnDef<TData>, row: TData) => {
+  const renderColumnValue = useCallback((column: ColumnDef<TData>, row: TData) => {
     if (typeof column.cell === 'function') {
       return column.cell({
         row,
@@ -298,7 +311,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   //  - Cột đầu = header title (label uppercase xs + value font-semibold sm)
   //  - Các cột còn lại = body grid-cols-2 dt/dd, cột cuối col-span-2 nếu lẻ
   //  - Dùng `MobileCard` primitive (rounded-xl border-border/50 p-4)
-  const autoRenderMobileCard = React.useCallback((row: TData) => {
+  const autoRenderMobileCard = useCallback((row: TData) => {
     const [firstCol, ...restCols] = autoCardColumns;
     if (!firstCol) return null;
     const clickable = typeof onRowClick === 'function';
@@ -308,7 +321,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
           role: 'button' as const,
           tabIndex: 0,
           onClick: handleTap,
-          onKeyDown: (e: React.KeyboardEvent) => {
+          onKeyDown: (e: KeyboardEvent) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               handleTap();
@@ -352,11 +365,11 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   const shouldRenderMobileCards = Boolean(isMobile && cardRenderer);
 
   // --- Infinite scroll for mobile (server-side pagination) ---
-  const [accumulatedData, setAccumulatedData] = React.useState<TData[]>(data);
-  const lastPageIndexRef = React.useRef(pagination?.pageIndex ?? 0);
-  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [accumulatedData, setAccumulatedData] = useState<TData[]>(data);
+  const lastPageIndexRef = useRef(pagination?.pageIndex ?? 0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!mobileInfiniteScroll || !shouldRenderMobileCards) return;
 
     const currentPageIndex = pagination?.pageIndex ?? 0;
@@ -375,7 +388,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
     setIsLoadingMore(false);
   }, [data, pagination?.pageIndex, mobileInfiniteScroll, shouldRenderMobileCards]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!mobileInfiniteScroll || !shouldRenderMobileCards) return;
 
     const currentPageIndex = pagination?.pageIndex ?? 0;
@@ -552,18 +565,18 @@ function DesktopDataTable<TData extends { systemId: string }>({
   const isAllPageRowsSelected = data.length > 0 && data.every(row => rowSelection[row.systemId]);
   const isSomePageRowsSelected = !isAllPageRowsSelected && data.some(row => rowSelection[row.systemId]);
   const hasData = data?.length > 0;
-  const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>({});
-  const [columnSizing, setColumnSizing] = React.useState<Record<string, number>>({});
-  const columnSizingRef = React.useRef<Record<string, number>>({});
-  const isResizingRef = React.useRef(false);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+  const columnSizingRef = useRef<Record<string, number>>({});
+  const isResizingRef = useRef(false);
   const stickyCellBg = 'var(--sticky-column-bg, rgba(255, 255, 255, 1))';
   const stickyHeaderBg = 'var(--sticky-column-header-bg, var(--muted))';
 
-  const handleSetPageIndex = React.useCallback((index: number) => {
+  const handleSetPageIndex = useCallback((index: number) => {
     setPagination(p => p.pageIndex === index ? p : ({ ...p, pageIndex: index }));
   }, [setPagination]);
 
-  const handleSetPageSize = React.useCallback((size: number) => {
+  const handleSetPageSize = useCallback((size: number) => {
     setPagination(p => p.pageIndex === 0 && p.pageSize === size ? p : { pageIndex: 0, pageSize: size });
   }, [setPagination]);
 
@@ -579,7 +592,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
     setRowSelection(newSelection);
   };
 
-  const displayColumns = React.useMemo(() => {
+  const displayColumns = useMemo(() => {
     const expanderColumn: ColumnDef<TData> | null = renderSubComponent
       ? {
           id: 'expander',
@@ -668,15 +681,15 @@ function DesktopDataTable<TData extends { systemId: string }>({
     ] as ColumnDef<TData>[];
   }, [columns, columnVisibility, columnOrder, pinnedColumns, renderSubComponent]);
 
-  const leftStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'left'), [displayColumns]);
-  const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'right'), [displayColumns]);
+  const leftStickyColumns = useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'left'), [displayColumns]);
+  const rightStickyColumns = useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'right'), [displayColumns]);
 
-  const getColumnWidth = React.useCallback((column: ColumnDef<TData>) => {
+  const getColumnWidth = useCallback((column: ColumnDef<TData>) => {
     if (columnSizing[column.id]) return columnSizing[column.id];
     return column.size ?? columnWidths[column.id] ?? ((column.meta as ColumnMeta | undefined)?.minWidth ?? 140);
   }, [columnSizing, columnWidths]);
 
-  const leftOffsets = React.useMemo(() => {
+  const leftOffsets = useMemo(() => {
       let offset = 0;
       return leftStickyColumns.map(c => {
           const width = getColumnWidth(c);
@@ -686,7 +699,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
       });
   }, [leftStickyColumns, getColumnWidth]);
 
-  const rightOffsets = React.useMemo(() => {
+  const rightOffsets = useMemo(() => {
       let offset = 0;
       const reversedOffsets = [...rightStickyColumns].reverse().map(c => {
           const width = getColumnWidth(c);
@@ -697,11 +710,11 @@ function DesktopDataTable<TData extends { systemId: string }>({
       return reversedOffsets.reverse();
   }, [rightStickyColumns, getColumnWidth]);
 
-  const tableContainerRef = React.useRef<HTMLDivElement>(null);
-  const headerScrollRef = React.useRef<HTMLDivElement>(null);
-  const bodyTableRef = React.useRef<HTMLTableElement>(null);
-  const headerTableRef = React.useRef<HTMLTableElement>(null);
-  const fallbackTableRef = React.useCallback((node: HTMLTableElement | null) => {
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyTableRef = useRef<HTMLTableElement>(null);
+  const headerTableRef = useRef<HTMLTableElement>(null);
+  const fallbackTableRef = useCallback((node: HTMLTableElement | null) => {
     headerTableRef.current = node;
     bodyTableRef.current = node;
   }, []);
@@ -717,7 +730,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
   };
 
   // Column resize: DOM-direct for zero-lag, commit to state on mouseup
-  const applyColumnWidth = React.useCallback((columnId: string, width: number) => {
+  const applyColumnWidth = useCallback((columnId: string, width: number) => {
     // Apply via DOM to both header and body tables
     const allTables = [headerTableRef.current, bodyTableRef.current].filter(Boolean);
     for (const table of allTables) {
@@ -732,14 +745,14 @@ function DesktopDataTable<TData extends { systemId: string }>({
     }
   }, []);
 
-  const handleResizeStart = React.useCallback((e: React.MouseEvent, columnId: string, currentWidth: number) => {
+  const handleResizeStart = useCallback((e: ReactMouseEvent, columnId: string, currentWidth: number) => {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
     const startWidth = currentWidth;
     isResizingRef.current = true;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
       const diff = moveEvent.clientX - startX;
       const newWidth = Math.max(50, startWidth + diff);
       columnSizingRef.current = { ...columnSizingRef.current, [columnId]: newWidth };
@@ -763,7 +776,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
   }, [applyColumnWidth]);
 
   // Double-click: auto-fit column to content width
-  const handleResizeDoubleClick = React.useCallback((columnId: string) => {
+  const handleResizeDoubleClick = useCallback((columnId: string) => {
     const bodyTable = bodyTableRef.current;
     if (!bodyTable) return;
     const cells = bodyTable.querySelectorAll(`td[data-col-id="${columnId}"]`);
@@ -793,7 +806,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
     setColumnSizing({ ...columnSizingRef.current });
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!hasData) return;
     if (!headerTableRef.current) return;
 
@@ -873,7 +886,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
         const userWidth = columnSizing[column.id];
         const isFixedColumn = ['control', 'select', 'expander', 'actions'].includes(column.id);
 
-        const style: React.CSSProperties = {};
+        const style: CSSProperties = {};
 
         if (userWidth) {
           style.width = userWidth;
@@ -1068,7 +1081,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         const fallbackMinWidth = (column.meta as ColumnMeta | undefined)?.minWidth ?? 140;
                         const userWidth = columnSizing[column.id];
 
-                        const style: React.CSSProperties = {};
+                        const style: CSSProperties = {};
 
                         if (userWidth) {
                           style.width = userWidth;
@@ -1216,7 +1229,7 @@ export function MobileCardWrapper({
   onClick,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   onClick?: () => void;
   className?: string;
 }) {
@@ -1226,7 +1239,7 @@ export function MobileCardWrapper({
         role: 'button' as const,
         tabIndex: 0,
         onClick,
-        onKeyDown: (e: React.KeyboardEvent) => {
+        onKeyDown: (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onClick?.();

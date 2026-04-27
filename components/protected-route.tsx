@@ -1,12 +1,12 @@
 'use client'
 
-import * as React from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { ROUTES } from '../lib/router';
 import { useAuth } from '../contexts/auth-context';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
@@ -14,7 +14,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated) {
       // Redirect to login page, but save the attempted URL
       sessionStorage.setItem('redirect-after-login', pathname);

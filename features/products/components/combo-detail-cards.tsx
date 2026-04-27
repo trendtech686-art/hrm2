@@ -144,9 +144,12 @@ export function ComboItemsCard({
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {item.product?.thumbnailImage ? (
-                        <div 
+                        <div
                           className="group/thumbnail relative w-10 h-10 rounded-md border overflow-hidden bg-muted shrink-0 cursor-pointer"
                           onClick={() => onImagePreview?.(item.product!.thumbnailImage!)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') onImagePreview?.(item.product!.thumbnailImage!); }}
+                          role="button"
+                          tabIndex={0}
                         >
                           <LazyImage
                             src={item.product.thumbnailImage}

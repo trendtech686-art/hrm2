@@ -468,18 +468,41 @@ export async function PATCH(request: Request) {
       return apiError('action and monthYear are required', 400)
     }
 
-    // For lock/unlock, we can store in a separate table or as metadata
-    // For now, just acknowledge the request (lock state is managed in frontend store)
-    // In production, you might want to store this in a MonthLock table
-    
     if (action === 'lock' || action === 'unlock') {
-      // TODO: Implement actual lock persistence if needed
-      // await prisma.attendanceMonthLock.upsert({...})
-      return apiSuccess({ 
-        success: true, 
-        action, 
+      // Store lock state in Setting table for persistence across sessions
+      const lockKey = `attendance_lock_${monthYear}`
+      const isLocked = action === 'lock'
+
+      await prisma.setting.upsert({
+        where: {
+          key_group: { key: lockKey, group: 'attendance' }
+        },
+        update: {
+          value: {
+            locked: isLocked,
+            lockedBy: session.user?.employee?.systemId || session.user?.id,
+            lockedAt: new Date().toISOString(),
+          },
+        },
+        create: {
+          key: lockKey,
+          group: 'attendance',
+          type: 'lock',
+          category: 'attendance',
+          value: {
+            locked: isLocked,
+            lockedBy: session.user?.employee?.systemId || session.user?.id,
+            lockedAt: new Date().toISOString(),
+          },
+        },
+      })
+
+      return apiSuccess({
+        success: true,
+        action,
         monthYear,
-        message: `Month ${monthYear} ${action}ed successfully` 
+        locked: isLocked,
+        message: `Month ${monthYear} ${action}ed successfully`
       })
     }
 

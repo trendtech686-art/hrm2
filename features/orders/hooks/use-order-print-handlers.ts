@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { toast } from 'sonner';
 import type { Order, Branch } from '@/lib/types/prisma-extended';
 import type { TemplateType, PaperSize } from '@/features/settings/printer/types';
@@ -113,7 +114,7 @@ export function useOrderPrintHandlers() {
   }, [ensureStoreInfo]);
 
   // ── Fallback data cho tem phụ (dùng khi không tìm thấy product) ──
-  const createFallbackLabelData = React.useCallback((item: { productName: string; productId?: string; unitPrice: number }) => ({
+  const _createFallbackLabelData = React.useCallback((item: { productName: string; productId?: string; unitPrice: number }) => ({
     '{product_name}': item.productName,
     '{product_name_vat}': item.productName,
     '{product_sku}': item.productId || '',
@@ -177,7 +178,7 @@ export function useOrderPrintHandlers() {
       print(printType, printOptions);
     }
     // Invalidate orders cache after printStatus is updated server-side
-    setTimeout(() => queryClient.invalidateQueries({ queryKey: ['orders'] }), 1500);
+    setTimeout(() => invalidateRelated(queryClient, 'orders'), 1500);
     toast.success(`Đang in đơn hàng ${order.id}`);
   }, [findCustomerById, findBranchById, ensureBranding, ensureStoreInfo, print, printMultiple, queryClient]);
 
@@ -583,7 +584,7 @@ export function useOrderPrintHandlers() {
     } else {
       toast.error('Không có dữ liệu phù hợp để in');
     }
-  }, [findCustomerById, ensureBranches, ensureImporters, ensureProductsByIds, createFallbackLabelData, printMixedDocuments]);
+  }, [findCustomerById, ensureBranches, ensureImporters, ensureProductsByIds, printMixedDocuments]);
 
   // ── printActions object cho DataTable columns ──
   const printActions = React.useMemo(() => ({

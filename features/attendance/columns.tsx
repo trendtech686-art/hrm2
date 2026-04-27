@@ -55,7 +55,10 @@ export const getColumns = (
               isWeekend && record?.status !== 'present' && record?.status !== 'leave' && "bg-muted/30",
               isSelected && "ring-2 ring-primary bg-primary/10"
             )}
+            role="button"
+            tabIndex={0}
             onClick={() => isEditable && onEdit(row.employeeSystemId, day)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && isEditable) onEdit(row.employeeSystemId, day); }}
             onDoubleClick={(e) => {
               if (isEditable && !isSelectionMode && onQuickFill) {
                 e.stopPropagation();

@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, type ReactNode } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
@@ -55,7 +55,7 @@ function CancelPackagingDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: (reason: string) => void;
 }) {
-  const [reason, setReason] = React.useState('');
+  const [reason, setReason] = useState('');
   
   const handleConfirm = () => {
     onConfirm(reason);
@@ -144,7 +144,7 @@ export function PackagingDetailPage() {
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
 
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = React.useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
   // Extract data from API response
   const packaging = packagingData?.packaging;
@@ -159,7 +159,7 @@ export function PackagingDetailPage() {
     deleteComment: dbDeleteComment 
   } = useComments('packaging', validSystemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId as unknown as SystemId,
       content: c.content,
@@ -175,18 +175,18 @@ export function PackagingDetailPage() {
     [dbComments]
   );
 
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+  const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
   }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+  const handleUpdateComment = useCallback((_commentId: string, _content: string) => {
   }, []);
 
-  const handleDeleteComment = React.useCallback((commentId: string) => {
+  const handleDeleteComment = useCallback((commentId: string) => {
     dbDeleteComment(commentId);
   }, [dbDeleteComment]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
     name: authEmployee?.fullName || 'Hệ thống',
     avatar: authEmployee?.avatar,
@@ -194,7 +194,7 @@ export function PackagingDetailPage() {
 
   const { print } = usePrint(order?.branchSystemId);
 
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = useCallback(() => {
     if (!packaging || !order) return;
 
     const branch = order.branchSystemId ? findBranchById(order.branchSystemId) : undefined;
@@ -237,7 +237,7 @@ export function PackagingDetailPage() {
   }, [packaging, order, customer, print, findBranchById, currentUserSystemId]);
 
   // Mobile: 3-dot menu with all actions
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!packaging || !isMobile) return null;
 
     const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
@@ -262,7 +262,7 @@ export function PackagingDetailPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0">
+          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Tùy chọn">
             <MoreHorizontal className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
@@ -282,8 +282,8 @@ export function PackagingDetailPage() {
   }, [packaging, order, isMobile, isConfirming, isCancelling, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, handlePrint]);
 
   // Desktop: Full buttons
-  const headerActions = React.useMemo(() => {
-    const actions: React.ReactNode[] = [];
+  const headerActions = useMemo(() => {
+    const actions: ReactNode[] = [];
 
     if (packaging) {
       if (packaging.status === 'Chờ đóng gói') {
@@ -326,7 +326,7 @@ export function PackagingDetailPage() {
     return actions;
   }, [packaging, order, confirmPackaging, isConfirming, isCancelling, currentUserSystemId, setIsCancelDialogOpen, handlePrint]);
 
-  const headerBadge = React.useMemo(() => {
+  const headerBadge = useMemo(() => {
     if (!packaging) return undefined;
     const status = packaging.status as PackagingStatus;
     return (

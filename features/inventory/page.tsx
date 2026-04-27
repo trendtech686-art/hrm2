@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from "react"
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -21,6 +21,22 @@ import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/componen
 import { useFilterPresets } from '@/hooks/use-filter-presets'
 import type { ColumnDef } from "@/components/data-table/types"
 import { useQuery } from "@tanstack/react-query"
+
+type InventoryFilters = {
+  page: number
+  limit: number
+  search: string
+  branchId: string
+  hasStock: boolean
+  lowStock: boolean
+  categorySystemId: string
+}
+
+// Query keys factory
+export const inventoryKeys = {
+  all: ['inventory'] as const,
+  list: (filters: InventoryFilters) => [...inventoryKeys.all, filters] as const,
+};
 
 // Props from Server Component
 export interface InventoryPageProps {
@@ -54,23 +70,11 @@ interface InventoryItem {
   totalValue: number
 }
 
-interface InventoryFilters {
-  page: number
-  limit: number
-  search: string
-  branchId: string
-  hasStock: boolean
-  lowStock: boolean
-  categorySystemId: string
-}
-
 // Types for data with systemId
 type InventoryItemWithSystemId = InventoryItem & { systemId: string }
 
 // Columns definition
-function getColumns(
-  _getBranchName: (id: string) => string
-): ColumnDef<InventoryItemWithSystemId>[] {
+function getColumns(): ColumnDef<InventoryItemWithSystemId>[] {
   return [
     {
       id: 'productId',
@@ -200,18 +204,18 @@ async function fetchInventory(filters: InventoryFilters) {
   return res.json()
 }
 
-export function InventoryPage({ initialSummary: _initialSummary }: InventoryPageProps = {}) {
+export function InventoryPage(_props: InventoryPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const {  user: _user, can } = useAuth()
+  const { can } = useAuth()
   const { setPageHeader } = usePageHeader()
-  const canEdit = can('edit_inventory');
-  const canView = can('view_inventory');
+  const _canEdit = can('edit_inventory');
+  const _canView = can('view_inventory');
   const isMobile = useMediaQuery("(max-width: 768px)")
   
   // Get branches
   const { data: branches = [] } = useAllBranches()
-  const getBranchName = useBranchFinder()
+  const _getBranchName = useBranchFinder()
 
   // Filter presets
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('inventory')
@@ -259,7 +263,7 @@ export function InventoryPage({ initialSummary: _initialSummary }: InventoryPage
   
   // Fetch inventory data
   const { data, isLoading, error } = useQuery({
-    queryKey: ['inventory', filters],
+    queryKey: inventoryKeys.list(filters),
     queryFn: () => fetchInventory(filters),
     staleTime: 30000, // 30 seconds
   })
@@ -302,8 +306,8 @@ export function InventoryPage({ initialSummary: _initialSummary }: InventoryPage
   )
   
   const columns = React.useMemo(
-    () => getColumns((id: string) => getBranchName.findById(id)?.name || id),
-    [getBranchName]
+    () => getColumns(),
+    []
   )
 
   // Advanced filter configs

@@ -368,6 +368,10 @@ interface GenericImportDialogV2Props<T> {
     name: string
     systemId: SystemId
   }
+  
+  // Preloaded data for transform lookups (e.g., categories, product types)
+  // Passed to postTransformRow via preloadedDataCache
+  preloadedData?: Record<string, unknown>
 }
 
 // ============================================
@@ -385,6 +389,7 @@ export function GenericImportDialogV2<T>({
   existingData = [],
   onImport,
   currentUser,
+  preloadedData,
 }: GenericImportDialogV2Props<T>) {
   // React Query hooks - defer until dialog is open
   const { addImport } = useImportExportLogsMutations()
@@ -483,10 +488,28 @@ export function GenericImportDialogV2<T>({
       // Get raw data from current preview result
       const rawData = previewResult.rows.map(r => r.rawData)
       
+      // Build preloadedDataCache for revalidation (same as in handleParseFile)
+      const pricingPoliciesData: Record<string, unknown> = {};
+      if (activePricingPolicies.length > 0) {
+        pricingPoliciesData.pricingPolicies = activePricingPolicies.map(p => ({
+          systemId: p.systemId,
+          id: p.id,
+          name: p.name,
+        }));
+      }
+      const finalPreloadedData = {
+        ...pricingPoliciesData,
+        ...preloadedData,
+      };
+      const configWithCache: typeof config = {
+        ...config,
+        preloadedDataCache: Object.keys(finalPreloadedData).length > 0 ? finalPreloadedData : undefined,
+      };
+      
       // Re-run validation with new mode
       const revalidatedResult = previewImportData(
         rawData,
-        config,
+        configWithCache,
         existingData,
         importMode,
         selectedBranchId
@@ -593,12 +616,26 @@ export function GenericImportDialogV2<T>({
       return row.rawData
     })
     
+    // Build preloadedDataCache for revalidation (same as in handleParseFile)
+    const preloadedData: Record<string, unknown> = {};
+    if (activePricingPolicies.length > 0) {
+      preloadedData.pricingPolicies = activePricingPolicies.map(p => ({
+        systemId: p.systemId,
+        id: p.id,
+        name: p.name,
+      }));
+    }
+    const configWithCache: typeof config = {
+      ...config,
+      preloadedDataCache: Object.keys(preloadedData).length > 0 ? preloadedData : undefined,
+    };
+    
     // Use startTransition to keep UI responsive during revalidation
     React.startTransition(() => {
       // Re-run full validation to update row statuses
       const revalidatedResult = previewImportData(
         updatedRawData,
-        config,
+        configWithCache,
         existingData,
         importMode,
         selectedBranchId
@@ -633,7 +670,7 @@ export function GenericImportDialogV2<T>({
         toast.success('Đã cập nhật thành công')
       }
     })
-  }, [previewResult, config, existingData, importMode, selectedBranchId])
+  }, [previewResult, config, existingData, importMode, selectedBranchId, activePricingPolicies])
 
   // ============================================
   // HANDLERS
@@ -789,10 +826,32 @@ export function GenericImportDialogV2<T>({
         return mappedRow
       })
 
+      // Build preloadedDataCache from fetched data (for async lookups in postTransformRow)
+      const pricingPoliciesData: Record<string, unknown> = {};
+      if (activePricingPolicies.length > 0) {
+        pricingPoliciesData.pricingPolicies = activePricingPolicies.map(p => ({
+          systemId: p.systemId,
+          id: p.id,
+          name: p.name,
+        }));
+      }
+      
+      // Merge with preloadedData prop (passed from parent for categories, product types, etc.)
+      const finalPreloadedData = {
+        ...pricingPoliciesData,
+        ...preloadedData,
+      };
+      
+      // Create config with preloadedDataCache
+      const configWithCache: typeof config = {
+        ...config,
+        preloadedDataCache: Object.keys(finalPreloadedData).length > 0 ? finalPreloadedData : undefined,
+      };
+      
       // Preview with validation
       const result = previewImportData(
         mappedData,
-        config,
+        configWithCache,
         existingData,
         importMode,
         selectedBranchId

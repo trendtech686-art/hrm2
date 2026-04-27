@@ -121,10 +121,13 @@ export function InventoryCheckDetailPage() {
     [dbComments]
   );
 
-  // Current employee for comments (from auth)
-  const currentEmployee = authEmployee
-    ? { systemId: authEmployee.systemId, fullName: authEmployee.fullName, avatar: undefined }
-    : null;
+  // Current employee for comments (from auth) - wrap in useMemo to ensure stable reference
+  const currentEmployee = React.useMemo(() => 
+    authEmployee
+      ? { systemId: authEmployee.systemId, fullName: authEmployee.fullName, avatar: undefined }
+      : null,
+    [authEmployee]
+  );
 
   const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
@@ -296,7 +299,7 @@ export function InventoryCheckDetailPage() {
     }
 
     return btns;
-  }, [check, handleCancel, router, handlePrint, handleDuplicate]);
+  }, [check, handleCancel, router, handlePrint, handleDuplicate, isAdmin, can]);
 
   // Breadcrumb with check id
   const breadcrumb = React.useMemo(() => [
@@ -577,6 +580,9 @@ export function InventoryCheckDetailPage() {
                         <div
                           className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
                           onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                          onKeyDown={(e) => { if (e.key === 'Enter') setPreviewImage({ url: imageUrl, title: item.productName }); }}
+                          role="button"
+                          tabIndex={0}
                         >
                           <OptimizedImage 
                             src={imageUrl} 
@@ -648,6 +654,9 @@ export function InventoryCheckDetailPage() {
                     <div
                       className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer shrink-0"
                       onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') setPreviewImage({ url: imageUrl, title: item.productName }); }}
+                      role="button"
+                      tabIndex={0}
                     >
                       <OptimizedImage
                         src={imageUrl}

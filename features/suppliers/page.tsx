@@ -1,8 +1,9 @@
 'use client'
 
-import * as React from "react"
+import { useState, useMemo, useCallback, useEffect, useTransition } from "react"
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { useSuppliers, useSupplierMutations, useTrashMutations, useSupplierStats, supplierKeys } from "./hooks/use-suppliers"
 import { fetchSupplier } from './api/suppliers-api'
 import { useActiveSuppliers } from "./hooks/use-all-suppliers"
@@ -50,26 +51,26 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   // Stats from server component
   const { data: stats } = useSupplierStats(initialStats);
   const queryClient = useQueryClient();
-  const [isFilterPending, startFilterTransition] = React.useTransition();
-  const [hasSynced, setHasSynced] = React.useState(false);
+  const [isFilterPending, startFilterTransition] = useTransition();
+  const [hasSynced, setHasSynced] = useState(false);
 
   // Auto-sync debts on page mount (once)
-  React.useEffect(() => {
+  useEffect(() => {
     if (hasSynced) return;
     setHasSynced(true);
     fetch('/api/suppliers/sync-debts', { method: 'POST' }).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      invalidateRelated(queryClient, 'suppliers');
     }).catch(() => {});
   }, [hasSynced, queryClient]);
 
   // Server-side pagination state
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sorting, setSorting] = useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
   
   // Debounce search
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
@@ -86,7 +87,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     sortOrder: sorting.desc ? 'desc' : 'asc',
   });
   
-  const suppliers = React.useMemo(() => suppliersData?.data ?? [], [suppliersData?.data]);
+  const suppliers = useMemo(() => suppliersData?.data ?? [], [suppliersData?.data]);
   const totalRows = suppliersData?.pagination?.total ?? 0;
   const pageCount = suppliersData?.pagination?.totalPages ?? 1;
   
@@ -97,7 +98,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     onError: (err) => toast.error(err.message || "Thao tác thất bại"),
   });
   const { restore: restoreMutation } = useTrashMutations();
-  const [showImportDialog, setShowImportDialog] = React.useState(false), [showExportDialog, setShowExportDialog] = React.useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false), [showExportDialog, setShowExportDialog] = useState(false);
   const { data: activeSuppliers } = useActiveSuppliers({ enabled: showImportDialog || showExportDialog });
   const { data: branches } = useAllBranches({ enabled: showImportDialog });
   const {  employee: currentUser, can } = useAuth();
@@ -109,23 +110,23 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('suppliers');
-  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+  const filterConfigs: FilterConfig[] = useMemo(() => [
     { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: [{ value: 'Đang Giao Dịch', label: 'Đang giao dịch' }, { value: 'Ngừng Giao Dịch', label: 'Tạm ngừng' }] },
     { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
   ], []);
-  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
-  const panelValues = React.useMemo(() => ({
+  const [advancedFilters, setAdvancedFilters] = useState<Record<string, unknown>>({});
+  const panelValues = useMemo(() => ({
     status: (advancedFilters.status as string[]) ?? [],
     dateRange: advancedFilters.dateRange ?? null,
   }), [advancedFilters]);
-  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+  const handlePanelApply = useCallback((v: Record<string, unknown>) => {
     startFilterTransition(() => {
       setAdvancedFilters(v);
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     });
   }, [setPagination]);
 
-  const headerActions = React.useMemo(() => [
+  const headerActions = useMemo(() => [
     canDelete && <Button key="trash" variant="outline" size="sm" className="gap-2" onClick={() => router.push('/suppliers/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
     canCreate && <Button key="add" size="sm" className="gap-2" onClick={() => router.push('/suppliers/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhà cung cấp</Button>
   ], [router, deletedCount, canCreate, canDelete]);
@@ -136,9 +137,9 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Nhà cung cấp', href: '/suppliers', isCurrent: true }],
   });
 
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = useState(false), [idToDelete, setIdToDelete] = useState<SystemId | null>(null);
 
-  const defaultColumnVisibility = React.useMemo(() => {
+  const defaultColumnVisibility = useMemo(() => {
     const defaultVisibleColumns = ['id', 'name', 'taxCode', 'phone', 'email', 'address', 'website', 'contactPerson', 'accountManager', 'currentDebt', 'bankAccount', 'bankName', 'status', 'createdAt', 'updatedAt'];
     const cols = getColumns(() => {}, () => {}, () => {}, null as unknown as ReturnType<typeof useRouter>);
     const initial: Record<string, boolean> = {};
@@ -147,17 +148,17 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   }, []);
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('suppliers', { visibility: defaultColumnVisibility, pinned: ['select', 'actions'] });
 
-  const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
+  const handleDelete = useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
 
-  const handleRestore = React.useCallback((systemId: SystemId) => {
+  const handleRestore = useCallback((systemId: SystemId) => {
     restoreMutation.mutate(systemId, {
       onSuccess: () => toast.success('Đã khôi phục nhà cung cấp'),
       onError: (err) => toast.error(err.message || 'Khôi phục thất bại'),
     });
   }, [restoreMutation]);
 
-  const handleEdit = React.useCallback((supplier: Supplier) => { router.push(`/suppliers/${supplier.systemId}/edit`); }, [router]);
-  const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, router), [handleDelete, handleRestore, handleEdit, router]);
+  const handleEdit = useCallback((supplier: Supplier) => { router.push(`/suppliers/${supplier.systemId}/edit`); }, [router]);
+  const columns = useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, router), [handleDelete, handleRestore, handleEdit, router]);
 
   const confirmDelete = () => {
     if (idToDelete) {
@@ -168,9 +169,9 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   };
 
   // Server-side pagination: data already sorted/filtered by API
-  const allSelectedRows = React.useMemo(() => suppliers.filter(s => rowSelection[s.systemId]), [suppliers, rowSelection]);
+  const allSelectedRows = useMemo(() => suppliers.filter(s => rowSelection[s.systemId]), [suppliers, rowSelection]);
   const handleRowClick = (supplier: Supplier) => router.push(`/suppliers/${supplier.systemId}`);
-  const handleRowHover = React.useCallback((supplier: Supplier) => {
+  const handleRowHover = useCallback((supplier: Supplier) => {
     queryClient.prefetchQuery({
       queryKey: supplierKeys.detail(supplier.systemId),
       queryFn: () => fetchSupplier(supplier.systemId),
@@ -200,7 +201,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     { label: "Chuyển vào thùng rác", onSelect: handleBulkDelete }
   ];
 
-  const handleImport = React.useCallback(async (importedSuppliers: Partial<Supplier>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
+  const handleImport = useCallback(async (importedSuppliers: Partial<Supplier>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
     let addedCount = 0, updatedCount = 0, skippedCount = 0;
     const errors: Array<{ row: number; message: string }> = [];
 
@@ -233,7 +234,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     if (addedCount > 0 || updatedCount > 0) {
       try {
         await fetch('/api/suppliers/sync-debts', { method: 'POST' });
-        queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+        invalidateRelated(queryClient, 'suppliers');
       } catch {
         // Silent fail - debt sync can be done manually if needed
       }
@@ -248,8 +249,8 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     return { success: addedCount + updatedCount, failed: errors.length, inserted: addedCount, updated: updatedCount, skipped: skippedCount, errors };
   }, [activeSuppliers, createMutation, updateMutation, queryClient]);
 
-  const selectedSuppliers = React.useMemo(() => suppliers.filter(s => rowSelection[s.systemId]), [suppliers, rowSelection]);
-  const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
+  const selectedSuppliers = useMemo(() => suppliers.filter(s => rowSelection[s.systemId]), [suppliers, rowSelection]);
+  const currentUserInfo = useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
   return (
     <div className="space-y-4">

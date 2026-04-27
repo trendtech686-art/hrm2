@@ -1,4 +1,10 @@
-import * as React from 'react';
+import {
+  useRef,
+  useEffect,
+  Fragment,
+  type ReactNode,
+  type MouseEvent,
+} from 'react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -26,12 +32,12 @@ import { MoreHorizontal } from 'lucide-react';
 export interface QuickAction<T = unknown> {
   id: string;
   label: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   shortcut?: string; // e.g., "⌘C", "Ctrl+D"
   variant?: 'default' | 'destructive';
   disabled?: boolean;
   submenu?: QuickAction<T>[];
-  onAction?: (item: T, event?: React.MouseEvent | KeyboardEvent) => void | Promise<void>; // Optional if submenu exists
+  onAction?: (item: T, event?: MouseEvent | KeyboardEvent) => void | Promise<void>; // Optional if submenu exists
 }
 
 export interface QuickActionsMenuProps<T = unknown> {
@@ -42,7 +48,7 @@ export interface QuickActionsMenuProps<T = unknown> {
   actions: QuickAction<T>[];
   
   /** Children to wrap (for context menu) */
-  children?: React.ReactNode;
+  children?: ReactNode;
   
   /** Render as dropdown button instead of context menu */
   asDropdown?: boolean;
@@ -121,10 +127,10 @@ export function QuickActionsMenu<T = unknown>({
   enableKeyboardShortcuts = true,
   className,
 }: QuickActionsMenuProps<T>) {
-  const _menuRef = React.useRef<HTMLDivElement>(null);
+  const _menuRef = useRef<HTMLDivElement>(null);
 
   // Handle keyboard shortcuts
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enableKeyboardShortcuts) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -153,7 +159,7 @@ export function QuickActionsMenu<T = unknown>({
     return menuActions.map((action, index) => {
       if (action.submenu && asDropdown) {
         return (
-          <React.Fragment key={action.id}>
+          <Fragment key={action.id}>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger disabled={action.disabled ?? false}>
                 {action.icon}
@@ -163,17 +169,17 @@ export function QuickActionsMenu<T = unknown>({
                 {renderMenuItems(action.submenu, false)}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-          </React.Fragment>
+          </Fragment>
         );
       }
 
       const MenuItemComponent = isContextMenu ? ContextMenuItem : DropdownMenuItem;
       const itemProps = isContextMenu 
         ? { onSelect: () => action.onAction?.(item) }
-        : { onClick: (e: React.MouseEvent) => action.onAction?.(item, e) };
+        : { onClick: (e: MouseEvent) => action.onAction?.(item, e) };
       
       return (
-        <React.Fragment key={action.id}>
+        <Fragment key={action.id}>
           <MenuItemComponent
             {...itemProps}
             disabled={action.disabled ?? false}
@@ -190,7 +196,7 @@ export function QuickActionsMenu<T = unknown>({
           {action.variant === 'destructive' && index < menuActions.length - 1 && (
             isContextMenu ? <ContextMenuSeparator /> : <DropdownMenuSeparator />
           )}
-        </React.Fragment>
+        </Fragment>
       );
     });
   };
@@ -304,7 +310,7 @@ function formatShortcut(shortcut: string): string {
 export const commonQuickActions = {
   edit: <T extends { id: string }>(
     onEdit: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'edit',
     label: 'Chỉnh sửa',
@@ -315,7 +321,7 @@ export const commonQuickActions = {
 
   delete: <T extends { id: string }>(
     onDelete: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'delete',
     label: 'Xóa',
@@ -327,7 +333,7 @@ export const commonQuickActions = {
 
   duplicate: <T extends { id: string }>(
     onDuplicate: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'duplicate',
     label: 'Nhân bản',
@@ -338,7 +344,7 @@ export const commonQuickActions = {
 
   view: <T extends { id: string }>(
     onView: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'view',
     label: 'Xem chi tiết',
@@ -349,7 +355,7 @@ export const commonQuickActions = {
 
   archive: <T extends { id: string }>(
     onArchive: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'archive',
     label: 'Lưu trữ',
@@ -360,7 +366,7 @@ export const commonQuickActions = {
 
   copy: <T extends { id: string }>(
     onCopy: (item: T) => void,
-    icon?: React.ReactNode,
+    icon?: ReactNode,
     label: string = 'Sao chép'
   ): QuickAction<T> => ({
     id: 'copy',
@@ -372,7 +378,7 @@ export const commonQuickActions = {
 
   print: <T extends { id: string }>(
     onPrint: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'print',
     label: 'In',
@@ -383,7 +389,7 @@ export const commonQuickActions = {
 
   export: <T extends { id: string }>(
     onExport: (item: T) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'export',
     label: 'Xuất file',
@@ -393,9 +399,9 @@ export const commonQuickActions = {
   }),
 
   changeStatus: <T extends { id: string }>(
-    statuses: Array<{ id: string; label: string; icon?: React.ReactNode }>,
+    statuses: Array<{ id: string; label: string; icon?: ReactNode }>,
     onChangeStatus: (item: T, statusId: string) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'change-status',
     label: 'Đổi trạng thái',
@@ -412,7 +418,7 @@ export const commonQuickActions = {
   assignTo: <T extends { id: string }>(
     users: Array<{ id: string; name: string; avatar?: string }>,
     onAssign: (item: T, userId: string) => void,
-    icon?: React.ReactNode
+    icon?: ReactNode
   ): QuickAction<T> => ({
     id: 'assign-to',
     label: 'Giao cho',
@@ -433,7 +439,7 @@ export function useKeyboardShortcuts<T>(
   actions: QuickAction<T>[],
   enabled: boolean = true
 ) {
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enabled || !item) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {

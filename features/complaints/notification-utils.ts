@@ -41,6 +41,17 @@ function isNotificationEnabled(event: keyof ComplaintNotificationSettings): bool
 }
 
 /**
+ * Send email notification for complaint events.
+ * Placeholder implementation — integrate with email service (e.g., Resend, SendGrid, AWS SES).
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _sendEmailNotification(to: string, subject: string, body: string): Promise<void> {
+  // TODO: Integrate with email service
+  // Example: await fetch('/api/notifications/email', { method: 'POST', body: JSON.stringify({ to, subject, body }) });
+  console.warn(`[EMAIL] To: ${to}, Subject: ${subject}`);
+}
+
+/**
  * Wrapper functions for specific complaint events
  */
 export const complaintNotifications = {
@@ -48,6 +59,7 @@ export const complaintNotifications = {
     if (isNotificationEnabled('emailOnCreate')) {
       showNotification('success', message);
       // TODO: Send email notification here
+      // sendEmailNotification('admin@example.com', 'Khiếu nại mới', message);
     }
   },
   
@@ -55,6 +67,7 @@ export const complaintNotifications = {
     if (isNotificationEnabled('emailOnAssign')) {
       showNotification('success', message);
       // TODO: Send email notification here
+      // sendEmailNotification('staff@example.com', 'Công việc mới', message);
     }
   },
   
@@ -62,6 +75,7 @@ export const complaintNotifications = {
     if (isNotificationEnabled('emailOnVerified')) {
       showNotification('success', message);
       // TODO: Send email notification here
+      // sendEmailNotification('customer@example.com', 'Khiếu nại đã xác minh', message);
     }
   },
   
@@ -69,6 +83,7 @@ export const complaintNotifications = {
     if (isNotificationEnabled('emailOnResolved')) {
       showNotification('success', message);
       // TODO: Send email notification here
+      // sendEmailNotification('customer@example.com', 'Khiếu nại đã giải quyết', message);
     }
   },
   

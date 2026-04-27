@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ const formatCurrency = (value?: number) => {
 };
 
 export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
-    const [isExpanded, setIsExpanded] = React.useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Use createdByName from API data, fall back to raw creator ID
     const creatorName = (item as unknown as Record<string, unknown>).createdByName as string || item.creator;
@@ -53,6 +53,7 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
 
     return (
         <div className="border rounded-md bg-background text-sm">
+             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- expand/collapse row */}
              <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)}>
                 <div className="flex items-center min-w-0">
                     <IconComponent className={`h-4 w-4 ${iconColor} mr-3 shrink-0`} />
@@ -82,7 +83,7 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
                     >
                       <Printer className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" aria-label={isExpanded ? "Thu gọn" : "Mở rộng"}>
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </Button>
                 </div>

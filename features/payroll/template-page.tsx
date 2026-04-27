@@ -464,6 +464,7 @@ export function PayrollTemplatePage() {
                     const componentSystemId = asSystemId(component.systemId);
                     const checked = formState.componentSystemIds.includes(componentSystemId);
                     return (
+                      // eslint-disable-next-line jsx-a11y/label-has-associated-control -- Checkbox inside label
                       <label
                         key={component.systemId}
                         className="flex cursor-pointer items-center gap-3 text-sm"
@@ -508,6 +509,7 @@ export function PayrollTemplatePage() {
               </div>
             </div>
 
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- Checkbox inside label */}
             <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
               <Checkbox
                 checked={formState.isDefault}

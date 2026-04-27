@@ -1,15 +1,17 @@
-﻿'use client'
+'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { formatDate } from '@/lib/date-utils';
 import { useSupplier, useSupplierMutations } from './hooks/use-suppliers';
 import { useSupplierStats } from './hooks/use-supplier-stats';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
-import { Card, CardContent, CardHeader } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { ArrowLeft, Edit, Plus, MoreHorizontal } from 'lucide-react';
 import {
@@ -196,11 +198,11 @@ export function SupplierDetailPage() {
   const { employee: authEmployee, can, isAdmin } = useAuth();
   const { isMobile } = useBreakpoint();
 
-    const supplierSystemId = React.useMemo<SystemId | null>(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
+    const supplierSystemId = useMemo<SystemId | null>(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
 
   // ⚡ OPTIMIZED: Track visited tabs to lazy-load financial data
-  const [visitedTabs, setVisitedTabs] = React.useState<Set<string>>(() => new Set(['purchase-history']));
-  const handleTabChange = React.useCallback((tab: string) => {
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['purchase-history']));
+  const handleTabChange = useCallback((tab: string) => {
     setVisitedTabs(prev => {
       if (prev.has(tab)) return prev;
       const next = new Set(prev);
@@ -245,12 +247,13 @@ export function SupplierDetailPage() {
       comments: dbComments, 
       addComment: dbAddComment, 
       deleteComment: dbDeleteComment,
+      updateComment: dbUpdateComment,
       isLoading: _commentsLoading 
     } = useComments('supplier', systemIdParam || '');
     
     // Transform database comments to component format
     type SupplierComment = CommentType<SystemId>;
-    const comments = React.useMemo<SupplierComment[]>(() => 
+    const comments = useMemo<SupplierComment[]>(() => 
       dbComments.map(c => ({
         id: asSystemId(c.systemId),
         content: c.content,
@@ -265,20 +268,20 @@ export function SupplierDetailPage() {
       [dbComments]
     );
 
-    const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
         dbAddComment(content, attachments || []);
     }, [dbAddComment]);
 
-    const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-        // TODO: Add update API support in useComments hook
-    }, []);
+    const handleUpdateComment = useCallback((commentId: string, content: string) => {
+        dbUpdateComment(commentId, content);
+    }, [dbUpdateComment]);
 
-    const handleDeleteComment = React.useCallback((commentId: string) => {
+    const handleDeleteComment = useCallback((commentId: string) => {
         dbDeleteComment(commentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const commentCurrentUser = React.useMemo(() => ({
+    const commentCurrentUser = useMemo(() => ({
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
         name: authEmployee?.fullName || 'Hệ thống',
         avatar: authEmployee?.avatar,
@@ -297,9 +300,9 @@ export function SupplierDetailPage() {
 
   // ⚡ Sync DB currentDebt immediately if it differs from live calculation
   // Uses stats API (always loaded) as source of truth for server-computed debt
-  React.useEffect(() => {
+  useEffect(() => {
     if (!supplier || !supplierStats) return;
-    const dbDebt = Number(supplier.currentDebt ?? 0) ?? 0;
+    const dbDebt = Number(supplier.currentDebt ?? 0) || 0;
     const calculatedDebtValue = supplierStats?.financial?.debtBalance ?? 0;
     if (Math.abs(dbDebt - calculatedDebtValue) > 0.01) {
       updateSupplier.mutate({ systemId: supplier.systemId, currentDebt: calculatedDebtValue } as Parameters<typeof updateSupplier.mutate>[0]);
@@ -307,16 +310,16 @@ export function SupplierDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierStats?.financial?.debtBalance, supplier?.systemId, supplier?.currentDebt, updateSupplier]);
 
-  const [receiptDialogOpen, setReceiptDialogOpen] = React.useState(false);
-  const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
-  const receiptFormRef = React.useRef<HTMLFormElement>(null);
-  const paymentFormRef = React.useRef<HTMLFormElement>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const receiptFormRef = useRef<HTMLFormElement>(null);
+  const paymentFormRef = useRef<HTMLFormElement>(null);
 
   const { create: createReceipt } = useReceiptMutations({
     onCreateSuccess: () => {
       toast.success("Tạo phiếu thu thành công");
       setReceiptDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      invalidateRelated(queryClient, 'receipts');
     },
     onError: (error) => toast.error(error.message || "Tạo phiếu thu thất bại"),
   });
@@ -325,12 +328,12 @@ export function SupplierDetailPage() {
     onCreateSuccess: () => {
       toast.success("Tạo phiếu chi thành công");
       setPaymentDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      invalidateRelated(queryClient, 'payments');
     },
     onError: (error) => toast.error(error.message || "Tạo phiếu chi thất bại"),
   });
 
-  const handleReceiptSubmit = React.useCallback((values: ReceiptFormValues) => {
+  const handleReceiptSubmit = useCallback((values: ReceiptFormValues) => {
     const name = values.payerTypeName?.toLowerCase() || '';
     const category = name.includes('nhà cung cấp') || name.includes('supplier') ? 'other' as const : 'other' as const;
     const { id, payerTypeSystemId, payerSystemId, paymentMethodSystemId, accountSystemId, paymentReceiptTypeSystemId, branchSystemId, ...rest } = values;
@@ -349,7 +352,7 @@ export function SupplierDetailPage() {
     } as ReceiptInput);
   }, [createReceipt, authEmployee]);
 
-  const handlePaymentSubmit = React.useCallback((values: PaymentFormValues) => {
+  const handlePaymentSubmit = useCallback((values: PaymentFormValues) => {
     createPayment.mutate({
       ...values,
       category: 'supplier_payment',
@@ -359,8 +362,8 @@ export function SupplierDetailPage() {
     } as Omit<Payment, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>);
   }, [createPayment, authEmployee]);
 
-        const headerActions = React.useMemo(() => {
-            const actions: React.ReactNode[] = [];
+        const headerActions = useMemo(() => {
+            const actions: ReactNode[] = [];
             if (isAdmin || can('edit_suppliers')) {
                 actions.push(
                     <Button
@@ -395,7 +398,7 @@ export function SupplierDetailPage() {
             return actions;
         }, [router, supplierSystemId, isAdmin, can]);
 
-        const mobileHeaderActions = React.useMemo(() => {
+        const mobileHeaderActions = useMemo(() => {
             if (!isMobile || !(isAdmin || can('edit_suppliers'))) return null;
             return [
                 <DropdownMenu key="mobile-actions">
@@ -430,7 +433,7 @@ export function SupplierDetailPage() {
         ? `Mã: ${supplier.id} • Công nợ hiện tại ${formatCurrency(calculatedDebt)}`
         : undefined;
 
-    const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
+    const breadcrumb = useMemo<BreadcrumbItem[]>(() => {
         const items: BreadcrumbItem[] = [
             { label: 'Trang chủ', href: ROUTES.ROOT },
             { label: 'Nhà cung cấp', href: ROUTES.PROCUREMENT.SUPPLIERS },
@@ -479,13 +482,7 @@ export function SupplierDetailPage() {
 
   const handlePullRefresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['supplier', systemIdParam] }),
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
-      queryClient.invalidateQueries({ queryKey: ['supplier-stats', systemIdParam] }),
-      queryClient.invalidateQueries({ queryKey: ['supplier-purchase-orders', systemIdParam] }),
-      queryClient.invalidateQueries({ queryKey: ['supplier-purchase-returns', systemIdParam] }),
-      queryClient.invalidateQueries({ queryKey: ['supplier-debt', systemIdParam] }),
-      queryClient.invalidateQueries({ queryKey: ['supplier-warranty', systemIdParam] }),
+      invalidateRelated(queryClient, 'suppliers'),
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
     ]);
   };

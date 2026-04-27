@@ -350,6 +350,7 @@ export function getPayslipColumns(
         if (!hasAnyAction) return null;
 
         return (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- wrapper for dropdown trigger
           <div onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

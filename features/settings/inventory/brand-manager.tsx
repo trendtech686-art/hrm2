@@ -86,6 +86,9 @@ function BrandListItem({
         matchesSearch && !isSelected && 'bg-yellow-50 dark:bg-yellow-900/20',
       )}
       onClick={() => onSelect(brand)}
+      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(brand); }}
+      role="button"
+      tabIndex={0}
     >
       {/* Logo or Icon */}
       <div className={cn(

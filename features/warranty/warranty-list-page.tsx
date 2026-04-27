@@ -3,7 +3,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Plus, Table, Settings, Loader2 } from 'lucide-react';
+import { Plus, Settings, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
@@ -88,8 +88,8 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   const { isMobile } = useBreakpoint();
   const { can } = useAuth();
   const canCreate = can('create_warranty');
-  const canEdit = can('edit_warranty');
-  const canDelete = can('delete_warranty');
+  const _canEdit = can('edit_warranty');
+  const _canDelete = can('delete_warranty');
   
   // Stats from Server Component (instant, no loading)
   const { data: stats } = useWarrantyStats(initialStats);
@@ -375,7 +375,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   }, []);
 
   // Context menu handlers
-  const handleGetLink = React.useCallback((systemId: string) => {
+  const _handleGetLink = React.useCallback((systemId: string) => {
     const ticket = tickets.find(t => t.systemId === asSystemId(systemId));
     if (!ticket) {
       toast.error('Không tìm thấy phiếu bảo hành');
@@ -389,7 +389,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     toast.success('Đã copy link tracking vào clipboard');
   }, [tickets]);
 
-  const handleStartProcessing = React.useCallback((systemId: string) => {
+  const _handleStartProcessing = React.useCallback((systemId: string) => {
     const normalizedId = asSystemId(systemId);
     const ticket = tickets.find(t => t.systemId === normalizedId);
     if (!ticket) {
@@ -402,7 +402,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     toast.success('Đã chuyển sang trạng thái Đang xử lý');
   }, [tickets, updateWarrantyMutation]);
 
-  const handleMarkProcessed = React.useCallback((systemId: string) => {
+  const _handleMarkProcessed = React.useCallback((systemId: string) => {
     const normalizedId = asSystemId(systemId);
     const ticket = tickets.find(t => t.systemId === normalizedId);
     if (!ticket) {
@@ -415,7 +415,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     toast.success('Đã hoàn thành xử lý');
   }, [tickets, updateWarrantyMutation]);
 
-  const handleMarkReturned = React.useCallback((systemId: string) => {
+  const _handleMarkReturned = React.useCallback((systemId: string) => {
     router.push(`/warranty/${systemId}`); // Go to detail page to link order
   }, [router]);
 
@@ -619,11 +619,11 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       label: "Get Link Tracking",
       onSelect: handleBulkGetTrackingLink
     },
-    ...(canDelete ? [{
+    ...(_canDelete ? [{
       label: "Hủy",
       onSelect: handleBulkCancel
     }] : []),
-  ], [handleBulkPrint, handleBulkGetTrackingLink, handleBulkCancel, canDelete]);
+  ], [handleBulkPrint, handleBulkGetTrackingLink, handleBulkCancel, _canDelete]);
 
   // ==========================================
   // Header Actions

@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useStockTransfer, useStockTransferMutations } from '../hooks/use-stock-transfers';
@@ -52,7 +52,7 @@ import { useComments } from '@/hooks/use-comments';
 import { formatDateTime } from '@/lib/date-utils';
 import { StockTransferWorkflowCard } from '../components/stock-transfer-workflow-card';
 import type { Subtask } from '@/components/shared/subtask-list';
-import type { StockTransferStatus, StockTransfer } from '@/lib/types/prisma-extended';
+import type { StockTransferStatus } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' d';
 
@@ -104,15 +104,15 @@ export function StockTransferDetailPage() {
     }
   });
   
-  const confirmTransfer = React.useCallback((systemId: string) => {
+  const confirmTransfer = useCallback((systemId: string) => {
     startMutation.mutate(systemId);
   }, [startMutation]);
   
-  const confirmReceive = React.useCallback((systemId: string, items?: { productSystemId: string; receivedQuantity: number }[]) => {
+  const confirmReceive = useCallback((systemId: string, items?: { productSystemId: string; receivedQuantity: number }[]) => {
     completeMutation.mutate({ systemId, receivedItems: items });
   }, [completeMutation]);
   
-  const cancelTransfer = React.useCallback((systemId: string, reason: string) => {
+  const cancelTransfer = useCallback((systemId: string, reason: string) => {
     cancelMutation.mutate({ systemId, reason });
   }, [cancelMutation]);
   
@@ -122,19 +122,19 @@ export function StockTransferDetailPage() {
   const { user, can, isAdmin } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
 
-  const [confirmTransferOpen, setConfirmTransferOpen] = React.useState(false);
-  const [confirmReceiveOpen, setConfirmReceiveOpen] = React.useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
-  const [cancelReason, setCancelReason] = React.useState('');
-  const [receiveItems, setReceiveItems] = React.useState<{ productSystemId: SystemId; receivedQuantity: number }[]>([]);
-  const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
-  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
+  const [confirmTransferOpen, setConfirmTransferOpen] = useState(false);
+  const [confirmReceiveOpen, setConfirmReceiveOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [receiveItems, setReceiveItems] = useState<{ productSystemId: SystemId; receivedQuantity: number }[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(transferData?.fromBranchSystemId);
 
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = useCallback(() => {
     if (!transferData) return;
 
     const fromBranch = findBranchById(transferData.fromBranchSystemId);
@@ -152,7 +152,7 @@ export function StockTransferDetailPage() {
     });
   }, [transferData, findBranchById, storeInfo, print]);
 
-  const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
+  const getProductTypeName = useCallback((productTypeSystemId: SystemId) => {
     const productType = findProductTypeById(productTypeSystemId);
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
@@ -164,7 +164,7 @@ export function StockTransferDetailPage() {
     deleteComment: dbDeleteComment 
   } = useComments('stock_transfer', systemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId as unknown as SystemId,
       content: c.content,
@@ -179,7 +179,7 @@ export function StockTransferDetailPage() {
     [dbComments]
   );
 
-  const currentEmployee = React.useMemo(() => {
+  const currentEmployee = useMemo(() => {
     if (!user?.employeeId) return null;
     return findEmployeeById(asSystemId(user.employeeId));
   }, [user, findEmployeeById]);
@@ -195,13 +195,13 @@ export function StockTransferDetailPage() {
     dbDeleteComment(commentId);
   };
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: currentEmployee?.systemId || asSystemId('system'),
     name: currentEmployee?.fullName || 'Hệ thống',
   }), [currentEmployee]);
 
   // Header actions based on status
-  const headerActions = React.useMemo(() => {
+  const headerActions = useMemo(() => {
     if (!transferData) return null;
 
     // Normalize status for comparison
@@ -251,10 +251,10 @@ export function StockTransferDetailPage() {
         )}
       </div>
     );
-  }, [transferData, router, handlePrint]);
+  }, [transferData, router, handlePrint, isAdmin, can]);
 
   // Breadcrumb
-  const breadcrumb = React.useMemo(() => {
+  const breadcrumb = useMemo(() => {
     if (!transferData) return [];
     return [
       { label: 'Trang chủ', href: ROUTES.ROOT },
@@ -263,7 +263,7 @@ export function StockTransferDetailPage() {
     ];
   }, [transferData]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (transferData) {
       setPageHeader({
         title: `Phiếu chuyển kho ${transferData.id}`,
@@ -513,6 +513,9 @@ export function StockTransferDetailPage() {
                               <div
                                 className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
                                 onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                                onKeyDown={(e) => { if (e.key === 'Enter') setPreviewImage({ url: imageUrl, title: item.productName }); }}
+                                role="button"
+                                tabIndex={0}
                               >
                                 <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                                 <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">

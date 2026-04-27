@@ -2,7 +2,7 @@
  * Hook để sử dụng Print Service trong các component
  */
 
-import * as React from 'react';
+import { useState, useCallback } from 'react';
 import type { TemplateType, PaperSize } from '@/lib/types/prisma-extended';
 import { parseLabelSize, type PrintMargins, DEFAULT_MARGINS, TEMPLATE_TYPES } from '@/features/settings/printer/types';
 import { 
@@ -395,9 +395,9 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
   const { currentBranchId, enabled = true } = normalizedOptions;
   
   const { getTemplate: storeGetTemplate, getDefaultSize: storeGetDefaultSize } = usePrintTemplateConfig({ enabled });
-  const [isLoading] = React.useState(false);
+  const [isLoading] = useState(false);
 
-  const getTemplateContent = React.useCallback((
+  const getTemplateContent = useCallback((
     type: TemplateType, 
     paperSize?: PaperSize, 
     branchId?: string
@@ -417,7 +417,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
     return defaultTemplate?.content || null;
   }, [storeGetTemplate, storeGetDefaultSize, currentBranchId]);
 
-  const processTemplate = React.useCallback((
+  const processTemplate = useCallback((
     templateContent: string,
     data: PrintData,
     lineItems?: PrintLineItem[],
@@ -596,7 +596,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
     return html;
   }, []);
 
-  const print = React.useCallback((type: TemplateType, options: PrintOptions) => {
+  const print = useCallback((type: TemplateType, options: PrintOptions) => {
     const { data, lineItems, secondaryLineItems, paperSize, margins, branchId, entityType, entityId, createdBy } = options;
 
 
@@ -668,12 +668,12 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
         }, 1000);
       });
     }
-  }, [storeGetDefaultSize, storeGetTemplate, getTemplateContent, processTemplate]);
+  }, [storeGetDefaultSize, storeGetTemplate, processTemplate]);
 
   /**
    * In nhiều tài liệu cùng lúc - gộp thành 1 document với page break giữa các tài liệu
    */
-  const printMultiple = React.useCallback((type: TemplateType, optionsList: PrintOptions[]) => {
+  const printMultiple = useCallback((type: TemplateType, optionsList: PrintOptions[]) => {
     if (optionsList.length === 0) return;
 
     // Log activity for the first option that has entityType/entityId
@@ -752,7 +752,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
    * In nhiều loại tài liệu khác nhau cùng lúc - gộp thành 1 popup duy nhất
    * Ví dụ: In đơn hàng + phiếu giao hàng + phiếu đóng gói trong 1 lần
    */
-  const printMixedDocuments = React.useCallback((documents: Array<{ type: TemplateType; options: PrintOptions }>) => {
+  const printMixedDocuments = useCallback((documents: Array<{ type: TemplateType; options: PrintOptions }>) => {
     if (documents.length === 0) return;
 
     // Log activity for the first document that has entityType/entityId
@@ -838,9 +838,9 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
         }, 1000);
       });
     }
-  }, [storeGetDefaultSize, getTemplateContent, processTemplate]);
+  }, [storeGetDefaultSize, storeGetTemplate, getTemplateContent, processTemplate]);
 
-  const getPreview = React.useCallback((type: TemplateType, options: PrintOptions): string => {
+  const getPreview = useCallback((type: TemplateType, options: PrintOptions): string => {
     const { data, lineItems, paperSize, branchId } = options;
 
     // Lấy template content
@@ -853,13 +853,13 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
     return processTemplate(templateContent, data, lineItems);
   }, [getTemplateContent, processTemplate]);
 
-  const hasTemplate = React.useCallback((type: TemplateType, paperSize?: PaperSize): boolean => {
+  const hasTemplate = useCallback((type: TemplateType, paperSize?: PaperSize): boolean => {
     const size = paperSize || storeGetDefaultSize(type);
     const template = storeGetTemplate(type, size, currentBranchId);
     return !!template?.content;
   }, [storeGetDefaultSize, storeGetTemplate, currentBranchId]);
 
-  const getAvailableSizes = React.useCallback((type: TemplateType): PaperSize[] => {
+  const getAvailableSizes = useCallback((type: TemplateType): PaperSize[] => {
     const sizes: PaperSize[] = ['50x30', 'K57', 'K80', 'A4', 'A5'];
     return sizes.filter(size => {
       const template = storeGetTemplate(type, size, currentBranchId);
@@ -867,7 +867,7 @@ export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
     });
   }, [storeGetTemplate, currentBranchId]);
 
-  const getDefaultSize = React.useCallback((type: TemplateType): PaperSize => {
+  const getDefaultSize = useCallback((type: TemplateType): PaperSize => {
     return storeGetDefaultSize(type);
   }, [storeGetDefaultSize]);
 

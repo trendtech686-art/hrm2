@@ -529,9 +529,12 @@ export function DocumentsManager({
       </AlertDialog>
       
       {previewUrl && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setPreviewUrl(null)}
+          onKeyDown={(e) => e.key === 'Enter' && setPreviewUrl(null)}
+          role="button"
+          tabIndex={0}
         >
           <OptimizedImage src={previewUrl} alt="Preview" width={800} height={600} className="max-w-full max-h-full object-contain" />
           <Button

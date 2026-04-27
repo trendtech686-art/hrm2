@@ -2,6 +2,7 @@
 
 import type { ProductCategory } from "../../settings/inventory/types"
 import type { SystemId } from "../../../lib/id-types"
+import { useAllCategories } from "../hooks/use-all-categories"
 
 // ✅ These imports are only loaded when this wrapper component is dynamically imported
 import { GenericImportDialogV2 } from "../../../components/shared/generic-import-dialog-v2";
@@ -35,6 +36,18 @@ export function CategoryImportDialog({
   onImport,
   currentUser,
 }: CategoryImportDialogProps) {
+  const { data: allCategories } = useAllCategories();
+  
+  // Build preloadedData for category lookup in postTransformRow
+  const preloadedData = {
+    categories: allCategories.map(c => ({
+      systemId: c.systemId,
+      id: c.id,
+      name: c.name,
+      path: c.path,
+    })),
+  };
+  
   return (
     <GenericImportDialogV2<ProductCategory>
       open={open}
@@ -43,6 +56,7 @@ export function CategoryImportDialog({
       existingData={existingData}
       onImport={onImport}
       currentUser={currentUser}
+      preloadedData={preloadedData}
     />
   );
 }

@@ -1,34 +1,5 @@
-/**
- * Server-side Notification Helper
- *
- * Create notifications from any API route or server action.
- * All functions are server-only — do NOT import from client components.
- *
- * @example
- * import { createNotification, createBulkNotifications } from '@/lib/notifications'
- *
- * // Single notification
- * await createNotification({
- *   type: 'task',
- *   title: 'Công việc mới',
- *   message: 'Bạn được giao công việc "Kiểm kho"',
- *   link: '/tasks/TASK001',
- *   recipientId: 'EMP000001',
- *   senderId: 'EMP000002',
- *   senderName: 'Nguyễn Văn A',
- * })
- *
- * // Bulk notifications
- * await createBulkNotifications({
- *   type: 'order',
- *   title: 'Đơn hàng mới',
- *   message: 'Đơn hàng DH000123 cần xử lý',
- *   link: '/orders/DH000123',
- *   recipientIds: ['EMP001', 'EMP002', 'EMP003'],
- *   senderId: 'EMP000004',
- *   senderName: 'Trần Thị B',
- * })
- */
+// This file uses only Prisma types and server-side utilities
+// No React imports needed
 
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
@@ -151,8 +122,7 @@ interface SettingsMapping {
 }
 
 // Helper to wrap typed reader into Record<string, unknown> reader
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const asReader = (fn: () => Promise<any>): (() => Promise<Record<string, unknown>>) => fn
+const asReader = <T extends object>(fn: () => Promise<T>): (() => Promise<Record<string, unknown>>) => fn as unknown as (() => Promise<Record<string, unknown>>)
 
 const salesReader = asReader(getSalesNotificationSettings)
 const warehouseReader = asReader(getWarehouseNotificationSettings)

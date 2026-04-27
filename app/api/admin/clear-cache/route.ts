@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     if (pattern) {
       // Clear specific pattern
       const count = cache.deletePattern(pattern)
-      console.log(`[Cache] Cleared ${count} entries matching pattern: ${pattern}`)
+      console.warn(`[Cache] Cleared ${count} entries matching pattern: ${pattern}`)
       getUserNameFromDb(session.user?.id).then(userName =>
         prisma.activityLog.create({
           data: {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       // Clear all
       const stats = cache.stats()
       cache.clear()
-      console.log(`[Cache] Cleared all ${stats.size} entries`)
+      console.warn(`[Cache] Cleared all ${stats.size} entries`)
       getUserNameFromDb(session.user?.id).then(userName =>
         prisma.activityLog.create({
           data: {

@@ -120,7 +120,7 @@ export function getAttendanceColumns(options: AttendanceColumnsOptions): ColumnD
       header: '',
       size: 50,
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div role="button" tabIndex={0} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-11 w-11">

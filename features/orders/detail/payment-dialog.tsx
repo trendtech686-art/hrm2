@@ -321,9 +321,9 @@ function BankTransferSection({ form, bankAccounts, amount, reference }: BankTran
       {/* Bank account selector */}
       {bankAccounts.length > 0 && (
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Tài khoản nhận</label>
+          <label htmlFor="bank-account-select" className="text-sm font-medium">Tài khoản nhận</label>
           <Select value={selectedAccountId} onValueChange={handleAccountChange}>
-            <SelectTrigger>
+            <SelectTrigger id="bank-account-select">
               <SelectValue placeholder="-- Chọn tài khoản --" />
             </SelectTrigger>
             <SelectContent>

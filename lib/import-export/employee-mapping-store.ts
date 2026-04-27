@@ -12,7 +12,7 @@ import { logError } from '@/lib/logger'
 // Generate simple ID
 const generateMappingId = (): string => {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 6);
+  const random = crypto.randomUUID().replace(/-/g, '').slice(0, 4);
   return `MAP_${timestamp}_${random}`;
 };
 

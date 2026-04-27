@@ -22,6 +22,7 @@ import type {
 } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { REPORTS_QUERY_GC_MS, REPORTS_QUERY_STALE_MS } from '../lib/reports-query-config';
+import { reportKeys } from './report-keys';
 
 const EMPTY_TIME_SUMMARY = {
   totalShipments: 0,
@@ -53,16 +54,12 @@ export function useDeliveryTimeReport(
   _filters?: { branchIds?: SystemId[]; carrierIds?: string[] },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'delivery-aggregate',
-      'time-series',
-      dateRange.from,
-      dateRange.to,
-      timeGrouping,
-      _filters?.branchIds,
-      _filters?.carrierIds,
-    ],
+    queryKey: reportKeys.delivery.timeSeries({
+      dateRange,
+      grouping: timeGrouping,
+      branchIds: _filters?.branchIds,
+      carrierIds: _filters?.carrierIds,
+    }),
     queryFn: () =>
       fetchDeliveryTimeSeries({
         dateRange,
@@ -90,15 +87,11 @@ export function useDeliveryEmployeeReport(
   _filters?: { branchIds?: SystemId[]; carrierIds?: string[] },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'delivery-aggregate',
-      'employee',
-      dateRange.from,
-      dateRange.to,
-      _filters?.branchIds,
-      _filters?.carrierIds,
-    ],
+    queryKey: reportKeys.delivery.byEmployee({
+      dateRange,
+      branchIds: _filters?.branchIds,
+      carrierIds: _filters?.carrierIds,
+    }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'employee',
@@ -128,17 +121,13 @@ export function useDeliveryShipmentReport(
   const limit = pagination?.pageSize ?? 20;
 
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'delivery-aggregate',
-      'shipment-list',
-      dateRange.from,
-      dateRange.to,
-      filters?.branchIds,
-      filters?.carrierIds,
+    queryKey: reportKeys.delivery.shipmentList({
+      dateRange,
+      branchIds: filters?.branchIds,
+      carrierIds: filters?.carrierIds,
       page,
-      limit,
-    ],
+      pageSize: limit,
+    }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'shipment-list',
@@ -168,15 +157,11 @@ export function useDeliveryCarrierReport(
   _filters?: { branchIds?: SystemId[]; carrierIds?: string[] },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'delivery-aggregate',
-      'carrier',
-      dateRange.from,
-      dateRange.to,
-      _filters?.branchIds,
-      _filters?.carrierIds,
-    ],
+    queryKey: reportKeys.delivery.byCarrier({
+      dateRange,
+      branchIds: _filters?.branchIds,
+      carrierIds: _filters?.carrierIds,
+    }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'carrier',
@@ -199,7 +184,7 @@ export function useDeliveryCarrierReport(
 
 export function useDeliveryBranchReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'delivery-aggregate', 'branch', dateRange.from, dateRange.to],
+    queryKey: reportKeys.delivery.byBranch({ dateRange }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'branch',
@@ -223,15 +208,11 @@ export function useDeliveryCustomerReport(
   _filters?: { branchIds?: SystemId[]; carrierIds?: string[] },
 ) {
   const query = useQuery({
-    queryKey: [
-      'reports',
-      'delivery-aggregate',
-      'customer',
-      dateRange.from,
-      dateRange.to,
-      _filters?.branchIds,
-      _filters?.carrierIds,
-    ],
+    queryKey: reportKeys.delivery.byCustomer({
+      dateRange,
+      branchIds: _filters?.branchIds,
+      carrierIds: _filters?.carrierIds,
+    }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'customer',
@@ -254,7 +235,7 @@ export function useDeliveryCustomerReport(
 
 export function useDeliveryChannelReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'delivery-aggregate', 'channel', dateRange.from, dateRange.to],
+    queryKey: reportKeys.delivery.byChannel({ dateRange }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'channel',
@@ -275,7 +256,7 @@ export function useDeliveryChannelReport(dateRange: ReportDateRange) {
 
 export function useDeliverySourceReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'delivery-aggregate', 'source', dateRange.from, dateRange.to],
+    queryKey: reportKeys.delivery.bySource({ dateRange }),
     queryFn: () =>
       fetchDeliveryReport({
         view: 'source',

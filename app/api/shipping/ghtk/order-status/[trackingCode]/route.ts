@@ -6,6 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { randomUUID } from 'crypto';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
@@ -22,7 +23,7 @@ export async function GET(
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
-  const requestId = Math.random().toString(36).substring(2, 11);
+  const requestId = randomUUID();
   const { trackingCode } = await params;
 
   try {

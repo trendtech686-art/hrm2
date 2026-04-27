@@ -181,13 +181,16 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
             <div className="space-y-4 pt-4">
               {/* Phiếu chi */}
               {payment && (
-                <div 
+                <div
                   className={`flex items-center justify-between p-3 rounded-md border ${
-                    payment.status === 'cancelled' 
-                      ? 'bg-muted/50 opacity-60' 
+                    payment.status === 'cancelled'
+                      ? 'bg-muted/50 opacity-60'
                       : 'bg-card hover:bg-accent'
                   } transition-colors cursor-pointer`}
                   onClick={() => router.push(`/payments/${payment.systemId}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/payments/${payment.systemId}`); }}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="flex gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">
@@ -217,13 +220,16 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
               
               {/* Phiếu thu */}
               {receipt && (
-                <div 
+                <div
                   className={`flex items-center justify-between p-3 rounded-md border ${
-                    receipt.status === 'cancelled' 
-                      ? 'bg-muted/50 opacity-60' 
+                    receipt.status === 'cancelled'
+                      ? 'bg-muted/50 opacity-60'
                       : 'bg-card hover:bg-accent'
                   } transition-colors cursor-pointer`}
                   onClick={() => router.push(`/receipts/${receipt.systemId}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/receipts/${receipt.systemId}`); }}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="flex gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">
@@ -257,13 +263,16 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                 const icBalanced = inventoryCheck.status?.toLowerCase() === 'balanced';
                 return (
                 <div className="space-y-2">
-                  <div 
+                  <div
                     className={`flex items-center justify-between p-3 rounded-md border ${
-                      icCancelled 
-                        ? 'bg-muted/50 opacity-60' 
+                      icCancelled
+                        ? 'bg-muted/50 opacity-60'
                         : 'bg-card hover:bg-accent'
                     } transition-colors cursor-pointer`}
                     onClick={() => router.push(`/inventory-checks/${inventoryCheck.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/inventory-checks/${inventoryCheck.systemId}`); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex gap-2 flex-col items-start">
                       <div className="flex items-center gap-2">
@@ -287,7 +296,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+                                <span className="inline-flex items-center">
                                   <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
                                 </span>
                               </TooltipTrigger>
@@ -323,11 +332,14 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                 <div 
                   key={penalty.systemId}
                   className={`flex items-center justify-between p-3 rounded-md border ${
-                    penCancelled 
-                      ? 'bg-muted/50 opacity-60' 
+                    penCancelled
+                      ? 'bg-muted/50 opacity-60'
                       : 'bg-card hover:bg-accent'
                   } transition-colors cursor-pointer`}
                   onClick={() => router.push(`/penalties/${penalty.systemId}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/penalties/${penalty.systemId}`); }}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="flex gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">

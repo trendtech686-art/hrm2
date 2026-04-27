@@ -39,6 +39,27 @@ import { usePublicComplaintTracking, addPublicComment, type PublicCompensationIt
 import { useQueryClient } from '@tanstack/react-query';
 
 /**
+ * Hydration-safe copyright year component
+ */
+function CopyrightYear({ companyName, complaintId }: { companyName: string; complaintId: string }) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <p className="text-xs text-muted-foreground">© — {companyName}. Mã khiếu nại: <span className="font-mono">—</span></p>;
+  }
+
+  return (
+    <p className="text-xs text-muted-foreground">
+      © {new Date().getFullYear()} {companyName}. Mã khiếu nại: <span className="font-mono">{complaintId}</span>
+    </p>
+  );
+}
+
+/**
  * Public Complaint Tracking Page
  * Allows customers to track their complaint progress without login
  */
@@ -1219,9 +1240,7 @@ export function PublicComplaintTrackingPage({ complaintId }: { complaintId: stri
           <p className="text-xs sm:text-sm text-muted-foreground">
             Có thắc mắc? Liên hệ hotline: <a href={`tel:${hotline}`} className="font-semibold transition-colors hover:text-primary">{hotline}</a>
           </p>
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {companyName}. Mã khiếu nại: <span className="font-mono">{complaint.id}</span>
-          </p>
+          <CopyrightYear companyName={companyName} complaintId={complaint.id ?? ''} />
         </footer>
         </div>
       </div>

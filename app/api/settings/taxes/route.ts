@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiSuccessCached, apiError, parsePagination } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'

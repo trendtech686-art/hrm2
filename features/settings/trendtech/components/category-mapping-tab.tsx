@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+﻿import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -6,24 +6,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettings, useTrendtechCategoryMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
+import { useTrendtechSettings, useTrendtechCategoryMutations, useTrendtechCategoryMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { useActiveCategories } from '@/features/categories/hooks/use-all-categories';
 import { nanoid } from 'nanoid';
 import { asSystemId } from '@/lib/id-types';
 
 export function CategoryMappingTab() {
   const { data: settings } = useTrendtechSettings();
+  const { setCategories } = useTrendtechCategoryMutations({ onSuccess: () => {} });
   const { addCategoryMapping, deleteCategoryMapping } = useTrendtechCategoryMappingMutations({
     onSuccess: () => {},
   });
   const { addLog } = useTrendtechLogMutations();
   const { data: hrmCategories = [] } = useActiveCategories();
-  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const trendtechCategories = settings?.categories ?? [];
-  const mappings = React.useMemo(() => settings?.categoryMappings ?? [], [settings?.categoryMappings]);
+  const mappings = useMemo(() => settings?.categoryMappings ?? [], [settings?.categoryMappings]);
 
   // Get unmapped HRM categories
-  const unmappedHrmCategories = React.useMemo(() => {
+  const unmappedHrmCategories = useMemo(() => {
     const mappedIds = new Set(mappings.map((m) => m.hrmCategorySystemId));
     return hrmCategories.filter((c) => !mappedIds.has(asSystemId(c.systemId)));
   }, [hrmCategories, mappings]);
@@ -31,12 +32,48 @@ export function CategoryMappingTab() {
   const handleSyncCategories = async () => {
     setIsSyncing(true);
     try {
-      // TODO: Fetch categories from Trendtech API
-      // const categories = await fetchTrendtechCategories();
-      // await setCategories.mutateAsync(categories);
-      toast.success('Đã đồng bộ danh sách danh mục từ Trendtech');
+      // Fetch categories from Trendtech API
+      const response = await fetch(`${settings?.apiUrl}/categories`, {
+        headers: {
+          'Authorization': `Bearer ${settings?.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      const trendtechCategories = json.categories || json.data || [];
+
+      // Transform to TrendtechCategory format
+      const categories = trendtechCategories.map((c: { id: number; name: string; slug?: string; description?: string; image?: string; isActive?: boolean; sortOrder?: number }) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug || '',
+        description: c.description,
+        image: c.image,
+        isActive: c.isActive ?? true,
+        sortOrder: c.sortOrder ?? 0,
+      }));
+
+      await setCategories.mutateAsync(categories);
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'success',
+        message: `Đã đồng bộ ${categories.length} danh mục từ Trendtech`,
+        details: { total: categories.length, success: categories.length, failed: 0 },
+      });
+      toast.success(`Đã đồng bộ ${categories.length} danh mục từ Trendtech`);
     } catch (error) {
       toast.error('Lỗi đồng bộ danh mục: ' + (error instanceof Error ? error.message : 'Unknown'));
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'error',
+        message: 'Lỗi đồng bộ danh mục',
+        details: { error: error instanceof Error ? error.message : 'Unknown' },
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -187,8 +224,8 @@ function AddMappingForm({
   trendtechCategories: Array<{ id: string; name: string }>;
   onAdd: (hrmId: string, trendtechId: string) => void;
 }) {
-  const [selectedHrm, setSelectedHrm] = React.useState('');
-  const [selectedTrendtech, setSelectedTrendtech] = React.useState('');
+  const [selectedHrm, setSelectedHrm] = useState('');
+  const [selectedTrendtech, setSelectedTrendtech] = useState('');
 
   const handleAdd = () => {
     if (selectedHrm && selectedTrendtech) {
@@ -201,9 +238,9 @@ function AddMappingForm({
   return (
     <div className="flex items-end gap-4">
       <div className="flex-1 space-y-2">
-        <label className="text-sm font-medium">Danh mục HRM</label>
+        <label htmlFor="category-mapping-hrm" className="text-sm font-medium">Danh mục HRM</label>
         <Select value={selectedHrm} onValueChange={setSelectedHrm}>
-          <SelectTrigger>
+          <SelectTrigger id="category-mapping-hrm">
             <SelectValue placeholder="Chọn danh mục HRM..." />
           </SelectTrigger>
           <SelectContent>
@@ -217,9 +254,9 @@ function AddMappingForm({
       </div>
 
       <div className="flex-1 space-y-2">
-        <label className="text-sm font-medium">Danh mục Trendtech</label>
+        <label htmlFor="category-mapping-trendtech" className="text-sm font-medium">Danh mục Trendtech</label>
         <Select value={selectedTrendtech} onValueChange={setSelectedTrendtech}>
-          <SelectTrigger>
+          <SelectTrigger id="category-mapping-trendtech">
             <SelectValue placeholder="Chọn danh mục Trendtech..." />
           </SelectTrigger>
           <SelectContent>

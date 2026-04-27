@@ -44,7 +44,12 @@ export const customerKeys = {
   debt: (id: string) => [...customerKeys.all, 'debt', id] as const,
   orders: (id: string, params?: { page?: number; limit?: number }) => [...customerKeys.all, 'orders', id, params] as const,
   stats: () => [...customerKeys.all, 'stats'] as const,
+  customerStats: (customerId: string) => [...customerKeys.all, 'stats', customerId] as const,
   groups: () => [...customerKeys.all, 'groups'] as const,
+  // Customer-related data keys
+  products: (customerId: string) => [...customerKeys.all, 'products', customerId] as const,
+  debtTransactions: (customerId: string, page?: number, pageSize?: number) =>
+    [...customerKeys.all, 'debt', 'transactions', customerId, page, pageSize] as const,
 };
 
 // Types for initial data from Server Components

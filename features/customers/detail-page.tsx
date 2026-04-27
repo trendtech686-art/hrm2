@@ -1,9 +1,10 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { formatDate as formatDateUtil, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -96,15 +97,18 @@ import {
 // Simple detail item component - no icons for cleaner look
 const DetailItem = ({ label, value, onClick, className = '' }: { 
   label: string; 
-  value?: React.ReactNode; 
+  value?: ReactNode; 
   onClick?: (() => void) | undefined;
   className?: string;
 }) => (
   <div className={`space-y-1 ${className}`}>
     <dt className="text-sm text-muted-foreground">{label}</dt>
-    <dd 
+    <dd
       className={`text-sm font-medium ${onClick ? 'text-primary hover:underline cursor-pointer' : ''}`}
       onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter') onClick(); } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       {value !== null && value !== undefined && value !== '' ? value : '—'}
     </dd>
@@ -151,9 +155,9 @@ export function CustomerDetailPage() {
     },
   });
   
-  const [activeTab, setActiveTab] = React.useState('info');
-  const [visitedTabs, setVisitedTabs] = React.useState<Set<string>>(() => new Set(['info']));
-  const handleTabChange = React.useCallback((tab: string) => {
+  const [activeTab, setActiveTab] = useState('info');
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['info']));
+  const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
     setVisitedTabs(prev => {
       if (prev.has(tab)) return prev;
@@ -162,9 +166,9 @@ export function CustomerDetailPage() {
       return next;
     });
   }, []);
-  const [orderDrilldownSearch, setOrderDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
-  const [warrantyDrilldownSearch, setWarrantyDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
-  const [complaintDrilldownSearch, setComplaintDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
+  const [orderDrilldownSearch, setOrderDrilldownSearch] = useState<DrilldownSearch | null>(null);
+  const [warrantyDrilldownSearch, setWarrantyDrilldownSearch] = useState<DrilldownSearch | null>(null);
+  const [complaintDrilldownSearch, setComplaintDrilldownSearch] = useState<DrilldownSearch | null>(null);
 
   // ⚡ Server-side stats: single API call for stats cards (orders, warranty, complaint counts, debt)
   const { data: customerStats, isLoaded: customerStatsLoaded } = useCustomerProfileStats(systemId);
@@ -189,7 +193,7 @@ export function CustomerDetailPage() {
     deleteComment: dbDeleteComment 
   } = useComments('customer', systemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId as unknown as SystemId,
       content: c.content,
@@ -204,23 +208,23 @@ export function CustomerDetailPage() {
     [dbComments]
   );
 
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+  const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
   }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+  const handleUpdateComment = useCallback((_commentId: string, _content: string) => {
   }, []);
 
-  const handleDeleteComment = React.useCallback((commentId: string) => {
+  const handleDeleteComment = useCallback((commentId: string) => {
     dbDeleteComment(commentId);
   }, [dbDeleteComment]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  const focusTab = React.useCallback((tab: string, scrollToSection = false) => {
+  const focusTab = useCallback((tab: string, scrollToSection = false) => {
     handleTabChange(tab);
     if (!scrollToSection || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
       return;
@@ -235,15 +239,15 @@ export function CustomerDetailPage() {
     });
   }, [handleTabChange]);
 
-  const buildDrilldownSearch = React.useCallback((query: string): DrilldownSearch => ({
+  const buildDrilldownSearch = useCallback((query: string): DrilldownSearch => ({
     query,
     token: generateSubEntityId('token'),
   }), []);
 
-  const handleOrderSearchApplied = React.useCallback(() => setOrderDrilldownSearch(null), []);
-  const handleWarrantySearchApplied = React.useCallback(() => setWarrantyDrilldownSearch(null), []);
-  const handleComplaintSearchApplied = React.useCallback(() => setComplaintDrilldownSearch(null), []);
-  const handleOrderStatusFilter = React.useCallback((status?: OrderMainStatus | 'failed') => {
+  const handleOrderSearchApplied = useCallback(() => setOrderDrilldownSearch(null), []);
+  const handleWarrantySearchApplied = useCallback(() => setWarrantyDrilldownSearch(null), []);
+  const handleComplaintSearchApplied = useCallback(() => setComplaintDrilldownSearch(null), []);
+  const handleOrderStatusFilter = useCallback((status?: OrderMainStatus | 'failed') => {
     focusTab('purchase-history', true);
     if (!status) return;
     if (status === 'failed') {
@@ -252,14 +256,14 @@ export function CustomerDetailPage() {
     }
     setOrderDrilldownSearch(buildDrilldownSearch(status));
   }, [focusTab, buildDrilldownSearch]);
-  const handleDebtCardClick = React.useCallback(() => focusTab('debt', true), [focusTab]);
-  const handleWarrantyCardClick = React.useCallback((filterActive?: boolean) => {
+  const handleDebtCardClick = useCallback(() => focusTab('debt', true), [focusTab]);
+  const handleWarrantyCardClick = useCallback((filterActive?: boolean) => {
     focusTab('warranty', true);
     if (filterActive) {
       setWarrantyDrilldownSearch(buildDrilldownSearch('pending'));
     }
   }, [focusTab, buildDrilldownSearch]);
-  const handleComplaintCardClick = React.useCallback((filterActive?: boolean) => {
+  const handleComplaintCardClick = useCallback((filterActive?: boolean) => {
     focusTab('complaints', true);
     if (filterActive) {
       setComplaintDrilldownSearch(buildDrilldownSearch('pending'));
@@ -271,21 +275,21 @@ export function CustomerDetailPage() {
 
   // Helper type for settings data that could be array or object with data property
   type SettingsDataResult<T> = T[] | { data: T[] } | undefined;
-  const extractData = React.useCallback(<T,>(data: SettingsDataResult<T>): T[] => 
+  const extractData = useCallback(<T,>(data: SettingsDataResult<T>): T[] => 
     Array.isArray(data) ? data : (data as { data: T[] } | undefined)?.data ?? [], []);
     
-  const customerTypes = React.useMemo(() => extractData(allSettingsData?.types), [extractData, allSettingsData?.types]);
-  const customerGroups = React.useMemo(() => extractData(allSettingsData?.groups), [extractData, allSettingsData?.groups]);
-  const customerSources = React.useMemo(() => extractData(allSettingsData?.sources), [extractData, allSettingsData?.sources]);
-  const paymentTerms = React.useMemo(() => extractData(allSettingsData?.paymentTerms), [extractData, allSettingsData?.paymentTerms]);
-  const creditRatings = React.useMemo(() => extractData(allSettingsData?.creditRatings), [extractData, allSettingsData?.creditRatings]);
+  const customerTypes = useMemo(() => extractData(allSettingsData?.types), [extractData, allSettingsData?.types]);
+  const customerGroups = useMemo(() => extractData(allSettingsData?.groups), [extractData, allSettingsData?.groups]);
+  const customerSources = useMemo(() => extractData(allSettingsData?.sources), [extractData, allSettingsData?.sources]);
+  const paymentTerms = useMemo(() => extractData(allSettingsData?.paymentTerms), [extractData, allSettingsData?.paymentTerms]);
+  const creditRatings = useMemo(() => extractData(allSettingsData?.creditRatings), [extractData, allSettingsData?.creditRatings]);
 
   // Lookup names (match by both systemId and business id since form stores business id)
-  const getTypeName = React.useCallback((id?: string) => id ? customerTypes.find(t => t.systemId === id || t.id === id)?.name : undefined, [customerTypes]);
-  const getGroupName = React.useCallback((id?: string) => id ? customerGroups.find(g => g.systemId === id || g.id === id)?.name : undefined, [customerGroups]);
-  const getSourceName = React.useCallback((id?: string) => id ? customerSources.find(s => s.systemId === id || s.id === id)?.name : undefined, [customerSources]);
-  const getPaymentTermName = React.useCallback((id?: string) => id ? paymentTerms.find(p => p.systemId === id || p.id === id)?.name : undefined, [paymentTerms]);
-  const getCreditRatingName = React.useCallback((id?: string) => id ? creditRatings.find(c => c.systemId === id || c.id === id)?.name : undefined, [creditRatings]);
+  const getTypeName = useCallback((id?: string) => id ? customerTypes.find(t => t.systemId === id || t.id === id)?.name : undefined, [customerTypes]);
+  const getGroupName = useCallback((id?: string) => id ? customerGroups.find(g => g.systemId === id || g.id === id)?.name : undefined, [customerGroups]);
+  const getSourceName = useCallback((id?: string) => id ? customerSources.find(s => s.systemId === id || s.id === id)?.name : undefined, [customerSources]);
+  const getPaymentTermName = useCallback((id?: string) => id ? paymentTerms.find(p => p.systemId === id || p.id === id)?.name : undefined, [paymentTerms]);
+  const getCreditRatingName = useCallback((id?: string) => id ? creditRatings.find(c => c.systemId === id || c.id === id)?.name : undefined, [creditRatings]);
 
   // ⚡ Data from paginated API — use result.data for tables
   const customerOrders = ordersResult.data;
@@ -294,7 +298,7 @@ export function CustomerDetailPage() {
   const customerSalesReturns = salesReturnsResult.data;
   
   // Combine orders with their return info (for display only)
-  const customerOrdersWithReturns = React.useMemo<OrderWithReturns[]>(() => {
+  const customerOrdersWithReturns = useMemo<OrderWithReturns[]>(() => {
     return customerOrders.map(order => {
       const returnsForOrder = customerSalesReturns.filter(sr => sr.orderSystemId === order.systemId);
       const totalReturnValue = returnsForOrder.reduce((sum, sr) => sum + sr.totalReturnValue, 0);
@@ -308,10 +312,10 @@ export function CustomerDetailPage() {
   }, [customerOrders, customerSalesReturns]);
   
   // Dynamic columns with return info - use extracted function from types
-  const orderColumnsWithReturns = React.useMemo<ColumnDef<OrderWithReturns>[]>(() => createOrderColumnsWithReturns(), []);
+  const orderColumnsWithReturns = useMemo<ColumnDef<OrderWithReturns>[]>(() => createOrderColumnsWithReturns(), []);
   
   // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
-  const deliveredCustomerOrders = React.useMemo(
+  const deliveredCustomerOrders = useMemo(
     () => customerOrders.filter(order => 
       order.status !== 'Đã hủy' &&
       (order.status === 'Hoàn thành' || 
@@ -320,11 +324,11 @@ export function CustomerDetailPage() {
     ),
     [customerOrders]
   );
-  const failedDeliveryOrders = React.useMemo(
+  const failedDeliveryOrders = useMemo(
     () => customerOrders.filter(order => order.deliveryStatus === 'Chờ giao lại'),
     [customerOrders]
   );
-  const _orderStatusBreakdown = React.useMemo(() => {
+  const _orderStatusBreakdown = useMemo(() => {
     return customerOrders.reduce(
       (acc, order) => {
         if (order.status === 'Hoàn thành') acc.hoanThanh += 1;
@@ -340,7 +344,7 @@ export function CustomerDetailPage() {
   // Warranty tickets from paginated API
   const customerWarrantyTickets = warrantiesResult.data as WarrantyTicket[];
   const _customerWarrantyCount = warrantiesResult.pagination.total;
-  const _activeWarrantyCount = React.useMemo(
+  const _activeWarrantyCount = useMemo(
     () => customerWarrantyTickets.filter(ticket => !['returned', 'completed', 'cancelled'].includes(ticket.status)).length,
     [customerWarrantyTickets]
   );
@@ -348,7 +352,7 @@ export function CustomerDetailPage() {
   // ⚡ Complaints from paginated API
   const customerComplaints = complaintsResult.data;
   const _customerComplaintCount = complaintsResult.pagination.total;
-  const _activeComplaintCount = React.useMemo(
+  const _activeComplaintCount = useMemo(
     () => customerComplaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length,
     [customerComplaints]
   );
@@ -358,7 +362,7 @@ export function CustomerDetailPage() {
   const { findById: _findProductById } = useProductFinder();
 
   // ⚡ Products from server-side paginated API with computed daysRemaining
-  const purchasedProducts = React.useMemo(() => {
+  const purchasedProducts = useMemo(() => {
     return productsResult.data.map(item => ({
       ...item,
       daysRemaining: item.warrantyExpiry ? calculateDaysRemaining(item.warrantyExpiry) : 0,
@@ -366,7 +370,7 @@ export function CustomerDetailPage() {
   }, [productsResult.data]);
 
   // ⚡ Lazy: only compute when addresses tab is active
-  const addressTableData: AddressRow[] = React.useMemo(() => {
+  const addressTableData: AddressRow[] = useMemo(() => {
     if (!customer || activeTab !== 'addresses') return [];
     return (customer.addresses || []).map((addr) => ({
       id: addr.id,
@@ -386,7 +390,7 @@ export function CustomerDetailPage() {
   const customerDebtTransactions = debtResult.data;
 
   // ⚡ Lazy: only compute when warranty tab is active
-  const warrantyTableData = React.useMemo(() => {
+  const warrantyTableData = useMemo(() => {
     if (activeTab !== 'warranty') return [] as WarrantyTicket[];
     return [...customerWarrantyTickets].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -394,7 +398,7 @@ export function CustomerDetailPage() {
   }, [activeTab, customerWarrantyTickets]);
 
   // ⚡ Lazy: only compute when complaints tab is active
-  const complaintTableData = React.useMemo<ComplaintRow[]>(() => {
+  const complaintTableData = useMemo<ComplaintRow[]>(() => {
     if (activeTab !== 'complaints') return [];
     return customerComplaints
       .slice()
@@ -405,11 +409,11 @@ export function CustomerDetailPage() {
       }));
   }, [activeTab, customerComplaints]);
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [receiptDialogOpen, setReceiptDialogOpen] = React.useState(false);
-  const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
-  const receiptFormRef = React.useRef<HTMLFormElement>(null);
-  const paymentFormRef = React.useRef<HTMLFormElement>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const receiptFormRef = useRef<HTMLFormElement>(null);
+  const paymentFormRef = useRef<HTMLFormElement>(null);
 
   const { create: createReceipt } = useReceiptMutations({
     onCreateSuccess: () => {
@@ -427,7 +431,7 @@ export function CustomerDetailPage() {
     onError: (error) => toast.error(error.message || "Tạo phiếu chi thất bại"),
   });
 
-  const handleReceiptSubmit = React.useCallback((values: ReceiptFormValues) => {
+  const handleReceiptSubmit = useCallback((values: ReceiptFormValues) => {
     const name = values.payerTypeName?.toLowerCase() || '';
     const category = name.includes('khách hàng') || name.includes('customer') ? 'sale' as const : 'other' as const;
     const { id, payerTypeSystemId, payerSystemId, paymentMethodSystemId, accountSystemId, paymentReceiptTypeSystemId, branchSystemId, ...rest } = values;
@@ -446,7 +450,7 @@ export function CustomerDetailPage() {
     } as ReceiptInput);
   }, [createReceipt, authEmployee]);
 
-  const handlePaymentSubmit = React.useCallback((values: PaymentFormValues) => {
+  const handlePaymentSubmit = useCallback((values: PaymentFormValues) => {
     const name = values.recipientTypeName?.toLowerCase() || '';
     let category: string = 'other';
     if (name.includes('khách hàng') || name.includes('customer')) category = 'customer_payment';
@@ -460,14 +464,14 @@ export function CustomerDetailPage() {
     } as Omit<Payment, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>);
   }, [createPayment, authEmployee]);
   
-  const handleDeleteCustomer = React.useCallback(() => {
+  const handleDeleteCustomer = useCallback(() => {
     if (customer) {
       remove.mutate(customer.systemId);
     }
   }, [customer, remove]);
 
-  const headerActions = React.useMemo(() => {
-    const actions: React.ReactNode[] = [];
+  const headerActions = useMemo(() => {
+    const actions: ReactNode[] = [];
     if (isAdmin || can('edit_customers')) {
       actions.push(
         <Button key="receipt" variant="outline" size="sm" onClick={() => setReceiptDialogOpen(true)}>
@@ -491,7 +495,7 @@ export function CustomerDetailPage() {
     return actions;
   }, [router, systemId, isAdmin, can]);
 
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!isMobile || !(isAdmin || can('edit_customers'))) return null;
     return [
       <DropdownMenu key="mobile-actions">
@@ -523,8 +527,8 @@ export function CustomerDetailPage() {
   }, [isMobile, router, systemId, isAdmin, can]);
 
   // Build header badges
-  const headerBadges = React.useMemo(() => {
-    const badges: React.ReactNode[] = [];
+  const headerBadges = useMemo(() => {
+    const badges: ReactNode[] = [];
     
     // Customer status badge
     if (customer?.status) {
@@ -556,23 +560,23 @@ export function CustomerDetailPage() {
 
   // All hooks must be called before any early returns (React hooks rules)
   // Tính tổng giá trị hàng đã trả
-  const totalReturnedValue = React.useMemo(
+  const totalReturnedValue = useMemo(
     () => customerSalesReturns.reduce((sum, sr) => sum + sr.totalReturnValue, 0),
     [customerSalesReturns]
   );
 
   // Chi tiêu = Tổng đơn hàng - Giá trị hàng trả
-  const totalSpent = React.useMemo(
+  const totalSpent = useMemo(
     () => deliveredCustomerOrders.reduce((sum, order) => sum + (order.grandTotal || 0), 0) - totalReturnedValue,
     [deliveredCustomerOrders, totalReturnedValue]
   );
 
   // ⚡ Current debt from server-side computation
-  const currentDebt = debtResult.summary.currentDebt;
+  const _currentDebt = debtResult.summary.currentDebt;
 
   // Sync DB currentDebt immediately if it differs from live calculation
   // Uses stats API (always loaded) as source of truth for server-computed debt
-  React.useEffect(() => {
+  useEffect(() => {
     if (!customer || !customerStatsLoaded) return;
     const dbDebt = Number(customer.currentDebt) || 0;
     const calculatedDebt = customerStats.financial.currentDebt;
@@ -583,25 +587,25 @@ export function CustomerDetailPage() {
   }, [customerStatsLoaded, customerStats?.financial.currentDebt, customer?.systemId, customer?.currentDebt]);
 
   const unresolvedFailedDeliveries = failedDeliveryOrders.length;
-  const totalFailedDeliveries = React.useMemo(
+  const totalFailedDeliveries = useMemo(
     () => (customer?.failedDeliveries ?? unresolvedFailedDeliveries),
     [customer?.failedDeliveries, unresolvedFailedDeliveries]
   );
 
   // ✅ Compute purchase statistics from live order/return data
-  const computedTotalQuantityPurchased = React.useMemo(
+  const _computedTotalQuantityPurchased = useMemo(
     () => deliveredCustomerOrders.reduce(
       (sum, order) => sum + (order.lineItems?.reduce((s, li) => s + (li.quantity || 0), 0) || 0), 0
     ),
     [deliveredCustomerOrders]
   );
-  const computedTotalQuantityReturned = React.useMemo(
+  const computedTotalQuantityReturned = useMemo(
     () => customerSalesReturns.reduce(
       (sum, sr) => sum + (sr.items?.reduce((s, item) => s + (item.returnQuantity || 0), 0) || 0), 0
     ),
     [customerSalesReturns]
   );
-  const computedLastPurchaseDate = React.useMemo(() => {
+  const computedLastPurchaseDate = useMemo(() => {
     if (deliveredCustomerOrders.length === 0) return undefined;
     const sorted = [...deliveredCustomerOrders].sort((a, b) =>
       new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
@@ -613,7 +617,7 @@ export function CustomerDetailPage() {
   // REALTIME Customer Intelligence Calculations
   // Use live computed values from orders instead of stale DB fields
   // ============================================
-  const liveCustomer = React.useMemo(() => {
+  const _liveCustomer = useMemo(() => {
     if (!customer) return customer;
     return {
       ...customer,
@@ -623,7 +627,7 @@ export function CustomerDetailPage() {
     };
   }, [customer, customerOrders.length, totalSpent, computedLastPurchaseDate]);
 
-  const daysSinceLastPurchase = React.useMemo(() => {
+  const _daysSinceLastPurchase = useMemo(() => {
     const lastDate = computedLastPurchaseDate || customer?.lastPurchaseDate;
     if (!lastDate) return null;
     return getDaysDiff(getCurrentDate(), new Date(lastDate));
@@ -671,15 +675,7 @@ export function CustomerDetailPage() {
 
   const handlePullRefresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['customer', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customers'] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-stats', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-orders', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-products', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-sales-returns', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-warranties', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-complaints', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['customer-debt', systemId] }),
+      invalidateRelated(queryClient, 'customers'),
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
     ]);
   };
@@ -885,6 +881,9 @@ export function CustomerDetailPage() {
                         key={index}
                         className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => window.open(url, '_blank')}
+                        onKeyDown={(e) => { if (e.key === 'Enter') window.open(url, '_blank'); }}
+                        role="button"
+                        tabIndex={0}
                       >
                         <ProgressiveImage
                           src={url}

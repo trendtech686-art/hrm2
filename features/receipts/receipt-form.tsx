@@ -8,7 +8,7 @@ import { useAllPaymentMethods } from '../settings/payments/hooks/use-all-payment
 import { useAllTargetGroups } from '../settings/target-groups/hooks/use-all-target-groups';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useUnpaidOrders, type UnpaidOrder } from '../orders/hooks/use-unpaid-orders';
+import { useUnpaidOrders } from '../orders/hooks/use-unpaid-orders';
 import { RecipientCombobox, type RecipientType } from '../payments/components/recipient-combobox';
 import type { Receipt, ReceiptStatus } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
@@ -394,7 +394,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
     });
   };
   
-  const handleInvalid = (errors: Record<string, unknown>) => {
+  const handleInvalid = (_errors: Record<string, unknown>) => {
     // Validation errors are handled by FormMessage components
   };
 
@@ -613,6 +613,7 @@ export const ReceiptForm = React.forwardRef<HTMLFormElement, ReceiptFormProps>(
           {/* 6. Thanh toán theo (conditional) */}
           {showOrderPaymentTiming && (
             <div className="space-y-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- shadcn Select pattern */}
               <label className="text-sm font-medium leading-none">Thanh toán theo</label>
               <Select value={orderPaymentTiming} onValueChange={(v) => setOrderPaymentTiming(v as 'order_first' | 'payment_first')} disabled={isEditing}>
                 <SelectTrigger>

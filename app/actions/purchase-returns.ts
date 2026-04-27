@@ -284,7 +284,7 @@ export async function createPurchaseReturnAction(
       return newReturn;
     });
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'PurchaseReturn',
@@ -355,7 +355,7 @@ export async function updatePurchaseReturnAction(
       include: { items: true },
     })
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'PurchaseReturn',
@@ -411,7 +411,7 @@ export async function deletePurchaseReturnAction(
       where: { systemId },
     })
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'PurchaseReturn',
@@ -522,7 +522,7 @@ export async function approvePurchaseReturnAction(
       include: { items: true },
     })
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'PurchaseReturn',

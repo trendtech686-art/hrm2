@@ -647,7 +647,13 @@ export function PrintTemplatesPage() {
     }
   };
 
-  const insertVariable = (variable: string) => {
+  // Handle margin input changes
+  const handleMarginChange = useCallback((side: 'top' | 'right' | 'bottom' | 'left', value: string) => {
+    setMargins(prev => ({ ...prev, [side]: parseFloat(value) || 0 }));
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const insertVariable = useCallback((variable: string) => {
     if (isHtmlMode) {
       // Insert at cursor position in textarea
       const textarea = document.querySelector('textarea');
@@ -671,7 +677,7 @@ export function PrintTemplatesPage() {
     setCopiedVar(variable);
     setTimeout(() => setCopiedVar(null), 1500);
     toast.success(`Đã thêm: ${variable}`);
-  };
+  }, [content, editor, isHtmlMode]);
 
   // Add image from URL - show dialog
   const addImage = () => {
@@ -858,7 +864,7 @@ export function PrintTemplatesPage() {
                 max={50}
                 step={0.5}
                 value={margins.top}
-                onChange={(e) => { setMargins(prev => ({ ...prev, top: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                onChange={(e) => handleMarginChange('top', e.target.value)}
                 className="w-14 h-7 text-xs text-center px-1"
                 title="Trên"
                 placeholder="T"
@@ -869,7 +875,7 @@ export function PrintTemplatesPage() {
                 max={50}
                 step={0.5}
                 value={margins.right}
-                onChange={(e) => { setMargins(prev => ({ ...prev, right: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                onChange={(e) => handleMarginChange('right', e.target.value)}
                 className="w-14 h-7 text-xs text-center px-1"
                 title="Phải"
                 placeholder="P"
@@ -880,7 +886,7 @@ export function PrintTemplatesPage() {
                 max={50}
                 step={0.5}
                 value={margins.bottom}
-                onChange={(e) => { setMargins(prev => ({ ...prev, bottom: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                onChange={(e) => handleMarginChange('bottom', e.target.value)}
                 className="w-14 h-7 text-xs text-center px-1"
                 title="Dưới"
                 placeholder="D"
@@ -891,7 +897,7 @@ export function PrintTemplatesPage() {
                 max={50}
                 step={0.5}
                 value={margins.left}
-                onChange={(e) => { setMargins(prev => ({ ...prev, left: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                onChange={(e) => handleMarginChange('left', e.target.value)}
                 className="w-14 h-7 text-xs text-center px-1"
                 title="Trái"
                 placeholder="Tr"

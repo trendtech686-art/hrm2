@@ -71,6 +71,12 @@ import { SettingsVerticalTabs } from '@/components/settings/SettingsVerticalTabs
 import { useSettingsPageHeader } from '../use-settings-page-header'
 import { useAuth } from '@/contexts/auth-context'
 
+// Query keys factory
+export const adminToolsKeys = {
+  all: ['admin-tools'] as const,
+  counts: () => [...adminToolsKeys.all, 'counts'] as const,
+};
+
 // ============================================
 // TYPES
 // ============================================
@@ -607,7 +613,7 @@ export function AdminToolsPage() {
   })
 
   const countsQuery = useQuery({
-    queryKey: ['admin-tools', 'counts'],
+    queryKey: adminToolsKeys.counts(),
     queryFn: fetchCounts,
     enabled: isAdmin,
   })

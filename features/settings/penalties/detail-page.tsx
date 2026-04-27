@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
@@ -61,7 +61,7 @@ export function PenaltyDetailPage() {
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
   
 
-  const handlePrint = React.useCallback(async () => {
+  const handlePrint = useCallback(async () => {
     if (!penalty) return;
     
     const { storeInfo } = await fetchPrintData();
@@ -72,13 +72,14 @@ export function PenaltyDetailPage() {
   }, [penalty, print]);
 
   // Comments from database
-  const { 
-    comments: dbComments, 
-    addComment: dbAddComment, 
-    deleteComment: dbDeleteComment 
+  const {
+    comments: dbComments,
+    addComment: dbAddComment,
+    updateComment: dbUpdateComment,
+    deleteComment: dbDeleteComment
   } = useComments('penalty', systemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId as unknown as SystemId,
       content: c.content,
@@ -94,25 +95,26 @@ export function PenaltyDetailPage() {
     [dbComments]
   );
 
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+  const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
   }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-  }, []);
+  const handleUpdateComment = useCallback((commentId: string, content: string) => {
+    dbUpdateComment(commentId, content);
+  }, [dbUpdateComment]);
 
-  const handleDeleteComment = React.useCallback((commentId: string) => {
+  const handleDeleteComment = useCallback((commentId: string) => {
     dbDeleteComment(commentId);
   }, [dbDeleteComment]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
     name: authEmployee?.fullName || 'Hệ thống',
     avatar: authEmployee?.avatar,
   }), [authEmployee]);
 
   // Header actions
-  const headerActions = React.useMemo(() => {
+  const headerActions = useMemo(() => {
     const actions = [
       <Button 
         key="back" 
@@ -153,7 +155,7 @@ export function PenaltyDetailPage() {
     }
     
     return actions;
-  }, [router, systemId, penalty, handlePrint]);
+  }, [router, systemId, penalty, handlePrint, isAdmin, can]);
 
   // Page header
   usePageHeader({

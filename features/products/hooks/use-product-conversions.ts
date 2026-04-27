@@ -26,7 +26,7 @@ export function useCreateConversion() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createProductConversion,
-    onSuccess: (_data, variables) => {
+    onSuccess: (_data, _variables) => {
       invalidateRelated(qc, 'product-conversions')
     },
   })

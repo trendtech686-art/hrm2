@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePayment } from './hooks/use-payments';
@@ -10,7 +10,9 @@ import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { ArrowLeft, Edit, Printer, Loader2, MoreHorizontal } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +33,7 @@ import {
   createStoreSettings 
 } from '../../lib/print/payment-print-helper';
 import type { Payment } from '@/lib/types/prisma-extended';
+import { usePaymentMutations } from './hooks/use-payments';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
@@ -57,9 +60,16 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   const { employee: authEmployee, can, isAdmin } = useAuth();
   const { isMobile } = useBreakpoint();
   const { print } = usePrint();
+  const { cancel } = usePaymentMutations({
+    onCancelSuccess: () => toast.success("Đã hủy phiếu chi"),
+    onError: (error) => toast.error("Có lỗi khi hủy phiếu chi: " + error.message),
+  });
+  
+  // Cancel confirmation dialog state
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   
   // Extract payment from API response (handles both wrapped and unwrapped)
-  const payment = React.useMemo(() => {
+  const payment = useMemo(() => {
     if (!paymentData) return null;
     // Handle wrapped response { data: payment } or direct payment
     type WrappedPayment = { data: Payment };
@@ -68,7 +78,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   }, [paymentData]);
 
   // ⚡ OPTIMIZED: Lazy load print data only when print is clicked
-  const handlePrint = React.useCallback(async () => {
+  const handlePrint = useCallback(async () => {
     if (!payment) return;
     
     const { storeInfo } = await fetchPrintData();
@@ -82,12 +92,12 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     });
   }, [payment, print]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId || 'system',
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  const createdByName = React.useMemo(() => {
+  const createdByName = useMemo(() => {
     if (!payment) return 'Hệ thống';
     return (payment as Record<string, unknown>).createdByName as string || payment.createdBy || 'Hệ thống';
   }, [payment]);
@@ -99,7 +109,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     deleteComment: dbDeleteComment 
   } = useComments('payment', systemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId,
       content: c.content,
@@ -126,7 +136,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     dbDeleteComment(commentId);
   };
 
-  const recipientLink = React.useMemo(() => {
+  const recipientLink = useMemo(() => {
     if (!payment) return null;
     const targetSystemId = payment.customerSystemId || payment.recipientSystemId;
     if (!targetSystemId) return null;
@@ -141,7 +151,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     return generatePath(route, { systemId: targetSystemId });
   }, [payment]);
 
-  const originalDocumentLink = React.useMemo(() => {
+  const originalDocumentLink = useMemo(() => {
     if (!payment?.originalDocumentId) return null;
     if (payment.linkedOrderSystemId) {
       return generatePath(ROUTES.SALES.ORDER_VIEW, { systemId: payment.linkedOrderSystemId });
@@ -161,7 +171,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     return null;
   }, [payment]);
   
-  const headerActions = React.useMemo(() => {
+  const headerActions = useMemo(() => {
     if (!payment) return null;
     const actions: React.ReactNode[] = [];
 
@@ -193,9 +203,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
           key="cancel"
           variant="destructive"
           size="sm"
-          onClick={() => {
-            // TODO: Implement cancel confirmation
-          }}
+          onClick={() => setIsCancelDialogOpen(true)}
         >
           Hủy phiếu chi
         </Button>
@@ -203,11 +211,11 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
     }
 
     return actions;
-  }, [router, payment, handlePrint]);
+  }, [router, payment, handlePrint, isAdmin, can]);
 
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!payment || !isMobile) return [];
-    const items: React.ReactNode[] = [
+    const items: ReactNode[] = [
       <DropdownMenuItem key="print" onClick={handlePrint}>
         <Printer className="mr-2 h-4 w-4" />
         In phiếu
@@ -219,7 +227,7 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
           <Edit className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </DropdownMenuItem>,
-        <DropdownMenuItem key="cancel" className="text-destructive focus:text-destructive">
+        <DropdownMenuItem key="cancel" className="text-destructive focus:text-destructive" onClick={() => setIsCancelDialogOpen(true)}>
           Hủy phiếu chi
         </DropdownMenuItem>,
       );
@@ -234,9 +242,9 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
         <DropdownMenuContent align="end">{items}</DropdownMenuContent>
       </DropdownMenu>,
     ];
-  }, [payment, isMobile, router, handlePrint, isAdmin, can]);
+  }, [payment, isMobile, router, handlePrint, isAdmin, can, setIsCancelDialogOpen]);
 
-  const detailSubtitle = React.useMemo(() => {
+  const detailSubtitle = useMemo(() => {
     if (!payment) return 'Đang tải thông tin phiếu chi';
     const parts = [payment.recipientName, payment.branchName].filter(Boolean);
     return parts.join(' • ') || 'Phiếu chi nội bộ';
@@ -391,6 +399,35 @@ export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
       
       {/* Activity History */}
       <EntityActivityTable entityType="payment" entityId={systemId} />
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận hủy phiếu chi</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn hủy phiếu chi này? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsCancelDialogOpen(false)}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (payment) {
+                  cancel.mutate({ systemId: payment.systemId }, {
+                    onSuccess: () => {
+                      setIsCancelDialogOpen(false);
+                      router.refresh();
+                    },
+                  });
+                }
+              }}
+            >
+              Xác nhận hủy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DetailPageShell>
   );
 }

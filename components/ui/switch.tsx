@@ -1,20 +1,20 @@
 "use client"
 
-import * as React from "react"
+import { forwardRef, useRef, useCallback, type ElementRef, type ComponentPropsWithoutRef } from "react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 
 import { cn } from "../../lib/utils"
 
 type SwitchProps = Omit<
-  React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>,
+  ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>,
   "checked" | "defaultChecked"
 > & {
   checked?: boolean | undefined
   defaultChecked?: boolean | undefined
 }
 
-const Switch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitives.Root>,
+const Switch = forwardRef<
+  ElementRef<typeof SwitchPrimitives.Root>,
   SwitchProps
 >(({ className, checked, defaultChecked, onCheckedChange, ...props }, ref) => {
   const isControlled = checked !== undefined
@@ -22,14 +22,14 @@ const Switch = React.forwardRef<
   // Ref guard: Radix useControllableState in React 19 can fire onCheckedChange
   // during render phase with the current value → causes infinite re-render loop.
   // Track last known value and only forward genuinely new values to parent.
-  const lastValueRef = React.useRef(checked ?? defaultChecked ?? false)
+  const lastValueRef = useRef(checked ?? defaultChecked ?? false)
 
   // Sync ref with controlled prop during render (before Radix can fire)
   if (isControlled) {
     lastValueRef.current = checked
   }
 
-  const handleCheckedChange = React.useCallback(
+  const handleCheckedChange = useCallback(
     (value: boolean) => {
       if (value === lastValueRef.current) return
       lastValueRef.current = value

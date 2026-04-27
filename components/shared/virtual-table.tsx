@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, type ReactNode, type CSSProperties } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +29,7 @@ export interface VirtualColumn<T> {
   /** Min width in px */
   minWidth?: number;
   /** Render function */
-  render: (row: T, index: number) => React.ReactNode;
+  render: (row: T, index: number) => ReactNode;
   /** Header alignment */
   headerAlign?: 'left' | 'center' | 'right';
   /** Cell alignment */
@@ -56,7 +56,7 @@ export interface VirtualTableProps<T> {
   /** Row class name */
   rowClassName?: string | ((row: T, index: number) => string);
   /** Empty state */
-  emptyState?: React.ReactNode;
+  emptyState?: ReactNode;
   /** Loading state */
   isLoading?: boolean;
   /** Show header */
@@ -184,6 +184,9 @@ export function VirtualTable<T>({
                   height: `${estimateSize}px`,
                 }}
                 onClick={() => onRowClick?.(row, virtualRow.index)}
+                onKeyDown={(e) => e.key === 'Enter' && onRowClick?.(row, virtualRow.index)}
+                role="button"
+                tabIndex={0}
               >
                 {columns.map((col, colIdx) => (
                   <div
@@ -193,7 +196,7 @@ export function VirtualTable<T>({
                       width: columnStyles[colIdx].width,
                       minWidth: columnStyles[colIdx].minWidth,
                       flex: columnStyles[colIdx].width === 'auto' ? 1 : 'none',
-                      textAlign: columnStyles[colIdx].textAlign as React.CSSProperties['textAlign'],
+                      textAlign: columnStyles[colIdx].textAlign as CSSProperties['textAlign'],
                     }}
                   >
                     {col.render(row, virtualRow.index)}
@@ -222,7 +225,7 @@ export function VirtualList<T>({
   className,
 }: {
   data: T[];
-  renderItem: (item: T, index: number) => React.ReactNode;
+  renderItem: (item: T, index: number) => ReactNode;
   estimateSize?: number;
   height?: number | string;
   overscan?: number;

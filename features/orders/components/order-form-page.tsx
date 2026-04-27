@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, memo, useDeferredValue, startTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
@@ -16,15 +16,14 @@ import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, 
 
 // stores
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
-// ✅ REMOVED: useAllProducts - no longer needed, use API validation instead
+import { useProductMutations } from '@/features/products/hooks/use-products';
+import type { CreateProductInput } from '@/features/products/hooks/use-products';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useOrder } from '../hooks/use-orders';
 import { useOrderFormSettingsData } from '../hooks/use-order-form-settings';
 import { useOrderMutations } from '../hooks/use-order-mutations';
 import { useOrderActions } from '../hooks/use-order-actions';
-// ✅ REMOVED: useOrderFinder - no longer needed, React Query fetches orders directly
 import { validateStockAvailability } from '@/features/products/api/products-api';
-// ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { getSalesSettingsSync } from '@/features/settings/sales/sales-management-service';
 import { useStockHistoryMutations } from '@/features/stock-history/hooks/use-stock-history';
 import { isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey } from '../shipping-partners-config';
@@ -37,18 +36,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { mobileBleedCardClass, FormPageFooter } from '@/components/layout/page-section';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 // Lazy load heavy dialogs for better initial load performance
 const ProductSelectionDialog = dynamic(
   () => import('@/features/shared/product-selection-dialog').then(m => ({ default: m.ProductSelectionDialog })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => <div className="animate-pulse bg-muted h-64 rounded-lg" /> }
 );
 const AddServiceDialog = dynamic(
   () => import('./add-service-dialog').then(m => ({ default: m.AddServiceDialog })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => <div className="animate-pulse bg-muted h-48 rounded-lg" /> }
 );
 const ApplyPromotionDialog = dynamic(
   () => import('./apply-promotion-dialog').then(m => ({ default: m.ApplyPromotionDialog })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => <div className="animate-pulse bg-muted h-48 rounded-lg" /> }
 );
 
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -195,7 +195,7 @@ const calculateLineTotal = (item: FormLineItem | LineItem): number => {
     return lineWithTax - lineDiscountAmount;
 };
 
-const OrderCalculations = React.memo(() => {
+const OrderCalculations = memo(() => {
     const { control, setValue, getValues } = useFormContext<OrderFormValues>();
     const watchedLineItems = useWatch({ control, name: "lineItems" });
     const watchedShippingFee = useWatch({ control, name: "shippingFee" });
@@ -205,12 +205,12 @@ const OrderCalculations = React.memo(() => {
     const watchedServiceFees = useWatch({ control, name: "serviceFees" });
     
     // Use deferred value to prevent blocking UI during rapid typing
-    const deferredLineItems = React.useDeferredValue(watchedLineItems);
+    const deferredLineItems = useDeferredValue(watchedLineItems);
     
     // ✅ Track previous calculated values to prevent infinite loops
-    const prevValuesRef = React.useRef<{ subtotal: number; tax: number; grandTotal: number } | null>(null);
+    const prevValuesRef = useRef<{ subtotal: number; tax: number; grandTotal: number } | null>(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const items = deferredLineItems || [];
         const shipping = Number(watchedShippingFee) || 0;
         
@@ -253,7 +253,7 @@ const OrderCalculations = React.memo(() => {
         if (!prev || prev.subtotal !== subtotal || prev.tax !== totalTax || prev.grandTotal !== grandTotal) {
             prevValuesRef.current = { subtotal, tax: totalTax, grandTotal };
             
-            React.startTransition(() => {
+            startTransition(() => {
                 setValue('subtotal', subtotal, { shouldValidate: false });
                 setValue('tax', totalTax, { shouldValidate: false });
                 setValue('grandTotal', grandTotal, { shouldValidate: false });
@@ -291,43 +291,41 @@ export function OrderFormPage() {
         onError: (err) => toast.error(err.message),
     });
     
-    // ✅ REMOVED: useOrderFinder - no longer needed, React Query fetches orders directly
-    
     // React Query for single order (edit mode)
     const { data: orderFromQuery, isLoading: isOrderLoading } = useOrder(systemId);
     
-    // ✅ React Query for copy source order - fetch with full data
+    // React Query for copy source order - fetch with full data
     const { data: copySourceOrderFromQuery } = useOrder(copyOrderSystemId || undefined);
     
     const { data: employees } = useAllEmployees();
     const { data: orderFormBundle, getDefaultSale } = useOrderFormSettingsData();
-    const branches = React.useMemo(
+    const branches = useMemo(
       () => (orderFormBundle?.branches ?? []) as import('@/lib/types/prisma-extended').Branch[],
       [orderFormBundle?.branches],
     );
-    const pricingPolicies = React.useMemo(
+    const pricingPolicies = useMemo(
       () => (orderFormBundle?.pricingPolicies ?? []) as import('@/lib/types/prisma-extended').PricingPolicy[],
       [orderFormBundle?.pricingPolicies],
     );
     const { findById: findProductById } = useProductFinder();
-    // ✅ REMOVED: useProductStore, useStockHistoryStore - replaced with React Query hooks
     const { create: createStockHistoryEntry } = useStockHistoryMutations();
-    const partners = React.useMemo(
+    const { create: createProduct } = useProductMutations();
+    const partners = useMemo(
       () => (orderFormBundle?.shippingPartners ?? []) as import('@/lib/types/prisma-extended').ShippingPartner[],
       [orderFormBundle?.shippingPartners],
     );
-    const paymentMethods = React.useMemo(
+    const paymentMethods = useMemo(
       () => (orderFormBundle?.paymentMethods ?? []) as import('@/lib/types/prisma-extended').PaymentMethod[],
       [orderFormBundle?.paymentMethods],
     );
-    const salesChannels = React.useMemo(
+    const salesChannels = useMemo(
       () => (orderFormBundle?.salesChannels ?? []) as import('@/lib/types/prisma-extended').SalesChannel[],
       [orderFormBundle?.salesChannels],
     );
 
     const isEditing = !!systemId;
     // ✅ Ưu tiên React Query - không cần fallback vì useOrder đã fetch từ API
-    const order = React.useMemo(() => {
+    const order = useMemo(() => {
       if (systemId) {
         return orderFromQuery || null;
       }
@@ -335,13 +333,13 @@ export function OrderFormPage() {
     }, [systemId, orderFromQuery]);
     
     // ✅ Copy source order - sử dụng React Query (có full data bao gồm customer và product)
-    const copySourceOrder = React.useMemo(() => {
+    const copySourceOrder = useMemo(() => {
         if (isEditing || !copyOrderSystemId) return null;
         return copySourceOrderFromQuery || null;
     }, [isEditing, copyOrderSystemId, copySourceOrderFromQuery]);
     
     // ✅ NEW LOGIC: Kiểm tra xem đơn đã có phiếu đóng gói/xuất kho chưa
-    const isPackagedOrDispatched = React.useMemo(() => {
+    const isPackagedOrDispatched = useMemo(() => {
         if (!order) return false;
         
         // ✅ Check if there are any ACTIVE (non-cancelled) packagings
@@ -362,12 +360,12 @@ export function OrderFormPage() {
     const isMetadataOnlyMode = isPackagedOrDispatched;
 
     // ✅ Xuất kho / Hoàn thành: KHÔNG cho sửa tags, ghi chú (chỉ đóng gói mới được)
-    const isShippedOrCompleted = React.useMemo(() => {
+    const isShippedOrCompleted = useMemo(() => {
         if (!order) return false;
         return order.stockOutStatus !== 'Chưa xuất kho' || order.status === 'Hoàn thành';
     }, [order]);
 
-    const isFullyReadOnly = React.useMemo(() => {
+    const isFullyReadOnly = useMemo(() => {
         if (!order) return false;
         // ✅ Chỉ khóa hoàn toàn khi đơn đã hủy. 
         // Đơn hoàn thành/đã giao vẫn cho sửa metadata (Tags, Notes, v.v.)
@@ -375,7 +373,7 @@ export function OrderFormPage() {
     }, [order]);
     
     // Lock Chi nhánh khi đã duyệt
-    const isBranchLocked = React.useMemo(() => {
+    const isBranchLocked = useMemo(() => {
         if (!order) return false;
         return order.status === 'Đang giao dịch' || order.status === 'Hoàn thành';
     }, [order]);
@@ -384,35 +382,38 @@ export function OrderFormPage() {
     const isFormDisabled = isFullyReadOnly;
 
     
-    const [isProductSelectionOpen, setIsProductSelectionOpen] = React.useState(false);
-    const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = React.useState(false);
-    const [isApplyPromotionDialogOpen, setIsApplyPromotionDialogOpen] = React.useState(false);
-    const [enableSplitLine, setEnableSplitLine] = React.useState(false);
-    const [submitAction, setSubmitAction] = React.useState<'draft' | 'approve'>('draft');
-    const [tableSettings, setTableSettings] = React.useState<ProductTableSettings>({
+    const [isProductSelectionOpen, setIsProductSelectionOpen] = useState(false);
+    const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
+    const [isApplyPromotionDialogOpen, setIsApplyPromotionDialogOpen] = useState(false);
+    const [enableSplitLine, setEnableSplitLine] = useState(false);
+    const [submitAction, setSubmitAction] = useState<'draft' | 'approve'>('draft');
+    const [tableSettings, setTableSettings] = useState<ProductTableSettings>({
         comboDisplayType: 'value',
         discountDefaultType: 'value',
         productInsertPosition: 'top',
     });
     
     // ✅ OPTIMIZED: Memoize dialog toggle callbacks
-    const openProductSelection = React.useCallback(() => setIsProductSelectionOpen(true), []);
-    const openAddServiceDialog = React.useCallback(() => setIsAddServiceDialogOpen(true), []);
-    const openApplyPromotionDialog = React.useCallback(() => setIsApplyPromotionDialogOpen(true), []);
+    const openProductSelection = useCallback(() => setIsProductSelectionOpen(true), []);
+    const openAddServiceDialog = useCallback(() => setIsAddServiceDialogOpen(true), []);
+    const openApplyPromotionDialog = useCallback(() => setIsApplyPromotionDialogOpen(true), []);
     
     const { employee: currentEmployee } = useAuth();
     const currentEmployeeName = currentEmployee?.fullName ?? 'Hệ thống';
     const _currentEmployeeSystemId = currentEmployee?.systemId ?? asSystemId('SYSTEM');
-    const salesPolicies = React.useMemo(() => pricingPolicies.filter(p => p.type === 'Bán hàng'), [pricingPolicies]);
-    const defaultSellingPolicy = React.useMemo(() => salesPolicies.find(p => p.isDefault) || salesPolicies[0], [salesPolicies]);
-    const [selectedPolicyId, setSelectedPolicyId] = React.useState<string>(defaultSellingPolicy?.systemId || '');
+    const salesPolicies = useMemo(() => pricingPolicies.filter(p => p.type === 'Bán hàng'), [pricingPolicies]);
+    const defaultSellingPolicy = useMemo(() => salesPolicies.find(p => p.isDefault) || salesPolicies[0], [salesPolicies]);
+    const [selectedPolicyId, setSelectedPolicyId] = useState<string>(defaultSellingPolicy?.systemId || '');
     
     // Get default branch
-    const defaultBranch = React.useMemo(() => branches.find(b => b.isDefault), [branches]);
+    const defaultBranch = useMemo(() => branches.find(b => b.isDefault), [branches]);
+    
+    // Lazy initialization for orderDate to avoid hydration mismatch
+    const initialOrderDate = useMemo(() => new Date(), []);
     
     const form = useForm<OrderFormValues>({
       defaultValues: async () => ({
-        customer: null, branchSystemId: defaultBranch?.systemId || '', salespersonSystemId: '', orderDate: new Date(), source: '', notes: '', lineItems: [],
+        customer: null, branchSystemId: defaultBranch?.systemId || '', salespersonSystemId: '', orderDate: initialOrderDate, source: '', notes: '', lineItems: [],
         subtotal: 0, shippingFee: 0, tax: 0, grandTotal: 0, payments: [], packerId: '', trackingCode: '',
         shippingPartnerId: undefined, shippingServiceId: undefined, deliveryMethod: 'deliver-later', configuration: {},
         orderDiscount: 0, orderDiscountType: 'fixed',
@@ -425,9 +426,9 @@ export function OrderFormPage() {
     const { handleSubmit, getValues, setValue, reset, control } = form;
     const { fields, append, prepend, remove, update: updateField } = useFieldArray({ control, name: "lineItems" });
     const selectedBranchSystemId = useWatch({ control, name: 'branchSystemId' });
-    const copyPrefillAppliedRef = React.useRef(false);
+    const copyPrefillAppliedRef = useRef(false);
 
-    const _handleSimplifiedAddProduct = (values: ProductFormValues) => {
+    const _handleSimplifiedAddProduct = async (values: ProductFormValues) => {
         const defaultBranch = branches.find(b => b.isDefault);
         const inventoryByBranch: Record<string, number> = {};
         const initialInventory = values.inventory || 0;
@@ -436,49 +437,65 @@ export function OrderFormPage() {
             inventoryByBranch[branch.systemId] = (defaultBranch && branch.systemId === defaultBranch.systemId) ? initialInventory : 0;
         });
 
-                const _productToAdd = { ...values, inventoryByBranch, committedByBranch: {}, inTransitByBranch: {} };
-                const createdProduct = null as unknown as Product; // TODO: Replace with useProductMutations().create.mutateAsync
-                if (!createdProduct) {
-                    return;
-                }
+        // Transform ProductFormValues to CreateProductInput
+        const productInput: CreateProductInput = {
+            id: values.id,
+            name: values.name,
+            barcode: values.barcode,
+            description: values.description,
+            thumbnailImage: (values as { images?: string[] }).images?.[0],
+            galleryImages: (values as { images?: string[] }).images,
+            brandId: values.brandSystemId,
+            type: values.type,
+            unit: values.unit,
+        };
+
+        try {
+            const createdProduct = await createProduct.mutateAsync(productInput);
         
-        branches.forEach(branch => {
-            const stockLevel = inventoryByBranch[branch.systemId] || 0;
-            if (stockLevel > 0) {
-              createStockHistoryEntry.mutate({
-                  productId: createdProduct.systemId,
-                  employeeName: currentEmployeeName,
-                  action: 'Khởi tạo variant',
-                  quantityChange: stockLevel,
-                  newStockLevel: stockLevel,
-                  documentId: createdProduct.id,
-                  branchId: branch.systemId,
-              });
+            if (createdProduct) {
+                branches.forEach(branch => {
+                    const stockLevel = inventoryByBranch[branch.systemId] || 0;
+                    if (stockLevel > 0) {
+                        createStockHistoryEntry.mutate({
+                            productId: createdProduct.systemId,
+                            employeeName: currentEmployeeName,
+                            action: 'Khởi tạo variant',
+                            quantityChange: stockLevel,
+                            newStockLevel: stockLevel,
+                            documentId: createdProduct.id,
+                            branchId: branch.systemId,
+                        });
+                    }
+                });
             }
-        });
+        } catch (error) {
+            console.error('Failed to create product:', error);
+            toast.error('Không thể tạo sản phẩm');
+        }
     };
 
-        const appliedSalesChannels = React.useMemo(() => salesChannels.filter(channel => channel.isApplied), [salesChannels]);
-        const defaultSalesChannelName = React.useMemo(() => {
+        const appliedSalesChannels = useMemo(() => salesChannels.filter(channel => channel.isApplied), [salesChannels]);
+        const defaultSalesChannelName = useMemo(() => {
             const preferred = appliedSalesChannels.find(channel => channel.isDefault);
             return preferred?.name || appliedSalesChannels[0]?.name || '';
         }, [appliedSalesChannels]);
-        const activePaymentMethods = React.useMemo(() => paymentMethods.filter(method => method.isActive), [paymentMethods]);
-        const defaultPaymentMethodName = React.useMemo(() => {
+        const activePaymentMethods = useMemo(() => paymentMethods.filter(method => method.isActive), [paymentMethods]);
+        const defaultPaymentMethodName = useMemo(() => {
             const preferred = activePaymentMethods.find(method => method.isDefault);
             return preferred?.name || activePaymentMethods[0]?.name || '';
         }, [activePaymentMethods]);
 
     // ✅ Only run once when defaultSellingPolicy systemId is available
     const defaultSellingPolicyId = defaultSellingPolicy?.systemId || '';
-    React.useEffect(() => {
+    useEffect(() => {
         if (defaultSellingPolicyId && !selectedPolicyId) {
             setSelectedPolicyId(defaultSellingPolicyId);
         }
     }, [defaultSellingPolicyId, selectedPolicyId]);
 
     // Auto-select default values for new orders
-    React.useEffect(() => {
+    useEffect(() => {
         if (isEditing) return;
 
         // 1. Branch
@@ -514,7 +531,7 @@ export function OrderFormPage() {
     }, [isEditing, defaultBranch, currentEmployee, defaultSalesChannelName, defaultPaymentMethodName, getValues, setValue]);
 
     // ✅ Update prices when pricing policy changes - uses stored prices in line items
-    React.useEffect(() => {
+    useEffect(() => {
         if (!selectedPolicyId || isFormDisabled || isMetadataOnlyMode) return;
         
         const currentItems = getValues('lineItems');
@@ -533,12 +550,12 @@ export function OrderFormPage() {
     }, [selectedPolicyId, getValues, setValue, isFormDisabled, isMetadataOnlyMode]); 
 
     // ✅ Track if edit form has been initialized to prevent re-running reset
-    const editFormInitializedRef = React.useRef<string | null>(null);
+    const editFormInitializedRef = useRef<string | null>(null);
     
     // ✅ Check if all required data is loaded
     const isDataReady = branches.length > 0 && employees.length > 0;
     
-    React.useEffect(() => {
+    useEffect(() => {
         // Wait for all data to be loaded before resetting form
         if (!isEditing || !order || !isDataReady) return;
         
@@ -625,7 +642,7 @@ export function OrderFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, order?.systemId, isDataReady]); // ✅ Also depend on isDataReady to ensure data is loaded
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (isEditing || !copySourceOrder || copyPrefillAppliedRef.current) {
             return;
         }
@@ -732,7 +749,7 @@ export function OrderFormPage() {
         });
     }, [isEditing, copySourceOrder, reset]);
     
-    const handleSelectProducts = React.useCallback((selectedProducts: Product[], quantities?: Record<string, number>) => {
+    const handleSelectProducts = useCallback((selectedProducts: Product[], quantities?: Record<string, number>) => {
         const currentItems = getValues('lineItems');
 
         const newItems: FormLineItem[] = [];
@@ -792,7 +809,7 @@ export function OrderFormPage() {
         }
     }, [getValues, selectedPolicyId, enableSplitLine, updateField, getDefaultSale, tableSettings, prepend, append]);
 
-    const handleApplyPromotion = React.useCallback(async (code: string) => {
+    const handleApplyPromotion = useCallback(async (code: string) => {
         try {
             const subtotal = getValues('subtotal') || 0;
             const shippingFee = getValues('shippingFee') || 0;
@@ -932,12 +949,12 @@ export function OrderFormPage() {
     };
     
     // ✅ Guard to prevent double submission
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     // ✅ Ref-based guard for immediate prevention (state updates are async)
-    const isSubmittingRef = React.useRef(false);
+    const isSubmittingRef = useRef(false);
     
     // ✅ Ref to store GHTK params for use after order creation
-    const pendingGHTKParamsRef = React.useRef<{
+    const pendingGHTKParamsRef = useRef<{
         params: GHTKCreateOrderParams;
         partnerId: string;
         partnerName: string;
@@ -947,8 +964,8 @@ export function OrderFormPage() {
     } | null>(null);
     
     // ✅ Helper to generate packaging systemId using proper counter format (PACKAGE000001)
-    const packagingCounterRef = React.useRef(0);
-    const getNextPackagingSystemId = React.useCallback((): string => {
+    const packagingCounterRef = useRef(0);
+    const getNextPackagingSystemId = useCallback((): string => {
         packagingCounterRef.current++;
         return `PACKAGE${String(packagingCounterRef.current).padStart(6, '0')}`;
     }, []);
@@ -1469,21 +1486,21 @@ export function OrderFormPage() {
     };
 
     // ✅ OPTIMIZED: Memoize button click handlers to prevent re-renders
-    const handleExitClick = React.useCallback(() => {
+    const handleExitClick = useCallback(() => {
         router.push('/orders');
     }, [router]);
     
-    const handleDraftClick = React.useCallback(() => {
+    const handleDraftClick = useCallback(() => {
         setSubmitAction('draft');
     }, []);
     
-    const handleApproveClick = React.useCallback(() => {
+    const handleApproveClick = useCallback(() => {
         setSubmitAction('approve');
     }, []);
 
     // ✅ OPTIMIZED: Memoize actions array to prevent usePageHeader re-renders
     // Desktop-only in the top header; on mobile the actions live in the sticky FormPageFooter at the bottom
-    const actions = React.useMemo(() => [
+    const actions = useMemo(() => [
         <Button 
             key="exit" 
             type="button" 
@@ -1509,7 +1526,7 @@ export function OrderFormPage() {
     ], [handleExitClick, handleDraftClick, handleApproveClick, isFullyReadOnly, isSubmitting, isEditing]);
     
     // ✅ OPTIMIZED: Memoize breadcrumb to prevent usePageHeader re-renders
-    const breadcrumb = React.useMemo(() => order ? [
+    const breadcrumb = useMemo(() => order ? [
         { label: 'Trang chủ', href: '/', isCurrent: false },
         { label: 'Đơn hàng', href: '/orders', isCurrent: false },
         { label: order.id, href: `/orders/${order.systemId}`, isCurrent: false },
@@ -1521,7 +1538,7 @@ export function OrderFormPage() {
     ], [order, isEditing]);
     
     // ✅ OPTIMIZED: Memoize context to prevent usePageHeader re-renders
-    const pageContext = React.useMemo(() => order ? { id: order.id } : undefined, [order]);
+    const pageContext = useMemo(() => order ? { id: order.id } : undefined, [order]);
 
     usePageHeader({ 
         actions,

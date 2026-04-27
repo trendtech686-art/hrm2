@@ -127,15 +127,12 @@ export async function POST(request: NextRequest) {
     
     const {
       label_id,          // GHTK tracking code
-      partner_id,        // Our order ID
       status_id,         // Status code (1-21, etc.)
       action_time,       // ISO timestamp
       reason_code,       // Reason code (100-144)
       reason,            // Reason text
-      weight,            // Actual weight (kg)
       fee,               // Actual shipping fee
       pick_money,        // COD amount
-      return_part_package // 0 or 1
     } = body as Record<string, string | undefined>;
     
     // ============================================

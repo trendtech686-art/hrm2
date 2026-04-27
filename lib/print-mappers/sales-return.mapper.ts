@@ -13,6 +13,7 @@ import {
   getStoreData,
   StoreSettings,
 } from './types';
+import { generateBarcodeImage } from './barcode-utils';
 
 export interface SalesReturnForPrint {
   // Thông tin cơ bản
@@ -186,7 +187,7 @@ export function mapSalesReturnToPrintData(ret: SalesReturnForPrint, storeSetting
     '{source}': ret.source || '',
     '{channel}': ret.channel || '',
     '{reference}': ret.reference || '',
-    '{bar_code(reference_number)}': '', // TODO: generate barcode
+    '{bar_code(reference_number)}': ret.reference ? generateBarcodeImage(ret.reference, 40) : '',
     '{tag}': ret.tags?.join(', ') || '',
     
     // === CHÍNH SÁCH ===

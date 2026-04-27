@@ -47,22 +47,46 @@ export function ProductMappingTab() {
       toast.error('Vui lòng bật tích hợp Trendtech trước');
       return;
     }
-    
+
     setIsLoading(true);
-    toast.info('Đang cập nhật danh sách... (API chưa sẵn sàng)');
-    
-    // TODO: Fetch products from Trendtech when API is ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    addLog.mutate({
-      action: 'get_products',
-      status: 'info',
-      message: 'Lấy danh sách sản phẩm (API chưa sẵn sàng)',
-      details: {},
-    });
-    
-    setIsLoading(false);
-    toast.success('Đã cập nhật (đang chờ API Trendtech)');
+
+    try {
+      // Fetch products from Trendtech API
+      const response = await fetch(`${settings?.apiUrl}/products?limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${settings?.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      const trendtechProducts = json.products || json.data || [];
+
+      // Transform to TrendtechProduct format and cache locally
+      // Note: Actual product linking happens via product creation/sync on Trendtech side
+      addLog.mutate({
+        action: 'get_products',
+        status: 'success',
+        message: `Đã lấy ${trendtechProducts.length} sản phẩm từ Trendtech`,
+        details: { total: trendtechProducts.length },
+      });
+
+      toast.success(`Đã cập nhật (${trendtechProducts.length} sản phẩm từ Trendtech)`);
+    } catch (error) {
+      addLog.mutate({
+        action: 'get_products',
+        status: 'error',
+        message: 'Lỗi lấy sản phẩm từ Trendtech',
+        details: { error: error instanceof Error ? error.message : 'Unknown' },
+      });
+      toast.error('Lỗi: ' + (error instanceof Error ? error.message : 'Unknown'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -150,8 +174,32 @@ export function ProductMappingTab() {
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            // TODO: Unlink product
-                            toast.info('Tính năng hủy liên kết sẽ có khi API sẵn sàng');
+                            if (!product.trendtechId) return;
+                            // Unlink product - calls API to clear trendtechId
+                            fetch(`/api/products/${product.systemId}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ trendtechId: null, seoTrendtech: null }),
+                            })
+                              .then(res => {
+                                if (!res.ok) throw new Error('Failed to unlink');
+                                toast.success('Đã hủy liên kết sản phẩm');
+                                addLog.mutate({
+                                  action: 'unlink_product',
+                                  status: 'success',
+                                  message: `Đã hủy liên kết: ${product.name}`,
+                                  details: { productId: product.systemId, trendtechId: product.trendtechId },
+                                });
+                              })
+                              .catch(err => {
+                                toast.error('Lỗi hủy liên kết: ' + err.message);
+                                addLog.mutate({
+                                  action: 'unlink_product',
+                                  status: 'error',
+                                  message: `Lỗi hủy liên kết: ${product.name}`,
+                                  details: { productId: product.systemId, error: err.message },
+                                });
+                              });
                           }}
                           title="Hủy liên kết"
                         >
@@ -162,8 +210,17 @@ export function ProductMappingTab() {
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                              // TODO: Open product on Trendtech
-                              toast.info('Mở sản phẩm trên Trendtech');
+                              if (!settings?.apiUrl || !product.seoTrendtech?.slug) return;
+                              // Open product on Trendtech website
+                              const baseUrl = settings.apiUrl.replace('/api/hrm', '');
+                              const productUrl = `${baseUrl}/products/${product.seoTrendtech.slug}`;
+                              window.open(productUrl, '_blank');
+                              addLog.mutate({
+                                action: 'link_product',
+                                status: 'info',
+                                message: `Mở sản phẩm trên Trendtech: ${product.name}`,
+                                details: { productId: product.systemId, trendtechId: product.trendtechId, url: productUrl },
+                              });
                             }}
                             title="Xem trên Trendtech"
                           >

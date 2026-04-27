@@ -93,6 +93,9 @@ export function ApplyPromotionDialog({ open, onOpenChange, onApply, disabled = f
                     key={promo.code}
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                     onClick={() => handleQuickApply(promo.code)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleQuickApply(promo.code); }}
                   >
                     <div className="flex-1">
                       <div className="font-semibold text-primary">{promo.code}</div>

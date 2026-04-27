@@ -16,15 +16,6 @@ import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 
-// Treats null, undefined, "", [], {} as equivalent "empty"
-function isEmptyValue(val: unknown): boolean {
-  if (val == null) return true
-  if (typeof val === 'string' && val.trim() === '') return true
-  if (Array.isArray(val) && val.length === 0) return true
-  if (typeof val === 'object' && val !== null && !('toNumber' in val) && !(val instanceof Date) && Object.keys(val).length === 0) return true
-  return false
-}
-
 // Normalizes empty-ish values to a canonical form for comparison
 function normalizeValue(val: unknown): unknown {
   if (val == null) return null

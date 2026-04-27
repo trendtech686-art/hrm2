@@ -85,7 +85,7 @@ export function OrderPrintButton({
           detail: { entityType: 'order', entityId: order.systemId },
         }));
       } catch { /* ignore log errors */ }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể xuất hóa đơn');
     } finally {
       setIsExporting(false);

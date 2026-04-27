@@ -12,36 +12,8 @@ type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
-// Helper to map DB item to app type
-function mapInventoryCheckItem(item: {
-  systemId: string;
-  checkId: string;
-  productId: string | null;
-  productSystemId: string | null;
-  productName: string;
-  productSku: string;
-  unit: string | null;
-  systemQty: number;
-  actualQty: number;
-  difference: number;
-  reason: string | null;
-  notes: string | null;
-}) {
-  return {
-    productSystemId: item.productSystemId || item.productId || item.productSku,
-    productId: item.productSku,
-    productName: item.productName,
-    unit: item.unit || '',
-    systemQuantity: item.systemQty,
-    actualQuantity: item.actualQty,
-    difference: item.difference,
-    reason: item.reason || undefined,
-    note: item.notes,
-  };
-}
-
 // GET - Get single inventory check
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 

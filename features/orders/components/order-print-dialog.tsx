@@ -13,7 +13,7 @@ import { Input } from '../../../components/ui/input';
 import { Printer, FileText, Package, Truck, Tag } from 'lucide-react';
 import { usePrint } from '../../../lib/use-print';
 import type { TemplateType, PaperSize, PrintOrientation } from '../../settings/printer/types';
-import { LABEL_SIZES, isLabelSize } from '../../settings/printer/types';
+import { LABEL_SIZES } from '../../settings/printer/types';
 import type { Order, Packaging } from '../types';
 import type { Customer } from '../../customers/types';
 import type { Branch } from '../../settings/branches/types';
@@ -106,7 +106,6 @@ export function OrderPrintDialog({
   const [isCustom, setIsCustom] = React.useState(false);
 
   const supportsOrientation = ['A4', 'A5', 'A6'].includes(selectedSize) && !isCustom;
-  const isShippingOrLabel = selectedType === 'shipping-label' || selectedType === 'product-label';
 
   // Reset size khi đổi loại template
   React.useEffect(() => {

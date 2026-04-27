@@ -54,9 +54,13 @@ export const ProductThumbnailCell = ({
 
   if (imageUrl) {
     return (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- conditionally interactive image thumbnail
       <div
         className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
         onClick={() => onPreview?.(imageUrl, productName)}
+        onKeyDown={(e) => { if (e.key === 'Enter') onPreview?.(imageUrl, productName); }}
+        role={onPreview ? 'button' : undefined}
+        tabIndex={onPreview ? 0 : undefined}
       >
         <OptimizedImage
           src={imageUrl}

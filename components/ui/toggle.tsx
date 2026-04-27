@@ -1,4 +1,4 @@
-import * as React from "react"
+import { forwardRef, useState, type ButtonHTMLAttributes } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../lib/utils"
@@ -25,16 +25,16 @@ const toggleVariants = cva(
   }
 )
 
-type ToggleProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
+type ToggleProps = ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof toggleVariants> & {
     pressed?: boolean
     defaultPressed?: boolean
     onPressedChange?: (pressed: boolean) => void
   }
 
-const Toggle = React.forwardRef<HTMLButtonElement, ToggleProps>(
+const Toggle = forwardRef<HTMLButtonElement, ToggleProps>(
   ({ className, variant, size, pressed, defaultPressed, onPressedChange, ...props }, ref) => {
-    const [isPressed, setIsPressed] = React.useState(defaultPressed || false)
+    const [isPressed, setIsPressed] = useState(defaultPressed || false)
 
     const isControlled = pressed !== undefined
     const currentPressed = isControlled ? pressed : isPressed

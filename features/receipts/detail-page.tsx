@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useMemo, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useReceipt } from './hooks/use-receipts';
@@ -59,7 +59,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
   const { print } = usePrint();
 
   // ⚡ OPTIMIZED: Lazy load print data only when print is clicked
-  const handlePrint = React.useCallback(async () => {
+  const handlePrint = useCallback(async () => {
     if (!receipt) return;
     
     const { storeInfo } = await fetchPrintData();
@@ -73,12 +73,12 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
     });
   }, [receipt, print]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId || 'system',
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  const createdByName = React.useMemo(() => {
+  const createdByName = useMemo(() => {
     if (!receipt) return 'Hệ thống';
     return (receipt as Record<string, unknown>).createdByName as string || receipt.createdBy || 'Hệ thống';
   }, [receipt]);
@@ -91,7 +91,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
   } = useComments('receipt', systemId || '');
   
   type ReceiptComment = Comment<string>;
-  const comments = React.useMemo<ReceiptComment[]>(() => 
+  const comments = useMemo<ReceiptComment[]>(() => 
     dbComments.map(c => ({
       id: c.systemId,
       content: c.content,
@@ -117,7 +117,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
     dbDeleteComment(commentId);
   };
 
-  const payerLink = React.useMemo(() => {
+  const payerLink = useMemo(() => {
     if (!receipt) return null;
     const targetSystemId = receipt.customerSystemId || receipt.payerSystemId;
     if (!targetSystemId) return null;
@@ -132,7 +132,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
     return generatePath(route, { systemId: targetSystemId });
   }, [receipt]);
 
-  const originalDocumentLink = React.useMemo(() => {
+  const originalDocumentLink = useMemo(() => {
     if (!receipt?.originalDocumentId) return null;
     if (receipt.linkedOrderSystemId) {
       return generatePath(ROUTES.SALES.ORDER_VIEW, { systemId: receipt.linkedOrderSystemId });
@@ -152,7 +152,7 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
     return null;
   }, [receipt]);
 
-  const headerActions = React.useMemo(() => {
+  const headerActions = useMemo(() => {
     const actions = [
       <Button
         key="back"
@@ -193,11 +193,11 @@ export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
     }
 
     return actions;
-  }, [router, receipt, handlePrint]);
+  }, [router, receipt, handlePrint, isAdmin, can]);
 
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!isMobile || !receipt) return null;
-    const items: React.ReactNode[] = [
+    const items: ReactNode[] = [
       <DropdownMenuItem key="print" onClick={handlePrint}>
         <Printer className="mr-2 h-4 w-4" />
         In phiếu

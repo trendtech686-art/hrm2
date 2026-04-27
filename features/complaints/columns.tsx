@@ -4,14 +4,11 @@ import * as React from 'react';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { ColumnDef } from '../../components/data-table/types';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Badge as _Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { 
   Clock,
-  AlertCircle as _AlertCircle,
   CheckCircle2,
   XCircle,
-  AlertTriangle as _AlertTriangle,
   Package,
   Calendar,
   User,
@@ -25,12 +22,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import { Complaint, complaintStatusLabels as _complaintStatusLabels, complaintStatusColors as _complaintStatusColors, complaintTypeLabels, complaintTypeColors as _complaintTypeColors } from './types';
-import { checkOverdue, formatTimeLeft as _formatTimeLeft } from './sla-utils';
+import { Complaint, complaintTypeLabels } from './types';
+import { checkOverdue } from './sla-utils';
 import type { ComplaintType } from '@/features/settings/complaints/types';
 import { formatDate } from '../../lib/date-utils';
-import { generateTrackingUrl as _generateTrackingUrl, getTrackingCode as _getTrackingCode } from './tracking-utils';
-import { toast as _toast } from 'sonner';
 
 export const getColumns = (
   onView: (systemId: string) => void,
@@ -40,7 +35,7 @@ export const getColumns = (
   onCancel: (systemId: string) => void,
   onGetLink: (systemId: string) => void,
   employees: Array<{ systemId: string; fullName: string }>,
-  router: AppRouterInstance,
+  _router: AppRouterInstance,
   complaintTypes: ComplaintType[] = [],
   _trackingEnabled: boolean = false,
 ): ColumnDef<Complaint>[] => [
@@ -94,7 +89,7 @@ export const getColumns = (
     header: 'Mã đơn hàng',
     cell: ({ row }) => (
       <button
-        onClick={() => router.push(`/orders/${row.orderSystemId}`)}
+        onClick={() => _router.push(`/orders/${row.orderSystemId}`)}
         className="font-medium text-primary hover:underline"
       >
         {row.orderCode || row.orderSystemId}
@@ -114,7 +109,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <div className="flex flex-col">
         <button
-          onClick={() => router.push(`/customers/${row.customerSystemId}`)}
+          onClick={() => _router.push(`/customers/${row.customerSystemId}`)}
           className="font-medium text-primary hover:underline text-left"
         >
           {row.customerName}

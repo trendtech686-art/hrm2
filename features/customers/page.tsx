@@ -27,7 +27,6 @@ import { ResponsiveDataTable } from "@/components/data-table/responsive-data-tab
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { PageFilters } from "@/components/layout/page-filters";
-import { TouchButton } from "@/components/mobile/touch-button";
 import { MobileSearchBar } from "@/components/mobile/mobile-search-bar";
 import { MobileCustomerCard } from "./components/mobile-customer-card";
 import { Button } from "@/components/ui/button";
@@ -41,10 +40,37 @@ import { logError } from '@/lib/logger'
 import { useAuth } from "@/contexts/auth-context";
 import { FAB } from '@/components/mobile/fab';
 import { ListPageShell } from '@/components/layout/page-section';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-const BulkActionConfirmDialog = dynamic(() => import("./components/bulk-action-confirm-dialog").then(mod => ({ default: mod.BulkActionConfirmDialog })), { ssr: false });
-const CustomerImportDialog = dynamic(() => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerImportDialog })), { ssr: false });
-const CustomerExportDialog = dynamic(() => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerExportDialog })), { ssr: false });
+// Loading component for dialogs
+function DialogLoadingFallback() {
+  return (
+    <Dialog open>
+      <DialogContent className="max-w-md">
+        <div className="space-y-4 p-4">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-1/2" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const BulkActionConfirmDialog = dynamic(
+  () => import("./components/bulk-action-confirm-dialog").then(mod => ({ default: mod.BulkActionConfirmDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
+const CustomerImportDialog = dynamic(
+  () => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerImportDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
+const CustomerExportDialog = dynamic(
+  () => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerExportDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
 
 const TABLE_STATE_STORAGE_KEY = "customers-table-state";
 type PendingBulkAction = { kind: "delete" | "restore"; customers: Customer[] } | { kind: "status"; status: Customer["status"]; customers: Customer[] } | null;
@@ -112,8 +138,8 @@ export function CustomersPage({ initialStats, initialGroups: _initialGroups }: C
   const { can } = useAuth();
   const canCreate = can('create_customers');
   const canDelete = can('delete_customers');
-  const canEdit = can('edit_customers');
-  const canEditSettings = can('edit_settings');
+  const _canEdit = can('edit_customers');
+  const _canEditSettings = can('edit_settings');
   // useTransition for non-blocking filter updates
   const [isFilterPending, startFilterTransition] = React.useTransition();
 
@@ -420,7 +446,7 @@ export function CustomersPage({ initialStats, initialGroups: _initialGroups }: C
           ) : (
             <>
               <div className="flex items-center gap-2">
-                {canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/customers')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}
+                {_canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/customers')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}
                 <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button>
                 <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button>
                 <DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />

@@ -82,9 +82,14 @@ export function AttendancePage() {
   // ⚡ OPTIMIZED: storeInfo lazy loaded in print handler
   const { print } = usePrint();
 
-  // Core state
-  const [currentDate, setCurrentDate] = React.useState(() => new Date());
-  const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
+  // Core state - hydration-safe initialization
+  const [currentDate, setCurrentDate] = React.useState<Date | undefined>(undefined);
+  const currentMonthKey = formatDateCustom(currentDate ?? new Date(), 'yyyy-MM');
+  
+  // Initialize on client to avoid hydration mismatch
+  React.useEffect(() => {
+    setCurrentDate(new Date());
+  }, []);
   
   // Server-side: fetch paginated attendance data
   const [globalFilter, setGlobalFilter] = React.useState('');
@@ -190,7 +195,7 @@ export function AttendancePage() {
             if (row.employeeSystemId === employeeSystemId) {
               const newRow = { ...row } as AnyAttendanceDataRow;
               newRow[`day_${day}`] = defaultRecord;
-              return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+              return { ...newRow, ...recalculateSummary(newRow, (currentDate ?? new Date()).getFullYear(), (currentDate ?? new Date()).getMonth() + 1, settings) } as AttendanceDataRow;
             }
             return row;
           }),
@@ -238,7 +243,7 @@ export function AttendancePage() {
             if (row.employeeSystemId === editingRecordInfo.employeeSystemId) {
               const newRow = { ...row } as AnyAttendanceDataRow;
               newRow[`day_${editingRecordInfo.day}`] = updatedRecord;
-              return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+              return { ...newRow, ...recalculateSummary(newRow, (currentDate ?? new Date()).getFullYear(), (currentDate ?? new Date()).getMonth() + 1, settings) } as AttendanceDataRow;
             }
             return row;
           }),
@@ -279,7 +284,7 @@ export function AttendancePage() {
             if (empUpdates.length > 0) {
               const newRow = { ...row } as AnyAttendanceDataRow;
               empUpdates.forEach(u => { newRow[`day_${u.day}`] = u.record; });
-              return { ...newRow, ...recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings) } as AttendanceDataRow;
+              return { ...newRow, ...recalculateSummary(newRow, (currentDate ?? new Date()).getFullYear(), (currentDate ?? new Date()).getMonth() + 1, settings) } as AttendanceDataRow;
             }
             return row;
           }),
@@ -410,7 +415,8 @@ export function AttendancePage() {
 
   const handleExport = React.useCallback(async () => {
     const XLSX = await import('xlsx');
-    const year = currentDate.getFullYear(), month = currentDate.getMonth() + 1, daysInMonth = new Date(year, month, 0).getDate();
+    const effectiveDate = currentDate ?? new Date();
+    const year = effectiveDate.getFullYear(), month = effectiveDate.getMonth() + 1, daysInMonth = new Date(year, month, 0).getDate();
     const headers = ['Mã NV', 'Họ tên', 'Phòng ban'];
     for (let d = 1; d <= daysInMonth; d++) headers.push(`${d}`);
     headers.push('Ngày công', 'Nghỉ phép', 'Vắng');
@@ -423,7 +429,7 @@ export function AttendancePage() {
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Chấm công T${month}`);
-    XLSX.writeFile(wb, `cham-cong-${formatDateCustom(currentDate, 'yyyy-MM')}.xlsx`);
+    XLSX.writeFile(wb, `cham-cong-${formatDateCustom(effectiveDate, 'yyyy-MM')}.xlsx`);
     toast.success('Xuất Excel thành công', { description: `Đã xuất ${serverData.length} nhân viên` });
   }, [serverData, currentDate]);
 
@@ -438,8 +444,9 @@ export function AttendancePage() {
   }), []));
 
   // Columns - use refs for cellSelection/isSelectionMode to keep column defs stable
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1;
+  const effectiveDate = currentDate ?? new Date();
+  const year = effectiveDate.getFullYear();
+  const month = effectiveDate.getMonth() + 1;
   const cellSelectionRef = React.useRef(cellSelection);
   cellSelectionRef.current = cellSelection;
   const isSelectionModeRef = React.useRef(isSelectionMode);
@@ -532,7 +539,7 @@ export function AttendancePage() {
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!isMobile}>
     <div className="flex flex-col h-full space-y-4">
-      <StatisticsDashboard data={serverData} currentDate={currentDate} />
+      <StatisticsDashboard data={serverData} currentDate={effectiveDate} />
 
       {/* Toolbar */}
       <Card className={cn(mobileBleedCardClass, 'shrink-0')}>
@@ -540,7 +547,7 @@ export function AttendancePage() {
           {isMobile ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <MonthYearPicker value={currentDate} onChange={setCurrentDate} />
+                <MonthYearPicker value={effectiveDate} onChange={setCurrentDate} />
                 <div className="flex items-center gap-1">
                   <Button variant={isLocked ? 'default' : 'outline'} size="icon" className="w-9" onClick={handleToggleLock}>
                     {isLocked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -577,7 +584,7 @@ export function AttendancePage() {
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <MonthYearPicker value={currentDate} onChange={setCurrentDate} />
+                <MonthYearPicker value={effectiveDate} onChange={setCurrentDate} />
                 <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
                   <SelectTrigger className="w-full sm:w-45">
                     <SelectValue placeholder="Tất cả phòng ban" />
@@ -610,7 +617,7 @@ export function AttendancePage() {
         <ResponsiveDataTable columns={columns} data={serverData} rowCount={totalRows} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} renderMobileCard={renderMobileEmployeeCard} mobileInfiniteScroll isLoading={isFetching} />
       </div>
 
-      <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={currentDate} isSaving={updateAttendance.isPending} />
+      <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={effectiveDate} isSaving={updateAttendance.isPending} />
       <AttendanceImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} onConfirmImport={handleConfirmImport} employees={employees} />
       <BulkEditDialog isOpen={isBulkEditDialogOpen} onOpenChange={setIsBulkEditDialogOpen} selectedCells={selectedCellsArray} onSave={handleBulkSave} />
       <PenaltyConfirmDialog isOpen={isPenaltyConfirmOpen} onOpenChange={setIsPenaltyConfirmOpen} penalties={pendingPenalties} onConfirm={handleConfirmPenalties} onSkip={handleSkipPenalties} />

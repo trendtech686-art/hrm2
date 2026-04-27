@@ -1,0 +1,414 @@
+{
+  "summary": {
+    "total_issues": 45,
+    "api_route_issues": 12,
+    "hydration_issues": 33,
+    "errors": 8,
+    "warnings": 28,
+    "info": 9
+  },
+  "issues": [
+    // ============================================
+    // API ROUTE ISSUES
+    // ============================================
+    {
+      "file": "app/api/shipping/ghtk/cancel-order/route.ts",
+      "line": 23,
+      "issue": "localStorage access in API route - inappropriate for server-side",
+      "severity": "error",
+      "suggestion": "Remove localStorage access. This is server-side code.",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/settings/print-template-config/route.ts",
+      "issue": "File contains window reference in API route",
+      "severity": "error",
+      "suggestion": "Remove browser API access from server-side route",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/jnt/create-order/route.ts",
+      "line": 24,
+      "issue": "Math.random() used for requestId generation - not cryptographically secure",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() or crypto.getRandomValues() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/list-pick-addresses/route.ts",
+      "line": 18,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/order-status/[trackingCode]/route.ts",
+      "line": 25,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/create-order/route.ts",
+      "line": 25,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/solutions/route.ts",
+      "line": 23,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/calculate-fee/route.ts",
+      "line": 25,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/submit-order/route.ts",
+      "line": 36,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/print-label/[trackingCode]/route.ts",
+      "line": 30,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/get-specific-addresses/route.ts",
+      "line": 19,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/test-connection/route.ts",
+      "line": 19,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/shipping/ghtk/cancel-order/route.ts",
+      "line": 25,
+      "issue": "Math.random() used for requestId generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() instead",
+      "category": "api-route"
+    },
+    {
+      "file": "app/api/warranties/route.ts",
+      "line": 182,
+      "issue": "Math.random() used for publicTrackingCode generation",
+      "severity": "warning",
+      "suggestion": "Use crypto.randomUUID() or generateSubEntityId() helper instead",
+      "category": "api-route"
+    },
+
+    // ============================================
+    // HYDRATION ISSUES - Date/Time Rendering
+    // ============================================
+    {
+      "file": "features/orders/components/order-detail-page.tsx",
+      "line": 1800,
+      "issue": "new Date() in JSX render - causes hydration mismatch",
+      "severity": "error",
+      "suggestion": "Use useState with lazy initialization or pass defaultDate as prop from server",
+      "category": "hydration"
+    },
+    {
+      "file": "features/tasks/components/kanban-view.tsx",
+      "line": 74,
+      "issue": "new Date() called in render body for isOverdue calculation",
+      "severity": "warning",
+      "suggestion": "Move to useMemo or useState with lazy initialization",
+      "category": "hydration"
+    },
+    {
+      "file": "features/tasks/components/task-card.tsx",
+      "line": 47,
+      "issue": "new Date() called in render body for overdue check",
+      "severity": "warning",
+      "suggestion": "Move to useMemo or useEffect with state",
+      "category": "hydration"
+    },
+    {
+      "file": "features/warranty/components/cards/warranty-processing-card.tsx",
+      "line": 58,
+      "issue": "new Date() called in render body (_currentTime variable)",
+      "severity": "warning",
+      "suggestion": "If unused, remove. If needed for display, use useState lazy init or suppressHydrationWarning",
+      "category": "hydration"
+    },
+    {
+      "file": "features/warranty/hooks/use-warranty-time-tracking.ts",
+      "line": 60,
+      "issue": "new Date() called in hook - acceptable for time tracking but updates every minute",
+      "severity": "info",
+      "suggestion": "This is acceptable as the hook intentionally updates every minute via interval",
+      "category": "hydration"
+    },
+    {
+      "file": "features/attendance/page.tsx",
+      "line": 86,
+      "issue": "new Date() used with useState lazy initialization - correct pattern",
+      "severity": "info",
+      "suggestion": "This is the correct pattern for hydration-safe date initialization",
+      "category": "hydration"
+    },
+    {
+      "file": "features/settings/printer/workflow-templates-page.tsx",
+      "line": 108,
+      "issue": "new Date() called in getDefaultTemplates() - used for default data only",
+      "severity": "info",
+      "suggestion": "This is acceptable as it's only used for generating default template data, not for display",
+      "category": "hydration"
+    },
+    {
+      "file": "features/reports/business-activity/pages/sales-order-report.tsx",
+      "line": 33,
+      "issue": "new Date() in component body for initial date values",
+      "severity": "warning",
+      "suggestion": "Use useState with lazy initialization or useMemo",
+      "category": "hydration"
+    },
+    {
+      "file": "features/reports/business-activity/pages/sales-product-report.tsx",
+      "line": 41,
+      "issue": "new Date() in component body for initial date values",
+      "severity": "warning",
+      "suggestion": "Use useState with lazy initialization or useMemo",
+      "category": "hydration"
+    },
+    {
+      "file": "features/orders/components/order-form-page.tsx",
+      "line": 415,
+      "issue": "new Date() in initial form values - causes hydration mismatch",
+      "severity": "error",
+      "suggestion": "Use useState(() => new Date()) for lazy initialization or pass from server",
+      "category": "hydration"
+    },
+    {
+      "file": "features/payments/payment-form.tsx",
+      "line": 144,
+      "issue": "new Date() in initial form values",
+      "severity": "warning",
+      "suggestion": "Use useState with lazy initialization",
+      "category": "hydration"
+    },
+    {
+      "file": "features/leaves/page.tsx",
+      "line": 230,
+      "issue": "new Date() used as fallback for date fields",
+      "severity": "warning",
+      "suggestion": "Use useState with lazy initialization",
+      "category": "hydration"
+    },
+    {
+      "file": "features/inventory-checks/form-page.tsx",
+      "line": 514,
+      "issue": "new Date() in initial form values",
+      "severity": "warning",
+      "suggestion": "Use useState with lazy initialization",
+      "category": "hydration"
+    },
+    {
+      "file": "features/settings/penalties/form.tsx",
+      "line": 56,
+      "issue": "new Date() in initial form values",
+      "severity": "warning",
+      "suggestion": "Use useState with lazy initialization",
+      "category": "hydration"
+    },
+
+    // ============================================
+    // HYDRATION ISSUES - Browser API Access
+    // ============================================
+    {
+      "file": "components/theme-provider.tsx",
+      "issue": "localStorage access in theme provider",
+      "severity": "info",
+      "suggestion": "Should be wrapped in typeof window check - common pattern for SSR",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/sonner.tsx",
+      "issue": "window reference in Sonner toast component",
+      "severity": "info",
+      "suggestion": "Should be handled by SSR-safe wrapper",
+      "category": "hydration"
+    },
+    {
+      "file": "components/layout/main-layout.tsx",
+      "issue": "window access in main layout",
+      "severity": "warning",
+      "suggestion": "Ensure window access is only in useEffect or after mount check",
+      "category": "hydration"
+    },
+    {
+      "file": "components/shared/pull-to-refresh.tsx",
+      "issue": "localStorage access for refresh state",
+      "severity": "info",
+      "suggestion": "Ensure localStorage access is wrapped in useEffect or mounted check",
+      "category": "hydration"
+    },
+    {
+      "file": "components/shared/share-button.tsx",
+      "issue": "window/navigator access for sharing",
+      "severity": "info",
+      "suggestion": "Ensure sharing APIs are only accessed on client side",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/resizable.tsx",
+      "issue": "window access for resize handling",
+      "severity": "info",
+      "suggestion": "Should be SSR-safe with window check in useEffect",
+      "category": "hydration"
+    },
+    {
+      "file": "components/pwa/service-worker-register.tsx",
+      "issue": "Service worker registration with window.navigator",
+      "severity": "info",
+      "suggestion": "This is expected to be client-side only - ensure it's not rendered server-side",
+      "category": "hydration"
+    },
+    {
+      "file": "components/shared/qr-scanner-dialog.tsx",
+      "issue": "Browser APIs for QR scanning",
+      "severity": "info",
+      "suggestion": "Ensure component is only rendered client-side",
+      "category": "hydration"
+    },
+    {
+      "file": "components/shared/barcode-scanner-button.tsx",
+      "issue": "Browser APIs for barcode scanning",
+      "severity": "info",
+      "suggestion": "Ensure component is only rendered client-side",
+      "category": "hydration"
+    },
+    {
+      "file": "components/protected-route.tsx",
+      "issue": "window access for route protection",
+      "severity": "warning",
+      "suggestion": "Ensure window check is done properly to avoid hydration mismatch",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/tooltip.tsx",
+      "issue": "window/document access for tooltip positioning",
+      "severity": "info",
+      "suggestion": "Ensure positioning logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/hover-card.tsx",
+      "issue": "window/document access for hover card positioning",
+      "severity": "info",
+      "suggestion": "Ensure positioning logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/data-table/responsive-data-table.tsx",
+      "issue": "window access for responsive table behavior",
+      "severity": "info",
+      "suggestion": "Ensure responsive logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/data-table/sticky-scrollbar.tsx",
+      "issue": "window/document access for sticky scrollbar",
+      "severity": "info",
+      "suggestion": "Ensure scrollbar logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/pwa/offline-queue-indicator.tsx",
+      "issue": "localStorage access for offline queue state",
+      "severity": "info",
+      "suggestion": "Ensure localStorage access is wrapped in useEffect",
+      "category": "hydration"
+    },
+    {
+      "file": "components/theme-color-meta.tsx",
+      "issue": "window/document access for theme color",
+      "severity": "info",
+      "suggestion": "Ensure meta tag update runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/tiptap-editor-impl.tsx",
+      "issue": "window/document access for rich text editor",
+      "severity": "info",
+      "suggestion": "This is expected client-side - ensure component is dynamically imported with ssr: false",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/existing-documents-viewer.tsx",
+      "issue": "window/document access for document viewer",
+      "severity": "info",
+      "suggestion": "Ensure viewer logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/file-preview-dialog.tsx",
+      "issue": "window/document access for file preview",
+      "severity": "info",
+      "suggestion": "Ensure preview logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/new-documents-upload.tsx",
+      "issue": "window/document access for document upload",
+      "severity": "info",
+      "suggestion": "Ensure upload logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/context-menu.tsx",
+      "issue": "window/document access for context menu positioning",
+      "severity": "info",
+      "suggestion": "Ensure positioning logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/ui/image-preview-dialog.tsx",
+      "issue": "window/document access for image preview",
+      "severity": "info",
+      "suggestion": "Ensure preview logic runs only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/shared/quick-actions-menu.tsx",
+      "issue": "window/navigator access for quick actions",
+      "severity": "info",
+      "suggestion": "Ensure actions run only after mount",
+      "category": "hydration"
+    },
+    {
+      "file": "components/shared/documents-manager.tsx",
+      "issue": "window/document access for document management",
+      "severity": "info",
+      "suggestion": "Ensure management logic runs only after mount",
+      "category": "hydration"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+﻿import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -57,31 +57,31 @@ export function CategoryMappingTab() {
   const { addLog } = usePkgxLogMutations();
   const { data: productCategoriesData = [] } = useActiveCategories();
   
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState('pkgx-categories');
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingMapping, setEditingMapping] = React.useState<PkgxCategoryMapping | null>(null);
-  const [isSyncing, setIsSyncing] = React.useState(false);
-  const [isImporting, setIsImporting] = React.useState(false);
-  const [isPaused, setIsPaused] = React.useState(false);
-  const [importProgress, setImportProgress] = React.useState({ current: 0, total: 0, currentName: '' });
-  const pauseRef = React.useRef(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('pkgx-categories');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingMapping, setEditingMapping] = useState<PkgxCategoryMapping | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentName: '' });
+  const pauseRef = useRef(false);
   
   // Detail dialog state
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
-  const [selectedCategoryForDetail, setSelectedCategoryForDetail] = React.useState<PkgxCategoryFromApi | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = React.useState(false);
-  const [isPushing, setIsPushing] = React.useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedCategoryForDetail, setSelectedCategoryForDetail] = useState<PkgxCategoryFromApi | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
   
   // Table state
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'id', desc: false });
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'id', desc: false });
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   
   // Form state
-  const [selectedHrmCategory, setSelectedHrmCategory] = React.useState('');
-  const [selectedPkgxCategory, setSelectedPkgxCategory] = React.useState('');
-  const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
+  const [selectedHrmCategory, setSelectedHrmCategory] = useState('');
+  const [selectedPkgxCategory, setSelectedPkgxCategory] = useState('');
+  const [showWarningConfirm, setShowWarningConfirm] = useState(false);
   
   // Use shared PKGX entity sync hook
   const entitySync = usePkgxEntitySync({
@@ -89,7 +89,7 @@ export function CategoryMappingTab() {
     onLog: (log) => addLog.mutate(log),
   });
   
-  const hrmCategories = React.useMemo(
+  const hrmCategories = useMemo(
     () => [...productCategoriesData].sort((a, b) => (a.path || '').localeCompare(b.path || '')).map(c => ({
       ...c,
       systemId: asSystemId(c.systemId),
@@ -108,17 +108,17 @@ export function CategoryMappingTab() {
   });
   
   // Find if PKGX category is mapped
-  const findMapping = React.useCallback((pkgxCatId: number) => {
+  const findMapping = useCallback((pkgxCatId: number) => {
     return settings?.categoryMappings.find(m => m.pkgxCatId === pkgxCatId);
   }, [settings?.categoryMappings]);
   
   // Tổng số mapping orphan (trỏ vào Category HRM đã xoá).
-  const orphanMappings = React.useMemo(
+  const orphanMappings = useMemo(
     () => (settings?.categoryMappings ?? []).filter(m => m.hrmEntityMissing === true),
     [settings?.categoryMappings],
   );
   
-  const handleCleanupAllOrphans = React.useCallback(() => {
+  const handleCleanupAllOrphans = useCallback(() => {
     if (orphanMappings.length === 0) return;
     const ids = orphanMappings
       .map((m) => m.systemId || m.id)
@@ -131,7 +131,7 @@ export function CategoryMappingTab() {
   }, [orphanMappings, deleteCategoryMappingsBulk, entitySync]);
   
   // PKGX Categories data for table
-  const pkgxCategoriesData = React.useMemo((): PkgxCategoryRow[] => {
+  const pkgxCategoriesData = useMemo((): PkgxCategoryRow[] => {
     if (!settings) return [];
     let filtered = settings.categories;
     if (searchTerm) {
@@ -153,7 +153,7 @@ export function CategoryMappingTab() {
   }, [settings, searchTerm, findMapping]);
   
   // Mappings data for table
-  const mappingsData = React.useMemo((): MappingRow[] => {
+  const mappingsData = useMemo((): MappingRow[] => {
     if (!settings) return [];
     let filtered = settings.categoryMappings;
     if (searchTerm) {
@@ -172,28 +172,28 @@ export function CategoryMappingTab() {
   }, [settings, searchTerm]);
   
   // Paginated data
-  const paginatedPkgxData = React.useMemo(() => {
+  const paginatedPkgxData = useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     return pkgxCategoriesData.slice(start, start + pagination.pageSize);
   }, [pkgxCategoriesData, pagination]);
   
-  const paginatedMappingsData = React.useMemo(() => {
+  const paginatedMappingsData = useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     return mappingsData.slice(start, start + pagination.pageSize);
   }, [mappingsData, pagination]);
   
   // All selected rows and bulk actions for PKGX categories table
-  const allSelectedPkgxRows = React.useMemo(() => 
+  const allSelectedPkgxRows = useMemo(() => 
     paginatedPkgxData.filter(p => rowSelection[p.systemId]),
   [paginatedPkgxData, rowSelection]);
   
   // Get selected PKGX categories that ARE mapped (for bulk unlink)
-  const selectedMappedCategories = React.useMemo(() => 
+  const selectedMappedCategories = useMemo(() => 
     allSelectedPkgxRows.filter(c => c.mappedToHrm),
   [allSelectedPkgxRows]);
   
   // Bulk actions for PKGX categories table
-  const pkgxBulkActions = React.useMemo(() => [
+  const pkgxBulkActions = useMemo(() => [
     {
       label: `Hủy liên kết (${selectedMappedCategories.length})`,
       icon: Unlink,
@@ -218,7 +218,7 @@ export function CategoryMappingTab() {
   ], [selectedMappedCategories, findMapping, deleteCategoryMapping]);
   
   // PKGX Categories columns
-  const pkgxColumns: ColumnDef<PkgxCategoryRow>[] = React.useMemo(() => [
+  const pkgxColumns: ColumnDef<PkgxCategoryRow>[] = useMemo(() => [
     {
       id: 'select',
       header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
@@ -321,7 +321,7 @@ export function CategoryMappingTab() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11">
+              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Tùy chọn">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -402,7 +402,7 @@ export function CategoryMappingTab() {
   ], [settings?.categories, hrmCategories, findMapping, entitySync]);
   
   // Mappings columns
-  const mappingColumns: ColumnDef<MappingRow>[] = React.useMemo(() => [
+  const mappingColumns: ColumnDef<MappingRow>[] = useMemo(() => [
     {
       id: 'hrmCategoryName',
       accessorKey: 'hrmCategoryName',
@@ -731,7 +731,7 @@ export function CategoryMappingTab() {
   };
   
   // Validate when form values change
-  React.useEffect(() => {
+  useEffect(() => {
     if (isDialogOpen && (selectedHrmCategory || selectedPkgxCategory)) {
       const input: CategoryMappingInput = {
         hrmCategorySystemId: selectedHrmCategory || '',

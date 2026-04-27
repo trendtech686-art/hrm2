@@ -44,7 +44,7 @@ export function PaymentVoucherFormFields({
   isSearchingOrders,
   onOrderSearchChange,
   onOrderSelect,
-  actualRemainingAmount,
+  actualRemainingAmount: _actualRemainingAmount,
   maxAmount,
   needsCashSupplement = false,
   autoOrderAmount = 0,

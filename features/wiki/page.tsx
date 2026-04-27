@@ -17,14 +17,15 @@ import { FAB } from '@/components/mobile/fab';
 
 function ArticleCard({ article }: { article: WikiArticle }) {
   const router = useRouter();
-  const contentSnippet = article.content.split('\n').find(line => line.trim() && !line.trim().startsWith('#')) || '';
+  const contentSnippet = article.content.split('\n').find((line: string) => line.trim() && !line.trim().startsWith('#')) || '';
 
   return (
-    <div 
+    <div
       className="rounded-xl border border-border/50 bg-card p-4 cursor-pointer active:scale-[0.98] transition-transform touch-manipulation"
       onClick={() => router.push(`/wiki/${article.systemId}`)}
+      onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/wiki/${article.systemId}`); }}
+      role="button"
       tabIndex={0}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && router.push(`/wiki/${article.systemId}`)}
     >
       <h3 className="font-semibold text-sm line-clamp-2">{article.title}</h3>
       <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
@@ -45,8 +46,8 @@ export function WikiPage() {
   // Permission checks
   const { can } = useAuth();
   const canCreate = can('create_wiki');
-  const canDelete = can('delete_wiki');
-  const canEdit = can('edit_wiki');
+  const _canDelete = can('delete_wiki');
+  const _canEdit = can('edit_wiki');
   const { data: articles } = useAllWiki();
   const router = useRouter();
   const { isMobile } = useBreakpoint();
@@ -56,7 +57,7 @@ export function WikiPage() {
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm bài viết
     </Button>
-  ]), [router]);
+  ]), [router, canCreate]);
 
   usePageHeader({
     title: 'Wiki nội bộ',

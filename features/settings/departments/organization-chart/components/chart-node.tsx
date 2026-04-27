@@ -96,6 +96,9 @@ export function EmployeeNode({ data, selected }: NodeProps<EmployeeNodeData>) {
                                     // Prevent event bubbling to allow drag
                                     e.stopPropagation();
                                 }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); } }}
+                                role="button"
+                                tabIndex={0}
                             >
                                 <div className="bg-background border rounded p-1 shadow-sm">
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -132,6 +135,9 @@ export function EmployeeNode({ data, selected }: NodeProps<EmployeeNodeData>) {
                         e.stopPropagation();
                         e.preventDefault();
                     }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); e.preventDefault(); } }}
+                    role="button"
+                    tabIndex={0}
                     onMouseDown={(e) => {
                         // Prevent drag when clicking collapse button
                         e.stopPropagation();

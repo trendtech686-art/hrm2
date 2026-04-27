@@ -118,6 +118,9 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                           <div
                             className="group/thumbnail relative w-10 h-9 rounded border overflow-hidden bg-muted cursor-pointer mx-auto"
                             onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') setPreviewImage({ url: imageUrl, title: item.productName }); }}
+                            role="button"
+                            tabIndex={0}
                           >
                             <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={40} height={36} />
                             <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">

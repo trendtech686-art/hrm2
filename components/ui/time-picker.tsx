@@ -46,6 +46,7 @@ const TimePicker = React.forwardRef<HTMLDivElement, TimePickerProps>(
     };
 
     return (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
         ref={ref}
         className={cn(

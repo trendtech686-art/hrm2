@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { Card } from './card';
 import { Button } from './button';
@@ -53,16 +53,16 @@ export function ExistingDocumentsViewer({
   hideFileInfo = false,
   gridTemplateClass = 'grid-cols-5',
 }: ExistingDocumentsViewerProps) {
-  const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
-  const [_bulkDeleteAlertOpen, _setBulkDeleteAlertOpen] = React.useState(false);
-  const [fileToDelete, setFileToDelete] = React.useState<StagingFile | null>(null);
-  const [deleteMode, setDeleteMode] = React.useState<'mark' | 'direct'>('direct');
+  const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [_bulkDeleteAlertOpen, _setBulkDeleteAlertOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<StagingFile | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'mark' | 'direct'>('direct');
   
   // Image preview state
-  const [previewOpen, setPreviewOpen] = React.useState(false);
-  const [previewIndex, setPreviewIndex] = React.useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
-  const handleDelete = React.useCallback(async (fileId: string) => {
+  const handleDelete = useCallback(async (fileId: string) => {
     const fileToDelete = files.find(f => f.id === fileId);
     if (!fileToDelete) return;
 
@@ -93,7 +93,7 @@ export function ExistingDocumentsViewer({
     setDeleteAlertOpen(true);
   }, [files, onMarkForDeletion, markedForDeletion]);
 
-  const confirmDelete = React.useCallback(async () => {
+  const confirmDelete = useCallback(async () => {
     if (!fileToDelete) return;
 
     if (deleteMode === 'mark' && onMarkForDeletion) {
@@ -140,15 +140,15 @@ export function ExistingDocumentsViewer({
   }, [fileToDelete, deleteMode, files, onChange, onRefresh, onMarkForDeletion]);
 
   // Get all image files for the preview dialog carousel
-  const imageFiles = React.useMemo(() => 
+  const imageFiles = useMemo(() => 
     files.filter(f => f.type && typeof f.type === 'string' && f.type.startsWith('image/')),
     [files]
   );
   
   // Non-image file preview state
-  const [nonImagePreviewFile, setNonImagePreviewFile] = React.useState<StagingFile | null>(null);
+  const [nonImagePreviewFile, setNonImagePreviewFile] = useState<StagingFile | null>(null);
 
-  const handlePreview = React.useCallback((file: StagingFile) => {
+  const handlePreview = useCallback((file: StagingFile) => {
     const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
     
     if (isImage) {
@@ -164,7 +164,7 @@ export function ExistingDocumentsViewer({
     }
   }, [imageFiles]);
 
-  const handleDownload = React.useCallback(async (file: StagingFile) => {
+  const handleDownload = useCallback(async (file: StagingFile) => {
     try {
       const downloadUrl = file.url;
 
@@ -386,14 +386,14 @@ function LazyFileCard({
   const previewUrl = file.url;
 
   // React-state based retry (replaces DOM mutation pattern)
-  const [retryCount, setRetryCount] = React.useState(0);
-  const computedSrc = React.useMemo(() => {
+  const [retryCount, setRetryCount] = useState(0);
+  const computedSrc = useMemo(() => {
     if (retryCount === 0) return previewUrl;
     const separator = previewUrl.includes('?') ? '&' : '?';
     return `${previewUrl}${separator}retry=${Date.now()}-${retryCount}`;
   }, [previewUrl, retryCount]);
 
-  const handleImageRetry = React.useCallback(() => {
+  const handleImageRetry = useCallback(() => {
     if (retryCount >= 4) return;
     const delay = (retryCount + 1) * 400;
     setTimeout(() => {
@@ -456,6 +456,9 @@ function LazyFileCard({
                       setIsLoaded(true);
                     }}
                     onError={handleImageRetry}
+                    onKeyDown={(e) => { if (e.key === 'Enter') onPreview(file); }}
+                    role="button"
+                    tabIndex={0}
                   />
                 )}
               </>

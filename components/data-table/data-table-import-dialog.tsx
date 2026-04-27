@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useRef, type ReactNode, type DragEvent } from 'react';
 import { toast } from 'sonner';
 import { Upload, FileText, X } from 'lucide-react';
 // XLSX is lazy loaded in parseFileForPreview and handleDownloadTemplate to reduce bundle size (~500KB)
@@ -27,7 +27,7 @@ export type ImportConfig<TData> = {
 };
 
 interface DataTableImportDialogProps<TData> {
-  children?: React.ReactNode;
+  children?: ReactNode;
   config: ImportConfig<TData>;
 }
 
@@ -38,13 +38,13 @@ type PreviewRow = {
 };
 
 export function DataTableImportDialog<TData>({ children, config }: DataTableImportDialogProps<TData>) {
-  const [open, setOpen] = React.useState(false);
-  const [file, setFile] = React.useState<File | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [previewData, setPreviewData] = React.useState<PreviewRow[]>([]);
-  const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
-  const [step, setStep] = React.useState<'upload' | 'preview'>('upload');
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewData, setPreviewData] = useState<PreviewRow[]>([]);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [step, setStep] = useState<'upload' | 'preview'>('upload');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (selectedFile: File | null) => {
     if (selectedFile && (selectedFile.type.includes('spreadsheet') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls') || selectedFile.name.endsWith('.csv'))) {
@@ -106,21 +106,21 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
     reader.readAsBinaryString(file);
   };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   };
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
   };
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -243,18 +243,21 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
               </ul>
             </div>
 
-            <div 
+            <div
               className={cn(
                   "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-border rounded-lg cursor-pointer transition-all",
-                  isDragging 
-                    ? "border-primary bg-primary/10 scale-[1.02]" 
+                  isDragging
+                    ? "border-primary bg-primary/10 scale-[1.02]"
                     : "bg-muted/30 hover:bg-muted/50"
               )}
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
+              role="button"
+              tabIndex={0}
             >
               {file ? (
                   <div className="text-center space-y-2">

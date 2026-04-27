@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+﻿import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -6,24 +6,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettings, useTrendtechBrandMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
+import { useTrendtechSettings, useTrendtechBrandMutations, useTrendtechBrandMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { useActiveBrands } from '@/features/brands/hooks/use-all-brands';
 import { nanoid } from 'nanoid';
 import { asSystemId } from '@/lib/id-types';
 
 export function BrandMappingTab() {
   const { data: settings } = useTrendtechSettings();
+  const { setBrands } = useTrendtechBrandMutations({ onSuccess: () => {} });
   const { addBrandMapping, deleteBrandMapping } = useTrendtechBrandMappingMutations({
     onSuccess: () => {},
   });
   const { addLog } = useTrendtechLogMutations();
   const { data: hrmBrands = [] } = useActiveBrands();
-  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const trendtechBrands = settings?.brands ?? [];
-  const mappings = React.useMemo(() => settings?.brandMappings ?? [], [settings?.brandMappings]);
+  const mappings = useMemo(() => settings?.brandMappings ?? [], [settings?.brandMappings]);
 
   // Get unmapped HRM brands
-  const unmappedHrmBrands = React.useMemo(() => {
+  const unmappedHrmBrands = useMemo(() => {
     const mappedIds = new Set(mappings.map((m) => m.hrmBrandSystemId));
     return hrmBrands.filter((b) => !mappedIds.has(asSystemId(b.systemId)));
   }, [hrmBrands, mappings]);
@@ -31,12 +32,48 @@ export function BrandMappingTab() {
   const handleSyncBrands = async () => {
     setIsSyncing(true);
     try {
-      // TODO: Fetch brands from Trendtech API
-      // const brands = await fetchTrendtechBrands();
-      // await setBrands.mutateAsync(brands);
-      toast.success('Đã đồng bộ danh sách thương hiệu từ Trendtech');
+      // Fetch brands from Trendtech API
+      const response = await fetch(`${settings?.apiUrl}/brands`, {
+        headers: {
+          'Authorization': `Bearer ${settings?.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      const trendtechBrands = json.brands || json.data || [];
+
+      // Transform to TrendtechBrand format
+      const brands = trendtechBrands.map((b: { id: number; name: string; slug?: string; logo?: string; description?: string; isActive?: boolean; sortOrder?: number }) => ({
+        id: b.id,
+        name: b.name,
+        slug: b.slug || '',
+        logo: b.logo,
+        description: b.description,
+        isActive: b.isActive ?? true,
+        sortOrder: b.sortOrder ?? 0,
+      }));
+
+      await setBrands.mutateAsync(brands);
+      addLog.mutate({
+        action: 'sync_brands',
+        status: 'success',
+        message: `Đã đồng bộ ${brands.length} thương hiệu từ Trendtech`,
+        details: { total: brands.length, success: brands.length, failed: 0 },
+      });
+      toast.success(`Đã đồng bộ ${brands.length} thương hiệu từ Trendtech`);
     } catch (error) {
       toast.error('Lỗi đồng bộ thương hiệu: ' + (error instanceof Error ? error.message : 'Unknown'));
+      addLog.mutate({
+        action: 'sync_brands',
+        status: 'error',
+        message: 'Lỗi đồng bộ thương hiệu',
+        details: { error: error instanceof Error ? error.message : 'Unknown' },
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -187,8 +224,8 @@ function AddMappingForm({
   trendtechBrands: Array<{ id: string; name: string }>;
   onAdd: (hrmId: string, trendtechId: string) => void;
 }) {
-  const [selectedHrm, setSelectedHrm] = React.useState('');
-  const [selectedTrendtech, setSelectedTrendtech] = React.useState('');
+  const [selectedHrm, setSelectedHrm] = useState('');
+  const [selectedTrendtech, setSelectedTrendtech] = useState('');
 
   const handleAdd = () => {
     if (selectedHrm && selectedTrendtech) {
@@ -201,9 +238,9 @@ function AddMappingForm({
   return (
     <div className="flex items-end gap-4">
       <div className="flex-1 space-y-2">
-        <label className="text-sm font-medium">Thương hiệu HRM</label>
+        <label htmlFor="brand-mapping-hrm" className="text-sm font-medium">Thương hiệu HRM</label>
         <Select value={selectedHrm} onValueChange={setSelectedHrm}>
-          <SelectTrigger>
+          <SelectTrigger id="brand-mapping-hrm">
             <SelectValue placeholder="Chọn thương hiệu HRM..." />
           </SelectTrigger>
           <SelectContent>
@@ -217,9 +254,9 @@ function AddMappingForm({
       </div>
 
       <div className="flex-1 space-y-2">
-        <label className="text-sm font-medium">Thương hiệu Trendtech</label>
+        <label htmlFor="brand-mapping-trendtech" className="text-sm font-medium">Thương hiệu Trendtech</label>
         <Select value={selectedTrendtech} onValueChange={setSelectedTrendtech}>
-          <SelectTrigger>
+          <SelectTrigger id="brand-mapping-trendtech">
             <SelectValue placeholder="Chọn thương hiệu Trendtech..." />
           </SelectTrigger>
           <SelectContent>

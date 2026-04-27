@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, memo } from 'react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import type { OrderPayment, Order, OrderAddress } from '../types';
@@ -27,7 +27,7 @@ interface PaymentInfoProps {
 }
 
 export function PaymentInfo({ payment, order }: PaymentInfoProps) {
-    const [isExpanded, setIsExpanded] = React.useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const { findById: findBranchById } = useBranchFinder();
     // ⚡ OPTIMIZED: storeInfo lazy loaded in print handler
     const { print } = usePrint(order.branchSystemId);
@@ -77,7 +77,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
             phone: storeInfo?.hotline,
             email: storeInfo?.email,
             province: storeInfo?.province,
-            // logo: undefined // TODO: Add logo if available
+            logo: storeInfo?.logo,
         };
 
         let printData;
@@ -142,7 +142,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     return (
         <div className="border rounded-md bg-background text-sm">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)}>
+            <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setIsExpanded(!isExpanded); }}>
                 <div className="flex items-center min-w-0">
                     {isPayment ? (
                         <Minus className="h-4 w-4 text-red-500 mr-3 shrink-0" />
@@ -176,10 +176,10 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                     )}>
                         {isPayment ? '-' : '+'}{formatCurrency(Math.abs(payment.amount))}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" onClick={handlePrint} title="In phiếu" aria-label="In phiếu chi">
                         <Printer className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" aria-label={isExpanded ? "Thu gọn" : "Mở rộng"}>
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </Button>
                 </div>
@@ -221,4 +221,4 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
 }
 
 // ✅ Export memoized component for performance
-export const MemoizedPaymentInfo = React.memo(PaymentInfo);
+export const MemoizedPaymentInfo = memo(PaymentInfo);

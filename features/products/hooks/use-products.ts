@@ -8,7 +8,7 @@
  * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
-import * as React from 'react';
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import {
   fetchProducts,
@@ -44,6 +44,8 @@ export const productKeys = {
   search: (query: string) => [...productKeys.all, 'search', query] as const,
   inventory: (id: string) => [...productKeys.all, 'inventory', id] as const,
   stats: () => [...productKeys.all, 'stats'] as const,
+  pageReferenceData: () => [...productKeys.all, 'page-reference-data'] as const,
+  formReferenceData: () => [...productKeys.all, 'form-reference-data'] as const,
 };
 
 // Types for initial data from Server Components
@@ -91,7 +93,7 @@ export function useProductStats(initialData?: ProductStats) {
  */
 export function useProductsByIds(systemIds: string[]) {
   // Deduplicate and sort for stable query key
-  const stableIds = React.useMemo(() => [...new Set(systemIds)].sort(), [systemIds.join(',')]);
+  const stableIds = useMemo(() => [...new Set(systemIds)].sort(), [systemIds]);
 
   const query = useQuery({
     queryKey: productKeys.byIds(stableIds),
@@ -103,7 +105,7 @@ export function useProductsByIds(systemIds: string[]) {
 
   // ✅ FIX: Map by both systemId AND id (SKU) to handle legacy data
   // where productSystemId may contain SKU instead of actual systemId
-  const productsMap = React.useMemo(() => {
+  const productsMap = useMemo(() => {
     const map = new Map<string, Product>();
     for (const p of query.data ?? []) {
       map.set(p.systemId, p);

@@ -9,8 +9,8 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-import * as React from 'react';
-import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useFieldArray, useFormContext, useWatch, type Control } from 'react-hook-form';
 import { Plus, Minus, Trash2, Package, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -120,7 +120,7 @@ export function ComboSection() {
   const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: branches } = useAllBranches();
   const { findById: findProductTypeById } = useProductTypeFinder();
-  const [isProductSelectionOpen, setIsProductSelectionOpen] = React.useState(false);
+  const [isProductSelectionOpen, setIsProductSelectionOpen] = useState(false);
   
   const form = useFormContext<ProductFormValues>();
   
@@ -131,21 +131,21 @@ export function ComboSection() {
   
   // Watch combo fields for realtime calculations
   const watchedComboItems = useWatch({ control: form.control, name: 'comboItems' });
-  const comboItems = React.useMemo(() => watchedComboItems || [], [watchedComboItems]);
+  const comboItems = useMemo(() => watchedComboItems || [], [watchedComboItems]);
   const comboPricingType = useWatch({ control: form.control, name: 'comboPricingType' });
   const comboDiscount = useWatch({ control: form.control, name: 'comboDiscount' }) || 0;
   
   // Filter products that can be added to combo (exclude combos and discontinued)
-  const availableProducts = React.useMemo(() => {
+  const availableProducts = useMemo(() => {
     return allProducts.filter(p => canAddToCombo(p));
   }, [allProducts]);
   
   // Product options for combobox (exclude already selected)
-  const selectedProductIds = React.useMemo(() => {
+  const selectedProductIds = useMemo(() => {
     return new Set(comboItems.map(item => item.productSystemId));
   }, [comboItems]);
   
-  const _productOptions = React.useMemo(() => {
+  const _productOptions = useMemo(() => {
     return availableProducts
       .filter(p => !selectedProductIds.has(p.systemId))
       .map(p => ({
@@ -155,18 +155,18 @@ export function ComboSection() {
   }, [availableProducts, selectedProductIds]);
   
   // Get default pricing policy
-  const defaultPricingPolicy = React.useMemo(() => {
+  const defaultPricingPolicy = useMemo(() => {
     return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
   }, [pricingPolicies]);
 
   // Get product type name
-  const getProductTypeName = React.useCallback((product?: Product) => {
+  const getProductTypeName = useCallback((product?: Product) => {
     if (!product?.productTypeSystemId) return 'Hàng hóa';
     const productType = findProductTypeById(product.productTypeSystemId as SystemId);
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
   
-  const resolveUnitPrice = React.useCallback((product?: Product) => {
+  const resolveUnitPrice = useCallback((product?: Product) => {
     if (!product) return 0;
     if (defaultPricingPolicy) {
       const policyPrice = product.prices?.[defaultPricingPolicy.systemId] ?? 0;
@@ -184,7 +184,7 @@ export function ComboSection() {
   }, [defaultPricingPolicy]);
 
   // Calculate totals
-  const calculations = React.useMemo(() => {
+  const calculations = useMemo(() => {
     if (!comboItems || comboItems.length === 0) {
       return { totalOriginalPrice: 0, comboPrice: 0, costPrice: 0, savings: 0 };
     }
@@ -223,7 +223,7 @@ export function ComboSection() {
   }, [comboItems, comboPricingType, comboDiscount, allProducts, resolveUnitPrice, defaultPricingPolicy]);
   
   // Calculate stock for all branches (Sapo: tổng tồn tại tất cả chi nhánh)
-  const _comboStockInfo = React.useMemo(() => {
+  const _comboStockInfo = useMemo(() => {
     if (!comboItems || comboItems.length === 0 || branches.length === 0) {
       return { totalStock: 0, stockByBranch: {} as Record<string, number> };
     }
@@ -248,9 +248,9 @@ export function ComboSection() {
   }, [comboItems, allProducts, branches]);
 
   // Realtime validation for combo items (debounced)
-  const [validationErrors, setValidationErrors] = React.useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       const errors: string[] = [];
       
@@ -540,8 +540,7 @@ export function ComboSection() {
               <ComboItemsEditTable
                 fields={fields}
                 remove={remove}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                control={form.control as any}
+                control={form.control as unknown as Control<Record<string, unknown>>}
                 fieldName="comboItems"
                 disabled={false}
                 isLoadingProducts={isLoadingProducts}

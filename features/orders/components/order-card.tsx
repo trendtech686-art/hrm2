@@ -30,9 +30,12 @@ export function OrderCard({ order, onCancel: _onCancel }: OrderCardProps) {
   const remaining = order.grandTotal - totalPaid;
 
   return (
-    <div 
+    <div
       className="bg-card rounded-xl border border-border/50 p-4 space-y-3 active:scale-[0.98] transition-transform touch-manipulation"
       onClick={() => router.push(`/orders/${order.systemId}`)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/orders/${order.systemId}`); }}
     >
       {/* Header: Code + Status */}
       <div className="flex items-start justify-between">

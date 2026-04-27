@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "../../../components/ui/select";
 import { Input } from "../../../components/ui/input";
+import { useProductLastPurchasePrice } from "../hooks/use-product-last-purchase-price";
 
 interface PriceSelectorProps {
   productId: string;
@@ -24,7 +25,7 @@ const formatCurrency = (value: number) => {
 };
 
 export function PriceSelector({
-  productId: _productId,
+  productId,
   supplierId: _supplierId,
   value,
   onChange,
@@ -33,25 +34,44 @@ export function PriceSelector({
   const [mode, setMode] = React.useState<"preset" | "custom">("preset");
   const [customValue, setCustomValue] = React.useState(value.toString());
 
+  // Get price options from last purchase price data
+  const { data: priceData } = useProductLastPurchasePrice(
+    productId,
+    value // Use current value as fallback lastPurchasePrice
+  );
+
   // Get price options
-  // TODO: Implement logic to get last purchase price and pricing settings
   const priceOptions = React.useMemo(() => {
-    // For now, return basic options
-    // In real implementation, fetch from:
-    // 1. Last purchase price from purchase history
-    // 2. Pricing settings for this product + supplier combo
-    
-    return [
-      {
+    const options = [];
+
+    // Last purchase price option
+    if (priceData?.lastPrice && priceData.lastPrice > 0) {
+      options.push({
         label: "Giá nhập gần nhất",
-        value: value || 0, // Placeholder
-      },
-      {
-        label: "Giá nhập",
-        value: value || 0, // Placeholder
-      },
-    ];
-  }, [value]);
+        value: priceData.lastPrice,
+        date: priceData.lastOrderDate,
+        supplier: priceData.lastSupplierName,
+      });
+    }
+
+    // Average price option
+    if (priceData?.averagePrice && priceData.averagePrice > 0) {
+      options.push({
+        label: "Giá trung bình",
+        value: priceData.averagePrice,
+      });
+    }
+
+    // Current/default price
+    if (value > 0) {
+      options.push({
+        label: "Giá mặc định",
+        value: value,
+      });
+    }
+
+    return options;
+  }, [priceData, value]);
 
   React.useEffect(() => {
     setCustomValue(value.toString());

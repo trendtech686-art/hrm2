@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NewDocumentsUpload } from "@/components/ui/new-documents-upload";
 import type { StagingFile } from "@/lib/file-upload-api";
-import { CheckCircle as _CheckCircle, XCircle, Upload as _Upload, MessageSquare as _MessageSquare, AlertCircle as _AlertCircle, Info as _Info, Loader2 } from "lucide-react";
+import { XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Complaint } from "../types";
 import type { SystemId } from "@/lib/id-types";

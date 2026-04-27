@@ -1,18 +1,18 @@
-import * as React from "react"
+import { forwardRef, useRef, useCallback, type ElementRef, type ComponentPropsWithoutRef } from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { Check } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 
-type BaseCheckboxProps = React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+type BaseCheckboxProps = ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
 
 type CheckboxProps = Omit<BaseCheckboxProps, "checked" | "defaultChecked"> & {
   checked?: CheckboxPrimitive.CheckedState | undefined
   defaultChecked?: CheckboxPrimitive.CheckedState | undefined
 }
 
-const Checkbox = React.forwardRef<
-  React.ElementRef<typeof CheckboxPrimitive.Root>,
+const Checkbox = forwardRef<
+  ElementRef<typeof CheckboxPrimitive.Root>,
   CheckboxProps
 >(({ className, checked, defaultChecked, onCheckedChange, ...props }, ref) => {
   const isControlled = checked !== undefined
@@ -20,7 +20,7 @@ const Checkbox = React.forwardRef<
   // Ref guard: Radix useControllableState in React 19 can fire onCheckedChange
   // during render phase with the current value → causes infinite re-render loop.
   // Track last known value and only forward genuinely new values to parent.
-  const lastValueRef = React.useRef<CheckboxPrimitive.CheckedState>(
+  const lastValueRef = useRef<CheckboxPrimitive.CheckedState>(
     checked ?? defaultChecked ?? false
   )
 
@@ -28,7 +28,7 @@ const Checkbox = React.forwardRef<
     lastValueRef.current = checked
   }
 
-  const handleCheckedChange = React.useCallback(
+  const handleCheckedChange = useCallback(
     (value: CheckboxPrimitive.CheckedState) => {
       if (value === lastValueRef.current) return
       lastValueRef.current = value

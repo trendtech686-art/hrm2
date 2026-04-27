@@ -1,7 +1,7 @@
 // TanStack React Table with Virtual Scrolling (for 10k+ rows)
 // File: components/data-table/tanstack-virtual-table.tsx
 
-import * as React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -44,9 +44,9 @@ export function TanStackVirtualTable<TData, TValue>({
   rowHeight = 53, // Default height của TableRow
   overscan = 10,
 }: TanStackVirtualTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
 
   const table = useReactTable({
     data,
@@ -67,7 +67,7 @@ export function TanStackVirtualTable<TData, TValue>({
   const { rows } = table.getRowModel();
 
   // Virtual scrolling setup
-  const parentRef = React.useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -125,13 +125,21 @@ export function TanStackVirtualTable<TData, TValue>({
                     return (
                       <TableHead key={header.id}>
                         {header.isPlaceholder ? null : (
-                          <div
-                            className={cn(
-                              'flex items-center gap-2',
-                              canSort && 'cursor-pointer select-none hover:text-foreground'
-                            )}
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
+                        <div
+                          className={cn(
+                            'flex items-center gap-2',
+                            canSort && 'cursor-pointer select-none hover:text-foreground'
+                          )}
+                          onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                          onKeyDown={(e) => {
+                            if (canSort) {
+                              const handler = header.column.getToggleSortingHandler();
+                              if (handler) handler(e);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                        >
                             {flexRender(
                               header.column.columnDef.header,
                               header.getContext()

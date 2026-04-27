@@ -7,7 +7,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { serializeDecimals, type ApiSession } from '@/lib/api-utils'
+import { serializeDecimals } from '@/lib/api-utils'
 import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { productFormSchema, updateProductFormSchema } from '@/features/products/validation'
@@ -17,44 +17,6 @@ import { syncSingleProduct, deleteFromIndex } from '@/lib/meilisearch-sync'
 
 // Types
 type Product = NonNullable<Awaited<ReturnType<typeof prisma.product.findFirst>>>
-
-// Helper to get user name from session (required for activity logging)
-async function getUserNameFromSession(session: ApiSession): Promise<string> {
-  // Try session.user.employee.fullName first (available if employee is linked)
-  if (session.user.employee?.fullName) {
-    return session.user.employee.fullName
-  }
-  
-  // Try session.user.name (might be email or employee name from auth)
-  if (session.user.name && session.user.name !== session.user.email) {
-    return session.user.name
-  }
-  
-  // Lookup from database using employeeId
-  if (session.user.employeeId) {
-    const employee = await prisma.employee.findUnique({
-      where: { systemId: session.user.employeeId },
-      select: { fullName: true },
-    })
-    if (employee?.fullName) {
-      return employee.fullName
-    }
-  }
-  
-  // Lookup from User table using user ID
-  if (session.user.id) {
-    const user = await prisma.user.findFirst({
-      where: { systemId: session.user.id },
-      select: { employee: { select: { fullName: true } } }
-    })
-    if (user?.employee?.fullName) {
-      return user.employee.fullName
-    }
-  }
-  
-  // Return email as last resort (not null, always have some identifier)
-  return session.user.email || session.user.id
-}
 
 export type CreateProductInput = {
   id?: string
@@ -335,20 +297,23 @@ export async function createProductAction(
       }
     }
 
-    // Fire-and-forget activity log
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'product',
-          entityId: systemId,
-          action: 'created',
-          actionType: 'create',
-          note: `Tạo sản phẩm mới: ${product.name || ''} (${product.id})`,
-          metadata: { userName },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'product',
+        entityId: systemId,
+        action: 'created',
+        actionType: 'create',
+        note: `Tạo sản phẩm mới: ${product.name || ''} (${product.id})`,
+        metadata: { userName: activityUserName },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/products')
 
@@ -582,21 +547,23 @@ export async function updateProductAction(
         const suffix = Object.keys(changes).length > 5 ? ` và ${Object.keys(changes).length - 5} trường khác` : '';
         const note = `Cập nhật thông tin sản phẩm: ${changedFieldNames.join(', ')}${suffix}`;
         
-        // Fire-and-forget activity log
-        getUserNameFromSession(session).then(userName =>
-          prisma.activityLog.create({
-            data: {
-              entityType: 'product',
-              entityId: systemId,
-              action: 'updated',
-              actionType: 'update',
-              changes: JSON.parse(JSON.stringify(displayChanges)),
-              note,
-              metadata: { userName },
-              createdBy: userName,
-            },
-          })
-        ).catch(e => logError('Activity log failed', e))
+        const activityUserName = session.user.employee?.fullName
+          || session.user.name
+          || session.user.id
+          || session.user.email
+          || 'Hệ thống'
+        prisma.activityLog.create({
+          data: {
+            entityType: 'product',
+            entityId: systemId,
+            action: 'updated',
+            actionType: 'update',
+            changes: JSON.parse(JSON.stringify(displayChanges)),
+            note,
+            metadata: { userName: activityUserName },
+            createdBy: activityUserName,
+          },
+        }).catch(e => logError('Activity log failed', e))
       }
     }
 
@@ -636,20 +603,23 @@ export async function deleteProductAction(
       },
     })
 
-    // Fire-and-forget activity log
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'product',
-          entityId: systemId,
-          action: 'deleted',
-          actionType: 'delete',
-          note: `Xóa sản phẩm: ${existing?.name || ''} (${existing?.id || systemId})`,
-          metadata: { userName },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'product',
+        entityId: systemId,
+        action: 'deleted',
+        actionType: 'delete',
+        note: `Xóa sản phẩm: ${existing?.name || ''} (${existing?.id || systemId})`,
+        metadata: { userName: activityUserName },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/products')
 
@@ -682,20 +652,23 @@ export async function restoreProductAction(
       },
     })
 
-    // Fire-and-forget activity log
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'product',
-          entityId: systemId,
-          action: 'restored',
-          actionType: 'update',
-          note: `Khôi phục sản phẩm: ${product.name || ''} (${product.id || systemId})`,
-          metadata: { userName },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'product',
+        entityId: systemId,
+        action: 'restored',
+        actionType: 'update',
+        note: `Khôi phục sản phẩm: ${product.name || ''} (${product.id || systemId})`,
+        metadata: { userName: activityUserName },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/products')
 

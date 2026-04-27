@@ -5,7 +5,7 @@
  * Extracted to keep page.tsx thin (<300 lines)
  */
 
-import * as React from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useReceiptMutations, useReceiptStats, useReceipts, type ReceiptStats } from '../hooks/use-receipts';
@@ -44,7 +44,6 @@ import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import type { ReceiptStatus } from '@/lib/types/prisma-extended';
 import {
   useReceiptFilters,
-  useReceiptActions as _useReceiptActions,
   useReceiptImportExport,
 } from "../hooks/use-receipts-page-handlers";
 import { StatsBar } from "@/components/shared/stats-bar"
@@ -71,7 +70,7 @@ interface ReceiptsContentProps {
 export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const navigateTo = React.useCallback((path: string) => router.push(path), [router]);
+  const navigateTo = useCallback((path: string) => router.push(path), [router]);
 
   // Stats from server component
   const { data: stats } = useReceiptStats(initialStats);
@@ -82,10 +81,10 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
 
   // Debounce search + reset pagination on filter changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  React.useEffect(() => { filters.setPagination(prev => ({ ...prev, pageIndex: 0 })); }, [filters.debouncedGlobalFilter, filters.branchFilter, filters.statusFilter, filters.dateRange]);
+  useEffect(() => { filters.setPagination(prev => ({ ...prev, pageIndex: 0 })); }, [filters.debouncedGlobalFilter, filters.branchFilter, filters.statusFilter, filters.dateRange]);
 
   // Derive server-side status filter (single value for API)
-  const serverStatus = React.useMemo(() => filters.statusFilter.size === 1 ? [...filters.statusFilter][0] : undefined, [filters.statusFilter]);
+  const serverStatus = useMemo(() => filters.statusFilter.size === 1 ? [...filters.statusFilter][0] : undefined, [filters.statusFilter]);
 
   // ✅ Server-side paginated data — API handles search, filter, sort, pagination
   const { data: receiptsResponse, isLoading, isFetching } = useReceipts({
@@ -99,7 +98,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     sortBy: filters.sorting.id || 'createdAt',
     sortOrder: filters.sorting.desc ? 'desc' : 'asc',
   });
-  const receipts = React.useMemo(() => receiptsResponse?.data ?? [], [receiptsResponse?.data]);
+  const receipts = useMemo(() => receiptsResponse?.data ?? [], [receiptsResponse?.data]);
   const serverTotal = receiptsResponse?.pagination?.total ?? 0;
   const serverTotalPages = receiptsResponse?.pagination?.totalPages ?? 1;
 
@@ -114,22 +113,22 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
   const receiptTypesData = useAllReceiptTypes().data;
-  const { data: customers } = useAllCustomers({ enabled: dialogsOpen });
+  const _customers = useAllCustomers({ enabled: dialogsOpen });
   // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
   const { employee } = useAuth();
   
   // Print dialog state
-  const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
-  const [itemsToPrint, setItemsToPrint] = React.useState<Receipt[]>([]);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [itemsToPrint, setItemsToPrint] = useState<Receipt[]>([]);
   
   // Alert dialogs
-  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
-  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [idToDelete, setIdToDelete] = useState<string | null>(null);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
 
   // Default column visibility
-  const defaultColumnVisibility = React.useMemo(() => {
+  const defaultColumnVisibility = useMemo(() => {
     const cols = getColumns([], () => {}, () => {}, () => {});
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -138,16 +137,16 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('receipts', defaultColumnVisibility);
 
   // Handlers
-  const handleCancel = React.useCallback((systemId: string) => {
+  const handleCancel = useCallback((systemId: string) => {
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   }, []);
 
-  const handleRowClick = React.useCallback((receipt: Receipt) => {
+  const handleRowClick = useCallback((receipt: Receipt) => {
     router.push(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }));
   }, [router]);
 
-  const handleSinglePrint = React.useCallback(async (receipt: Receipt) => {
+  const handleSinglePrint = useCallback(async (receipt: Receipt) => {
     const { storeInfo } = await fetchPrintData();
     const branch = branches.find(b => b.systemId === receipt.branchSystemId);
     const storeSettings = branch 
@@ -161,14 +160,14 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     });
   }, [branches, print]);
 
-  const columns = React.useMemo(
+  const columns = useMemo(
     () => getColumns(accounts, handleCancel, navigateTo, handleSinglePrint),
     [accounts, handleCancel, navigateTo, handleSinglePrint]
   );
 
   // Set default column visibility once
-  const columnDefaultsInitialized = React.useRef(false);
-  React.useEffect(() => {
+  const columnDefaultsInitialized = useRef(false);
+  useEffect(() => {
     if (columnDefaultsInitialized.current) return;
     if (columns.length === 0) return;
     
@@ -208,17 +207,17 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   };
 
   // Filter options
-  const statusOptions = React.useMemo(() => [
+  const statusOptions = useMemo(() => [
     { value: 'completed', label: 'Hoàn thành' },
     { value: 'cancelled', label: 'Đã hủy' }
   ], []);
 
-  const typeOptions = React.useMemo(() => 
+  const typeOptions = useMemo(() => 
     (receiptTypesData ?? []).map(rt => ({ value: rt.systemId, label: rt.name }))
   , [receiptTypesData]);
 
   // Derive customer filter options from current page data (avoid loading all 4500+ customers)
-  const customerOptions = React.useMemo(() => {
+  const customerOptions = useMemo(() => {
     const seen = new Map<string, string>();
     receipts.forEach(r => {
       if (r.customerSystemId && r.customerName && !seen.has(r.customerSystemId)) {
@@ -230,21 +229,21 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('receipts');
-  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+  const filterConfigs: FilterConfig[] = useMemo(() => [
     { id: 'branch', label: 'Chi nhánh', type: 'select', options: branches.map(b => ({ value: b.systemId, label: b.name })) },
     { id: 'status', label: 'Trạng thái', type: 'multi-select', options: statusOptions },
     { id: 'type', label: 'Loại phiếu', type: 'multi-select', options: typeOptions },
     { id: 'customer', label: 'Khách hàng', type: 'multi-select', options: customerOptions },
     { id: 'dateRange', label: 'Khoảng ngày', type: 'date-range' },
   ], [branches, statusOptions, typeOptions, customerOptions]);
-  const panelValues = React.useMemo(() => ({
+  const panelValues = useMemo(() => ({
     branch: filters.branchFilter !== 'all' ? filters.branchFilter : null,
     status: Array.from(filters.statusFilter),
     type: Array.from(filters.typeFilter),
     customer: Array.from(filters.customerFilter),
     dateRange: filters.dateRange ? { from: filters.dateRange[0], to: filters.dateRange[1] } : null,
   }), [filters.branchFilter, filters.statusFilter, filters.typeFilter, filters.customerFilter, filters.dateRange]);
-  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+  const handlePanelApply = useCallback((v: Record<string, unknown>) => {
     filters.setBranchFilter((v.branch as string) || 'all');
     filters.setStatusFilter(new Set((v.status as string[]) ?? []));
     filters.setTypeFilter(new Set((v.type as string[]) ?? []));
@@ -254,7 +253,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   }, [filters]);
 
   // ✅ Server-side pagination: only apply lightweight client-side facet filters (type, customer) on current page
-  const filteredData = React.useMemo(() => {
+  const filteredData = useMemo(() => {
     let result = receipts;
     if (filters.typeFilter.size > 0) {
       result = result.filter(r => r.paymentReceiptTypeSystemId && filters.typeFilter.has(r.paymentReceiptTypeSystemId));
@@ -265,16 +264,16 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     return result;
   }, [receipts, filters.typeFilter, filters.customerFilter]);
 
-  const allSelectedRows = React.useMemo(() => 
+  const allSelectedRows = useMemo(() => 
     receipts.filter(v => filters.rowSelection[v.systemId]),
   [receipts, filters.rowSelection]);
 
-  const selectedReceipts = React.useMemo(() => 
+  const selectedReceipts = useMemo(() => 
     receipts.filter(r => filters.rowSelection[r.systemId]),
   [receipts, filters.rowSelection]);
 
   // Import handler
-  const handleImport = React.useCallback(async (
+  const handleImport = useCallback(async (
     importedReceipts: Partial<Receipt>[],
     mode: 'insert-only' | 'update-only' | 'upsert',
   ) => {
@@ -330,12 +329,12 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   }, [allReceipts, createMutation, updateMutation]);
 
   // Bulk print handlers
-  const handleBulkPrint = React.useCallback((rows: Receipt[]) => {
+  const handleBulkPrint = useCallback((rows: Receipt[]) => {
     setItemsToPrint(rows);
     setPrintDialogOpen(true);
   }, []);
 
-  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = useCallback(async (options: SimplePrintOptionsResult) => {
     if (itemsToPrint.length === 0) return;
     
     const { storeInfo } = await fetchPrintData();
@@ -362,7 +361,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   }, [itemsToPrint, branches, printMultiple]);
 
   // Bulk actions
-  const bulkActions: BulkAction<Receipt>[] = React.useMemo(() => [
+  const bulkActions: BulkAction<Receipt>[] = useMemo(() => [
     {
       label: 'In phiếu',
       icon: Printer,

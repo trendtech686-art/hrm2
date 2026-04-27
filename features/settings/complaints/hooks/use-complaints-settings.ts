@@ -13,7 +13,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { updateModuleSettingSection } from '@/app/actions/settings/module-settings';
-import type { ComplaintsSettingsState, CardColorSettings, ComplaintType as _ComplaintType } from '../types';
+import type { ComplaintsSettingsState, CardColorSettings } from '../types';
 import { createDefaultComplaintsSettings, clone } from '../types';
 
 export const complaintsSettingsKeys = {

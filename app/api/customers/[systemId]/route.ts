@@ -178,8 +178,7 @@ export const PUT = apiHandler(async (
     }
 
     // Build update data object - only include fields that are provided
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, unknown> = {}
     
     // Basic info
     if (body.name !== undefined) updateData.name = body.name

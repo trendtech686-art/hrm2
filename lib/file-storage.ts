@@ -48,7 +48,7 @@ export class FileStorageManager {
       // Trong môi trường thực, sẽ upload lên server/filesystem
       // Ở đây ta mô phỏng bằng cách lưu thông tin
       const storedFile: StoredFile = {
-        id: `file_${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `file_${timestamp}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`,
         name: file.name,
         size: file.size,
         type: file.type,
@@ -96,24 +96,53 @@ export class FileStorageManager {
     return storedFile.url;
   }
 
-  // Tạo cấu trúc thư mục cho nhân viên
+  // Create directory via server API (optional - server auto-creates on first upload)
+  async createEmployeeDirectories(employeeId: string): Promise<boolean> {
+    try {
+      // Create directories via API
+      const response = await fetch('/api/upload/directories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId,
+          baseDir: this.baseDir,
+          subDirs: ['legal', 'work-process', 'termination', 'decisions', 'kpi', 'requests'],
+        }),
+      });
+
+      if (!response.ok) {
+        // Non-fatal: server may auto-create directories
+        console.warn('Directory creation API not available, server will auto-create on upload');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      // Non-fatal error - server auto-creates directories on first file upload
+      console.warn('Directory creation skipped, server will auto-create:', error);
+      return false;
+    }
+  }
+
+  // Create cấu trúc thư mục cho nhân viên
+  // Directories are auto-created by server on first file upload via FileUploadAPI
+  // This method returns the expected directory structure for reference
   createEmployeeFolder(employeeId: string): string {
     const employeeDir = `${this.baseDir}/${employeeId}`;
-    
-    // Tạo các thư mục con theo loại tài liệu
+
+    // Các thư mục con theo loại tài liệu (tạo tự động khi upload)
     const subDirs = [
       'legal',        // Hồ sơ pháp lý
-      'work-process', // Quy trình làm việc  
+      'work-process', // Quy trình làm việc
       'termination',  // Thôi việc
       'decisions',    // Quyết định
       'kpi',          // KPI
       'requests'      // Đơn từ
     ];
 
-    subDirs.forEach(dir => {
-      const _fullPath = `${employeeDir}/${dir}`;
-      // TODO: Create directory via server API
-    });
+    // Subdirectories are auto-created by server on first file upload
+    // No explicit API call needed - FileUploadAPI handles this automatically
+    // Optionally call createEmployeeDirectories() for proactive creation
 
     return employeeDir;
   }

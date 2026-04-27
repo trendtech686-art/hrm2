@@ -8,10 +8,11 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import * as React from 'react'
+import { useEffect } from 'react'
 import type { ProductSlaSettings, ProductLogisticsSettings } from '@/features/settings/inventory/types'
 import type { PricingPolicy } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
+import { productKeys } from './use-products'
 import { slaSettingsKeys } from '@/features/settings/inventory/hooks/use-sla-settings'
 import { logisticsSettingsKeys } from '@/features/settings/inventory/hooks/use-logistics-settings'
 
@@ -57,14 +58,14 @@ export function useProductFormData() {
   const queryClient = useQueryClient()
 
   const query = useQuery({
-    queryKey: ['products', 'form-reference-data'],
+    queryKey: productKeys.formReferenceData(),
     queryFn: fetchFormReferenceData,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
 
   // Populate individual caches so settings pages can benefit from cached data
-  React.useEffect(() => {
+  useEffect(() => {
     if (!query.data) return
     const d = query.data
     queryClient.setQueryData(slaSettingsKeys.settings(), d.slaSettings)

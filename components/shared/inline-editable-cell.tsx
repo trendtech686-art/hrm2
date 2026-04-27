@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useEffect, useRef, type ReactNode, type KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, X, Pencil } from 'lucide-react';
@@ -8,7 +8,7 @@ interface InlineEditableCellProps {
   onSave: (newValue: string) => void;
   className?: string;
   inputClassName?: string;
-  renderDisplay?: (value: string, onEdit: () => void) => React.ReactNode;
+  renderDisplay?: (value: string, onEdit: () => void) => ReactNode;
 }
 
 export function InlineEditableCell({
@@ -18,18 +18,18 @@ export function InlineEditableCell({
   inputClassName,
   renderDisplay,
 }: InlineEditableCellProps) {
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editValue, setEditValue] = React.useState(value);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
   }, [isEditing]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setEditValue(value);
   }, [value]);
 
@@ -45,7 +45,7 @@ export function InlineEditableCell({
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') handleSave();
     if (e.key === 'Escape') handleCancel();
   };
@@ -56,7 +56,7 @@ export function InlineEditableCell({
 
   if (isEditing) {
     return (
-      <div className={`flex items-center gap-1 ${className || ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`flex items-center gap-1 ${className || ''}`} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
         <Input
           ref={inputRef}
           value={editValue}
@@ -80,12 +80,18 @@ export function InlineEditableCell({
   }
 
   return (
-    <div 
+    <div
       className={`flex items-center gap-2 group cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 ${className || ''}`}
       onClick={(e) => {
         e.stopPropagation();
         handleEdit();
       }}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') handleEdit();
+      }}
+      role="button"
+      tabIndex={0}
     >
       <span className="truncate">{value || '-'}</span>
       <Pencil className="h-3.5 w-3.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
@@ -98,7 +104,7 @@ interface InlineEditableNumberCellProps {
   onSave: (newValue: number) => void;
   className?: string;
   inputClassName?: string;
-  renderDisplay?: (value: number, onEdit: () => void) => React.ReactNode;
+  renderDisplay?: (value: number, onEdit: () => void) => ReactNode;
   formatDisplay?: (value: number) => string;
 }
 
@@ -110,18 +116,18 @@ export function InlineEditableNumberCell({
   renderDisplay,
   formatDisplay,
 }: InlineEditableNumberCellProps) {
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editValue, setEditValue] = React.useState(String(value));
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
   }, [isEditing]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setEditValue(String(value));
   }, [value]);
 
@@ -133,7 +139,7 @@ export function InlineEditableNumberCell({
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') handleSave();
     if (e.key === 'Escape') {
       setEditValue(String(value));
@@ -147,6 +153,7 @@ export function InlineEditableNumberCell({
 
   if (isEditing) {
     return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
       <div className={className} onClick={(e) => e.stopPropagation()}>
         <Input
           ref={inputRef}
@@ -174,6 +181,12 @@ export function InlineEditableNumberCell({
         e.stopPropagation();
         setIsEditing(true);
       }}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') setIsEditing(true);
+      }}
+      role="button"
+      tabIndex={0}
     >
       <span className="text-sm">{displayValue}</span>
       <Pencil className="h-3.5 w-3.5 ml-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />

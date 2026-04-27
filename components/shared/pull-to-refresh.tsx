@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
+import { useState, useCallback, useRef, type ReactNode, type TouchEvent } from "react";
 import { Loader2, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { triggerHaptic, type HapticType } from "@/hooks/use-haptics";
+import { triggerHaptic } from "@/hooks/use-haptics";
 
 type PullToRefreshProps = {
   /**
@@ -11,7 +11,7 @@ type PullToRefreshProps = {
    * stays visible until the returned promise resolves.
    */
   onRefresh: () => Promise<unknown> | void;
-  children: React.ReactNode;
+  children: ReactNode;
   /**
    * Drag distance (px) required before `onRefresh` fires on release.
    * @default 70
@@ -45,21 +45,21 @@ export function PullToRefresh({
   disabled,
   className,
 }: PullToRefreshProps) {
-  const [pull, setPull] = React.useState(0);
-  const [refreshing, setRefreshing] = React.useState(false);
-  const startY = React.useRef<number | null>(null);
-  const armed = React.useRef(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const startY = useRef<number | null>(null);
+  const armed = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const atScrollTop = React.useCallback(() => {
+  const atScrollTop = useCallback(() => {
     if (typeof window === "undefined") return false;
     // Use the document scroller — most list pages scroll the window.
     const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
     return scrollY <= 0;
   }, []);
 
-  const handleTouchStart = React.useCallback(
-    (event: React.TouchEvent) => {
+  const handleTouchStart = useCallback(
+    (event: TouchEvent) => {
       if (disabled || refreshing) return;
       if (!atScrollTop()) {
         armed.current = false;
@@ -71,8 +71,8 @@ export function PullToRefresh({
     [disabled, refreshing, atScrollTop],
   );
 
-  const handleTouchMove = React.useCallback(
-    (event: React.TouchEvent) => {
+  const handleTouchMove = useCallback(
+    (event: TouchEvent) => {
       if (!armed.current || startY.current == null || refreshing) return;
       const delta = (event.touches[0]?.clientY ?? 0) - startY.current;
       if (delta <= 0) {
@@ -86,7 +86,7 @@ export function PullToRefresh({
     [maxPull, refreshing],
   );
 
-  const handleTouchEnd = React.useCallback(async () => {
+  const handleTouchEnd = useCallback(async () => {
     if (!armed.current) return;
     armed.current = false;
     startY.current = null;

@@ -23,6 +23,8 @@ export const orderKeys = {
   details: () => [...orderKeys.all, 'detail'] as const,
   detail: (id: string) => [...orderKeys.details(), id] as const,
   stats: () => [...orderKeys.all, 'stats'] as const,
+  customer: (customerSystemId: string) => ['orders', 'customer', customerSystemId] as const,
+  unpaid: (customerSystemId: string) => ['orders', 'unpaid', customerSystemId] as const,
 };
 
 /**

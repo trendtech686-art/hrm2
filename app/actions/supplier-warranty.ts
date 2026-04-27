@@ -50,7 +50,7 @@ export async function createSupplierWarrantyAction(
       'in-store': 'IN_STORE_PICKUP',
     }
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
 
     if (shouldAutoPack) {
       // Auto: DRAFT → APPROVED → PACKED + create Packaging
@@ -147,6 +147,7 @@ export async function createSupplierWarrantyAction(
         return w
       })
 
+      const userName = getSessionUserName(authResult.session)
       prisma.activityLog.create({
         data: {
           entityType: 'SupplierWarranty',
@@ -274,7 +275,7 @@ export async function updateSupplierWarrantyAction(
       },
     })
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -310,7 +311,7 @@ export async function deleteSupplierWarrantyAction(
     // Cascade delete: items auto-deleted via onDelete: Cascade
     await prisma.supplierWarranty.delete({ where: { systemId } })
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -369,8 +370,7 @@ export async function confirmSupplierWarrantyAction(
       }
 
       // Build batch transaction operations (array form — avoids interactive tx proxy)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const operations: any[] = [
+      const operations: Prisma.PrismaPromise<unknown>[] = [
         // Update each item
         ...parsed.items
           .filter(item => existing.items.some(i => i.systemId === item.systemId))
@@ -406,10 +406,10 @@ export async function confirmSupplierWarrantyAction(
       const results = await prisma.$transaction(operations)
       // The warranty update is the last item before optional payment
       const headerIndex = parsed.items.filter(item => existing.items.some(i => i.systemId === item.systemId)).length
-      return results[headerIndex]
+      return results[headerIndex] as Awaited<ReturnType<typeof prisma.supplierWarranty.update>>
     })()
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -458,7 +458,7 @@ export async function cancelSupplierWarrantyAction(
       },
     })
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -508,7 +508,7 @@ export async function completeSupplierWarrantyAction(
       include: { items: true },
     })
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -558,7 +558,7 @@ export async function approveSupplierWarrantyAction(
       },
     })
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -595,7 +595,7 @@ export async function packSupplierWarrantyAction(
     // Only allow pack from APPROVED (single packaging per warranty)
     if (existing.status !== 'APPROVED') return { success: false, error: 'Chỉ có thể đóng gói phiếu đã duyệt' }
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
 
     // Map warranty delivery method string → Packaging DeliveryMethod enum
     const deliveryMethodMap: Record<string, DeliveryMethod> = {
@@ -776,7 +776,7 @@ export async function cancelPackSupplierWarrantyAction(
       }),
     ])
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -830,7 +830,7 @@ export async function exportSupplierWarrantyAction(
       }),
     ])
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -882,7 +882,7 @@ export async function deliverSupplierWarrantyAction(
       }),
     ])
 
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
     prisma.activityLog.create({
       data: {
         entityType: 'SupplierWarranty',
@@ -934,7 +934,7 @@ export async function createWarrantyReceiptAction(
     }
 
     const receiptIds = await generateNextIds('receipts')
-    const userName = await getSessionUserName(authResult.session)
+    const userName = getSessionUserName(authResult.session)
 
     // Lookup branch name if warranty has branchSystemId but missing branchName
     let branchName = existing.branchName || ''

@@ -1,6 +1,6 @@
 'use client';
 
-import * as React from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
@@ -58,20 +58,20 @@ export function ComplaintTypesSettingsContent() {
     onError: (error) => toast.error(`Lỗi: ${error.message}`),
   });
   
-  const complaintTypes = React.useMemo(
+  const complaintTypes = useMemo(
     () => complaintTypesData?.data ?? [],
     [complaintTypesData?.data]
   );
   
   // Dialog state
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingType, setEditingType] = React.useState<ComplaintTypeSetting | null>(null);
-  const [isAddingNew, setIsAddingNew] = React.useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
-  const [typeToDelete, setTypeToDelete] = React.useState<ComplaintTypeSetting | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingType, setEditingType] = useState<ComplaintTypeSetting | null>(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [typeToDelete, setTypeToDelete] = useState<ComplaintTypeSetting | null>(null);
   
   // Form state
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: '',
@@ -80,7 +80,7 @@ export function ComplaintTypesSettingsContent() {
   });
   
   // Sort by order
-  const sortedTypes = React.useMemo(() => 
+  const sortedTypes = useMemo(() => 
     [...complaintTypes].sort((a, b) => a.sortOrder - b.sortOrder),
     [complaintTypes]
   );
@@ -264,7 +264,7 @@ export function ComplaintTypesSettingsContent() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-11 w-11">
+                            <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Thao tác">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>

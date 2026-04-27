@@ -45,7 +45,6 @@ export interface ReturnMethodDialogApi extends ReturnMethodDialogState {
 export function useReturnMethodDialog({
   ticket,
   linkedOrder,
-  currentUserName,
 }: UseReturnMethodDialogOptions): ReturnMethodDialogApi {
   const queryClient = useQueryClient();
   const invalidateWarranty = React.useCallback(() => {

@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+﻿import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { OptimizedImage } from '../../../../components/ui/optimized-image';
 import { Button } from '../../../../components/ui/button';
@@ -7,7 +7,6 @@ import { Badge } from '../../../../components/ui/badge';
 import { Tabs, TabsContent } from '../../../../components/ui/tabs';
 import { MobileTabsList, MobileTabsTrigger } from '../../../../components/layout/page-section';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
-import { Label as _Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
 import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2, Download, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert';
@@ -56,31 +55,31 @@ export function BrandMappingTab() {
   const { addLog } = usePkgxLogMutations();
   const { data: brandsData } = useActiveBrands();
   
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState('pkgx-brands');
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingMapping, setEditingMapping] = React.useState<PkgxBrandMapping | null>(null);
-  const [isSyncing, setIsSyncing] = React.useState(false);
-  const [isImporting, setIsImporting] = React.useState(false);
-  const [isPaused, setIsPaused] = React.useState(false);
-  const [importProgress, setImportProgress] = React.useState({ current: 0, total: 0, currentName: '' });
-  const pauseRef = React.useRef(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('pkgx-brands');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingMapping, setEditingMapping] = useState<PkgxBrandMapping | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentName: '' });
+  const pauseRef = useRef(false);
   
   // Detail dialog state
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
-  const [selectedBrandForDetail, setSelectedBrandForDetail] = React.useState<PkgxBrandFromApi | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = React.useState(false);
-  const [isPushing, setIsPushing] = React.useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedBrandForDetail, setSelectedBrandForDetail] = useState<PkgxBrandFromApi | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
   
   // Table state
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'id', desc: false });
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'id', desc: false });
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   
   // Form state
-  const [selectedHrmBrand, setSelectedHrmBrand] = React.useState('');
-  const [selectedPkgxBrand, setSelectedPkgxBrand] = React.useState('');
-  const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
+  const [selectedHrmBrand, setSelectedHrmBrand] = useState('');
+  const [selectedPkgxBrand, setSelectedPkgxBrand] = useState('');
+  const [showWarningConfirm, setShowWarningConfirm] = useState(false);
   
   // Use shared PKGX entity sync hook
   const entitySync = usePkgxEntitySync({
@@ -88,7 +87,7 @@ export function BrandMappingTab() {
     onLog: (log) => addLog.mutate(log),
   });
   
-  const hrmBrands = React.useMemo(
+  const hrmBrands = useMemo(
     () => [...brandsData].sort((a, b) => a.name.localeCompare(b.name)).map(b => ({
       ...b,
       systemId: asSystemId(b.systemId),
@@ -106,17 +105,17 @@ export function BrandMappingTab() {
   });
   
   // Find if PKGX brand is mapped
-  const findMapping = React.useCallback((pkgxBrandId: number) => {
+  const findMapping = useCallback((pkgxBrandId: number) => {
     return settings?.brandMappings?.find(m => m.pkgxBrandId === pkgxBrandId);
   }, [settings?.brandMappings]);
   
   // Tổng số mapping orphan (trỏ vào Brand HRM đã xoá).
-  const orphanMappings = React.useMemo(
+  const orphanMappings = useMemo(
     () => (settings?.brandMappings ?? []).filter(m => m.hrmEntityMissing === true),
     [settings?.brandMappings],
   );
   
-  const handleCleanupAllOrphans = React.useCallback(() => {
+  const handleCleanupAllOrphans = useCallback(() => {
     if (orphanMappings.length === 0) return;
     const ids = orphanMappings
       .map((m) => m.systemId || m.id)
@@ -129,7 +128,7 @@ export function BrandMappingTab() {
   }, [orphanMappings, deleteBrandMappingsBulk, entitySync]);
   
   // PKGX Brands data for table
-  const pkgxBrandsData = React.useMemo((): PkgxBrandRow[] => {
+  const pkgxBrandsData = useMemo((): PkgxBrandRow[] => {
     let filtered = settings?.brands ?? [];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -150,7 +149,7 @@ export function BrandMappingTab() {
   }, [settings?.brands, searchTerm, findMapping]);
   
   // Mappings data for table
-  const mappingsData = React.useMemo((): MappingRow[] => {
+  const mappingsData = useMemo((): MappingRow[] => {
     let filtered = settings?.brandMappings ?? [];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -166,28 +165,28 @@ export function BrandMappingTab() {
   }, [settings?.brandMappings, searchTerm]);
   
   // Paginated data
-  const paginatedPkgxData = React.useMemo(() => {
+  const paginatedPkgxData = useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     return pkgxBrandsData.slice(start, start + pagination.pageSize);
   }, [pkgxBrandsData, pagination]);
   
-  const paginatedMappingsData = React.useMemo(() => {
+  const paginatedMappingsData = useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     return mappingsData.slice(start, start + pagination.pageSize);
   }, [mappingsData, pagination]);
   
   // All selected rows and bulk actions for PKGX brands table
-  const allSelectedPkgxRows = React.useMemo(() => 
+  const allSelectedPkgxRows = useMemo(() => 
     paginatedPkgxData.filter(p => rowSelection[p.systemId]),
   [paginatedPkgxData, rowSelection]);
   
   // Get selected PKGX brands that ARE mapped (for bulk unlink)
-  const selectedMappedBrands = React.useMemo(() => 
+  const selectedMappedBrands = useMemo(() => 
     allSelectedPkgxRows.filter(b => b.mappedToHrm),
   [allSelectedPkgxRows]);
   
   // Bulk actions for PKGX brands table
-  const pkgxBulkActions = React.useMemo(() => [
+  const pkgxBulkActions = useMemo(() => [
     {
       label: `Hủy mapping (${selectedMappedBrands.length})`,
       icon: Unlink,
@@ -212,7 +211,7 @@ export function BrandMappingTab() {
   ], [selectedMappedBrands, findMapping, deleteBrandMapping]);
   
   // PKGX Brands columns
-  const pkgxColumns: ColumnDef<PkgxBrandRow>[] = React.useMemo(() => [
+  const pkgxColumns: ColumnDef<PkgxBrandRow>[] = useMemo(() => [
     {
       id: 'select',
       header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
@@ -301,7 +300,7 @@ export function BrandMappingTab() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11">
+              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Tùy chọn">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -380,7 +379,7 @@ export function BrandMappingTab() {
   ], [hrmBrands, findMapping, entitySync]);
   
   // Mappings columns
-  const mappingColumns: ColumnDef<MappingRow>[] = React.useMemo(() => [
+  const mappingColumns: ColumnDef<MappingRow>[] = useMemo(() => [
     {
       id: 'hrmBrandName',
       accessorKey: 'hrmBrandName',
@@ -474,7 +473,7 @@ export function BrandMappingTab() {
   };
   
   // Validate when form values change
-  React.useEffect(() => {
+  useEffect(() => {
     if (isDialogOpen && (selectedHrmBrand || selectedPkgxBrand)) {
       const input: BrandMappingInput = {
         hrmBrandSystemId: selectedHrmBrand || '',

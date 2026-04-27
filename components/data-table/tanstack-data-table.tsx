@@ -1,7 +1,7 @@
 // TanStack React Table - Base Component
 // File: components/data-table/tanstack-data-table.tsx
 
-import * as React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -55,11 +55,11 @@ export function TanStackDataTable<TData, TValue>({
   enableRowSelection = false,
   onRowSelectionChange,
 }: TanStackDataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
-  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [globalFilter, setGlobalFilter] = useState('');
 
   const table = useReactTable({
     data,
@@ -89,7 +89,7 @@ export function TanStackDataTable<TData, TValue>({
   });
 
   // Notify parent of selection changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (onRowSelectionChange && enableRowSelection) {
       const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
       onRowSelectionChange(selectedRows);
@@ -146,7 +146,15 @@ export function TanStackDataTable<TData, TValue>({
                             'flex items-center gap-2',
                             canSort && 'cursor-pointer select-none hover:text-foreground'
                           )}
-                          onClick={header.column.getToggleSortingHandler()}
+                          onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                          onKeyDown={(e) => {
+                            if (canSort) {
+                              const handler = header.column.getToggleSortingHandler();
+                              if (handler) handler(e);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
                         >
                           {flexRender(
                             header.column.columnDef.header,

@@ -104,8 +104,10 @@ export function useImporterFinder() {
   return { getActive, getDefault, data, isLoading: query.isLoading };
 }
 
-// Storage locations - TODO: Implement when storage locations API is ready
+// Storage locations - placeholder until storage locations API is implemented
+// Will be used for warehouse/bin management in inventory system
 export function useStorageLocations() {
   // Placeholder - returns empty array until storage locations API is implemented
+  // TODO: Wire up to /api/storage-locations endpoint when ready
   return { data: [], isLoading: false, isError: false, error: null };
 }

@@ -168,8 +168,9 @@ export function PkgxCategoryLinkDialog({
 
           {/* PKGX Category Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Chọn danh mục PKGX</label>
+            <label htmlFor="pkgx-category-select" className="text-sm font-medium">Chọn danh mục PKGX</label>
             <VirtualizedCombobox
+              id="pkgx-category-select"
               value={selectedPkgxCategory}
               onChange={setSelectedPkgxCategory}
               options={pkgxOptions}

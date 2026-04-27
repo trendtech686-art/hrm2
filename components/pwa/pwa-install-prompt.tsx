@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,12 +45,11 @@ async function saveDismissedAt(ts: number): Promise<void> {
  * mode, and stays dismissed for two weeks after the user closes it.
  */
 export function PWAInstallPrompt() {
-  const [deferred, setDeferred] = React.useState<BeforeInstallPromptEvent | null>(null);
-  const [showIOSHint, setShowIOSHint] = React.useState(false);
-  const [visible, setVisible] = React.useState(false);
-  const [dismissedAt, setDismissedAt] = React.useState<number | null>(null);
+  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showIOSHint, setShowIOSHint] = useState(false);
+  const [visible, setVisible] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     // Check if already installed / running standalone
@@ -62,7 +61,6 @@ export function PWAInstallPrompt() {
 
     // Check dismiss state from DB (cross-device)
     void fetchDismissedAt().then((ts) => {
-      setDismissedAt(ts)
       if (ts) {
         const ttlMs = DISMISS_TTL_MS
         if (Date.now() - ts < ttlMs) return
@@ -102,7 +100,7 @@ export function PWAInstallPrompt() {
     });
   }, []);
 
-  const handleInstall = React.useCallback(async () => {
+  const handleInstall = useCallback(async () => {
     if (!deferred) return;
     try {
       await deferred.prompt();
@@ -115,10 +113,9 @@ export function PWAInstallPrompt() {
     }
   }, [deferred]);
 
-  const handleDismiss = React.useCallback(async () => {
+  const handleDismiss = useCallback(async () => {
     setVisible(false);
-    const now = Date.now()
-    setDismissedAt(now);
+    const now = Date.now();
     await saveDismissedAt(now);
   }, []);
 

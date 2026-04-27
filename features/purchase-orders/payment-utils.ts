@@ -1,6 +1,5 @@
-import type { Payment } from '../payments/types';
 import type { Receipt } from '../receipts/types';
-import type { PurchaseOrder, PurchaseOrderPayment } from '@/lib/types/prisma-extended';
+import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 
 // Type for payments that can be linked to PO - either embedded or full Payment  
 // Use generics to allow any object with at least an amount field

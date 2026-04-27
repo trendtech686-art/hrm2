@@ -67,12 +67,12 @@ export function InventoryReceiptsPage() {
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, 300);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, setPagination]);
 
   // Reset page when filters change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [supplierFilter, branchFilter, dateRange]);
+  }, [supplierFilter, branchFilter, dateRange, setPagination]);
 
   // Server-side paginated query
   const { data: queryData, isLoading } = useInventoryReceipts({
@@ -104,7 +104,7 @@ export function InventoryReceiptsPage() {
   const { print, printMultiple } = usePrint({ enabled: false });
   const {  employee: currentUser, can } = useAuth();
   const canEdit = can('edit_inventory');
-  const canView = can('view_inventory');
+  const _canView = can('view_inventory');
   const canEditSettings = can('edit_settings');
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");

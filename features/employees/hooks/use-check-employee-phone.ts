@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { normalizePhone } from '@/lib/phone-normalize'
+import { employeeKeys } from './use-employees'
 
 async function checkEmployeePhone(
   phone: string,
@@ -29,7 +30,7 @@ export function useCheckEmployeePhone(
   const normalized = phone ? normalizePhone(phone) : undefined
 
   const query = useQuery({
-    queryKey: ['employees', 'check-phone', normalized, exclude],
+    queryKey: employeeKeys.checkPhone(normalized ?? '', exclude),
     queryFn: () => checkEmployeePhone(phone!, exclude),
     enabled: !!normalized && normalized.length >= 10,
     staleTime: 10_000,

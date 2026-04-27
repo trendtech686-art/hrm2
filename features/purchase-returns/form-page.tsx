@@ -306,7 +306,7 @@ export function PurchaseReturnFormPage() {
         Xác nhận hoàn trả
       </Button>
     ];
-  }, [isSelectMode, router]);
+  }, [isSelectMode, router, create.isPending]);
 
   usePageHeader({
     title: headerTitle,
@@ -465,7 +465,7 @@ export function PurchaseReturnFormPage() {
     }
 
     // Validate returnId format (6 digits after TH) - chỉ validate nếu có nhập
-    const finalReturnId = data.returnId;
+    const _finalReturnId = data.returnId;
     if (data.returnId && !/^TH\d{6}$/.test(data.returnId)) {
       form.setError('returnId', { type: 'manual', message: 'Mã hoàn trả phải có format THxxxxxx (6 chữ số)' });
       return;

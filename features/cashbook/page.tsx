@@ -1,12 +1,13 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ROUTES, generatePath } from '@/lib/router';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useCashbookData } from './hooks/use-cashbook-data';
 import { useReceiptMutations } from '../receipts/hooks/use-receipts';
 import { usePaymentMutations } from '../payments/hooks/use-payments';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useAllCashAccounts } from './hooks/use-all-cash-accounts';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllReceiptTypes } from '../settings/receipt-types/hooks/use-all-receipt-types';
@@ -52,21 +53,19 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Filter states - declare first so they can be used in data hooks
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [branchFilter, setBranchFilter] = React.useState('all');
-  const [accountFilter, setAccountFilter] = React.useState('all');
-  const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
-  const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>(undefined);
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 });
+  const [globalFilter, setGlobalFilter] = useState('');
+  const debouncedGlobalFilter = useDebounce(globalFilter, 300);
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set());
+  const [dateRange, setDateRange] = useState<[string | undefined, string | undefined] | undefined>(undefined);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
   
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
-
   // Reset to first page when filters change
-  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, branchFilter, accountFilter, typeFilter, dateRange]);
+  useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, branchFilter, accountFilter, typeFilter, dateRange]);
 
   // Derive type param for server-side filtering
-  const typeParam = React.useMemo(() => {
+  const typeParam = useMemo(() => {
     if (typeFilter.size === 1) {
       return typeFilter.has('receipt') ? 'receipt' as const : 'payment' as const;
     }
@@ -92,12 +91,12 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
   const { data: paymentTypes } = useAllPaymentTypes();
 
   // Extract transactions from server response (already filtered by type on server)
-  const transactions = React.useMemo<CashbookTransaction[]>(() => {
+  const transactions = useMemo<CashbookTransaction[]>(() => {
     return (cashbookData?.transactions ?? []) as CashbookTransaction[];
   }, [cashbookData?.transactions]);
 
   // Extract summary from server (with initialStats fallback for instant display)
-  const { openingBalance, totalReceipts, totalPayments, closingBalance, accountBalances } = React.useMemo(() => {
+  const { openingBalance, totalReceipts, totalPayments, closingBalance, accountBalances } = useMemo(() => {
     if (cashbookData?.summary) {
       return {
         ...cashbookData.summary,
@@ -117,30 +116,30 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
     };
   }, [cashbookData?.summary, initialStats]);
 
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'date', desc: true });
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [idToDelete, setIdToDelete] = useState<SystemId | null>(null);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'date', desc: true });
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('cashbook', {});
   const [columnOrder, setColumnOrder] = useColumnOrder('cashbook');
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('cashbook', ['select', 'type', 'id']);
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('cashbook');
-  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+  const filterConfigs: FilterConfig[] = useMemo(() => [
     { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: branches.map(b => ({ value: b.systemId, label: b.name })) },
     { id: 'account', label: 'Tài khoản quỹ', type: 'select' as const, options: accounts.map(a => ({ value: a.systemId, label: a.name })) },
     { id: 'type', label: 'Loại phiếu', type: 'multi-select' as const, options: [{ value: 'receipt', label: 'Phiếu thu' }, { value: 'payment', label: 'Phiếu chi' }] },
     { id: 'dateRange', label: 'Khoảng thời gian', type: 'date-range' as const },
   ], [branches, accounts]);
-  const panelValues = React.useMemo(() => ({
+  const panelValues = useMemo(() => ({
     branch: branchFilter !== 'all' ? branchFilter : null,
     account: accountFilter !== 'all' ? accountFilter : null,
     type: Array.from(typeFilter),
     dateRange: dateRange ? { from: dateRange[0], to: dateRange[1] } : null,
   }), [branchFilter, accountFilter, typeFilter, dateRange]);
-  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+  const handlePanelApply = useCallback((v: Record<string, unknown>) => {
     setBranchFilter((v.branch as string) || 'all');
     setAccountFilter((v.account as string) || 'all');
     setTypeFilter(new Set((v.type as string[]) ?? []));
@@ -148,12 +147,12 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
     setDateRange(dr ? [dr.from, dr.to] : undefined);
   }, []);
 
-  const handleCancel = React.useCallback((systemId: string) => { setIdToDelete(systemId as SystemId); setIsAlertOpen(true); }, []);
-  const handleEdit = React.useCallback((t: CashbookTransaction) => { const isR = t.type === 'receipt'; router.push(generatePath(isR ? ROUTES.FINANCE.RECEIPT_EDIT : ROUTES.FINANCE.PAYMENT_EDIT, { systemId: t.systemId })); }, [router]);
-  const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push), [accounts, handleCancel, router]);
+  const handleCancel = useCallback((systemId: string) => { setIdToDelete(systemId as SystemId); setIsAlertOpen(true); }, []);
+  const handleEdit = useCallback((t: CashbookTransaction) => { const isR = t.type === 'receipt'; router.push(generatePath(isR ? ROUTES.FINANCE.RECEIPT_EDIT : ROUTES.FINANCE.PAYMENT_EDIT, { systemId: t.systemId })); }, [router]);
+  const columns = useMemo(() => getColumns(accounts, handleCancel, router.push), [accounts, handleCancel, router]);
 
-  const columnDefaultsInitialized = React.useRef(false);
-  React.useEffect(() => { if (columnDefaultsInitialized.current || !columns.length) return; const dv = ['type', 'id', 'date', 'amount', 'targetName', 'paymentMethodName', 'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName', 'description', 'runningBalance', 'createdBy', 'createdAt']; const iv: Record<string, boolean> = {}; columns.forEach(c => { iv[c.id!] = c.id === 'select' || c.id === 'actions' || dv.includes(c.id!); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); columnDefaultsInitialized.current = true; }, [columns, setColumnVisibility]);
+  const columnDefaultsInitialized = useRef(false);
+  useEffect(() => { if (columnDefaultsInitialized.current || !columns.length) return; const dv = ['type', 'id', 'date', 'amount', 'targetName', 'paymentMethodName', 'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName', 'description', 'runningBalance', 'createdBy', 'createdAt']; const iv: Record<string, boolean> = {}; columns.forEach(c => { iv[c.id!] = c.id === 'select' || c.id === 'actions' || dv.includes(c.id!); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); columnDefaultsInitialized.current = true; }, [columns, setColumnVisibility, setColumnOrder]);
 
   const { cancel: cancelReceipt } = useReceiptMutations({
     onCancelSuccess: () => toast.success("Đã hủy giao dịch"),
@@ -185,10 +184,10 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
     setIsBulkDeleteAlertOpen(false); 
   };
 
-  const typeOptions = React.useMemo(() => [{ value: 'receipt', label: 'Phiếu thu' }, { value: 'payment', label: 'Phiếu chi' }], []);
+  const typeOptions = useMemo(() => [{ value: 'receipt', label: 'Phiếu thu' }, { value: 'payment', label: 'Phiếu chi' }], []);
 
   // Data from server is already filtered, just need to sort client-side
-  const sortedData = React.useMemo(() => { 
+  const sortedData = useMemo(() => { 
     const s = [...transactions]; 
     if (sorting.id) s.sort((a, b) => { 
       const av = (a as unknown as Record<string, unknown>)[sorting.id], bv = (b as unknown as Record<string, unknown>)[sorting.id]; 
@@ -208,10 +207,10 @@ export function CashbookPage({ initialStats }: CashbookPageProps = {}) {
 
   const pageCount = Math.ceil((cashbookData?.pagination?.total ?? 0) / pagination.pageSize);
   const paginatedData = sortedData; // Server already paginates — sortedData IS the current page
-  const exportConfig = React.useMemo(() => ({ fileName: 'So_quy', columns }), [columns]);
+  const exportConfig = useMemo(() => ({ fileName: 'So_quy', columns }), [columns]);
 
-  const headerActions = React.useMemo(() => [canCreate && <Button key="pay" variant="outline" size="sm" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Lập Phiếu Chi</Button>, canCreate && <Button key="rec" size="sm" onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}><Plus className="mr-2 h-4 w-4" />Lập Phiếu Thu</Button>], [router, canCreate]);
-  const breadcrumb = React.useMemo(() => [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Sổ quỹ', href: ROUTES.FINANCE.CASHBOOK }], []);
+  const headerActions = useMemo(() => [canCreate && <Button key="pay" variant="outline" size="sm" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Lập Phiếu Chi</Button>, canCreate && <Button key="rec" size="sm" onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}><Plus className="mr-2 h-4 w-4" />Lập Phiếu Thu</Button>], [router, canCreate]);
+  const breadcrumb = useMemo(() => [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Sổ quỹ', href: ROUTES.FINANCE.CASHBOOK }], []);
   usePageHeader({ title: 'Sổ quỹ', showBackButton: false, breadcrumb, actions: headerActions });
 
   return (

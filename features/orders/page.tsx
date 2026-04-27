@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, useTransition } from "react"
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from "sonner"
@@ -48,7 +48,7 @@ import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/componen
 import type { ComboboxOption } from '@/components/ui/virtualized-combobox'
 import { useFilterPresets } from '@/hooks/use-filter-presets'
 import { OrderCard } from "./components/order-card"
-import { formatCurrency, formatNumber } from "@/lib/format-utils"
+import { formatCurrency } from "@/lib/format-utils"
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, DELIVERY_STATUS_LABELS, DELIVERY_METHOD_LABELS, STOCK_OUT_STATUS_LABELS, RETURN_STATUS_LABELS, PRINT_STATUS_LABELS } from '@/lib/constants/order-enums'
 import { packagingStatusLabels } from '@/lib/constants/order-status-labels'
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
@@ -84,44 +84,44 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   // Stats from server component
   const { data: stats } = useOrderStats(initialStats);
   const queryClient = useQueryClient();
-  const [isFilterPending, startFilterTransition] = React.useTransition();
+  const [isFilterPending, startFilterTransition] = useTransition();
   
   // Search and filter state for server-side query
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [scannerOpen, setScannerOpen] = React.useState(false);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [activeCard, setActiveCard] = React.useState<WorkflowFilterKey | null>(null);
-  const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined]>();
-  const [employeeFilter, setEmployeeFilter] = React.useState<string>('');
-  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
-  const [filterPanelOpen, setFilterPanelOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [activeCard, setActiveCard] = useState<WorkflowFilterKey | null>(null);
+  const [dateRange, setDateRange] = useState<[string | undefined, string | undefined]>();
+  const [employeeFilter, setEmployeeFilter] = useState<string>('');
+  const [advancedFilters, setAdvancedFilters] = useState<Record<string, unknown>>({});
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  const [sorting, setSorting] = useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   
   // Debounce search query for API calls
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPagination(prev => ({ ...prev, pageIndex: 0 })); // Reset to page 1 on search
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, setPagination]);
   
-  // Reset to page 1 when filter changes
-  React.useEffect(() => {
+// Reset to page 1 when filter changes
+useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [statusFilter, activeCard, dateRange, employeeFilter, advancedFilters]);
+  }, [statusFilter, activeCard, dateRange, employeeFilter, advancedFilters, setPagination]);
 
   // Build filter params from active card or manual filters
-  const cardFilter = React.useMemo(() => {
+  const cardFilter = useMemo(() => {
     if (!activeCard) return {};
     const card = WORKFLOW_CARDS.find(c => c.key === activeCard);
     return card?.filter ?? {};
   }, [activeCard]);
 
   // Convert Vietnamese labels to enum values for API
-  const statusEnums = React.useMemo(() => {
+  const statusEnums = useMemo(() => {
     if (statusFilter.size === 0) return undefined;
     const enums: string[] = [];
     for (const label of statusFilter) {
@@ -134,7 +134,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   }, [statusFilter]);
 
   // Build advanced filter params for API
-  const advancedApiParams = React.useMemo(() => {
+  const advancedApiParams = useMemo(() => {
     const params: Record<string, string | undefined> = {};
     if (advancedFilters.branch) params.branchId = advancedFilters.branch as string;
     if (advancedFilters.customer) {
@@ -178,7 +178,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   }, [advancedFilters]);
 
   // Server-side pagination with query params
-  const { data: ordersData, isLoading: isLoadingOrders, isFetching } = useOrders({ 
+  const { data: ordersData, isLoading: isLoadingOrders, isFetching } = useOrders({
     page: pagination.pageIndex + 1, // API uses 1-based page
     limit: pagination.pageSize,
     search: debouncedSearchQuery || undefined,
@@ -191,7 +191,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     ...advancedApiParams,
     ...cardFilter,
   });
-  const orders = React.useMemo(() => ordersData?.data ?? [], [ordersData?.data]);
+  const orders = useMemo(() => ordersData?.data ?? [], [ordersData?.data]);
   const totalRows = ordersData?.pagination?.total ?? 0;
   const pageCount = ordersData?.pagination?.totalPages ?? 1;
   const { cancelOrder, bulkCancelOrders, bulkApproveOrders, bulkPayOrders } = useOrderDetailActions();
@@ -199,27 +199,27 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   const searchParams = useSearchParams();
   const {  employee: authEmployee, can } = useAuth();
   const canCreate = can('create_orders');
-  const canDelete = can('delete_orders');
-  const canEdit = can('edit_orders');
+  const _canDelete = can('delete_orders');
+  const _canEdit = can('edit_orders');
   const canEditSettings = can('edit_settings');
   const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   // Dialog state
-  const [isImportOpen, setIsImportOpen] = React.useState(false);
-  const [isExportOpen, setIsExportOpen] = React.useState(false);
-  const [isSapoImportOpen, setIsSapoImportOpen] = React.useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isSapoImportOpen, setIsSapoImportOpen] = useState(false);
   const dialogsOpen = isImportOpen || isExportOpen || isSapoImportOpen;
 
   // ✅ Lazy-load ALL records chỉ khi Import/Export dialogs mở
   const { data: allCustomers } = useAllCustomers({ enabled: dialogsOpen });
   const { data: allProducts } = useAllProducts({ enabled: dialogsOpen });
-  const productStore = React.useMemo(() => ({ data: allProducts, findById: (id: SystemId) => allProducts.find(p => p.systemId === id) }), [allProducts]);
+  const productStore = useMemo(() => ({ data: allProducts, findById: (id: SystemId) => allProducts.find(p => p.systemId === id) }), [allProducts]);
 
   // ✅ Paginated combobox: load 20 records, search server-side, infinite scroll
   const COMBOBOX_PAGE_SIZE = 20;
-  const [customerSearch, setCustomerSearch] = React.useState('');
-  const [productSearch, setProductSearch] = React.useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
 
   const customerInfinite = useInfiniteQuery({
     queryKey: ['customers', 'combobox', customerSearch],
@@ -229,7 +229,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     enabled: filterPanelOpen,
     staleTime: 5 * 60 * 1000,
   });
-  const customerComboboxOptions: ComboboxOption[] = React.useMemo(
+  const customerComboboxOptions: ComboboxOption[] = useMemo(
     () => customerInfinite.data?.pages.flatMap(p => p.data.map(c => ({ value: c.systemId, label: c.name, subtitle: c.phone || undefined }))) ?? [],
     [customerInfinite.data]
   );
@@ -242,7 +242,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     enabled: filterPanelOpen,
     staleTime: 5 * 60 * 1000,
   });
-  const productComboboxOptions: ComboboxOption[] = React.useMemo(
+  const productComboboxOptions: ComboboxOption[] = useMemo(
     () => productInfinite.data?.pages.flatMap(p => p.data.map(pr => ({ value: pr.systemId, label: pr.name, subtitle: pr.id }))) ?? [],
     [productInfinite.data]
   );
@@ -255,8 +255,8 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('orders');
-  const fetchMoreCustomers = React.useCallback(() => { customerInfinite.fetchNextPage(); }, [customerInfinite]);
-  const fetchMoreProducts = React.useCallback(() => { productInfinite.fetchNextPage(); }, [productInfinite]);
+  const fetchMoreCustomers = useCallback(() => { customerInfinite.fetchNextPage(); }, [customerInfinite]);
+  const fetchMoreProducts = useCallback(() => { productInfinite.fetchNextPage(); }, [productInfinite]);
   const customerHasMore = customerInfinite.hasNextPage;
   const customerIsLoadingMore = customerInfinite.isFetchingNextPage;
   const customerIsLoading = customerInfinite.isLoading;
@@ -264,7 +264,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
   const productIsLoadingMore = productInfinite.isFetchingNextPage;
   const productIsLoading = productInfinite.isLoading;
 
-  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+  const filterConfigs: FilterConfig[] = useMemo(() => [
     // --- Thông tin đơn ---
     { id: 'employee', label: 'NV phụ trách', type: 'select' as const, group: 'Thông tin đơn', options: employees.map(e => ({ value: e.systemId, label: e.fullName || e.id })) },
     { id: 'createdBy', label: 'NV tạo đơn', type: 'select' as const, group: 'Thông tin đơn', options: employees.map(e => ({ value: e.systemId, label: e.fullName || e.id })) },
@@ -293,7 +293,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     { id: 'completedDateRange', label: 'Ngày hoàn thành', type: 'date-range' as const, group: 'Thời gian' },
     { id: 'cancelledDateRange', label: 'Ngày hủy đơn', type: 'date-range' as const, group: 'Thời gian' },
   ], [employees, branches, customerComboboxOptions, productComboboxOptions, fetchMoreCustomers, customerHasMore, customerIsLoadingMore, customerIsLoading, fetchMoreProducts, productHasMore, productIsLoadingMore, productIsLoading, setCustomerSearch, setProductSearch]);
-  const panelValues = React.useMemo(() => ({
+  const panelValues = useMemo(() => ({
     employee: employeeFilter || null,
     branch: advancedFilters.branch ?? null,
     customer: advancedFilters.customer ?? null,
@@ -318,7 +318,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     grandTotalRange: advancedFilters.grandTotalRange ?? null,
     discountRange: advancedFilters.discountRange ?? null,
   }), [employeeFilter, dateRange, statusFilter, advancedFilters]);
-  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+  const handlePanelApply = useCallback((v: Record<string, unknown>) => {
     startFilterTransition(() => {
       setEmployeeFilter((v.employee as string) || '');
       const dr = v.dateRange as { from?: string; to?: string } | null;
@@ -332,34 +332,34 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     });
   }, [startFilterTransition]);
 
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [isCancelAlertOpen, setIsCancelAlertOpen] = React.useState(false);
-  const [idToCancel, setIdToCancel] = React.useState<SystemId | null>(null);
-  const [cancelReason, setCancelReason] = React.useState('');
-  const [restockItems, setRestockItems] = React.useState(true);
-  const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
-  const [pendingPrintOrders, setPendingPrintOrders] = React.useState<Order[]>([]);
-  const [initialPrintTemplateType, setInitialPrintTemplateType] = React.useState<OrderPrintTemplateType>('order');
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
+  const [idToCancel, setIdToCancel] = useState<SystemId | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [restockItems, setRestockItems] = useState(true);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [pendingPrintOrders, setPendingPrintOrders] = useState<Order[]>([]);
+  const [initialPrintTemplateType, setInitialPrintTemplateType] = useState<OrderPrintTemplateType>('order');
 
-  const defaultColumnVisibility = React.useMemo(() => { const cols = getColumns(() => {}, null as unknown as ReturnType<typeof useRouter>); const init: Record<string, boolean> = {}; cols.forEach(c => { if (c.id) init[c.id] = true; }); return init; }, []);
+  const defaultColumnVisibility = useMemo(() => { const cols = getColumns(() => {}, null as unknown as ReturnType<typeof useRouter>); const init: Record<string, boolean> = {}; cols.forEach(c => { if (c.id) init[c.id] = true; }); return init; }, []);
   const [columnVisibility, setColumnVisibility, isVisibilityLoaded] = useColumnVisibility('orders', defaultColumnVisibility);
   const [columnOrder, setColumnOrder] = useColumnOrder('orders', []);
   const [pinnedColumns, setPinnedColumns] = usePinnedColumns('orders', ['select', 'id']);
 
-  React.useEffect(() => { const status = searchParams?.get('status'); if (status) setStatusFilter(new Set([status])); }, [searchParams]);
+  useEffect(() => { const status = searchParams?.get('status'); if (status) setStatusFilter(new Set([status])); }, [searchParams]);
 
-  React.useEffect(() => { if (!isCancelAlertOpen) { setCancelReason(''); setRestockItems(true); } }, [isCancelAlertOpen]);
+  useEffect(() => { if (!isCancelAlertOpen) { setCancelReason(''); setRestockItems(true); } }, [isCancelAlertOpen]);
 
-  const handleCancelRequest = React.useCallback((systemId: string) => { setIdToCancel(systemId as SystemId); setIsCancelAlertOpen(true); }, []);
-  const orderPendingCancel = React.useMemo(() => idToCancel ? orders.find(o => o.systemId === idToCancel) ?? null : null, [idToCancel, orders]);
-  const pendingCancelQuantity = React.useMemo(() => orderPendingCancel?.lineItems.reduce((s, i) => s + i.quantity, 0) ?? 0, [orderPendingCancel]);
+  const handleCancelRequest = useCallback((systemId: string) => { setIdToCancel(systemId as SystemId); setIsCancelAlertOpen(true); }, []);
+  const orderPendingCancel = useMemo(() => idToCancel ? orders.find(o => o.systemId === idToCancel) ?? null : null, [idToCancel, orders]);
+  const pendingCancelQuantity = useMemo(() => orderPendingCancel?.lineItems.reduce((s, i) => s + i.quantity, 0) ?? 0, [orderPendingCancel]);
 
   // Print handlers - dùng chung hook duy nhất (use-order-print-handlers.ts)
-  const columns = React.useMemo(() => getColumns(handleCancelRequest, router, printActions), [handleCancelRequest, router, printActions]);
+  const columns = useMemo(() => getColumns(handleCancelRequest, router, printActions), [handleCancelRequest, router, printActions]);
 
   // Only set defaults if user has no saved preferences
-  const columnDefaultsInitialized = React.useRef(false);
-  React.useEffect(() => {
+  const columnDefaultsInitialized = useRef(false);
+  useEffect(() => {
     if (columnDefaultsInitialized.current || columns.length === 0 || !isVisibilityLoaded) return;
     columnDefaultsInitialized.current = true;
     // If visibility already has custom values (loaded from DB), don't override
@@ -378,9 +378,9 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     setIsCancelAlertOpen(false); setIdToCancel(null);
   };
 
-  const allSelectedRows = React.useMemo(() => orders.filter(o => rowSelection[o.systemId]), [orders, rowSelection]);
+  const allSelectedRows = useMemo(() => orders.filter(o => rowSelection[o.systemId]), [orders, rowSelection]);
 
-  const handleRowHover = React.useCallback((row: Order) => {
+  const handleRowHover = useCallback((row: Order) => {
     queryClient.prefetchQuery({
       queryKey: orderKeys.detail(row.systemId),
       queryFn: () => fetchOrder(row.systemId),
@@ -388,9 +388,9 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     });
   }, [queryClient]);
   const handleRowClick = (row: Order) => router.push(`/orders/${row.systemId}`);
-  const handleBulkDelete = React.useCallback(async () => { if (allSelectedRows.length === 0 || !confirm(`Hủy ${allSelectedRows.length} đơn?`)) return; try { const result = await bulkCancelOrders({ systemIds: allSelectedRows.map(o => o.systemId), reason: 'Hủy hàng loạt', restockItems: true }); const msgs: string[] = []; if (result?.cancelled) msgs.push(`Đã hủy ${result.cancelled} đơn`); if (result?.failed?.length) msgs.push(`${result.failed.length} đơn không thể hủy`); toast.success(msgs.join(', ') || 'Đã xử lý'); } catch { toast.error('Lỗi khi hủy đơn hàng loạt'); } setRowSelection({}); }, [allSelectedRows, bulkCancelOrders]);
+  const handleBulkDelete = useCallback(async () => { if (allSelectedRows.length === 0 || !confirm(`Hủy ${allSelectedRows.length} đơn?`)) return; try { const result = await bulkCancelOrders({ systemIds: allSelectedRows.map(o => o.systemId), reason: 'Hủy hàng loạt', restockItems: true }); const msgs: string[] = []; if (result?.cancelled) msgs.push(`Đã hủy ${result.cancelled} đơn`); if (result?.failed?.length) msgs.push(`${result.failed.length} đơn không thể hủy`); toast.success(msgs.join(', ') || 'Đã xử lý'); } catch { toast.error('Lỗi khi hủy đơn hàng loạt'); } setRowSelection({}); }, [allSelectedRows, bulkCancelOrders]);
 
-  const handleBulkApprove = React.useCallback(async (rows: Order[]) => {
+  const handleBulkApprove = useCallback(async (rows: Order[]) => {
     const pendingRows = rows.filter(o => o.status === 'PENDING' || o.status === 'Đặt hàng');
     if (pendingRows.length === 0) { toast.error('Không có đơn nào ở trạng thái chờ duyệt'); return; }
     if (!confirm(`Duyệt ${pendingRows.length} đơn hàng?`)) return;
@@ -404,7 +404,7 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     setRowSelection({});
   }, [bulkApproveOrders]);
 
-  const handleBulkPayment = React.useCallback(async (rows: Order[]) => {
+  const handleBulkPayment = useCallback(async (rows: Order[]) => {
     const unpaidRows = rows.filter(o => o.status !== 'CANCELLED' && o.paymentStatus !== 'PAID');
     if (unpaidRows.length === 0) { toast.error('Không có đơn nào cần thanh toán'); return; }
     if (!confirm(`Thanh toán toàn bộ ${unpaidRows.length} đơn hàng?`)) return;
@@ -418,33 +418,33 @@ export function OrdersPage({ initialStats }: OrdersPageProps = {}) {
     setRowSelection({});
   }, [bulkPayOrders]);
 
-  const handleBulkPrintWithOptions = React.useCallback((rows: Order[], type: OrderPrintTemplateType = 'order') => { setPendingPrintOrders(rows); setInitialPrintTemplateType(type); setIsPrintDialogOpen(true); }, []);
-  const handlePrintConfirm = React.useCallback((opts: PrintOptionsResult) => {
+  const handleBulkPrintWithOptions = useCallback((rows: Order[], type: OrderPrintTemplateType = 'order') => { setPendingPrintOrders(rows); setInitialPrintTemplateType(type); setIsPrintDialogOpen(true); }, []);
+  const handlePrintConfirm = useCallback((opts: PrintOptionsResult) => {
     handleBulkPrintConfirm(pendingPrintOrders, opts);
     setPendingPrintOrders([]);
   }, [pendingPrintOrders, handleBulkPrintConfirm]);
 
-  const bulkActions = React.useMemo(() => [
+  const bulkActions = useMemo(() => [
     { label: 'In hàng loạt', icon: FileText, onSelect: (rows: Order[]) => handleBulkPrintWithOptions(rows, 'order') },
     ...(can('approve_orders') ? [{ label: 'Duyệt hàng loạt', icon: CheckCircle, onSelect: handleBulkApprove }] : []),
     ...(can('pay_orders') ? [{ label: 'Thanh toán hàng loạt', icon: DollarSign, onSelect: handleBulkPayment }] : []),
   ], [handleBulkPrintWithOptions, handleBulkApprove, handleBulkPayment, can]);
 
-  const storeContext = React.useMemo(() => ({ customerStore: { data: allCustomers }, productStore, branchStore: { data: branches }, employeeStore: { data: employees } }), [allCustomers, productStore, branches, employees]);
+  const storeContext = useMemo(() => ({ customerStore: { data: allCustomers }, productStore, branchStore: { data: branches }, employeeStore: { data: employees } }), [allCustomers, productStore, branches, employees]);
 
-  const [ordersForExport, setOrdersForExport] = React.useState<Order[]>([]);
-  const [filteredOrdersForExport, setFilteredOrdersForExport] = React.useState<Order[]>([]);
-  const [pageOrdersForExport, setPageOrdersForExport] = React.useState<Order[]>([]);
-  const [selectedOrdersForExport, setSelectedOrdersForExport] = React.useState<Order[]>([]);
+  const [ordersForExport, setOrdersForExport] = useState<Order[]>([]);
+  const [filteredOrdersForExport, setFilteredOrdersForExport] = useState<Order[]>([]);
+  const [pageOrdersForExport, setPageOrdersForExport] = useState<Order[]>([]);
+  const [selectedOrdersForExport, setSelectedOrdersForExport] = useState<Order[]>([]);
 
-  React.useEffect(() => { if (isExportOpen) loadFlattenOrdersForExport().then(fn => { setOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setFilteredOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setPageOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setSelectedOrdersForExport(fn(allSelectedRows, allCustomers) as unknown as Order[]); }); }, [isExportOpen, orders, allSelectedRows, allCustomers]);
+  useEffect(() => { if (isExportOpen) loadFlattenOrdersForExport().then(fn => { setOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setFilteredOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setPageOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setSelectedOrdersForExport(fn(allSelectedRows, allCustomers) as unknown as Order[]); }); }, [isExportOpen, orders, allSelectedRows, allCustomers]);
 
   const handleImport = useOrderImportHandler({ authEmployeeSystemId: authEmployee?.systemId });
 
-  const headerActions = React.useMemo(() => [canCreate && <Button key="add" size="sm" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>].filter(Boolean), [router, canCreate]);
+  const headerActions = useMemo(() => [canCreate && <Button key="add" size="sm" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: 'Danh sách đơn hàng', breadcrumb: [{ label: 'Trang chủ', href: '/' }, { label: 'Đơn hàng', href: '/orders', isCurrent: true }], showBackButton: false, actions: headerActions });
 
-  const handlePullRefresh = React.useCallback(async () => {
+  const handlePullRefresh = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: orderKeys.all }),
       queryClient.invalidateQueries({ queryKey: ['orderStats'] }),

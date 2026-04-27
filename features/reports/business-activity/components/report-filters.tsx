@@ -4,8 +4,8 @@
  * Thanh lọc cho báo cáo: Khoảng thời gian, Loại báo cáo, Nhóm theo
  */
 
-import * as React from 'react';
-import { format, startOfMonth, endOfMonth, subDays, subMonths, startOfYear, endOfYear, subYears } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,6 @@ import { CalendarIcon } from 'lucide-react';
 import type { ReportDateRange, GroupByOption, TimeGrouping } from '../types';
 import { useDatePresets } from '../hooks/use-report-hooks';
 
-const fmtDate = (d: Date) => format(d, 'yyyy-MM-dd');
 const fmtDisplay = (d: Date) => format(d, 'dd/MM/yyyy');
 
 // Re-export for backward compatibility - but prefer using the hook directly
@@ -114,14 +113,14 @@ export function ReportFilters({
   showTimeGrouping = true,
   additionalFilters,
 }: ReportFiltersProps) {
-  const [open, setOpen] = React.useState(false);
-  const [showCustom, setShowCustom] = React.useState(false);
-  const [customFrom, setCustomFrom] = React.useState(dateRange.from);
-  const [customTo, setCustomTo] = React.useState(dateRange.to);
+  const [open, setOpen] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customFrom, setCustomFrom] = useState(dateRange.from);
+  const [customTo, setCustomTo] = useState(dateRange.to);
   const presets = useDatePresets();
   
   // Determine active preset label
-  const activeLabel = React.useMemo(() => {
+  const activeLabel = useMemo(() => {
     const match = presets.find((p: { from: string; to: string }) => p.from === dateRange.from && p.to === dateRange.to);
     return match?.label;
   }, [presets, dateRange]);

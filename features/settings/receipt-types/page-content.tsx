@@ -92,7 +92,6 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
   
   const confirmDelete = () => {
     if (idToDelete) {
-      const item = data.find(d => d.systemId === idToDelete);
       remove.mutate(idToDelete);
     }
     setIsAlertOpen(false);

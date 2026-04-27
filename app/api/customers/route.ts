@@ -15,7 +15,7 @@ import { buildSearchWhere } from '@/lib/search/build-search-where'
 export const dynamic = 'force-dynamic'
 
 // GET /api/customers - List all customers
-export const GET = apiHandler(async (request, { session }) => {
+export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''

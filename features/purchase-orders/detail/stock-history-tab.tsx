@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import { formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import { formatCurrency } from '@/lib/format-utils';
@@ -31,9 +31,9 @@ export function StockHistoryTab({
   onPrintReceipt,
   onPrintReturn,
 }: StockHistoryTabProps) {
-  const [expandedRowId, setExpandedRowId] = React.useState<string | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
-  const stockMovements = React.useMemo(() => {
+  const stockMovements = useMemo(() => {
     const receipts = poReceipts.map(r => ({
       type: 'receipt' as const,
       data: r,
@@ -85,10 +85,10 @@ export function StockHistoryTab({
                 : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0) * Number(i.unitPrice || 0), 0);
 
               return (
-                <React.Fragment key={data.systemId}>
+                <Fragment key={data.systemId}>
                   <TableRow onClick={() => toggleRow(data.systemId)} className="cursor-pointer">
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-11 w-11 text-blue-500">
+                      <Button variant="ghost" size="icon" className="h-11 w-11 text-blue-500" aria-label={expandedRowId === data.systemId ? "Thu gọn" : "Mở rộng"}>
                         {expandedRowId === data.systemId ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                       </Button>
                     </TableCell>
@@ -153,7 +153,7 @@ export function StockHistoryTab({
                       </TableCell>
                     </TableRow>
                   )}
-                </React.Fragment>
+                </Fragment>
               )
             })}
             {stockMovements.length === 0 && (

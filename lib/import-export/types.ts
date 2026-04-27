@@ -226,6 +226,11 @@ export interface ImportExportConfig<T> {
   // Params: row, index, branchSystemId or context (for payment/receipt configs)
   postTransformRow?: (row: Partial<T>, index?: number, branchSystemIdOrContext?: string | Record<string, unknown>) => Partial<T>;
   
+  // Preloaded data cache - chứa dữ liệu đã fetch sẵn để transform dùng
+  // Các config có thể define để provide async lookups (ví dụ: ProductType, Category)
+  // Sẽ được truyền vào postTransformRow qua context parameter
+  preloadedDataCache?: Record<string, unknown>;
+
   // Max rows
   maxRows?: number;              // Default: 1000
   maxFileSize?: number;          // Default: 10MB (bytes)

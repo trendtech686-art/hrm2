@@ -42,6 +42,7 @@ export interface PaymentRecord {
   id: string;
   paymentMethodSystemId: string; // Link to PaymentMethod.systemId from settings
   paymentMethodName: string;
+  accountSystemId?: string; // Link to CashAccount.systemId (optional, for tracking which account used)
   amount: number;
   note?: string;
 }

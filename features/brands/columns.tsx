@@ -131,9 +131,12 @@ export const getColumns = (
             renderDisplay={(value, onEdit) => (
               <div className="flex flex-col group">
                 <div className="flex items-center gap-2">
-                  <span 
+                  <span
                     className="font-medium cursor-pointer hover:text-primary"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/brands/${brand.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/brands/${brand.systemId}`); }}
                   >
                     {value}
                   </span>
@@ -167,9 +170,12 @@ export const getColumns = (
       }
       
       return (
-        <div 
+        <div
           className="flex flex-col cursor-pointer hover:text-primary"
+          role="button"
+          tabIndex={0}
           onClick={() => navigate(`/brands/${brand.systemId}`)}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/brands/${brand.systemId}`); }}
         >
           <div className="flex items-center gap-2">
             <span className="font-medium">{brand.name}</span>
@@ -330,7 +336,7 @@ export const getColumns = (
     cell: ({ row }) => {
       const brand = row as Brand;
       return (
-        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
           <Switch
             checked={brand.isActive !== false}
             onCheckedChange={(checked) => onToggleActive(brand.systemId, checked)}
@@ -407,7 +413,7 @@ export const getColumns = (
       const pkgxId = getPkgxBrandId?.(brand);
       
       return (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
           <PkgxBrandActionsCell
             brand={brand}
             hasPkgxMapping={hasMapping}

@@ -1,7 +1,8 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useMemo, type ElementType } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Users, Command, Clock, CalendarOff,
@@ -39,7 +40,7 @@ import type { Permission } from '../../features/employees/permissions';
 type NavLinkInfo = {
   href: string;
   label: string;
-  icon: React.ElementType;
+  icon: ElementType;
   permission?: Permission;
 };
 
@@ -144,7 +145,7 @@ function SidebarNavLink({
   collapsed 
 }: { 
   href: string; 
-  icon: React.ElementType; 
+  icon: ElementType; 
   label: string; 
   collapsed?: boolean 
 }) {
@@ -186,14 +187,14 @@ function SidebarNavLink({
 }
 
 export function Sidebar() {
-    const [search, setSearch] = React.useState('');
+    const [search, setSearch] = useState('');
   const { employee: authEmployee, isAdmin } = useAuth();
   const loggedInUser = authEmployee;
     const { isSidebarCollapsed, toggleSidebarCollapse: _toggleSidebarCollapse } = useUiStore();
     const { data: customRoles } = useRoleSettings();
     const { logoUrl } = useBranding();
 
-    const filteredMenuGroups = React.useMemo(() => {
+    const filteredMenuGroups = useMemo(() => {
     const userRole = loggedInUser?.role || 'Sales';
     // Find the custom role matching the user's role to get their configured permissions
     const matchedRole = customRoles?.find(r => r.id === userRole);
@@ -217,7 +218,7 @@ export function Sidebar() {
             <SidebarHeader>
                 <Link href="/" className="flex items-center gap-2 font-semibold text-lg overflow-hidden">
                     {logoUrl ? (
-                      <img src={logoUrl} alt="Logo" className="h-6 shrink-0 object-contain" />
+                      <Image src={logoUrl} alt="Logo" width={24} height={24} className="h-6 shrink-0 object-contain" />
                     ) : (
                       <Command className="h-6 w-6 shrink-0" />
                     )}

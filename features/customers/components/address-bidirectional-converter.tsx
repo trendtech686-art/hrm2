@@ -212,6 +212,7 @@ export function AddressBidirectionalConverter({
                   </div>
                   <div className="grid grid-cols-1 gap-2 max-h-75 sm:max-h-100 overflow-y-auto border rounded-lg p-2 sm:p-3">
                     {allNewWardMappings.map((mapping, idx) => (
+                      // eslint-disable-next-line jsx-a11y/label-has-associated-control -- radio is nested inside label
                       <label
                         key={idx}
                         className={`flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg cursor-pointer transition-all ${

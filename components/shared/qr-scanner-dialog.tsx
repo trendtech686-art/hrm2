@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { X, Upload, Camera } from 'lucide-react'
@@ -22,15 +22,15 @@ function canUseCamera(): boolean {
 }
 
 export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã QR / Barcode' }: QrScannerDialogProps) {
-  const scannerRef = React.useRef<HTMLDivElement>(null)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const html5QrCodeRef = React.useRef<import('html5-qrcode').Html5Qrcode | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  const [isStarting, setIsStarting] = React.useState(false)
+  const scannerRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const html5QrCodeRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isStarting, setIsStarting] = useState(false)
   // true → hiển thị UI "Chụp/Chọn ảnh"; false → hiển thị live camera stream.
-  const [useFileFallback, setUseFileFallback] = React.useState(false)
+  const [useFileFallback, setUseFileFallback] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) return
 
     if (!canUseCamera()) {
@@ -110,7 +110,7 @@ export function QrScannerDialog({ open, onOpenChange, onScan, title = 'Quét mã
     }
   }, [open, onScan, onOpenChange])
 
-  const handleFileSelect = React.useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 

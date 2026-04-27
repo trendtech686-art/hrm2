@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Clock, AlertCircle, CheckCircle2, XCircle, AlertTriangle, User, Phone, Package, Truck } from 'lucide-react';
+import { AlertTriangle, User, Phone, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge, COMPLAINT_STATUS_MAP } from '@/components/StatusBadge';
-import { MobileCard, MobileCardBody, MobileCardHeader, MobileCardFooter } from '@/components/mobile/mobile-card';
+import { MobileCard, MobileCardFooter } from '@/components/mobile/mobile-card';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/date-utils';
-import { Complaint, complaintStatusLabels as _complaintStatusLabels, complaintTypeLabels, complaintTypeColors } from '../types';
+import { Complaint, complaintTypeLabels, complaintTypeColors } from '../types';
 import { checkOverdue } from '../sla-utils';
 
 interface ComplaintCardProps {

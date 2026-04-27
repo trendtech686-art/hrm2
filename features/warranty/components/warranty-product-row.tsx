@@ -163,8 +163,11 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
             {/* Ảnh sản phẩm */}
             {productImageUrl ? (
               <div
+                role="button"
+                tabIndex={0}
                 className="group/img relative w-12 h-12 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
                 onClick={() => handlePreviewImage(productImageUrl, field.productName)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handlePreviewImage(productImageUrl, field.productName); }}
               >
                 <LazyImage
                   src={productImageUrl}
@@ -311,6 +314,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
 
       {/* Inline Warranty Info - Hiển thị dưới sản phẩm khi đã check BH */}
       {warrantyCheckResult && (
+        // eslint-disable-next-line hrm-theme/no-raw-palette-class -- Table row background for warranty status
         <TableRow className="bg-slate-50/50 hover:bg-slate-50 border-slate-200">
           <TableCell colSpan={9} className="py-2 px-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">

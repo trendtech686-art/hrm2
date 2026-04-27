@@ -35,14 +35,14 @@ export const defaultLogisticsSettings: ProductLogisticsSettings = {
 };
 
 // Cache used by React Query mutation callbacks
-let settingsCache: ProductLogisticsSettings | null = null;
+let _settingsCache: ProductLogisticsSettings | null = null;
 
 export function invalidateLogisticsSettingsCache(): void {
-  settingsCache = null;
+  _settingsCache = null;
 }
 
 export function updateLogisticsSettingsCache(settings: ProductLogisticsSettings): void {
-  settingsCache = cloneSettings(settings);
+  _settingsCache = cloneSettings(settings);
 }
 
 export type { ProductLogisticsSettings, LogisticsPreset };

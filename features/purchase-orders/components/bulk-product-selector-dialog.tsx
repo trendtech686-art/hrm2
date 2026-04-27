@@ -204,6 +204,7 @@ export function BulkProductSelectorDialog({
                 const isSelected = selectedIds.has(product.systemId);
 
                 return (
+                  // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- product selector row
                   <div
                     key={product.systemId}
                     className={cn(
@@ -219,6 +220,7 @@ export function BulkProductSelectorDialog({
                     />
 
                     {/* Product Image */}
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- image cell wrapper */}
                     <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                       <ProductThumbnailCell
                         productSystemId={product.systemId}

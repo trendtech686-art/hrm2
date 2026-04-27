@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       cancelledByName: adj.cancelledByName || employeeMap.get(adj.cancelledBySystemId || '') || null,
       // Transform items - exclude Decimal fields from spread
       items: adj.items?.map(item => {
-        const { oldCost, newCost, adjustmentAmount, adjustmentPercent, ...rest } = item;
+        const { oldCost, newCost, ...rest } = item;
         const oldCostNum = Number(oldCost) || 0;
         const newCostNum = Number(newCost) || 0;
         return {

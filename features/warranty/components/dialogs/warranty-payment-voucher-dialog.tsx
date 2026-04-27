@@ -31,6 +31,7 @@ import { useWarrantyPayments, useWarrantyReceipts } from '../../hooks/use-warran
 // addHistory was a Zustand store mutator (now deleted) - history is tracked in DB via mutations
 const addHistory = (..._args: unknown[]) => { /* no-op: store removed, history tracked in DB */ };
 import { useOrderMutations } from '../../../orders/hooks/use-order-mutations';
+import { orderKeys } from '../../../orders/hooks/use-orders';
 import type { Order } from '@/lib/types/prisma-extended';
 import { useQuery } from '@tanstack/react-query';
 import { useWarranty } from '../../hooks/use-warranties';
@@ -103,7 +104,7 @@ export function WarrantyPaymentVoucherDialog({
   warrantyId,
   warrantySystemId,
   customer,
-  linkedOrderId,
+  linkedOrderId: _linkedOrderId,
   branchSystemId,
   branchName,
 }: WarrantyPaymentVoucherDialogProps) {
@@ -116,7 +117,7 @@ export function WarrantyPaymentVoucherDialog({
   const { data: receipts } = useWarrantyReceipts(warrantySystemId);
   // Fetch only this customer's unpaid orders (NOT all orders)
   const { data: orders = [] } = useQuery<Order[]>({
-    queryKey: ['orders', 'customer', customer.systemId, 'unpaid'],
+    queryKey: orderKeys.unpaid(customer.systemId!),
     queryFn: async () => {
       if (!customer.systemId) return [];
       const params = new URLSearchParams();
@@ -214,9 +215,9 @@ export function WarrantyPaymentVoucherDialog({
   const selectedOrderId = watch('selectedOrderId');
   const paymentMethodSystemId = watch('paymentMethodSystemId');
   const _accountSystemId = watch('accountSystemId');
-  const amount = watch('amount');
-  const mixedOrderAmount = watch('mixedOrderAmount');
-  const mixedCashAmount = watch('mixedCashAmount');
+  const _amount = watch('amount');
+  const _mixedOrderAmount = watch('mixedOrderAmount');
+  const _mixedCashAmount = watch('mixedCashAmount');
 
   // Get selected payment method to determine account type
   const selectedPaymentMethod = React.useMemo(() => 
@@ -236,7 +237,8 @@ export function WarrantyPaymentVoucherDialog({
   // Auto-select appropriate account when payment method changes
   React.useEffect(() => {
     if (!selectedPaymentMethod) return;
-    if (settlementType !== 'direct_payment' && !needsCashSupplement) return;
+    // NOTE: needsCashSupplement is computed after selectedOrder/orderRemainingAmount - see below
+    if (settlementType !== 'direct_payment') return;
     
     // So sánh trực tiếp type từ DB
     const methodType = selectedPaymentMethod.type;
@@ -700,10 +702,10 @@ export function WarrantyPaymentVoucherDialog({
         amount: values.amount,
         
         // Recipient info (TargetGroup)
-        recipientTypeSystemId: asSystemId('KHACHHANG'), // TODO: Get KHACHHANG systemId from TargetGroup
+        recipientTypeSystemId: asSystemId('KHACHHANG'), // TargetGroup ID for Customer classification
         recipientTypeName: 'Khách hàng',
         recipientName: customer.name,
-        recipientSystemId: undefined, // TODO: Get customer systemId if needed
+        recipientSystemId: customer.systemId ? asSystemId(customer.systemId) : undefined,
         
         description: values.notes || `Hoàn tiền bảo hành ${warrantyId}`,
         

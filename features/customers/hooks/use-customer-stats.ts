@@ -12,6 +12,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import type { Customer } from '@/lib/types/prisma-extended'
+import { customerKeys } from './use-customers'
 
 export interface CustomerStats {
   customer: Customer | null
@@ -55,7 +56,7 @@ async function fetchCustomerStats(systemId: string): Promise<CustomerStats> {
 
 export function useCustomerStats(customerId: string | undefined | null) {
   const query = useQuery({
-    queryKey: ['customers', 'stats', customerId],
+    queryKey: customerKeys.customerStats(customerId ?? ''),
     queryFn: () => fetchCustomerStats(customerId!),
     enabled: !!customerId,
     staleTime: 60_000,

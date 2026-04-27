@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Bell, BellOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,11 +56,13 @@ async function savePwaPref(key: string, dismissedAt: number): Promise<void> {
  */
 export function NotificationPermissionPrompt() {
   const [stage, setStage] = React.useState<Stage>("idle");
-  const [visible, setVisible] = React.useState(false);
-  const [dismissedAt, setDismissedAt] = React.useState<number | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  // dismissedAt state managed for potential future use (e.g., display last dismissed time)
+  const [_dismissedAt, setDismissedAt] = useState<number | null>(null);
 
   // Decide whether to show ourselves based on permission state + dismiss TTL.
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
       setStage("unsupported");
@@ -78,7 +80,7 @@ export function NotificationPermissionPrompt() {
 
     // Fetch dismiss state from DB (cross-device)
     void fetchPwaPref(DISMISS_KEY).then((ts) => {
-      setDismissedAt(ts)
+      setDismissedAt(ts);
       const ttlMs = DISMISS_TTL_DAYS * 24 * 60 * 60 * 1000;
       if (ts && Date.now() - ts < ttlMs) return;
       // Small delay so we don't compete with app-launch chrome.
@@ -87,14 +89,14 @@ export function NotificationPermissionPrompt() {
     });
   }, []);
 
-  const handleDismiss = React.useCallback(async () => {
+  const handleDismiss = useCallback(async () => {
     setVisible(false);
-    const now = Date.now()
-    setDismissedAt(now);
+    const now = Date.now();
     await savePwaPref(DISMISS_KEY, now);
+    setDismissedAt(now);
   }, []);
 
-  const handleEnable = React.useCallback(async () => {
+  const handleEnable = useCallback(async () => {
     setStage("registering");
     try {
       const permission = await Notification.requestPermission();

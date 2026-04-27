@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { REPORTS_QUERY_GC_MS, REPORTS_QUERY_STALE_MS } from '../lib/reports-query-config';
+import { reportKeys } from './report-keys';
 
 export function useInventoryProductReport(filters?: {
   branchId?: SystemId;
@@ -22,7 +23,11 @@ export function useInventoryProductReport(filters?: {
   stockStatus?: string;
 }) {
   const query = useQuery({
-    queryKey: ['reports', 'inventory-aggregate', 'product', filters?.branchId, filters?.categoryId, filters?.stockStatus],
+    queryKey: reportKeys.inventory.product({
+      branchId: filters?.branchId,
+      categoryId: filters?.categoryId,
+      stockStatus: filters?.stockStatus,
+    }),
     queryFn: () => fetchInventoryProductReport(filters),
     staleTime: REPORTS_QUERY_STALE_MS,
     gcTime: REPORTS_QUERY_GC_MS,
@@ -47,7 +52,7 @@ export function useInventoryProductReport(filters?: {
 
 export function useInventoryBranchReport() {
   const query = useQuery({
-    queryKey: ['reports', 'inventory-aggregate', 'branch'],
+    queryKey: reportKeys.inventory.branch(),
     queryFn: () => fetchInventoryBranchReport(),
     staleTime: REPORTS_QUERY_STALE_MS,
     gcTime: REPORTS_QUERY_GC_MS,
@@ -69,7 +74,7 @@ export function useInventoryBranchReport() {
 
 export function useInventoryCategoryReport() {
   const query = useQuery({
-    queryKey: ['reports', 'inventory-aggregate', 'category'],
+    queryKey: reportKeys.inventory.category(),
     queryFn: () => fetchInventoryCategoryReport(),
     staleTime: REPORTS_QUERY_STALE_MS,
     gcTime: REPORTS_QUERY_GC_MS,

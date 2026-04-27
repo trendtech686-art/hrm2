@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { TabsContent } from '../../../components/ui/tabs';
 import { Label } from '../../../components/ui/label';
@@ -85,7 +85,7 @@ export type { CardColorSettings, ComplaintType };
 import { useComplaintsSettings, useComplaintsSettingsMutations } from './hooks/use-complaints-settings';
 
 export function ComplaintsSettingsPage() {
-  const [activeTab, setActiveTab] = React.useState('sla');
+  const [activeTab, setActiveTab] = useState('sla');
   const { headerActions, setHeaderActions } = useTabActionRegistry(activeTab);
 
   // Fetch settings from React Query
@@ -100,47 +100,47 @@ export function ComplaintsSettingsPage() {
   const storedComplaintTypes = settings.complaintTypes;
 
   // SLA State
-  const [sla, setSLA] = React.useState<SLASettings>(storedSla);
+  const [sla, setSLA] = useState<SLASettings>(storedSla);
 
   // Templates State
-  const [templates, setTemplates] = React.useState<ResponseTemplate[]>(storedTemplates);
-  const [editingTemplate, setEditingTemplate] = React.useState<ResponseTemplate | null>(null);
-  const [isAddingTemplate, setIsAddingTemplate] = React.useState(false);
+  const [templates, setTemplates] = useState<ResponseTemplate[]>(storedTemplates);
+  const [editingTemplate, setEditingTemplate] = useState<ResponseTemplate | null>(null);
+  const [isAddingTemplate, setIsAddingTemplate] = useState(false);
 
   // Public Tracking State
-  const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
+  const [publicTracking, setPublicTracking] = useState<PublicTrackingSettings>(storedPublicTracking);
 
   // Card Colors State
-  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors);
+  const [cardColors, setCardColors] = useState<CardColorSettings>(storedCardColors);
 
   // Complaint Types State
-  const [complaintTypes, setComplaintTypes] = React.useState<ComplaintType[]>(storedComplaintTypes);
-  const [editingType, setEditingType] = React.useState<ComplaintType | null>(null);
-  const [isAddingType, setIsAddingType] = React.useState(false);
-  const [typeDialogOpen, setTypeDialogOpen] = React.useState(false);
-  const [deleteTypeId, setDeleteTypeId] = React.useState<string | null>(null);
+  const [complaintTypes, setComplaintTypes] = useState<ComplaintType[]>(storedComplaintTypes);
+  const [editingType, setEditingType] = useState<ComplaintType | null>(null);
+  const [isAddingType, setIsAddingType] = useState(false);
+  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+  const [deleteTypeId, setDeleteTypeId] = useState<string | null>(null);
 
   // Template Dialog State
-  const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
-  const [deleteTemplateId, setDeleteTemplateId] = React.useState<string | null>(null);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setSLA(storedSla);
   }, [storedSla]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setTemplates(storedTemplates);
   }, [storedTemplates]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPublicTracking(storedPublicTracking);
   }, [storedPublicTracking]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCardColors(storedCardColors);
   }, [storedCardColors]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setComplaintTypes(storedComplaintTypes);
   }, [storedComplaintTypes]);
 
@@ -530,7 +530,7 @@ export function ComplaintsSettingsPage() {
 
   // ✅ Use refs to avoid stale closures in header action buttons
   // Handlers capture current state on every render; refs always point to latest version
-  const handlersRef = React.useRef({
+  const handlersRef = useRef({
     saveSLA: handleSaveSLA,
     addType: handleAddType,
     saveCardColors: handleSaveCardColors,
@@ -550,7 +550,7 @@ export function ComplaintsSettingsPage() {
   const isPublicTrackingDirty = useDirtyState(storedPublicTracking, publicTracking);
   const isSaving = updateSection.isPending;
 
-  React.useEffect(() => {
+  useEffect(() => {
     switch (activeTab) {
       case 'sla':
         setHeaderActions([
@@ -590,7 +590,7 @@ export function ComplaintsSettingsPage() {
     }
   }, [activeTab, setHeaderActions, isSLADirty, isCardColorsDirty, isPublicTrackingDirty, isSaving]);
 
-  const tabs = React.useMemo(
+  const tabs = useMemo(
     () => [
       { value: 'sla', label: 'SLA' },
       { value: 'complaint-types', label: 'Loại KN' },
@@ -913,6 +913,7 @@ export function ComplaintsSettingsPage() {
                       value={cardColors.priorityColors.LOW}
                       onChange={(value) => handlePriorityColorChange('LOW', value)}
                       label="Ưu tiên thấp"
+                      // eslint-disable-next-line hrm-theme/no-raw-palette-class -- User intentionally enters CSS classes for priority colors
                       placeholder="Ví dụ: bg-slate-50 border-slate-200"
                     />
 
@@ -1022,7 +1023,7 @@ export function ComplaintsSettingsPage() {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-11 w-11">
+                              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Thao tác">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>

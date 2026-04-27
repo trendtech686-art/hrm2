@@ -48,9 +48,9 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   const { print, printMultiple } = usePrint();
   const isMobile = !useMediaQuery('(min-width: 768px)');
   const {  employee: currentUser, can } = useAuth();
-  const canCreate = can('create_shipments');
-  const canEdit = can('edit_shipments');
-  const canEditSettings = can('edit_settings');
+  const _canCreate = can('create_shipments');
+  const _canEdit = can('edit_shipments');
+  const _canEditSettings = can('edit_settings');
   
   // Stats from Server Component (instant, no loading)
   const { data: stats } = useShipmentStats(initialStats);
@@ -257,7 +257,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
     if (columnDefaultsInitialized.current || !columns.length) return;
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     columnDefaultsInitialized.current = true;
-  }, [columns]);
+  }, [columns, setColumnOrder]);
 
   const allSelectedRows = React.useMemo(() => shipments.filter(s => rowSelection[s.systemId]), [shipments, rowSelection]);
 
@@ -347,7 +347,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
       {!isMobile && (
         <PageToolbar
           leftActions={
-            <>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/shipping')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+            <>{_canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/shipping')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
               <Download className="h-4 w-4 mr-2" />Xuất Excel
             </Button></>
           }

@@ -59,7 +59,7 @@ import { Comments, type Comment as CommentType } from '../../components/Comments
 import { formatDateTime } from '@/lib/date-utils';
 import { StockTransferWorkflowCard } from './components/stock-transfer-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
-import type { StockTransferStatus, StockTransfer } from '@/lib/types/prisma-extended';
+import type { StockTransferStatus } from '@/lib/types/prisma-extended';
 import { useComments } from '../../hooks/use-comments';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
@@ -169,7 +169,8 @@ export function StockTransferDetailPage() {
   const { 
     comments: dbComments, 
     addComment: dbAddComment, 
-    deleteComment: dbDeleteComment 
+    deleteComment: dbDeleteComment,
+    updateComment: dbUpdateComment,
   } = useComments('stock_transfer', systemId || '');
   
   type TransferComment = CommentType<SystemId>;
@@ -197,8 +198,8 @@ export function StockTransferDetailPage() {
     dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (_commentId: string, _content: string) => {
-    // TODO: Add update API support in useComments hook
+  const handleUpdateComment = (commentId: string, content: string) => {
+    dbUpdateComment(commentId, content);
   };
 
   const handleDeleteComment = (commentId: string) => {
@@ -258,7 +259,7 @@ export function StockTransferDetailPage() {
         )}
       </div>
     );
-  }, [transfer, router, handlePrint]);
+  }, [transfer, router, handlePrint, isAdmin, can]);
 
   // Mobile: gom tất cả actions vào dropdown
   const mobileHeaderActions = React.useMemo(() => {
@@ -312,7 +313,7 @@ export function StockTransferDetailPage() {
         </DropdownMenuContent>
       </DropdownMenu>
     );
-  }, [transfer, isMobile, headerActions, router, handlePrint, isAdmin, can]);
+  }, [transfer, isMobile, router, handlePrint, isAdmin, can]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -564,6 +565,9 @@ export function StockTransferDetailPage() {
                               <div
                                 className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
                                 onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                                onKeyDown={(e) => { if (e.key === 'Enter') setPreviewImage({ url: imageUrl, title: item.productName }); }}
+                                role="button"
+                                tabIndex={0}
                               >
                                 <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                                 <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover/thumbnail:opacity-100 transition-opacity">

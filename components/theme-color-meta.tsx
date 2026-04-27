@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import { useCallback, useEffect } from 'react'
 
 /**
  * Cập nhật <meta name="theme-color"> theo nền hiện tại (--background) sau khi theme áp dụng,
@@ -8,7 +8,7 @@ import * as React from 'react'
  * Đọc trực tiếp từ CSS variable đã được ThemeProvider apply vào DOM.
  */
 export function ThemeColorMeta() {
-  const sync = React.useCallback(() => {
+  const sync = useCallback(() => {
     if (typeof document === 'undefined') return
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
     if (!bg) return
@@ -22,12 +22,12 @@ export function ThemeColorMeta() {
   }, [])
 
   // Sync on mount
-  React.useEffect(() => {
+  useEffect(() => {
     sync()
   }, [sync])
 
   // Re-sync when theme changes (via theme-change event from ThemeProvider)
-  React.useEffect(() => {
+  useEffect(() => {
     const handleThemeChange = () => {
       sync()
     }

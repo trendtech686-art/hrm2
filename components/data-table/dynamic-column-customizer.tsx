@@ -43,6 +43,6 @@ const DataTableColumnCustomizerImpl = dynamic(
 export function DynamicDataTableColumnCustomizer<TData>(
   props: DataTableColumnCustomizerProps<TData>
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <DataTableColumnCustomizerImpl {...props as DataTableColumnCustomizerProps<any>} />;
+  // Cast through unknown to maintain type safety while working with dynamic imports
+  return <DataTableColumnCustomizerImpl {...(props as DataTableColumnCustomizerProps<unknown>)} />;
 }

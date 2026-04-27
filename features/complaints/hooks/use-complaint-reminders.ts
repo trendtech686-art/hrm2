@@ -175,11 +175,31 @@ export function useComplaintReminders(complaint: Complaint | null) {
     timestamp: number;
   } | null>(null);
   
-  // Check and update reminder status every minute
+  // Check and update reminder status periodically
+  // Only poll when tab is visible to save resources
   React.useEffect(() => {
     if (!complaint || !settings.enabled) return;
     
-    const checkInterval = setInterval(() => {
+    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes - check every 5 minutes
+    
+    let intervalId: ReturnType<typeof setInterval>;
+    
+    const startPolling = () => {
+      // Initial check
+      checkAndUpdateReminder();
+      
+      // Start interval
+      intervalId = setInterval(() => {
+        checkAndUpdateReminder();
+      }, CHECK_INTERVAL);
+    };
+    
+    const checkAndUpdateReminder = () => {
+      // Skip if tab is not visible
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      
       const status = checkComplaintReminder(complaint, settings);
       setReminderStatus(status);
       
@@ -205,9 +225,23 @@ export function useComplaintReminders(complaint: Complaint | null) {
           };
         }
       }
-    }, 60 * 1000); // Check every minute
+    };
     
-    return () => clearInterval(checkInterval);
+    startPolling();
+    
+    // Refetch when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndUpdateReminder();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [complaint, settings, addNotification]);
   
   return reminderStatus;

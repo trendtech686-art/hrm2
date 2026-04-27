@@ -140,6 +140,17 @@ export default function ProfilePage() {
   const [showNewPw, setShowNewPw] = React.useState(false)
   const [changingPassword, setChangingPassword] = React.useState(false)
 
+  // Hydration-safe current month key
+  const [mounted, setMounted] = React.useState(false)
+  const currentMonthKey = React.useMemo(() => {
+    if (!mounted) return ''
+    return `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  }, [mounted])
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const handleLogout = async () => {
     await logout()
     toast.success('Đăng xuất thành công')
@@ -183,8 +194,7 @@ export default function ProfilePage() {
     }
   }
 
-  // Current month attendance
-  const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  // Current month attendance (hydration-safe via useMemo above)
   const currentAttendance = attendanceSummary?.find(a => a.monthKey === currentMonthKey)
 
   // Latest payslip

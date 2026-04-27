@@ -414,15 +414,12 @@ export function CustomerAddressSelector({
     if (!currentCustomer) return null;
 
     const defaultShippingAddr = addresses.find(a => a.isDefaultShipping);
-    const defaultBillingAddr = addresses.find(a => a.isDefaultBilling);
     
     // ✅ Get currently selected addresses from form based on addressType
     const selectedShippingAddress = watch('shippingAddress') as CustomerAddress | undefined;
-    const selectedBillingAddress = watch('billingAddress') as CustomerAddress | undefined;
     
     // Display selected address if available, otherwise show default
     const displayedShippingAddr = selectedShippingAddress || defaultShippingAddr;
-    const displayedBillingAddr = selectedBillingAddress || defaultBillingAddr;
 
     // Determine dialog title and description based on currentAddressType
     const dialogTitle = currentAddressType === 'shipping' ? 'Chọn địa chỉ giao hàng' : 'Chọn địa chỉ nhận hóa đơn';

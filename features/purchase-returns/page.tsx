@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from "react";
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
@@ -43,27 +43,27 @@ export interface PurchaseReturnsPageProps {
 
 export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps = {}) {
   // Search & filter state
-  const [search, setSearch] = React.useState('');
-  const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
-  const [supplierFilter, setSupplierFilter] = React.useState('all');
-  const [branchFilter, setBranchFilter] = React.useState('all');
-  const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [dateRange, setDateRange] = useState<[string | undefined, string | undefined] | undefined>();
 
   // Debounce search
-  React.useEffect(() => {
+  useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search);
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, 300);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, setPagination]);
 
   // Reset page when filters change
-  React.useEffect(() => {
+  useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [supplierFilter, branchFilter, dateRange]);
+  }, [supplierFilter, branchFilter, dateRange, setPagination]);
 
   // Server-side paginated query
   const { data: queryData, isLoading, isFetching } = usePurchaseReturns({
@@ -78,7 +78,7 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
     sortOrder: sorting.desc ? 'desc' : 'asc',
   });
 
-  const purchaseReturns = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const purchaseReturns = useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const totalRows = queryData?.pagination?.total ?? 0;
   const pageCount = queryData?.pagination?.totalPages ?? 1;
 
@@ -86,24 +86,24 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
   const { data: stats } = usePurchaseReturnStats({ initialData: initialStats });
 
   // Lazy-load all data only for export
-  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const { data: allPurchaseReturns } = useAllPurchaseReturns({ enabled: exportDialogOpen });
 
   const { data: branches } = useAllBranches();
 
   // Advanced filter panel
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('purchase-returns');
-  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+  const filterConfigs: FilterConfig[] = useMemo(() => [
     { id: 'branch', label: 'Chi nhánh', type: 'select', options: branches.map(b => ({ value: b.systemId, label: b.name })) },
     { id: 'supplier', label: 'Nhà cung cấp', type: 'select', options: [] },
     { id: 'dateRange', label: 'Ngày trả hàng', type: 'date-range' },
   ], [branches]);
-  const panelValues = React.useMemo(() => ({
+  const panelValues = useMemo(() => ({
     branch: branchFilter !== 'all' ? branchFilter : null,
     supplier: supplierFilter !== 'all' ? supplierFilter : null,
     dateRange: dateRange ? { from: dateRange[0], to: dateRange[1] } : null,
   }), [branchFilter, supplierFilter, dateRange]);
-  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+  const handlePanelApply = useCallback((v: Record<string, unknown>) => {
     setBranchFilter((v.branch as string) || 'all');
     setSupplierFilter((v.supplier as string) || 'all');
     const dr = v.dateRange as { from?: string; to?: string } | null;
@@ -114,32 +114,32 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
   const { print, printMultiple } = usePrint();
   const {  employee: currentUser, can } = useAuth();
   const canCreate = can('create_purchase_returns');
-  const canEdit = can('edit_purchase_returns');
-  const canEditSettings = can('edit_settings');
+  const _canEdit = can('edit_purchase_returns');
+  const _canEditSettings = can('edit_settings');
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
-  const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
-  const [pendingPrintReturns, setPendingPrintReturns] = React.useState<PurchaseReturn[]>([]);
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [pendingPrintReturns, setPendingPrintReturns] = useState<PurchaseReturn[]>([]);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // Column visibility (persisted to DB)
-  const defaultColumnVisibility = React.useMemo(() => {
+  const defaultColumnVisibility = useMemo(() => {
     const initial: Record<string, boolean> = {};
     getColumns(() => undefined).forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
   }, []);
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('purchase-returns', { visibility: defaultColumnVisibility, pinned: ['select', 'actions'] });
 
-  const handleRowPrint = React.useCallback(async (entry: PurchaseReturn) => {
+  const handleRowPrint = useCallback(async (entry: PurchaseReturn) => {
     const branch = branches.find(b => b.systemId === entry.branchSystemId);
     const { storeInfo } = await fetchPrintData();
     print('supplier-return', { data: mapSupplierReturnToPrintData(convertSupplierReturnForPrint(entry, { branch }), createStoreSettings(storeInfo)), lineItems: mapSupplierReturnLineItems(convertSupplierReturnForPrint(entry, { branch }).items) });
     toast.success('Đã gửi lệnh in', { description: `Đang in phiếu trả ${entry.id}.` });
   }, [branches, print]);
 
-  const headerActions = React.useMemo(() => [
+  const headerActions = useMemo(() => [
     canCreate && <Button key="create" size="sm" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}><Plus className="mr-2 h-4 w-4" />Tạo phiếu trả hàng</Button>
   ].filter(Boolean), [router, canCreate]);
 
@@ -150,17 +150,17 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
     showBackButton: false
   });
 
-  const columns = React.useMemo(() => getColumns(handleRowPrint), [handleRowPrint]);
+  const columns = useMemo(() => getColumns(handleRowPrint), [handleRowPrint]);
 
   const handleRowClick = (row: PurchaseReturn) => router.push(`${ROUTES.PROCUREMENT.PURCHASE_RETURNS}/${row.systemId}`);
-  const selectedRows = React.useMemo(() => purchaseReturns.filter(pr => rowSelection[pr.systemId]), [purchaseReturns, rowSelection]);
+  const selectedRows = useMemo(() => purchaseReturns.filter(pr => rowSelection[pr.systemId]), [purchaseReturns, rowSelection]);
 
-  const handleBulkPrint = React.useCallback(() => {
+  const handleBulkPrint = useCallback(() => {
     if (selectedRows.length === 0) { toast.error('Chưa chọn phiếu trả', { description: 'Vui lòng chọn ít nhất một phiếu trước khi in.' }); return; }
     setPendingPrintReturns(selectedRows); setIsPrintDialogOpen(true);
   }, [selectedRows]);
 
-  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = useCallback(async (options: SimplePrintOptionsResult) => {
     const { branchSystemId, paperSize } = options;
     const { storeInfo } = await fetchPrintData();
     const printOptionsList = pendingPrintReturns.map(entry => {
@@ -173,7 +173,7 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
     setRowSelection({}); setPendingPrintReturns([]);
   }, [pendingPrintReturns, branches, printMultiple]);
 
-  const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
+  const currentUserInfo = useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
   return (
     <div className="space-y-4 flex flex-col h-full">
@@ -187,7 +187,7 @@ export function PurchaseReturnsPage({ initialStats }: PurchaseReturnsPageProps =
         ]}
       />
 
-      {!isMobile && <PageToolbar leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>} />}
+      {!isMobile && <PageToolbar leftActions={<>{_canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>} />}
 
       <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm theo mã phiếu, NCC, đơn hàng...">
         <Select value={branchFilter} onValueChange={setBranchFilter}>

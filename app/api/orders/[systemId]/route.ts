@@ -521,8 +521,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     });
 
     step = 'serialize';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = serializeOrder(order as any);
+    const result = serializeOrder(order as unknown as Parameters<typeof serializeOrder>[0]);
     
     // Write success debug
     try {

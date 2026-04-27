@@ -1,14 +1,13 @@
 'use client';
 
-import * as React from "react"
+import React, { forwardRef, Children, isValidElement, cloneElement, useMemo, type MouseEvent, type HTMLAttributes, type ReactElement } from "react"
 import { GripVertical } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 
-// --- Context ---
 type ResizablePanelGroupContextType = {
   direction: "horizontal" | "vertical"
-  startDragging: (event: React.MouseEvent, handleIndex: number) => void
+  startDragging: (event: MouseEvent, handleIndex: number) => void
   panelSizes: number[]
   isDragging: boolean
 }
@@ -23,8 +22,7 @@ const useResizablePanelGroup = () => {
   return context
 }
 
-// --- ResizablePanelGroup ---
-type ResizablePanelGroupProps = React.HTMLAttributes<HTMLDivElement> & {
+type ResizablePanelGroupProps = HTMLAttributes<HTMLDivElement> & {
   direction: "horizontal" | "vertical"
 }
 
@@ -32,16 +30,14 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
   const groupRef = React.useRef<HTMLDivElement>(null)
   const [panelSizes, setPanelSizes] = React.useState<number[]>([])
   const [isDragging, setIsDragging] = React.useState(false)
-  const panelChildren = React.useMemo(() => React.Children.toArray(children).filter(child => React.isValidElement(child) && typeof child.type === 'function' && 'displayName' in child.type && child.type.displayName === "ResizablePanel"), [children]);
+  const panelChildren = useMemo(() => Children.toArray(children).filter(child => isValidElement(child) && typeof child.type === 'function' && 'displayName' in child.type && child.type.displayName === "ResizablePanel"), [children]);
 
-  // Initialize panel sizes from children's defaultSize props
   React.useEffect(() => {
     const initialSizes = panelChildren.map(child => {
-      const props = (child as React.ReactElement<{ defaultSize?: number }>).props;
-      return props.defaultSize || 100 / panelChildren.length
+      const childProps = (child as ReactElement<{ defaultSize?: number }>).props;
+      return childProps.defaultSize || 100 / panelChildren.length
     })
 
-    // Normalize sizes to sum to 100
     const total = initialSizes.reduce((a, b) => a + b, 0)
     if (total > 0) {
         const normalizedSizes = initialSizes.map(size => (size / total) * 100)
@@ -49,7 +45,7 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
     }
   }, [panelChildren]);
 
-  const startDragging = (event: React.MouseEvent, handleIndex: number) => {
+  const startDragging = (event: MouseEvent, handleIndex: number) => {
     event.preventDefault()
     setIsDragging(true)
     const container = groupRef.current
@@ -60,12 +56,12 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
     const containerSize = direction === 'horizontal' ? width : height
     const initialSizes = [...panelSizes];
 
-    const prevPanel = panelChildren[handleIndex] as React.ReactElement<{ minSize?: number }>;
+    const prevPanel = panelChildren[handleIndex] as ReactElement<{ minSize?: number }>;
     const minSizePrev = prevPanel.props.minSize || 0
-    const nextPanel = panelChildren[handleIndex + 1] as React.ReactElement<{ minSize?: number }>;
+    const nextPanel = panelChildren[handleIndex + 1] as ReactElement<{ minSize?: number }>;
     const minSizeNext = nextPanel.props.minSize || 0
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
       const currentPos = direction === 'horizontal' ? moveEvent.clientX : moveEvent.clientY
       const delta = currentPos - initialPos
       const deltaPercent = (delta / containerSize) * 100
@@ -75,7 +71,6 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
       let newPrevSize = initialSizes[handleIndex] + deltaPercent
       let newNextSize = initialSizes[handleIndex + 1] - deltaPercent
 
-      // Clamp sizes based on minSize
       if (newPrevSize < minSizePrev) {
         const diff = minSizePrev - newPrevSize;
         newPrevSize = minSizePrev
@@ -87,7 +82,6 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
         newPrevSize -= diff;
       }
 
-      // Final check to prevent negative sizes after clamping
       if (newPrevSize < minSizePrev) newPrevSize = minSizePrev;
       if (newNextSize < minSizeNext) newNextSize = minSizeNext;
       
@@ -123,18 +117,18 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
         data-orientation={direction === 'vertical' ? 'vertical' : 'horizontal'}
         {...props}
       >
-        {React.Children.map(children, (child) => {
-          if (!React.isValidElement(child)) return null
+        {Children.map(children, (child) => {
+          if (!isValidElement(child)) return null
           
           const childType = child.type as React.ComponentType & { displayName?: string };
           if (childType.displayName === "ResizablePanel") {
             const index = panelIndexCounter++
-            return React.cloneElement(child, { index } as { index: number })
+            return cloneElement(child as ReactElement, { index } as { index: number })
           }
 
           if (childType.displayName === "ResizableHandle") {
             const index = handleIndexCounter++
-             return React.cloneElement(child, { index } as { index: number })
+             return cloneElement(child as ReactElement, { index } as { index: number })
           }
 
           return child
@@ -145,11 +139,10 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
 }
 ResizablePanelGroup.displayName = "ResizablePanelGroup"
 
-// --- ResizablePanel ---
-type ResizablePanelProps = React.HTMLAttributes<HTMLDivElement> & {
+type ResizablePanelProps = HTMLAttributes<HTMLDivElement> & {
   defaultSize?: number
   minSize?: number
-  index?: number // Injected by group
+  index?: number
 }
 
 const ResizablePanel = ({ className, children, index = 0, defaultSize: _, minSize: __, ...divProps }: ResizablePanelProps) => {
@@ -172,17 +165,17 @@ const ResizablePanel = ({ className, children, index = 0, defaultSize: _, minSiz
 }
 ResizablePanel.displayName = "ResizablePanel"
 
-// --- ResizableHandle ---
-type ResizableHandleProps = React.HTMLAttributes<HTMLDivElement> & {
+type ResizableHandleProps = HTMLAttributes<HTMLDivElement> & {
   withHandle?: boolean
-  index?: number // Injected by group
+  index?: number
 }
 
-const ResizableHandle = React.forwardRef<HTMLDivElement, ResizableHandleProps>(
+const ResizableHandle = forwardRef<HTMLDivElement, ResizableHandleProps>(
   ({ className, withHandle, index = 0, ...props }, ref) => {
     const { direction, startDragging } = useResizablePanelGroup()
-    
+
     return (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
         ref={ref}
         onMouseDown={(e) => startDragging(e, index)}

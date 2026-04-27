@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Moon, Sun, ChevronsUpDown } from 'lucide-react'
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import { useAppearanceSettings, useAppearanceMutations, type AppearanceSettings } from './hooks/use-appearance-settings';
+import { useAppearanceSettings, useAppearanceMutations } from './hooks/use-appearance-settings';
 import type { Theme, FontSize, CustomThemeConfig, ColorMode } from './store'
 import { getThemeConfig } from './themes';
 import { Button } from '../../../components/ui/button'
@@ -24,6 +24,7 @@ import { PreviewAuthentication } from '../previews/authentication'
 type PreviewComponent = 'Cards' | 'Dashboard' | 'Authentication';
 
 const themeOptions: { name: Exclude<Theme, 'custom'>; color: string }[] = [
+    // eslint-disable-next-line hrm-theme/no-raw-palette-class -- Theme color swatches intentionally use Tailwind palette colors
     { name: 'slate', color: 'bg-slate-900' },
     { name: 'blue', color: 'bg-blue-500' },
     { name: 'green', color: 'bg-green-500' },

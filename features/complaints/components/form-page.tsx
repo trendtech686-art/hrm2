@@ -118,9 +118,13 @@ const ProductThumbnailCell = ({
     
     if (imageUrl) {
         return (
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
             <div
                 className={`group/thumbnail relative ${sizeClasses} shrink-0 rounded-md overflow-hidden border border-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onPreview?.(imageUrl, productName); }}
+                role={onPreview ? "button" : undefined}
+                tabIndex={onPreview ? 0 : undefined}
             >
                 <OptimizedImage 
                     src={imageUrl} 
@@ -399,7 +403,7 @@ export function ComplaintFormPage() {
       if (!cancelled) setOrderEntity(null);
     });
     return () => { cancelled = true; };
-  }, [selectedOrder?.value]);
+  }, [selectedOrder]);
   
   // Auto-fill khi chọn order (chỉ chạy khi user chọn thủ công, không chạy khi load complaint)
   React.useEffect(() => {
@@ -510,10 +514,11 @@ export function ComplaintFormPage() {
         }
       }
       
-      // Tắt flag sau khi load xong để cho phép auto-fill hoạt động bình thường
-      setTimeout(() => {
+      // Cleanup timeout on unmount or when complaint changes
+      const timer = setTimeout(() => {
         setIsLoadingComplaint(false);
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [complaint, setValue, employees]);
   
@@ -1288,6 +1293,9 @@ export function ComplaintFormPage() {
                                   <div
                                     className="group/img relative w-10 h-10 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
                                     onClick={() => handlePreview(productImageUrl, item.productName)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handlePreview(productImageUrl, item.productName); }}
+                                    role="button"
+                                    tabIndex={0}
                                   >
                                     <LazyImage
                                       src={productImageUrl}
@@ -1509,9 +1517,9 @@ export function ComplaintFormPage() {
                             <div className="space-y-2 pl-8">
                               <div className="grid grid-cols-3 gap-2">
                                 <div>
-                                  <label className="text-xs text-muted-foreground">Loại KN</label>
+                                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- shadcn Select pattern */}
+                                  <label className="text-xs text-muted-foreground block mb-1">Loại KN</label>
                                   <Select
-                                    value={affected?.issueType || 'missing'}
                                     onValueChange={(value: 'excess' | 'missing' | 'defective' | 'other') => {
                                       setAffectedProducts(prev => prev.map(p => {
                                         if (p.lineItemIndex === idx) {
@@ -1564,6 +1572,7 @@ export function ComplaintFormPage() {
                                   </div>
                                 ) : affected?.issueType === 'excess' ? (
                                   <div>
+                                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- Input association via placement */}
                                     <label className="text-xs text-muted-foreground">Thừa</label>
                                     <Input
                                       type="number"

@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useRef, useCallback, useEffect, type MouseEvent, type TouchEvent, type WheelEvent } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2 } from 'lucide-react';
@@ -28,19 +28,19 @@ export function ImagePreviewDialog({
   onOpenChange,
   title = 'Xem ảnh',
 }: ImagePreviewDialogProps) {
-  const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
-  const [zoom, setZoom] = React.useState(1);
-  const [rotation, setRotation] = React.useState(0);
-  const [_isFullscreen, setIsFullscreen] = React.useState(false);
-  const [position, setPosition] = React.useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
-  const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
-  const [initialPinchDistance, setInitialPinchDistance] = React.useState<number | null>(null);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const imageViewerRef = React.useRef<HTMLDivElement>(null);
-  const preloadedImages = React.useRef<Set<string>>(new Set());
-  const preloadImage = React.useCallback((url?: string) => {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [_isFullscreen, setIsFullscreen] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageViewerRef = useRef<HTMLDivElement>(null);
+  const preloadedImages = useRef<Set<string>>(new Set());
+  const preloadImage = useCallback((url?: string) => {
     if (!url || preloadedImages.current.has(url)) {
       return;
     }
@@ -48,9 +48,9 @@ export function ImagePreviewDialog({
     img.src = url;
     preloadedImages.current.add(url);
   }, []);
-  const [isImageLoading, setIsImageLoading] = React.useState(true);
+  const [isImageLoading, setIsImageLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentIndex(initialIndex);
     setZoom(1);
     setRotation(0);
@@ -58,7 +58,7 @@ export function ImagePreviewDialog({
     setIsImageLoading(true);
   }, [initialIndex, open]);
 
-  const handleNext = React.useCallback(() => {
+  const handleNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % images.length);
     setZoom(1);
     setRotation(0);
@@ -66,7 +66,7 @@ export function ImagePreviewDialog({
     setIsImageLoading(true);
   }, [images.length]);
 
-  const handlePrevious = React.useCallback(() => {
+  const handlePrevious = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
     setZoom(1);
     setRotation(0);
@@ -74,7 +74,7 @@ export function ImagePreviewDialog({
     setIsImageLoading(true);
   }, [images.length]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open || images.length === 0) return;
     const offsets = [0, 1, -1, 2];
     offsets.forEach(offset => {
@@ -84,7 +84,7 @@ export function ImagePreviewDialog({
   }, [open, currentIndex, images, preloadImage]);
 
   // Keyboard shortcuts
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -114,14 +114,14 @@ export function ImagePreviewDialog({
   };
 
   // Mouse drag handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: MouseEvent) => {
     if (zoom > 1) {
       setIsDragging(true);
       setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: MouseEvent) => {
     if (isDragging && zoom > 1) {
       setPosition({
         x: e.clientX - dragStart.x,
@@ -139,12 +139,10 @@ export function ImagePreviewDialog({
   };
 
   // Touch handlers for mobile swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: TouchEvent) => {
     if (e.touches.length === 1) {
-      // Single touch - for swipe navigation
       setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     } else if (e.touches.length === 2) {
-      // Two finger pinch - for zoom
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -153,9 +151,8 @@ export function ImagePreviewDialog({
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: TouchEvent) => {
     if (e.touches.length === 2 && initialPinchDistance) {
-      // Handle pinch zoom
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -166,7 +163,7 @@ export function ImagePreviewDialog({
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
     if (touchStart && e.changedTouches.length === 1) {
       const touchEnd = {
         x: e.changedTouches[0].clientX,
@@ -189,7 +186,7 @@ export function ImagePreviewDialog({
   };
 
   // Mouse wheel zoom handler
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = (e: WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setZoom((prev) => {
@@ -247,7 +244,7 @@ export function ImagePreviewDialog({
         </DialogHeader>
 
         {/* Image viewer */}
-        <div 
+        <div
           ref={imageViewerRef}
           className="flex-1 relative overflow-hidden bg-muted rounded-lg touch-none"
           onWheel={handleWheel}
@@ -258,7 +255,9 @@ export function ImagePreviewDialog({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onKeyDown={(e) => e.stopPropagation()}
           style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+          role="presentation"
         >
           <div
             className="absolute inset-0 w-full h-full flex items-center justify-center p-2 sm:p-4"

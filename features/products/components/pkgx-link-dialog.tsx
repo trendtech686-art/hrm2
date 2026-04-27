@@ -138,8 +138,9 @@ export function PkgxLinkDialog({
 
           {/* PKGX Product Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Chọn sản phẩm PKGX</label>
+            <label htmlFor="pkgx-product-select" className="text-sm font-medium">Chọn sản phẩm PKGX</label>
             <VirtualizedCombobox
+              id="pkgx-product-select"
               value={selectedPkgxProduct}
               onChange={setSelectedPkgxProduct}
               options={pkgxOptions}

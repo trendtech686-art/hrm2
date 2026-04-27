@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, memo } from 'react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import type { Receipt } from '@/lib/types/prisma-extended';
@@ -26,7 +26,7 @@ interface ReceiptInfoProps {
 }
 
 export function ReceiptInfo({ receipt, order, label, linkedSalesReturnSystemId }: ReceiptInfoProps) {
-    const [isExpanded, setIsExpanded] = React.useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const { findById: findBranchById } = useBranchFinder();
     // ⚡ OPTIMIZED: storeInfo lazy loaded in print handler
     const { print } = usePrint(order.branchSystemId);
@@ -100,7 +100,7 @@ export function ReceiptInfo({ receipt, order, label, linkedSalesReturnSystemId }
     return (
         <div className="border rounded-md bg-background text-sm">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)}>
+            <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setIsExpanded(!isExpanded); }}>
                 <div className="flex items-center min-w-0">
                     <Banknote className="h-4 w-4 text-green-500 mr-3 shrink-0" />
                     <Link href={`/receipts/${receipt.systemId}`} 
@@ -124,7 +124,7 @@ export function ReceiptInfo({ receipt, order, label, linkedSalesReturnSystemId }
                     <div className="ml-auto md:ml-0 md:w-28 text-right font-semibold text-green-600">
                         +{formatCurrency(receipt.amount)}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 ml-2 shrink-0" onClick={handlePrint} title="In phiếu" aria-label="In phiếu thu">
                         <Printer className="h-4 w-4" />
                     </Button>
                     {isExpanded ? (
@@ -154,4 +154,4 @@ export function ReceiptInfo({ receipt, order, label, linkedSalesReturnSystemId }
     );
 }
 
-export const MemoizedReceiptInfo = React.memo(ReceiptInfo);
+export const MemoizedReceiptInfo = memo(ReceiptInfo);

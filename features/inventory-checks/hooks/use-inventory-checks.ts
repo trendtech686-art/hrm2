@@ -23,7 +23,6 @@ import {
   type UpdateInventoryCheckInput,
 } from '@/app/actions/inventory-checks';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
-import type { InventoryCheck as _InventoryCheck } from '../types';
 import { asSystemId } from '@/lib/id-types';
 
 // Type for Server Action responses

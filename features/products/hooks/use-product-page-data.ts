@@ -12,9 +12,10 @@
  * Also populates individual React Query caches for backward compatibility.
  */
 
-import * as React from 'react';
+import { useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SystemId } from '@/lib/id-types';
+import { productKeys } from './use-products';
 
 interface Category {
   systemId: string;
@@ -62,14 +63,14 @@ export function useProductPageData() {
   const queryClient = useQueryClient();
   
   const { data, isLoading } = useQuery({
-    queryKey: ['products', 'page-reference-data'],
+    queryKey: productKeys.pageReferenceData(),
     queryFn: fetchPageReferenceData,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 
   // Populate individual caches for components that use the separate hooks
-  React.useEffect(() => {
+  useEffect(() => {
     if (!data) return;
     // Populate categories cache
     queryClient.setQueryData(['categories', 'all'], data.categories);
@@ -85,19 +86,19 @@ export function useProductPageData() {
     }
   }, [data, queryClient]);
 
-  const categories = React.useMemo(() => data?.categories ?? [], [data?.categories]);
-  const brands = React.useMemo(() => data?.brands ?? [], [data?.brands]);
-  const suppliers = React.useMemo(() => data?.suppliers ?? [], [data?.suppliers]);
-  const pricingPolicies = React.useMemo(() => data?.pricingPolicies ?? [], [data?.pricingPolicies]);
+  const categories = useMemo(() => data?.categories ?? [], [data?.categories]);
+  const brands = useMemo(() => data?.brands ?? [], [data?.brands]);
+  const suppliers = useMemo(() => data?.suppliers ?? [], [data?.suppliers]);
+  const pricingPolicies = useMemo(() => data?.pricingPolicies ?? [], [data?.pricingPolicies]);
 
   // Active categories for filter dropdown
-  const activeCategories = React.useMemo(
+  const activeCategories = useMemo(
     () => categories.filter(c => c.isActive !== false),
     [categories]
   );
 
   // Finder functions for column lookups
-  const findCategoryById = React.useCallback(
+  const findCategoryById = useCallback(
     (systemId: SystemId | string | undefined) => {
       if (!systemId) return undefined;
       return categories.find(c => c.systemId === systemId);
@@ -105,7 +106,7 @@ export function useProductPageData() {
     [categories]
   );
 
-  const findBrandById = React.useCallback(
+  const findBrandById = useCallback(
     (systemId: SystemId | string | undefined) => {
       if (!systemId) return undefined;
       return brands.find(b => b.systemId === systemId);
@@ -113,7 +114,7 @@ export function useProductPageData() {
     [brands]
   );
 
-  const findSupplierById = React.useCallback(
+  const findSupplierById = useCallback(
     (systemId: SystemId | string | undefined) => {
       if (!systemId) return undefined;
       return suppliers.find(s => s.systemId === systemId);

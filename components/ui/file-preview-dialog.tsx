@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState, type ReactNode } from "react";
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
 import { Button } from "./button";
@@ -10,7 +10,7 @@ interface FilePreviewDialogProps {
     url: string;
     type?: string;
   };
-  trigger?: React.ReactNode;
+  trigger?: ReactNode;
 }
 
 const getFileIcon = (fileName: string) => {
@@ -41,7 +41,7 @@ const getFileType = (fileName: string): 'pdf' | 'image' | 'office' | 'unknown' =
 };
 
 export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
   const fileType = getFileType(file.name);
 
   const handleDownload = () => {
@@ -80,7 +80,6 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
         );
 
       case 'office': {
-        // Office Online can't access localhost URLs
         const isLocalhost = typeof window !== 'undefined' && 
           (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
         const ext = file.name.split('.').pop()?.toLowerCase();
@@ -134,49 +133,47 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        {trigger ? (
-          <div onClick={() => setOpen(true)} className="cursor-pointer">
+    <Dialog open={open} onOpenChange={setOpen}>
+      {trigger ? (
+        <div onClick={() => setOpen(true)} onKeyDown={(e) => e.key === 'Enter' && setOpen(true)} className="cursor-pointer" role="button" tabIndex={0}>
             {trigger}
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setOpen(true)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        )}
+        </div>
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setOpen(true)}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      )}
 
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {getFileIcon(file.name)}
-                <DialogTitle className="text-lg">{file.name}</DialogTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownload}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Tải xuống
-                </Button>
-              </div>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {getFileIcon(file.name)}
+              <DialogTitle className="text-lg">{file.name}</DialogTitle>
             </div>
-          </DialogHeader>
-
-          <div className="mt-4">
-            {renderPreview()}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Tải xuống
+              </Button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        </DialogHeader>
+
+        <div className="mt-4">
+          {renderPreview()}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

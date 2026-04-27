@@ -1,4 +1,4 @@
-import * as React from "react"
+import { forwardRef, type ThHTMLAttributes, type TdHTMLAttributes, type HTMLAttributes } from 'react'
 
 import { cn } from "../../lib/utils"
 
@@ -11,7 +11,7 @@ import { cn } from "../../lib/utils"
  *
  * Pattern chuẩn shadcn: `<div class="relative w-full overflow-x-auto"><table/></div>`.
  */
-type TableProps = React.HTMLAttributes<HTMLTableElement> & {
+type TableProps = HTMLAttributes<HTMLTableElement> & {
   /**
    * Additional classes for the inner scroll container (the `<div>` wrapping the `<table>`).
    * Pass `"!overflow-visible"` when the parent already handles horizontal scrolling (e.g. inside
@@ -20,7 +20,7 @@ type TableProps = React.HTMLAttributes<HTMLTableElement> & {
   containerClassName?: string
 }
 
-const Table = React.forwardRef<HTMLTableElement, TableProps>(
+const Table = forwardRef<HTMLTableElement, TableProps>(
   ({ className, containerClassName, ...props }, ref) => (
     <div
       className={cn(
@@ -38,17 +38,17 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(
 )
 Table.displayName = "Table"
 
-const TableHeader = React.forwardRef<
+const TableHeader = forwardRef<
   HTMLTableSectionElement,
-  React.HTMLAttributes<HTMLTableSectionElement>
+  HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
   <thead ref={ref} className={cn("[&_tr]:border-b [&_tr]:border-border", className)} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
-const TableBody = React.forwardRef<
+const TableBody = forwardRef<
   HTMLTableSectionElement,
-  React.HTMLAttributes<HTMLTableSectionElement>
+  HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
   <tbody
     ref={ref}
@@ -58,9 +58,9 @@ const TableBody = React.forwardRef<
 ))
 TableBody.displayName = "TableBody"
 
-const TableFooter = React.forwardRef<
+const TableFooter = forwardRef<
   HTMLTableSectionElement,
-  React.HTMLAttributes<HTMLTableSectionElement>
+  HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
   <tfoot
     ref={ref}
@@ -73,9 +73,9 @@ const TableFooter = React.forwardRef<
 ))
 TableFooter.displayName = "TableFooter"
 
-const TableRow = React.forwardRef<
+const TableRow = forwardRef<
   HTMLTableRowElement,
-  React.HTMLAttributes<HTMLTableRowElement>
+  HTMLAttributes<HTMLTableRowElement>
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
@@ -88,9 +88,9 @@ const TableRow = React.forwardRef<
 ))
 TableRow.displayName = "TableRow"
 
-const TableHead = React.forwardRef<
+const TableHead = forwardRef<
   HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
+  ThHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
   <th
     ref={ref}
@@ -103,14 +103,14 @@ const TableHead = React.forwardRef<
 ))
 TableHead.displayName = "TableHead"
 
-const TableCell = React.forwardRef<
+const TableCell = forwardRef<
   HTMLTableCellElement,
-  React.TdHTMLAttributes<HTMLTableCellElement>
+  TdHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
     className={cn(
-      "px-4 py-1 align-middle whitespace-nowrap [&:has([role=checkbox])]:px-3 [&:has([role=checkbox])]:w-12 [&:has([role=checkbox])]:text-center", 
+      "px-4 py-1 align-middle whitespace-nowrap [&:has([role=checkbox])]:px-3 [&:has([role=checkbox])]:w-12 [&:has([role=checkbox])]:text-center",
       className
     )}
     {...props}
@@ -118,9 +118,9 @@ const TableCell = React.forwardRef<
 ))
 TableCell.displayName = "TableCell"
 
-const TableCaption = React.forwardRef<
+const TableCaption = forwardRef<
   HTMLTableCaptionElement,
-  React.HTMLAttributes<HTMLTableCaptionElement>
+  HTMLAttributes<HTMLTableCaptionElement>
 >(({ className, ...props }, ref) => (
   <caption
     ref={ref}

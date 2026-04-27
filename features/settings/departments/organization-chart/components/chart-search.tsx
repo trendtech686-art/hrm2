@@ -97,6 +97,9 @@ export function ChartSearch({
                   key={employee.systemId}
                   className="p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
                   onClick={() => handleSelect(employee)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSelect(employee); }}
+                  role="button"
+                  tabIndex={0}
                 >
                   <p className="font-medium text-sm">{employee.fullName}</p>
                   <p className="text-xs text-muted-foreground">

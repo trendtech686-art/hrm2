@@ -5,7 +5,7 @@
  * Giống như trong hình: Doanh thu (cột) + Lợi nhuận gộp (đường)
  */
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ComposedChart,
   Bar,
@@ -106,30 +106,29 @@ export function ReportChart({
   onOptionsChange,
 }: ReportChartProps) {
   // Force re-render khi theme thay đổi
-  const [, setTick] = React.useState(0)
+  const [, setTick] = useState(0)
 
-  React.useEffect(() => {
+  useEffect(() => {
     return subscribeToThemeChanges(() => {
       setTick(t => t + 1)
     })
   }, [])
 
-  // Đọc colors fresh từ DOM mỗi lần render (sau khi tick tăng)
-  const chart1 = React.useMemo(() => {
+  const chart1 = useMemo(() => {
     return getChartColors().chart1
   }, [])
-  const chart2 = React.useMemo(() => getChartColors().chart2, [])
-  const chart3 = React.useMemo(() => getChartColors().chart3, [])
-  const chart4 = React.useMemo(() => getChartColors().chart4, [])
-  const chart5 = React.useMemo(() => getChartColors().chart5, [])
+  const chart2 = useMemo(() => getChartColors().chart2, [])
+  const chart3 = useMemo(() => getChartColors().chart3, [])
+  const chart4 = useMemo(() => getChartColors().chart4, [])
+  const chart5 = useMemo(() => getChartColors().chart5, [])
 
-  const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed);
-  const [localSelectedOptions, setLocalSelectedOptions] = React.useState<string[]>(
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [localSelectedOptions, setLocalSelectedOptions] = useState<string[]>(
     selectedOptions || displayOptions.map(o => o.key)
   );
 
   // Force re-render when chart colors change (for theme updates)
-  const chartKey = React.useMemo(() => `${chart1}-${chartType}`, [chart1, chartType]);
+  const chartKey = useMemo(() => `${chart1}-${chartType}`, [chart1, chartType]);
 
   const activeOptions = selectedOptions || localSelectedOptions;
   
@@ -149,7 +148,7 @@ export function ReportChart({
   }
   
   // Custom tooltip - memoized to prevent re-renders
-  const CustomTooltip = React.useCallback(({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: string }) => {
+  const CustomTooltip = useCallback(({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-popover border rounded-lg shadow-lg p-3">
@@ -171,8 +170,8 @@ export function ReportChart({
   }, []);
   
   // Filter config based on selected options
-  const filteredBars = React.useMemo(() => config.bars.filter(b => activeOptions.includes(b.dataKey)), [config.bars, activeOptions]);
-  const filteredLines = React.useMemo(() => config.lines.filter(l => activeOptions.includes(l.dataKey)), [config.lines, activeOptions]);
+  const filteredBars = useMemo(() => config.bars.filter(b => activeOptions.includes(b.dataKey)), [config.bars, activeOptions]);
+  const filteredLines = useMemo(() => config.lines.filter(l => activeOptions.includes(l.dataKey)), [config.lines, activeOptions]);
   
   // Hide dots when data is large to improve performance
   const showDots = data.length <= 31;
@@ -380,7 +379,8 @@ export function ReportChart({
                   </SelectTrigger>
                   <SelectContent>
                     {displayOptions.map(option => (
-                      <div 
+                      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- dropdown option
+                      <div
                         key={option.key}
                         className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-accent"
                         onClick={() => {

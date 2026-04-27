@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { requireAuth, apiError } from '@/lib/api-utils';
 import { loadGHTKConfig, GHTK_API_BASE } from '@/lib/ghtk-sync';
 import { logError } from '@/lib/logger'
@@ -27,7 +28,7 @@ export async function GET(
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
-  const requestId = Math.random().toString(36).substring(2, 11);
+  const requestId = randomUUID();
   const { trackingCode } = await params;
 
   try {

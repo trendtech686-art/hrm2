@@ -46,6 +46,7 @@ export const supplierKeys = {
   detail: (id: string) => [...supplierKeys.details(), id] as const,
   search: (query: string) => [...supplierKeys.all, 'search', query] as const,
   stats: () => [...supplierKeys.all, 'stats'] as const,
+  statsById: (supplierId: string) => [...supplierKeys.all, 'stats', supplierId] as const,
 };
 
 // Types for initial data from Server Components

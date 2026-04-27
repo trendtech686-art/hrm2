@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
-import { Copy, Plus } from 'lucide-react';
+import { Copy, Plus, Pencil } from 'lucide-react';
 import type { WarrantyTicket } from '../../types';
 import type { WarrantyHistory } from '../../../../lib/types/prisma-extended';
 import { formatDateTime } from '../../../../lib/date-utils';
@@ -16,6 +16,7 @@ interface TicketInfoCardProps {
   onGenerateTrackingCode: () => void;
   onNavigateEmployee: () => void;
   onNavigateOrder?: (() => void) | undefined;
+  onEditLinkedOrder?: (() => void) | undefined;
   children?: React.ReactNode;
 }
 
@@ -27,6 +28,7 @@ export function TicketInfoCard({
   onGenerateTrackingCode,
   onNavigateEmployee: _onNavigateEmployee,
   onNavigateOrder: _onNavigateOrder,
+  onEditLinkedOrder,
   children,
 }: TicketInfoCardProps) {
   const trackingInfo = React.useMemo(() => {
@@ -135,12 +137,41 @@ export function TicketInfoCard({
             </div>
           )}
 
-          {ticket.linkedOrderSystemId && (
+          {ticket.linkedOrderSystemId ? (
             <div>
               <p className="text-xs text-muted-foreground">Trả bảo hành vào đơn hàng</p>
-              <Link href={`/orders/${ticket.linkedOrderSystemId}`} className="font-medium text-sm text-green-600 hover:underline">
-                {orderLabel}
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href={`/orders/${ticket.linkedOrderSystemId}`} className="font-medium text-sm text-green-600 hover:underline">
+                  {orderLabel}
+                </Link>
+                {onEditLinkedOrder && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1 text-muted-foreground hover:text-foreground"
+                    onClick={(e) => { e.preventDefault(); onEditLinkedOrder(); }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs text-muted-foreground">Trả bảo hành vào đơn hàng</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground italic">Chưa liên kết</span>
+                {onEditLinkedOrder && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1 text-muted-foreground hover:text-foreground"
+                    onClick={onEditLinkedOrder}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 

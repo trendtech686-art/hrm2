@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useState, useEffect, useCallback, forwardRef, type ElementRef, type ComponentPropsWithoutRef, type ButtonHTMLAttributes } from "react"
 import { Calendar as CalendarIcon } from "lucide-react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 
@@ -9,7 +9,6 @@ import { useModal } from "../../contexts/modal-context"
 
 // Format date as dd/MM/yyyy HH:mm (GMT+7)
 const formatDateTime = (date: Date): string => {
-  // Convert to GMT+7 (Vietnam timezone)
   const utcTime = date.getTime();
   const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
   
@@ -30,16 +29,13 @@ type DateTimePickerProps = {
     disabled?: boolean;
 };
 
-// Tạo một Popover tùy chỉnh không có overlay tối
 const DateTimePickerPopover = PopoverPrimitive.Root;
 const DateTimePickerPopoverTrigger = PopoverPrimitive.Trigger;
 
-const DateTimePickerPopoverContent = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
+const DateTimePickerPopoverContent = forwardRef<
+  ElementRef<typeof PopoverPrimitive.Content>,
+  ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
 >(({ className, align = "center", sideOffset = 4, id = "date-time-picker", style: propStyle, ...props }, ref) => {
-  // Radix only mounts Content when open (via Presence),
-  // so always register as open. Cleanup runs on unmount (close).
   const { zIndex } = useModal(id, true, 'popover');
   
   return (
@@ -62,17 +58,12 @@ const DateTimePickerPopoverContent = React.forwardRef<
 DateTimePickerPopoverContent.displayName = "DateTimePickerPopoverContent";
 
 export function DateTimePicker({ id, value, onChange, placeholder, className, disabled }: DateTimePickerProps) {
-  const [date, setDate] = React.useState<Date | undefined>(value ? new Date(value) : undefined);
-  const [time, setTime] = React.useState<string>(() => {
-    if (!value) return '00:00';
-    const d = new Date(value);
-    const utcTime = d.getTime();
-    const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
-    return `${gmt7Time.getUTCHours().toString().padStart(2, '0')}:${gmt7Time.getUTCMinutes().toString().padStart(2, '0')}`;
-  });
-  const [open, setOpen] = React.useState(false);
+  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [time, setTime] = useState<string>('00:00');
+  const [open, setOpen] = useState(false);
 
-  React.useEffect(() => {
+  // Hydration-safe: set initial value only on client
+  useEffect(() => {
     if (value) {
       const newDate = new Date(value);
       setDate(newDate);
@@ -85,7 +76,60 @@ export function DateTimePicker({ id, value, onChange, placeholder, className, di
     }
   }, [value]);
 
-  const TriggerButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>((props, ref) => (
+  // Memoized handlers
+  const handleDateSelect = useCallback((selectedDate: Date | undefined) => {
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  }, []);
+
+  const handleHourChange = useCallback((hour: string) => {
+    setTime(prev => {
+      const minute = prev.split(':')[1] || '00';
+      return `${hour}:${minute}`;
+    });
+  }, []);
+
+  const handleMinuteChange = useCallback((minute: string) => {
+    setTime(prev => {
+      const hour = prev.split(':')[0] || '00';
+      return `${hour}:${minute}`;
+    });
+  }, []);
+
+  const handleApply = useCallback(() => {
+    if (date && time) {
+      const [hours, minutes] = time.split(':').map(Number);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      const utcDate = new Date(Date.UTC(year, month, day, hours - 7, minutes, 0, 0));
+      setDate(utcDate);
+      if (onChange) {
+        onChange(utcDate);
+      }
+      setOpen(false);
+    }
+  }, [date, time, onChange]);
+
+  const handleClear = useCallback(() => {
+    setDate(undefined);
+    setTime('00:00');
+    if (onChange) {
+      onChange(undefined);
+    }
+    setOpen(false);
+  }, [onChange]);
+
+  const handleToday = useCallback(() => {
+    const now = new Date();
+    setDate(now);
+    const utcTime = now.getTime();
+    const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
+    setTime(`${gmt7Time.getUTCHours().toString().padStart(2, '0')}:${gmt7Time.getUTCMinutes().toString().padStart(2, '0')}`);
+  }, []);
+
+  const TriggerButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>((props, ref) => (
       <Button
           id={id}
           ref={ref}
@@ -105,60 +149,7 @@ export function DateTimePicker({ id, value, onChange, placeholder, className, di
   ));
   TriggerButton.displayName = "DateTimePickerTrigger";
 
-  const Content = () => {
-      const handleDateSelect = (selectedDate: Date | undefined) => {
-        if (selectedDate) {
-          setDate(selectedDate);
-        }
-      }
-
-      const handleHourChange = (hour: string) => {
-        const minute = time.split(':')[1] || '00';
-        setTime(`${hour}:${minute}`);
-      }
-
-      const handleMinuteChange = (minute: string) => {
-        const hour = time.split(':')[0] || '00';
-        setTime(`${hour}:${minute}`);
-      }
-
-      const handleApply = () => {
-        if (date && time) {
-          const [hours, minutes] = time.split(':').map(Number);
-          
-          // Create date in GMT+7
-          const year = date.getFullYear();
-          const month = date.getMonth();
-          const day = date.getDate();
-          
-          // Create UTC date by subtracting 7 hours from GMT+7 time
-          const utcDate = new Date(Date.UTC(year, month, day, hours - 7, minutes, 0, 0));
-          
-          setDate(utcDate);
-          if (onChange) {
-            onChange(utcDate);
-          }
-          setOpen(false);
-        }
-      }
-
-      const handleClear = () => {
-        setDate(undefined);
-        setTime('00:00');
-        if (onChange) {
-            onChange(undefined);
-        }
-        setOpen(false);
-      }
-
-      const handleToday = () => {
-        const now = new Date();
-        setDate(now);
-        const utcTime = now.getTime();
-        const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
-        setTime(`${gmt7Time.getUTCHours().toString().padStart(2, '0')}:${gmt7Time.getUTCMinutes().toString().padStart(2, '0')}`);
-      }
-
+  const Content = useCallback(() => {
       return (
         <>
             <Calendar
@@ -167,10 +158,11 @@ export function DateTimePicker({ id, value, onChange, placeholder, className, di
                 onSelect={handleDateSelect}
             />
             <div className="p-3 border-t border-border">
-              <div className="mb-3">
-                <label className="text-sm font-medium mb-2 block">Giờ (GMT+7)</label>
+                <div className="mb-3">
+                <label htmlFor="time-hour" className="text-sm font-medium mb-2 block">Giờ (GMT+7)</label>
                 <div className="flex items-center gap-2">
                   <input
+                    id="time-hour"
                     type="number"
                     min={0}
                     max={23}
@@ -205,15 +197,15 @@ export function DateTimePicker({ id, value, onChange, placeholder, className, di
               </div>
             </div>
         </>
-      )
-  }
+      );
+  }, [date, time, handleDateSelect, handleHourChange, handleMinuteChange, handleClear, handleToday, handleApply]);
 
   return (
     <DateTimePickerPopover open={open} onOpenChange={setOpen}>
       <DateTimePickerPopoverTrigger asChild>
         <TriggerButton />
       </DateTimePickerPopoverTrigger>
-      <DateTimePickerPopoverContent 
+      <DateTimePickerPopoverContent
         id={`date-time-picker-${id}`}
         className="w-auto p-0"
       >

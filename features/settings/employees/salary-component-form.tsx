@@ -288,6 +288,7 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel, isPending
           {/* Tab 3: Phạm vi áp dụng */}
           <TabsContent value="scope" className="space-y-4 mt-0">
             <div className="space-y-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- informational label */}
               <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Phòng ban áp dụng</label>
               <p className="text-sm text-muted-foreground">
                 Chọn các phòng ban sẽ được áp dụng thành phần lương này. Để trống = áp dụng tất cả.
@@ -314,6 +315,9 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel, isPending
                       key={department.systemId}
                       className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
                       onClick={() => handleDepartmentToggle(department.systemId)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleDepartmentToggle(department.systemId); }}
+                      role="button"
+                      tabIndex={0}
                     >
                       <Checkbox 
                         checked={selectedDepartments.includes(department.systemId)}

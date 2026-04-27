@@ -27,6 +27,7 @@ import { SimplePrintOptionsDialog } from '@/components/shared/simple-print-optio
 import { usePurchaseOrders } from './hooks/use-purchase-orders';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAllSuppliers } from '@/features/suppliers/hooks/use-all-suppliers';
+import { useDebounce } from '@/hooks/use-debounce';
 import { getColumns } from './columns';
 import { PurchaseOrderCard } from './purchase-order-card';
 import { POStatisticsCards } from './components/po-statistics';
@@ -75,9 +76,9 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
   const { isMobile } = useBreakpoint();
   const {  employee: loggedInUser, can } = useAuth();
   const canCreate = can('create_purchase_orders');
-  const canDelete = can('delete_purchase_orders');
-  const canEdit = can('edit_purchase_orders');
-  const canEditSettings = can('edit_settings');
+  const _canDelete = can('delete_purchase_orders');
+  const _canEdit = can('edit_purchase_orders');
+  const _canEditSettings = can('edit_settings');
   const { data: branches } = useAllBranches();
   const { data: suppliers = [] } = useAllSuppliers();
 
@@ -129,19 +130,12 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
   }, [filters]);
 
   // Debounced search
-  const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(globalFilter);
-      setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [globalFilter, setPagination]);
-  
+  const debouncedSearch = useDebounce(globalFilter, 300);
+
   // Reset page when filters change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [branchFilter, statusFilter, paymentStatusFilter, filters.supplierFilter, filters.dateRange, setPagination]);
+  }, [debouncedSearch, branchFilter, statusFilter, paymentStatusFilter, filters.supplierFilter, filters.dateRange, setPagination]);
 
   // Server-side paginated query
   const { data: queryData, isLoading: isLoadingPOs, isFetching } = usePurchaseOrders({
@@ -203,7 +197,7 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
 
       {!isMobile && (
         <PageToolbar leftActions={
-          canEditSettings ? <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}>
+          _canEditSettings ? <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}>
             <Settings className="h-4 w-4 mr-2" />Cài đặt
           </Button> : undefined
         } rightActions={

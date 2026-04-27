@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useFormContext, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import Link from 'next/link';
 import { AlertTriangle, X, Package, Eye, ChevronDown, ChevronRight, StickyNote, Pencil, Trash2 } from 'lucide-react';
@@ -28,7 +28,7 @@ import type { Control, FieldValues } from 'react-hook-form';
 
 
 // Type for line item in the form
-type FormLineItem = {
+export type FormLineItem = {
     id: string;
     systemId: string;
     productSystemId: string;
@@ -67,6 +67,9 @@ const ComboChildImage = ({
             <div
                 className="group relative w-8 h-7 rounded overflow-hidden border border-muted cursor-pointer"
                 onClick={() => onPreview(imageUrl, product?.name || productName)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') onPreview(imageUrl, product?.name || productName); }}
             >
                 <LazyImage
                     src={imageUrl}
@@ -107,7 +110,7 @@ const calculateLineTotalInRow = (quantity: number, unitPrice: number, discount: 
 };
 
 // ✅ Memoized row component để tránh re-render không cần thiết
-const LineItemRow = React.memo(({
+const LineItemRow = memo(({
     item,
     index,
     branchSystemId,
@@ -141,15 +144,15 @@ const LineItemRow = React.memo(({
 }) => {
     // ⚡ OPTIMIZED: Use prefetched data if available, otherwise fetch
     const { data: fetchedPolicies } = useAllPricingPolicies({ enabled: !prefetchedPricingPolicies });
-    const pricingPolicies = prefetchedPricingPolicies ?? fetchedPolicies ?? [];
-    const effectivePolicyId = React.useMemo(() => {
+    const pricingPolicies = useMemo(() => prefetchedPricingPolicies ?? fetchedPolicies ?? [], [prefetchedPricingPolicies, fetchedPolicies]);
+    const effectivePolicyId = useMemo(() => {
         if (pricingPolicyId) {
             return pricingPolicyId;
         }
         const defaultPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
         return defaultPolicy?.systemId;
     }, [pricingPolicyId, pricingPolicies]);
-    const [isComboExpanded, setIsComboExpanded] = React.useState(false);
+    const [isComboExpanded, setIsComboExpanded] = useState(false);
     
     // ✅ Watch all fields needed for total calculation
     const quantity = useWatch({ control, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
@@ -161,18 +164,18 @@ const LineItemRow = React.memo(({
     const note = useWatch({ control, name: `${fieldName}.${index}.note`, defaultValue: '' });
     
     // ✅ Calculate total reactively when any field changes (display only, no setValue)
-    const calculatedTotal = React.useMemo(() => {
+    const calculatedTotal = useMemo(() => {
         return calculateLineTotalInRow(quantity, unitPrice, discount, discountType as 'percentage' | 'fixed', tax);
     }, [quantity, unitPrice, discount, discountType, tax]);
     
     // Note: total is set by OrderCalculations component in order-form-page.tsx, not here
     
     // ✅ Use productsMap (fetched by useProductsByIds) instead of cache-only useProductFinder
-    const product = React.useMemo(() => productsMap.get(item.productSystemId), [item.productSystemId, productsMap]);
+    const product = useMemo(() => productsMap.get(item.productSystemId), [item.productSystemId, productsMap]);
     
     // Check if product is a combo and get combo items
     const isCombo = product?.type === 'combo';
-    const comboItems = React.useMemo(() => {
+    const comboItems = useMemo(() => {
         if (!isCombo || !product?.comboItems) return [];
         return product.comboItems.map(ci => {
             const childProduct = productsMap.get(ci.productSystemId);
@@ -203,7 +206,7 @@ const LineItemRow = React.memo(({
     const storeGallery = permanentImages?.gallery?.[0]?.url;
     
     // ✅ Ưu tiên ảnh từ server trước, sau đó mới đến product data, rồi đến item data
-    const displayImage = React.useMemo(() => {
+    const displayImage = useMemo(() => {
         // 1. Ảnh từ server (ưu tiên cao nhất)
         if (storeThumbnail) return storeThumbnail;
         if (storeGallery) return storeGallery;
@@ -217,7 +220,7 @@ const LineItemRow = React.memo(({
     }, [storeThumbnail, storeGallery, product, item]);
 
     // ✅ Fetch image if missing (uses batch queue)
-    React.useEffect(() => {
+    useEffect(() => {
         if (!displayImage && !lastFetched && item.productSystemId) {
             import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
                 queueProductImageFetch(item.productSystemId);
@@ -226,7 +229,7 @@ const LineItemRow = React.memo(({
     }, [item.productSystemId, displayImage, lastFetched]);
 
     // ✅ Memoize stock calculation
-    const stockInfo = React.useMemo(() => {
+    const stockInfo = useMemo(() => {
         if (!branchSystemId || !product) {
             return { stock: 0, isValid: false };
         }
@@ -247,7 +250,7 @@ const LineItemRow = React.memo(({
         return { stock, isValid: true };
     }, [branchSystemId, product, productsMap]);
 
-    const productTypeLabel = React.useMemo(() => {
+    const productTypeLabel = useMemo(() => {
         if (!product) return '';
         switch (product.type) {
             case 'combo':
@@ -293,6 +296,9 @@ const LineItemRow = React.memo(({
                         <div
                             className="group relative w-10 h-9 rounded overflow-hidden border border-muted cursor-pointer"
                             onClick={() => onPreview(displayImage, item.productName)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter') onPreview(displayImage, item.productName); }}
                         >
                             <LazyImage
                                 src={displayImage}
@@ -536,7 +542,7 @@ LineItemRow.displayName = 'LineItemRow';
 // Quick-edit inline: Số lượng, Đơn giá (90% use case)
 // Advanced fields (tax, chiết khấu, ghi chú) → bottom Sheet
 // =============================================================================
-const LineItemMobileCard = React.memo(({
+const LineItemMobileCard = memo(({
     item,
     index,
     branchSystemId,
@@ -564,13 +570,13 @@ const LineItemMobileCard = React.memo(({
     prefetchedPricingPolicies?: Array<{ systemId: string; name: string; type: string; isDefault: boolean }>;
 }) => {
     const { data: fetchedPolicies } = useAllPricingPolicies({ enabled: !prefetchedPricingPolicies });
-    const pricingPolicies = prefetchedPricingPolicies ?? fetchedPolicies ?? [];
-    const effectivePolicyId = React.useMemo(() => {
+    const pricingPolicies = useMemo(() => prefetchedPricingPolicies ?? fetchedPolicies ?? [], [prefetchedPricingPolicies, fetchedPolicies]);
+    const effectivePolicyId = useMemo(() => {
         if (pricingPolicyId) return pricingPolicyId;
         const defaultPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
         return defaultPolicy?.systemId;
     }, [pricingPolicyId, pricingPolicies]);
-    const [isComboExpanded, setIsComboExpanded] = React.useState(false);
+    const [isComboExpanded, setIsComboExpanded] = useState(false);
 
     const quantity = useWatch({ control, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
     const unitPrice = useWatch({ control, name: `${fieldName}.${index}.unitPrice`, defaultValue: 0 });
@@ -579,14 +585,14 @@ const LineItemMobileCard = React.memo(({
     const tax = useWatch({ control, name: `${fieldName}.${index}.tax`, defaultValue: 0 });
     const note = useWatch({ control, name: `${fieldName}.${index}.note`, defaultValue: '' });
 
-    const calculatedTotal = React.useMemo(
+    const calculatedTotal = useMemo(
         () => calculateLineTotalInRow(quantity, unitPrice, discount, discountType as 'percentage' | 'fixed', tax),
         [quantity, unitPrice, discount, discountType, tax],
     );
 
-    const product = React.useMemo(() => productsMap.get(item.productSystemId), [item.productSystemId, productsMap]);
+    const product = useMemo(() => productsMap.get(item.productSystemId), [item.productSystemId, productsMap]);
     const isCombo = product?.type === 'combo';
-    const comboItems = React.useMemo(() => {
+    const comboItems = useMemo(() => {
         if (!isCombo || !product?.comboItems) return [];
         return product.comboItems.map(ci => {
             const childProduct = productsMap.get(ci.productSystemId);
@@ -610,7 +616,7 @@ const LineItemMobileCard = React.memo(({
     const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
     const storeGallery = permanentImages?.gallery?.[0]?.url;
 
-    const displayImage = React.useMemo(() => {
+    const displayImage = useMemo(() => {
         if (storeThumbnail) return storeThumbnail;
         if (storeGallery) return storeGallery;
         if (product) {
@@ -620,7 +626,7 @@ const LineItemMobileCard = React.memo(({
         return item.thumbnailImage;
     }, [storeThumbnail, storeGallery, product, item]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!displayImage && !lastFetched && item.productSystemId) {
             import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
                 queueProductImageFetch(item.productSystemId);
@@ -628,7 +634,7 @@ const LineItemMobileCard = React.memo(({
         }
     }, [item.productSystemId, displayImage, lastFetched]);
 
-    const stockInfo = React.useMemo(() => {
+    const stockInfo = useMemo(() => {
         if (!branchSystemId || !product) return { stock: 0, isValid: false };
         if (isComboProduct(product) && product.comboItems?.length) {
             const comboChildProducts = product.comboItems
@@ -653,6 +659,9 @@ const LineItemMobileCard = React.memo(({
                     <div
                         className="group relative h-12 w-12 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
                         onClick={() => onPreview(displayImage, item.productName)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter') onPreview(displayImage, item.productName); }}
                     >
                         <LazyImage
                             src={displayImage}
@@ -1001,14 +1010,14 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     });
     
     // ✅ Batch-fetch only the products in the current form (NOT all products)
-    const lineItemProductIds = React.useMemo(
+    const lineItemProductIds = useMemo(
         () => fields.map(f => f.productSystemId),
         [fields]
     );
     const { productsMap: baseProductsMap } = useProductsByIds(lineItemProductIds);
     
     // Collect combo children IDs for a second-pass fetch
-    const comboChildIds = React.useMemo(() => {
+    const comboChildIds = useMemo(() => {
         const ids: string[] = [];
         for (const [, product] of baseProductsMap) {
             if (product.type === 'combo' && product.comboItems?.length) {
@@ -1022,7 +1031,7 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     const { productsMap: comboChildMap } = useProductsByIds(comboChildIds);
     
     // Merge maps for a single lookup
-    const productsMap = React.useMemo(() => {
+    const productsMap = useMemo(() => {
         const merged = new Map(baseProductsMap);
         for (const [k, v] of comboChildMap) {
             if (!merged.has(k)) merged.set(k, v);
@@ -1033,27 +1042,27 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     // ✅ Đổi watch ở useWatch để tối ưu performance
     const branchSystemId = useWatch({ control, name: 'branchSystemId' });
 
-    const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+    const [previewState, setPreviewState] = useState<{ open: boolean; image: string; title: string }>({
         open: false,
         image: '',
         title: ''
     });
 
-    const handlePreview = React.useCallback((image: string, title: string) => {
+    const handlePreview = useCallback((image: string, title: string) => {
         setPreviewState({ open: true, image, title });
     }, []);
 
     // State cho dialog ghi chú
-    const [editingNoteIndex, setEditingNoteIndex] = React.useState<number | null>(null);
-    const [tempNote, setTempNote] = React.useState('');
+    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
+    const [tempNote, setTempNote] = useState('');
 
-    const handleOpenNoteDialog = React.useCallback((index: number) => {
+    const handleOpenNoteDialog = useCallback((index: number) => {
         const currentNote = getValues(`${fieldName}.${index}.note`) || '';
         setTempNote(currentNote);
         setEditingNoteIndex(index);
     }, [getValues, fieldName]);
 
-    const handleSaveNote = React.useCallback(() => {
+    const handleSaveNote = useCallback(() => {
         if (editingNoteIndex !== null) {
             setValue(`${fieldName}.${editingNoteIndex}.note`, tempNote.trim(), { shouldDirty: true });
             setEditingNoteIndex(null);
@@ -1062,17 +1071,17 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     }, [editingNoteIndex, tempNote, setValue, fieldName]);
 
     // Handle tax change
-    const handleTaxChange = React.useCallback((index: number, taxId: string, rate: number) => {
+    const handleTaxChange = useCallback((index: number, taxId: string, rate: number) => {
         setValue(`${fieldName}.${index}.taxId`, taxId, { shouldDirty: true });
         setValue(`${fieldName}.${index}.tax`, rate, { shouldDirty: true });
     }, [setValue, fieldName]);
 
     // ✅ Mobile-only: bottom Sheet cho advanced fields (tax / discount / note)
-    const [advancedIdx, setAdvancedIdx] = React.useState<number | null>(null);
-    const handleOpenAdvanced = React.useCallback((index: number) => {
+    const [advancedIdx, setAdvancedIdx] = useState<number | null>(null);
+    const handleOpenAdvanced = useCallback((index: number) => {
         setAdvancedIdx(index);
     }, []);
-    const handleCloseAdvanced = React.useCallback((open: boolean) => {
+    const handleCloseAdvanced = useCallback((open: boolean) => {
         if (!open) setAdvancedIdx(null);
     }, []);
 

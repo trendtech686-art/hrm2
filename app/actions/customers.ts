@@ -7,7 +7,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { requireActionPermission, type ApiSession } from '@/lib/api-utils'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { customerFormSchema } from '@/features/customers/validation'
 import { logError } from '@/lib/logger'
@@ -15,44 +15,6 @@ import { syncSingleCustomer, deleteFromIndex } from '@/lib/meilisearch-sync'
 
 // Types
 type Customer = NonNullable<Awaited<ReturnType<typeof prisma.customer.findFirst>>>
-
-// Helper to get user name from session (required for activity logging)
-async function getUserNameFromSession(session: ApiSession): Promise<string> {
-  // Try session.user.employee.fullName first (available if employee is linked)
-  if (session.user.employee?.fullName) {
-    return session.user.employee.fullName
-  }
-  
-  // Try session.user.name (might be email or employee name from auth)
-  if (session.user.name && session.user.name !== session.user.email) {
-    return session.user.name
-  }
-  
-  // Lookup from database using employeeId
-  if (session.user.employeeId) {
-    const employee = await prisma.employee.findUnique({
-      where: { systemId: session.user.employeeId },
-      select: { fullName: true },
-    })
-    if (employee?.fullName) {
-      return employee.fullName
-    }
-  }
-  
-  // Lookup from User table using user ID
-  if (session.user.id) {
-    const user = await prisma.user.findFirst({
-      where: { systemId: session.user.id },
-      select: { employee: { select: { fullName: true } } }
-    })
-    if (user?.employee?.fullName) {
-      return user.employee.fullName
-    }
-  }
-  
-  // Return email as last resort (not null, always have some identifier)
-  return session.user.email || session.user.id
-}
 
 // Serialize Decimal fields to numbers for client components
 function serializeCustomer<T extends Record<string, unknown>>(customer: T): T {
@@ -204,20 +166,23 @@ export async function createCustomerAction(
       },
     })
 
-    // Log activity for creation (fire-and-forget)
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'customer',
-          entityId: systemId,
-          action: 'created',
-          actionType: 'create',
-          note: `Tạo khách hàng mới: ${customer.name || ''} (${customer.id})`,
-          metadata: { userName },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking - failure should not affect main operation)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'customer',
+        entityId: systemId,
+        action: 'created',
+        actionType: 'create',
+        note: `Tạo khách hàng mới: ${customer.name || ''} (${customer.id})`,
+        metadata: { userName: activityUserName },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
 
@@ -383,21 +348,23 @@ export async function updateCustomerAction(
         const suffix = Object.keys(changes).length > 5 ? ` và ${Object.keys(changes).length - 5} trường khác` : '';
         const note = `Cập nhật khách hàng: ${changedFieldNames.join(', ')}${suffix}`;
         
-        // Fire-and-forget activity log
-        getUserNameFromSession(session).then(userName =>
-          prisma.activityLog.create({
-            data: {
-              entityType: 'customer',
-              entityId: systemId,
-              action: 'updated',
-              actionType: 'update',
-              changes: JSON.parse(JSON.stringify(changes)),
-              note,
-              metadata: { userName },
-              createdBy: userName,
-            },
-          })
-        ).catch(e => logError('Activity log failed', e))
+        const activityUserName = session.user.employee?.fullName
+          || session.user.name
+          || session.user.id
+          || session.user.email
+          || 'Hệ thống'
+        prisma.activityLog.create({
+          data: {
+            entityType: 'customer',
+            entityId: systemId,
+            action: 'updated',
+            actionType: 'update',
+            changes: JSON.parse(JSON.stringify(changes)),
+            note,
+            metadata: { userName: activityUserName },
+            createdBy: activityUserName,
+          },
+        }).catch(e => logError('Activity log failed', e))
       }
     } catch {
       // Don't fail the update if logging fails
@@ -435,20 +402,23 @@ export async function deleteCustomerAction(
       },
     })
 
-    // Log activity for deletion (fire-and-forget)
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'customer',
-          entityId: systemId,
-          action: 'deleted',
-          actionType: 'delete',
-          note: `Xóa khách hàng: ${existing?.name || ''} (${existing?.id || systemId})`,
-          metadata: { userName },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'customer',
+        entityId: systemId,
+        action: 'deleted',
+        actionType: 'delete',
+        note: `Xóa khách hàng: ${existing?.name || ''} (${existing?.id || systemId})`,
+        metadata: { userName: activityUserName },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
 
@@ -480,20 +450,23 @@ export async function restoreCustomerAction(
       },
     })
 
-    // Log activity for restore (fire-and-forget)
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'customer',
-          entityId: systemId,
-          action: 'restored',
-          actionType: 'update',
-          note: `Khôi phục khách hàng: ${customer.name || ''} (${customer.id || systemId})`,
-          metadata: { userName },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'customer',
+        entityId: systemId,
+        action: 'restored',
+        actionType: 'update',
+        note: `Khôi phục khách hàng: ${customer.name || ''} (${customer.id || systemId})`,
+        metadata: { userName: activityUserName },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
 
@@ -558,8 +531,8 @@ export async function updateCustomerDebtAction(
 
   try {
     // Use atomic transaction with increment to prevent race condition
-    let oldDebt: number
-    let customerName: string
+    let oldDebt = 0
+    let customerName = ''
 
     const updated = await prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({
@@ -583,21 +556,24 @@ export async function updateCustomerDebtAction(
       })
     })
 
-    // Activity log (fire-and-forget)
-    getUserNameFromSession(session).then(userName =>
-      prisma.activityLog.create({
-        data: {
-          entityType: 'customer',
-          entityId: systemId,
-          action: 'debt_updated',
-          actionType: 'update',
-          changes: { currentDebt: { from: oldDebt, to: updated.currentDebt } },
-          note: `${operation === 'add' ? 'Tăng' : 'Giảm'} công nợ khách hàng: ${customerName} — ${operation === 'add' ? '+' : '-'}${amount.toLocaleString('vi-VN')} đ`,
-          metadata: { userName, amount, operation },
-          createdBy: userName,
-        },
-      })
-    ).catch(e => logError('Activity log failed', e))
+    // Activity log (non-blocking)
+    const activityUserName = session.user.employee?.fullName
+      || session.user.name
+      || session.user.id
+      || session.user.email
+      || 'Hệ thống'
+    prisma.activityLog.create({
+      data: {
+        entityType: 'customer',
+        entityId: systemId,
+        action: 'debt_updated',
+        actionType: 'update',
+        changes: { currentDebt: { from: oldDebt, to: updated.currentDebt } },
+        note: `${operation === 'add' ? 'Tăng' : 'Giảm'} công nợ khách hàng: ${customerName} — ${operation === 'add' ? '+' : '-'}${amount.toLocaleString('vi-VN')} đ`,
+        metadata: { userName: activityUserName, amount, operation },
+        createdBy: activityUserName,
+      },
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/customers')
     revalidatePath(`/customers/${systemId}`)

@@ -8,7 +8,7 @@
  * we need to calculate remaining amount for each. Data is loaded 
  * only when bulk pay dialog is opened.
  */
-import * as React from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
@@ -46,12 +46,12 @@ interface PageHandlersOptions {
 export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
   const router = useRouter();
   // ⚡ OPTIMIZED: Use paginated data from page instead of loading all data
-  const paginatedData = options?.paginatedData || [];
+  const paginatedData = useMemo(() => options?.paginatedData || [], [options?.paginatedData]);
   const { update: updatePO } = usePurchaseOrderMutations({});
   
   // Row selection state - defined early so we can conditionally load payments
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = React.useState(false);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = useState(false);
   
   // ⚡ PERFORMANCE: Only load bulk-pay data when dialog is open
   const { data: allPayments } = useAllPayments({ enabled: isBulkPayAlertOpen });
@@ -66,7 +66,7 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
   const currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
   
   // Helper functions
-  const bulkCancel = React.useCallback((systemIds: string[], userId: string, _userName: string) => {
+  const bulkCancel = useCallback((systemIds: string[], userId: string, _userName: string) => {
     systemIds.forEach(id => updatePO.mutate({ 
       systemId: id, 
       data: { 
@@ -76,12 +76,12 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
     }));
   }, [updatePO]);
   
-  const syncAllPurchaseOrderStatuses = React.useCallback(() => {
+  const syncAllPurchaseOrderStatuses = useCallback(() => {
     // Note: This is handled by React Query invalidation
   }, []);
 
   // ⚡ Track if receive action is in progress to lazy-load inventory receipts data
-  const [isReceiveActive, setIsReceiveActive] = React.useState(false);
+  const [isReceiveActive, setIsReceiveActive] = useState(false);
 
   // Sub-workflows - print handlers always enabled (common action), receive lazy-loaded
   const receiveWorkflow = usePurchaseOrderReceiveWorkflow({ enabled: isReceiveActive });
@@ -89,37 +89,37 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
   const printHandlers = usePurchaseOrderPrintHandlers(); // Default enabled for quick print
 
   // Computed values - use paginated data instead of all data
-  const selectedOrders = React.useMemo(() => {
+  const selectedOrders = useMemo(() => {
     return paginatedData.filter(o => rowSelection[o.systemId]);
   }, [paginatedData, rowSelection]);
 
   const numSelected = Object.keys(rowSelection).filter(k => rowSelection[k]).length;
 
   // Handler: Start cancel request
-  const handleCancelRequest = React.useCallback((po: PurchaseOrder) => {
+  const handleCancelRequest = useCallback((po: PurchaseOrder) => {
     cancelWorkflow.handleCancelRequest(po);
   }, [cancelWorkflow]);
 
   // Handler: Start receive goods - enable lazy loading first
-  const handleReceiveGoods = React.useCallback((po: PurchaseOrder) => {
+  const handleReceiveGoods = useCallback((po: PurchaseOrder) => {
     setIsReceiveActive(true);
     // Small delay to let data load before opening dialog
     setTimeout(() => receiveWorkflow.beginReceiveFlow([po]), 50);
   }, [receiveWorkflow]);
 
   // Handler: View payment details
-  const handlePayment = React.useCallback((po: PurchaseOrder) => {
+  const handlePayment = useCallback((po: PurchaseOrder) => {
     router.push(`/purchase-orders/${po.systemId}`);
     toast(`Mở trang thanh toán cho đơn ${po.id}`);
   }, [router]);
 
   // Handler: Print single
-  const handlePrint = React.useCallback((po: PurchaseOrder) => {
+  const handlePrint = useCallback((po: PurchaseOrder) => {
     printHandlers.handlePrint(po);
   }, [printHandlers]);
 
   // Bulk actions
-  const handleBulkPrint = React.useCallback(() => {
+  const handleBulkPrint = useCallback(() => {
     if (numSelected === 0) {
       toast.error('Chưa chọn đơn hàng', {
         description: 'Vui lòng chọn ít nhất một đơn hàng',
@@ -129,7 +129,7 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
     printHandlers.openBulkPrintDialog(selectedOrders);
   }, [numSelected, selectedOrders, printHandlers]);
 
-  const handleBulkCancel = React.useCallback(() => {
+  const handleBulkCancel = useCallback(() => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) {
       toast.error('Chưa chọn đơn hàng', {
@@ -144,7 +144,7 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
     setRowSelection({});
   }, [rowSelection, bulkCancel, currentUserSystemId, currentUserName]);
 
-  const handleBulkReceive = React.useCallback(() => {
+  const handleBulkReceive = useCallback(() => {
     if (numSelected === 0) {
       toast.error('Chưa chọn đơn hàng', {
         description: 'Vui lòng chọn ít nhất một đơn hàng',
@@ -154,7 +154,7 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
     receiveWorkflow.beginReceiveFlow(selectedOrders);
   }, [numSelected, selectedOrders, receiveWorkflow]);
 
-  const confirmBulkPay = React.useCallback(() => {
+  const confirmBulkPay = useCallback(() => {
     const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
     const paymentMethodName = 'Chuyển khoản';
     const paymentMethodSystemId = 'BANK_TRANSFER';
@@ -220,13 +220,13 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
   }, [selectedOrders, allPayments, allPurchaseReturns, accounts, paymentTypes, currentUserSystemId, createPayment, syncAllPurchaseOrderStatuses]);
 
   // Print dialog handlers
-  const handlePrintConfirm = React.useCallback((options: Parameters<typeof printHandlers.handlePrintConfirm>[0]) => {
+  const handlePrintConfirm = useCallback((options: Parameters<typeof printHandlers.handlePrintConfirm>[0]) => {
     printHandlers.handlePrintConfirm(options);
     setRowSelection({});
   }, [printHandlers]);
 
   // Cancel dialog handlers
-  const handleConfirmCancel = React.useCallback(() => {
+  const handleConfirmCancel = useCallback(() => {
     cancelWorkflow.confirmCancel();
     setRowSelection({});
   }, [cancelWorkflow]);
@@ -278,13 +278,13 @@ export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
  * Hook for filter state management
  */
 export function usePurchaseOrdersFilters() {
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [branchFilter, setBranchFilter] = React.useState('all');
-  const [statusFilter, setStatusFilter] = React.useState('all');
-  const [paymentStatusFilter, setPaymentStatusFilter] = React.useState('all');
-  const [supplierFilter, setSupplierFilter] = React.useState('all');
-  const [dateRange, setDateRange] = React.useState<{ from?: string; to?: string } | null>(null);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [dateRange, setDateRange] = useState<{ from?: string; to?: string } | null>(null);
   const [pagination, setPagination] = usePaginationWithGlobalDefault();
 
   return {
@@ -311,8 +311,8 @@ export function usePurchaseOrdersFilters() {
  * Hook for import/export dialog state
  */
 export function usePurchaseOrdersImportExport() {
-  const [showImportDialog, setShowImportDialog] = React.useState(false);
-  const [showExportDialog, setShowExportDialog] = React.useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   return {
     showImportDialog,

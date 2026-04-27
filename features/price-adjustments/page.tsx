@@ -8,6 +8,7 @@ import { Plus, XCircle, CheckCircle, Printer, Settings, Loader2 } from 'lucide-r
 import { usePriceAdjustments, usePriceAdjustmentMutations } from './hooks/use-price-adjustments';
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 import { getColumns } from './columns';
+import { useDebounce } from '@/hooks/use-debounce';
 import { ROUTES } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -109,8 +110,8 @@ export function PriceAdjustmentListPage() {
   });
   const {  employee, can } = useAuth();
   const canCreate = can('edit_products');
-  const canApprove = can('edit_products');
-  const canEditSettings = can('edit_settings');
+  const _canApprove = can('edit_products');
+  const _canEditSettings = can('edit_settings');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const { data: pricingPolicies } = useAllPricingPolicies();
 
@@ -122,7 +123,7 @@ export function PriceAdjustmentListPage() {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
-  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
+  const debouncedGlobalFilter = useDebounce(globalFilter, 300);
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
@@ -144,8 +145,6 @@ export function PriceAdjustmentListPage() {
 
   const columnLayoutDefaults = React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []);
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('price-adjustments', columnLayoutDefaults);
-
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
   const handleSinglePrint = React.useCallback((_adj: PriceAdjustment) => {
     toast.info('Tính năng in đang được phát triển');
@@ -299,7 +298,7 @@ export function PriceAdjustmentListPage() {
       {!isMobile && (
         <PageToolbar 
           leftActions={
-            <>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/pricing')}>
+            <>{_canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/pricing')}>
               <Settings className="h-4 w-4 mr-2" />Cài đặt
             </Button>}</>
           }

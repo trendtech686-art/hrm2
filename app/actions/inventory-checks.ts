@@ -631,14 +631,13 @@ export async function balanceInventoryCheckAction(
         }
 
         // Update or create ProductInventory
-        let updatedInventory;
         if (existingInventory) {
-          updatedInventory = await tx.productInventory.update({
+          await tx.productInventory.update({
             where: { productId_branchId: { productId, branchId } },
             data: { onHand: targetStock },
           });
         } else {
-          updatedInventory = await tx.productInventory.create({
+          await tx.productInventory.create({
             data: { productId, branchId, onHand: targetStock, inTransit: 0, committed: 0 },
           });
         }

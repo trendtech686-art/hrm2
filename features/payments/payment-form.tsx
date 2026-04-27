@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useEffect, forwardRef, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
@@ -45,7 +45,7 @@ interface PaymentFormProps {
   defaultAmount?: number;
 }
 
-export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
+export const PaymentForm = forwardRef<HTMLFormElement, PaymentFormProps>(
   function PaymentForm({ initialData, onSubmit, isEditing = false, initialOptions, defaultRecipient, defaultAmount }, ref) {
   const router = useRouter();
   // Stabilize defaultRecipient to primitive values
@@ -62,12 +62,12 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   const { data: branchesHook, isLoading: isLoadingBranches } = useAllBranches({ enabled: !initialOptions });
   const isHooksLoading = !initialOptions && (isLoadingPaymentTypes || isLoadingPaymentMethods || isLoadingTargetGroups || isLoadingAccounts || isLoadingBranches);
   
-  // Use server-side data if available, otherwise use client hooks
-  const paymentTypes = initialOptions?.paymentTypes ?? paymentTypesHook ?? [];
-  const paymentMethods = initialOptions?.paymentMethods ?? paymentMethodsHook ?? [];
-  const targetGroups = initialOptions?.targetGroups ?? targetGroupsHook ?? [];
-  const accounts = initialOptions?.cashAccounts ?? accountsHook ?? [];
-  const branches = initialOptions?.branches ?? branchesHook ?? [];
+  // Use server-side data if available, otherwise use client hooks - wrap in useMemo to prevent logical expression in deps
+  const paymentTypes = useMemo(() => initialOptions?.paymentTypes ?? paymentTypesHook ?? [], [initialOptions?.paymentTypes, paymentTypesHook]);
+  const paymentMethods = useMemo(() => initialOptions?.paymentMethods ?? paymentMethodsHook ?? [], [initialOptions?.paymentMethods, paymentMethodsHook]);
+  const targetGroups = useMemo(() => initialOptions?.targetGroups ?? targetGroupsHook ?? [], [initialOptions?.targetGroups, targetGroupsHook]);
+  const accounts = useMemo(() => initialOptions?.cashAccounts ?? accountsHook ?? [], [initialOptions?.cashAccounts, accountsHook]);
+  const branches = useMemo(() => initialOptions?.branches ?? branchesHook ?? [], [initialOptions?.branches, branchesHook]);
 
   // Chỉ lấy active items
   const activePaymentTypes = paymentTypes.filter(pt => pt.isActive);
@@ -76,7 +76,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   const activeAccounts = accounts.filter(acc => acc.isActive);
   const activeBranches = branches;
 
-  const missingConfigs = React.useMemo(() => {
+  const missingConfigs = useMemo(() => {
     const items: string[] = [];
     if (activePaymentTypes.length === 0) items.push('Loại phiếu chi');
     if (activePaymentMethods.length === 0) items.push('Hình thức thanh toán');
@@ -84,7 +84,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
     if (activeTargetGroups.length === 0) items.push('Nhóm đối tượng');
     if (activeBranches.length === 0) items.push('Chi nhánh');
     return items;
-  }, [activePaymentTypes.length, activePaymentMethods.length, activeAccounts.length, activeTargetGroups.length, activeBranches.length]);
+  }, [activePaymentTypes, activePaymentMethods, activeAccounts, activeTargetGroups, activeBranches]);
 
   const preferredRecipientGroup = defaultRecipientTypeId
     ? (activeTargetGroups.find(tg => tg.id === defaultRecipientTypeId) ?? activeTargetGroups.find(tg => tg.id === 'NHACUNGCAP') ?? activeTargetGroups[0])
@@ -163,7 +163,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   });
 
   // Reset form when hooks finish loading and default values change
-  const defaultValuesForReset = React.useMemo(() => {
+  const defaultValuesForReset = useMemo(() => {
     if (initialData || isHooksLoading) return null;
     return {
       id: asBusinessId(''),
@@ -189,7 +189,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }, [initialData, isHooksLoading, defaultAmountValue, defaultRecipientGroup, defaultRecipientGroupName, defaultRecipientName, defaultRecipientSystemId, defaultPaymentMethodSystemId, defaultPaymentMethodName, defaultAccountSystemId, defaultPaymentTypeSystemId, defaultPaymentTypeName, defaultBranchSystemId, defaultBranchName]);
 
   const resetKey = JSON.stringify(defaultValuesForReset);
-  React.useEffect(() => {
+  useEffect(() => {
     if (defaultValuesForReset) {
       form.reset(defaultValuesForReset);
     }
@@ -203,21 +203,21 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   const paymentReceiptTypeSystemId = form.watch('paymentReceiptTypeSystemId');
   
   // State for order payment timing (only shown for "Thanh toán cho đơn nhập hàng")
-  const [orderPaymentTiming, setOrderPaymentTiming] = React.useState<'order_first' | 'payment_first'>('order_first');
+  const [orderPaymentTiming, setOrderPaymentTiming] = useState<'order_first' | 'payment_first'>('order_first');
 
   // Lấy payment method và target group để filter
-  const selectedPaymentMethod = React.useMemo(
+  const selectedPaymentMethod = useMemo(
     () => paymentMethods.find(pm => pm.systemId === paymentMethodSystemId),
     [paymentMethods, paymentMethodSystemId]
   );
 
-  const selectedTargetGroup = React.useMemo(
+  const selectedTargetGroup = useMemo(
     () => targetGroups.find(tg => tg.systemId === recipientTypeSystemId),
     [targetGroups, recipientTypeSystemId]
   );
 
   // Check if selected payment type is "Thanh toán cho đơn nhập hàng"
-  const selectedPaymentType = React.useMemo(
+  const selectedPaymentType = useMemo(
     () => paymentTypes.find(pt => pt.systemId === paymentReceiptTypeSystemId),
     [paymentTypes, paymentReceiptTypeSystemId]
   );
@@ -230,12 +230,12 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   const { data: unpaidPOs = [] } = useUnpaidPurchaseOrders(shouldFetchPOs ? (recipientSystemId as string) : undefined);
 
   // Purchase order allocation state
-  const [poAllocations, setPOAllocations] = React.useState<Record<string, number>>({});
+  const [poAllocations, setPOAllocations] = useState<Record<string, number>>({});
 
   // Auto-allocate when amount or unpaid POs change
   const formAmount = form.watch('amount');
   const unpaidPOsKey = unpaidPOs.map(po => `${po.systemId}:${po.remainingAmount}`).join(',');
-  React.useEffect(() => {
+  useEffect(() => {
     if (!shouldFetchPOs || unpaidPOs.length === 0 || !formAmount) {
       setPOAllocations(prev => Object.keys(prev).length === 0 ? prev : {});
       return;
@@ -259,7 +259,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }, [formAmount, unpaidPOsKey, orderPaymentTiming, shouldFetchPOs]);
 
   // Filter accounts theo payment method: ưu tiên accountType, fallback theo tên
-  const filteredAccounts = React.useMemo(() => {
+  const filteredAccounts = useMemo(() => {
     if (!selectedPaymentMethod) return activeAccounts;
     const methodSystemId = String(selectedPaymentMethod.systemId);
     // Ưu tiên: lọc theo accountType (liên kết trực tiếp với payment method)
@@ -278,7 +278,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }, [activeAccounts, selectedPaymentMethod]);
 
   // ✅ Auto-select default account when payment method changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!selectedPaymentMethod || isEditing) return;
     
     const currentAccountId = form.getValues('accountSystemId');
@@ -294,7 +294,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }, [selectedPaymentMethod, filteredAccounts, form, isEditing]);
 
   // Convert payment types to ComboboxOption format
-  const paymentTypeOptions = React.useMemo((): ComboboxOption[] => {
+  const paymentTypeOptions = useMemo((): ComboboxOption[] => {
     return activePaymentTypes.map(pt => ({
       value: pt.systemId,
       label: pt.name,
@@ -302,7 +302,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }, [activePaymentTypes]);
 
   // Prepare payment method options
-  const paymentMethodOptions = React.useMemo((): ComboboxOption[] => {
+  const paymentMethodOptions = useMemo((): ComboboxOption[] => {
     return activePaymentMethods.map(pm => ({
       value: pm.systemId,
       label: pm.name,
@@ -310,7 +310,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
   }, [activePaymentMethods]);
 
   // Prepare target group options (Nhóm đối tượng)
-  const targetGroupOptions = React.useMemo((): ComboboxOption[] => {
+  const targetGroupOptions = useMemo((): ComboboxOption[] => {
     return activeTargetGroups.map(tg => ({
       value: tg.systemId,
       label: tg.name,
@@ -369,12 +369,12 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
     });
   };
 
-  const handleInvalid = (errors: Record<string, unknown>) => {
+  const handleInvalid = (_errors: Record<string, unknown>) => {
     // Validation errors are handled by FormMessage components
   };
 
   // Native form submit handler
-  const handleNativeSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleNativeSubmit = (_e: FormEvent<HTMLFormElement>) => {
     // This is called before handleSubmit
   };
 
@@ -600,7 +600,7 @@ export const PaymentForm = React.forwardRef<HTMLFormElement, PaymentFormProps>(
           {/* 6. Thanh toán theo (conditional) */}
           {showOrderPaymentTiming && (
             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none">Thanh toán theo</label>
+              <label htmlFor="order-payment-timing" className="text-sm font-medium leading-none">Thanh toán theo</label>
               <Select value={orderPaymentTiming} onValueChange={(v) => setOrderPaymentTiming(v as 'order_first' | 'payment_first')} disabled={isEditing}>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn phương thức" />

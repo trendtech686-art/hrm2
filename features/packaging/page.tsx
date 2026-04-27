@@ -15,6 +15,7 @@ import { usePackagingSlips } from './hooks/use-packaging';
 import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
+import { useDebounce } from '@/hooks/use-debounce';
 import { fetchPrintData } from '@/lib/lazy-print-data';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
@@ -71,7 +72,7 @@ export function PackagingPage() {
     
     // State declarations - must be before usage
     const [globalFilter, setGlobalFilter] = React.useState('');
-    const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
+    const debouncedGlobalFilter = useDebounce(globalFilter, 300);
     // Server-side filters
     const [branchFilter, setBranchFilter] = React.useState<string | null>(null);
     const [statusFilter, setStatusFilter] = React.useState<string | null>(null);
@@ -142,8 +143,6 @@ export function PackagingPage() {
     }, []);
 
     usePageHeader({ title: 'Phiếu đóng gói', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Đóng gói', href: '/packaging', isCurrent: true }], showBackButton: false });
-
-    React.useEffect(() => { const timer = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(timer); }, [globalFilter]);
 
 
     const handleConfirm = React.useCallback(async (orderSystemId: string, packagingSystemId: string) => { await confirmPackaging(orderSystemId, packagingSystemId, currentUserSystemId); }, [confirmPackaging, currentUserSystemId]);

@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useCallback, Fragment } from 'react';
 import Link from 'next/link';
 import { Printer, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
@@ -32,8 +32,8 @@ interface ReturnHistoryTabProps {
 }
 
 export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLabel, onPreview }: ReturnHistoryTabProps) {
-    const [expandedReturnId, setExpandedReturnId] = React.useState<string | null>(null);
-    const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
+    const [expandedReturnId, setExpandedReturnId] = useState<string | null>(null);
+    const [expandedCombos, setExpandedCombos] = useState<Record<string, boolean>>({});
     const { findById: findOrderById } = useOrderFinder();
     const { findById: findProductById } = useProductFinder();
     const { findById: findBranchById } = useBranchFinder();
@@ -43,11 +43,11 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
     const { findById: findPaymentById } = usePaymentFinder();
     const { findById: findReceiptById } = useReceiptFinder();
 
-    const toggleComboRow = React.useCallback((key: string) => {
+    const toggleComboRow = useCallback((key: string) => {
         setExpandedCombos(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
-    const handlePrintReturn = React.useCallback(async (e: React.MouseEvent, salesReturn: SalesReturn) => {
+    const handlePrintReturn = useCallback(async (e: React.MouseEvent, salesReturn: SalesReturn) => {
         e.stopPropagation();
         if (!salesReturn) return;
 
@@ -172,10 +172,10 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                             const exchangeOrder = returnSlip.exchangeOrderSystemId ? findOrderById(returnSlip.exchangeOrderSystemId) : null;
 
                             return (
-                                <React.Fragment key={returnSlip.systemId}>
+                                <Fragment key={returnSlip.systemId}>
                                     <TableRow onClick={() => setExpandedReturnId(isExpanded ? null : returnSlip.systemId)} className="cursor-pointer hover:bg-muted/50">
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" className="h-11 w-11">
+                                            <Button variant="ghost" size="icon" className="h-11 w-11" aria-label={isExpanded ? "Thu gọn" : "Mở rộng"}>
                                                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                             </Button>
                                         </TableCell>
@@ -258,7 +258,6 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 const paymentIds = returnSlip.paymentVoucherSystemIds || (returnSlip.paymentVoucherSystemId ? [returnSlip.paymentVoucherSystemId] : []);
                                                 const receiptIds = returnSlip.receiptVoucherSystemIds || [];
                                                 const refundAmount = Number(returnSlip.refundAmount) || 0;
-                                                const finalAmount = Number(returnSlip.finalAmount) || 0;
                                                 
                                                 // ✅ Use paymentVoucherIds/receiptVoucherIds (business IDs) if available
                                                 // Otherwise fallback to finder lookup
@@ -354,7 +353,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                         const comboChildren = isCombo && product?.comboItems ? product.comboItems : [];
                                                                         
                                                                         return (
-                                                                            <React.Fragment key={`${returnSlip.systemId}-${item.productSystemId}-${index}`}>
+                                                                            <Fragment key={`${returnSlip.systemId}-${item.productSystemId}-${index}`}>
                                                                                 <TableRow>
                                                                                     <TableCell className="text-center text-muted-foreground">
                                                                                         <div className="flex items-center justify-center gap-1">
@@ -462,7 +461,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                         </TableRow>
                                                                                     );
                                                                                 })}
-                                                                            </React.Fragment>
+                                                                            </Fragment>
                                                                         );
                                                                     })}
                                                                 </TableBody>
@@ -502,7 +501,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                             const comboChildren = isCombo && product?.comboItems ? product.comboItems : [];
                                                                             
                                                                             return (
-                                                                                <React.Fragment key={item.productSystemId}>
+                                                                                <Fragment key={item.productSystemId}>
                                                                                     <TableRow>
                                                                                         <TableCell className="text-center text-muted-foreground">
                                                                                             <div className="flex items-center justify-center gap-1">
@@ -610,7 +609,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                             </TableRow>
                                                                                         );
                                                                                     })}
-                                                                                </React.Fragment>
+                                                                                </Fragment>
                                                                             );
                                                                         })}
                                                                     </TableBody>
@@ -628,7 +627,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                             </TableCell>
                                         </TableRow>
                                     )}
-                                </React.Fragment>
+                                </Fragment>
                             )
                         })}
                     </TableBody>

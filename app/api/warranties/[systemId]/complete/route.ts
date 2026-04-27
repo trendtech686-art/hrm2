@@ -71,7 +71,22 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
 
       const now = new Date()
-      
+
+      // Fetch warranty with replacement product info
+      const warrantyWithReplacement = await tx.warranty.findUnique({
+        where: { systemId },
+        include: {
+          product: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              imageUrl: true,
+            },
+          },
+        },
+      })
+
       // Update warranty status
       const updatedWarranty = await tx.warranty.update({
         where: { systemId },
@@ -79,7 +94,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           status: 'COMPLETED',
           completedAt: now,
           totalCost: body.actualCost ?? warranty.totalCost,
-          notes: body.completionNotes 
+          notes: body.completionNotes
             ? (warranty.notes ? `${warranty.notes}\n\nCompletion: ${body.completionNotes}` : body.completionNotes)
             : warranty.notes,
           assigneeId: body.technicianId ?? warranty.assigneeId,
@@ -100,29 +115,58 @@ export async function POST(request: Request, { params }: RouteParams) {
         },
       })
 
-      // TODO: Stock management logic would go here
-      // Since the current Prisma schema doesn't have ProductWarehouse model,
-      // this would need to be added when the schema is updated
-      // 
-      // Example pseudo-code:
-      // if (warranty has replacement products) {
-      //   await tx.productWarehouse.update({
-      //     where: { productSystemId_warehouseId: {...} },
-      //     data: {
-      //       onHand: { decrement: quantity },
-      //       committedQuantity: { decrement: quantity }
-      //     }
-      //   })
-      //
-      //   await tx.inventoryTransaction.create({
-      //     data: {
-      //       type: 'WARRANTY_REPLACEMENT',
-      //       productSystemId: warranty.productId,
-      //       quantity: -quantity,
-      //       ...
-      //     }
-      //   })
-      // }
+      // ============================================================
+      // STOCK DEDUCTION: Deduct replacement product from inventory
+      // When warranty is completed with replacement, finalize the stock:
+      // 1. Decrement onHand for the replacement product (deduct from available)
+      // 2. Decrement committedQuantity (remove from reserved)
+      // ============================================================
+      if (warrantyWithReplacement?.replacementProductSystemId && warrantyWithReplacement?.replacementQuantity) {
+        const replacementProductId = warrantyWithReplacement.replacementProductSystemId;
+        const replacementQty = warrantyWithReplacement.replacementQuantity;
+        const branchSystemId = warranty.branchSystemId || '';
+
+        if (branchSystemId && replacementQty > 0) {
+          // Get replacement product with current inventory
+          const replacementProduct = await tx.product.findUnique({
+            where: { systemId: replacementProductId },
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              inventoryByBranch: true,
+              totalInventory: true,
+              totalCommitted: true,
+              totalAvailable: true,
+            },
+          });
+
+          if (replacementProduct) {
+            const branchInventory = (replacementProduct.inventoryByBranch as Record<string, number>) || {};
+            const currentOnHand = branchInventory[branchSystemId] || 0;
+
+            // Deduct from inventory
+            const newOnHand = Math.max(0, currentOnHand - replacementQty);
+            const newTotalInventory = (replacementProduct.totalInventory ?? 0) - replacementQty;
+            const newTotalCommitted = Math.max(0, (replacementProduct.totalCommitted ?? 0) - replacementQty);
+            const newTotalAvailable = newTotalInventory - newTotalCommitted;
+
+            // Update product inventory
+            await tx.product.update({
+              where: { systemId: replacementProductId },
+              data: {
+                inventoryByBranch: {
+                  ...branchInventory,
+                  [branchSystemId]: newOnHand,
+                },
+                totalInventory: newTotalInventory,
+                totalCommitted: newTotalCommitted,
+                totalAvailable: newTotalAvailable,
+              },
+            });
+          }
+        }
+      }
 
       return updatedWarranty
     })

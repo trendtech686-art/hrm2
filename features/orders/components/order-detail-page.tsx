@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
@@ -126,7 +126,7 @@ export function OrderDetailPage() {
     const { employee: authEmployee, can, isAdmin, isAdminOrManager } = useAuth();
     const { isMobile } = useBreakpoint();
     
-    const order = React.useMemo(() => {
+    const order = useMemo(() => {
         // ✅ Use React Query data directly
         if (params.systemId && orderFromQuery) {
             return orderFromQuery;
@@ -135,7 +135,7 @@ export function OrderDetailPage() {
     }, [orderFromQuery, params.systemId]);
     
     // Map React Query actions to legacy action names for compatibility
-    const cancelOrder = React.useCallback(
+    const cancelOrder = useCallback(
         (systemId: string, _employeeIdOrReason: string, cancelOptionsOrRestock?: { reason: string; restock: boolean } | boolean) => {
             // Handle both old signature (systemId, employeeId, cancelOptions) and new (systemId, reason, restock)
             const reason = typeof cancelOptionsOrRestock === 'object' ? cancelOptionsOrRestock.reason : (_employeeIdOrReason || 'Hủy đơn');
@@ -145,19 +145,19 @@ export function OrderDetailPage() {
         [orderActions.cancel]
     );
     
-    const addPaymentAsync = React.useCallback(
+    const addPaymentAsync = useCallback(
         (systemId: string, data: { amount: number; method: string }) =>
             orderActions.addPayment.mutateAsync({ systemId, amount: data.amount, paymentMethodId: data.method }),
         [orderActions.addPayment]
     );
     
-    const requestPackaging = React.useCallback(
+    const requestPackaging = useCallback(
         (systemId: string, _employeeId?: string, assignedEmployeeId?: string) =>
             orderActions.requestPackaging.mutate({ systemId, assignedEmployeeId: assignedEmployeeId || _employeeId }),
         [orderActions.requestPackaging]
     );
     
-    const confirmPackaging = React.useCallback(
+    const confirmPackaging = useCallback(
         (systemId: string, packagingId: string) =>
             orderActions.confirmPacking.mutate({ 
                 systemId, 
@@ -168,25 +168,25 @@ export function OrderDetailPage() {
         [orderActions.confirmPacking, authEmployee?.systemId, authEmployee?.fullName]
     );
     
-    const cancelPackagingRequest = React.useCallback(
+    const cancelPackagingRequest = useCallback(
         (systemId: string, packagingId: string, _employeeId: string, reason: string) =>
             orderActions.cancelPacking.mutate({ systemId, packagingId, reason }),
         [orderActions.cancelPacking]
     );
     
-    const processInStorePickup = React.useCallback(
+    const processInStorePickup = useCallback(
         (systemId: string, packagingId: string) =>
             orderActions.selectInStorePickup.mutate({ systemId, packagingId }),
         [orderActions.selectInStorePickup]
     );
     
-    const confirmInStorePickup = React.useCallback(
+    const confirmInStorePickup = useCallback(
         (systemId: string, packagingId: string, _employeeId?: string) =>
             orderActions.confirmPickup.mutate({ systemId, packagingId }),
         [orderActions.confirmPickup]
     );
     
-    const _confirmPartnerShipment = React.useCallback(
+    const _confirmPartnerShipment = useCallback(
         async (systemId: string, packagingId?: string) => {
             try {
                 await orderActions.requestShipment.mutateAsync({ systemId, provider: 'default', serviceType: 'standard', packagingId });
@@ -199,37 +199,37 @@ export function OrderDetailPage() {
         [orderActions.requestShipment]
     );
     
-    const dispatchFromWarehouse = React.useCallback(
+    const dispatchFromWarehouse = useCallback(
         (systemId: string, packagingId: string, _employeeId?: string) =>
             orderActions.dispatch.mutate({ systemId, packagingId }),
         [orderActions.dispatch]
     );
     
-    const completeDelivery = React.useCallback(
+    const completeDelivery = useCallback(
         (systemId: string, packagingId: string, _employeeId?: string) =>
             orderActions.complete.mutate({ systemId, packagingId }),
         [orderActions.complete]
     );
     
-    const failDelivery = React.useCallback(
+    const failDelivery = useCallback(
         (systemId: string, packagingId: string, reason: string) =>
             orderActions.fail.mutate({ systemId, packagingId, reason }),
         [orderActions.fail]
     );
     
-    const cancelDelivery = React.useCallback(
+    const cancelDelivery = useCallback(
         (systemId: string, packagingId: string, reason: string, restockItems: boolean) =>
             orderActions.cancelDelivery.mutate({ systemId, packagingId, reason, restockItems }),
         [orderActions.cancelDelivery]
     );
     
-    const cancelDeliveryOnly = React.useCallback(
+    const cancelDeliveryOnly = useCallback(
         (systemId: string, packagingId: string, reason: string) =>
             orderActions.cancelDelivery.mutate({ systemId, packagingId, reason, restockItems: false }),
         [orderActions.cancelDelivery]
     );
     
-    const cancelGHTKShipment = React.useCallback(
+    const cancelGHTKShipment = useCallback(
         (systemId: string, packagingId: string, trackingCode: string) =>
             orderActions.cancelGhtk.mutateAsync({ systemId, packagingId, trackingCode }),
         [orderActions.cancelGhtk]
@@ -256,21 +256,21 @@ export function OrderDetailPage() {
     const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
     // Check if current user can view financial info (cost, profit)
     const canViewFinancials = isAdminOrManager;
-    const [isCopying, setIsCopying] = React.useState(false);
+    const [isCopying, setIsCopying] = useState(false);
 
     // State for image preview in ReturnHistoryTab
-    const [returnHistoryPreviewState, setReturnHistoryPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+    const [returnHistoryPreviewState, setReturnHistoryPreviewState] = useState<{ open: boolean; image: string; title: string }>({
         open: false,
         image: '',
         title: ''
     });
-    const handlePreview = React.useCallback((image: string, title: string) => {
+    const handlePreview = useCallback((image: string, title: string) => {
         setReturnHistoryPreviewState({ open: true, image, title });
     }, []);
 
     // ✅ PERFORMANCE: All customer stats come from server-side API (single call)
     // Replaces: useCustomerOrders + useCustomerReceipts + useCustomerPayments (3 fetchAllPages)
-    const customerOrderStats = React.useMemo(() => {
+    const customerOrderStats = useMemo(() => {
         if (!customer) {
             return {
                 totalSpent: order?.grandTotal || 0,
@@ -288,7 +288,7 @@ export function OrderDetailPage() {
     }, [customer, customerStats, isStatsLoaded, order]);
 
     // ✅ PERFORMANCE: Debt calculated server-side in stats API
-    const customerDebtBalance = React.useMemo(() => {
+    const customerDebtBalance = useMemo(() => {
         if (!customer) return 0;
         // Stats API calculates debt from all transactions (accurate)
         // Fallback to DB currentDebt while loading
@@ -302,7 +302,7 @@ export function OrderDetailPage() {
     const activeComplaintCount = customerStats.complaints.active;
 
     // SLA removed - use comments instead
-    const slaDisplay = React.useMemo(() => {
+    const slaDisplay = useMemo(() => {
         return {
             title: 'Bình thường',
             detail: 'Xem bình luận để theo dõi',
@@ -311,14 +311,14 @@ export function OrderDetailPage() {
     }, []);
 
     // ✅ PERFORMANCE: Order breakdown from stats API (server-side counts)
-    const orderBreakdown = React.useMemo(() => ({
+    const orderBreakdown = useMemo(() => ({
         pending: customerStats.orders.pending,
         inProgress: customerStats.orders.inProgress,
         completed: customerStats.orders.completed,
         cancelled: customerStats.orders.cancelled,
     }), [customerStats.orders]);
 
-    const customerMetrics = React.useMemo((): Array<{
+    const customerMetrics = useMemo((): Array<{
         key: string;
         label: string;
         value: string;
@@ -369,7 +369,7 @@ export function OrderDetailPage() {
         ];
     }, [customerOrderStats.totalOrders, customerOrderStats.lastOrderDate, customer, orderBreakdown, customerWarrantyCount, customerComplaintCount, activeWarrantyCount, activeComplaintCount, slaDisplay]);
 
-    const handleCopyOrder = React.useCallback(() => {
+    const handleCopyOrder = useCallback(() => {
         if (!order || isCopying) {
             return;
         }
@@ -391,15 +391,15 @@ export function OrderDetailPage() {
     
     // ✅ PERFORMANCE: Sales channel name now comes from order API (_salesChannelName)
 
-    const [isCancelAlertOpen, setIsCancelAlertOpen] = React.useState(false);
-    const [cancelReasonText, setCancelReasonText] = React.useState('');
-    const [restockItems, setRestockItems] = React.useState(true);
-    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
-    const [createShipmentState, setCreateShipmentState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
-    const [isPackerSelectionOpen, setIsPackerSelectionOpen] = React.useState(false);
-    const [cancelPackagingState, setCancelPackagingState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
-    const [cancelShipmentState, setCancelShipmentState] = React.useState<{ packagingSystemId: SystemId; type: 'fail' | 'cancel' } | null>(null);
-    const [hasOrderWorkflowTemplate, setHasOrderWorkflowTemplate] = React.useState(true);
+    const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
+    const [cancelReasonText, setCancelReasonText] = useState('');
+    const [restockItems, setRestockItems] = useState(true);
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+    const [createShipmentState, setCreateShipmentState] = useState<{ packagingSystemId: SystemId } | null>(null);
+    const [isPackerSelectionOpen, setIsPackerSelectionOpen] = useState(false);
+    const [cancelPackagingState, setCancelPackagingState] = useState<{ packagingSystemId: SystemId } | null>(null);
+    const [cancelShipmentState, setCancelShipmentState] = useState<{ packagingSystemId: SystemId; type: 'fail' | 'cancel' } | null>(null);
+    const [hasOrderWorkflowTemplate, setHasOrderWorkflowTemplate] = useState(true);
 
     // Comments from database
     const { 
@@ -409,7 +409,7 @@ export function OrderDetailPage() {
         deleteComment: dbDeleteComment 
     } = useComments('order', order?.systemId || '');
 
-    const orderComments = React.useMemo(() => 
+    const orderComments = useMemo(() => 
         dbComments.map(c => ({
             id: c.systemId,
             content: c.content,
@@ -425,7 +425,7 @@ export function OrderDetailPage() {
         [dbComments]
     );
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (typeof window === 'undefined') return;
         try {
             const templates = getWorkflowTemplates('orders');
@@ -436,32 +436,32 @@ export function OrderDetailPage() {
         }
     }, []);
 
-    const resetCancelForm = React.useCallback(() => {
+    const resetCancelForm = useCallback(() => {
         setCancelReasonText('');
         setRestockItems(true);
     }, []);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!isCancelAlertOpen) {
             resetCancelForm();
         }
     }, [isCancelAlertOpen, resetCancelForm]);
 
-    const handleAddOrderComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    const handleAddOrderComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
         if (!order) return;
         const trimmed = content.trim();
         if (!trimmed) return;
         dbAddComment(trimmed, attachments || []);
     }, [order, dbAddComment]);
 
-    const handleUpdateOrderComment = React.useCallback((_commentId: string, _content: string) => {
+    const handleUpdateOrderComment = useCallback((_commentId: string, _content: string) => {
     }, []);
 
-    const handleDeleteOrderComment = React.useCallback((commentId: string) => {
+    const handleDeleteOrderComment = useCallback((commentId: string) => {
         dbDeleteComment(commentId);
     }, [dbDeleteComment]);
 
-    const commentCurrentUser = React.useMemo(() => {
+    const commentCurrentUser = useMemo(() => {
         if (!authEmployee) return undefined;
         return {
             systemId: currentEmployeeSystemId,
@@ -471,7 +471,7 @@ export function OrderDetailPage() {
     }, [authEmployee, currentEmployeeSystemId]);
 
     // ✅ PERFORMANCE: Lazy-load employee mentions on @ trigger (max 10 results)
-    const fetchMentions = React.useCallback(async (query: string) => {
+    const fetchMentions = useCallback(async (query: string) => {
         const res = await fetch(`/api/employees?select=mentions&search=${encodeURIComponent(query)}`);
         if (!res.ok) return [];
         return res.json();
@@ -480,12 +480,12 @@ export function OrderDetailPage() {
     // ✅ PERFORMANCE: orderSalesReturns is already filtered by order from hook
     const salesReturnsForOrder = orderSalesReturns;
     
-    const totalReturnedValue = React.useMemo(() => 
+    const totalReturnedValue = useMemo(() => 
         salesReturnsForOrder.reduce((sum, sr) => sum + sr.totalReturnValue, 0),
     [salesReturnsForOrder]);
 
     // Tính tổng số tiền đã hoàn cho khách từ các phiếu trả hàng
-    const totalRefundedFromReturns = React.useMemo(() => 
+    const totalRefundedFromReturns = useMemo(() => 
         salesReturnsForOrder.reduce((sum, sr) => {
             const refundFromArray = (sr.refunds || []).reduce((s, r) => s + (r.amount || 0), 0);
             return sum + (refundFromArray || sr.refundAmount || 0);
@@ -496,24 +496,24 @@ export function OrderDetailPage() {
     // ✅ IMPORTANT: Exclude Payment vouchers already represented as OrderPayment records
     // When warranty order_deduction is processed, both an OrderPayment and Payment voucher
     // are created with the same business ID — avoid showing both.
-    const orderPaymentIds = React.useMemo(() => {
+    const orderPaymentIds = useMemo(() => {
         if (!order?.payments) return new Set<string>();
         return new Set(order.payments.map(p => p.id));
     }, [order?.payments]);
 
-    const refundPaymentsForOrder = React.useMemo(() => {
+    const refundPaymentsForOrder = useMemo(() => {
         return orderPayments.filter(p => p.status !== 'cancelled' && !orderPaymentIds.has(p.id));
     }, [orderPayments, orderPaymentIds]);
 
     // ✅ Lấy các phiếu chi từ sales return (cho đơn đổi hàng)
     // ✅ PERFORMANCE: paymentsFromLinkedSalesReturn now comes directly from useSalesReturnPayments hook
     // No need for client-side filtering from allPayments
-    const paymentsFromLinkedSalesReturnFiltered = React.useMemo(() => {
+    const paymentsFromLinkedSalesReturnFiltered = useMemo(() => {
         return paymentsFromLinkedSalesReturn.filter(p => p.status !== 'cancelled');
     }, [paymentsFromLinkedSalesReturn]);
 
     // ✅ IMPORTANT: Loại trừ các receipts đã được liên kết với OrderPayment để tránh tính 2 lần
-    const linkedReceiptSystemIds = React.useMemo(() => {
+    const linkedReceiptSystemIds = useMemo(() => {
         if (!order?.payments) return new Set<string>();
         return new Set(
             order.payments
@@ -523,12 +523,12 @@ export function OrderDetailPage() {
     }, [order?.payments]);
 
     // ✅ FIX: Also exclude receipts already linked via OrderPayment to avoid duplicate display
-    const receiptsFromLinkedSalesReturnFiltered = React.useMemo(() => {
+    const receiptsFromLinkedSalesReturnFiltered = useMemo(() => {
         return receiptsFromLinkedSalesReturn.filter(r => r.status !== 'cancelled' && !linkedReceiptSystemIds.has(r.systemId));
     }, [receiptsFromLinkedSalesReturn, linkedReceiptSystemIds]);
 
     // ✅ Tạo Set để loại trừ receipts đã hiển thị trong receiptsFromLinkedSalesReturn
-    const receiptsFromLinkedSalesReturnIds = React.useMemo(() => {
+    const receiptsFromLinkedSalesReturnIds = useMemo(() => {
         return new Set(receiptsFromLinkedSalesReturnFiltered.map(r => r.systemId));
     }, [receiptsFromLinkedSalesReturnFiltered]);
 
@@ -537,7 +537,7 @@ export function OrderDetailPage() {
     // KHÔNG lấy phiếu thu từ salesReturns vì chúng có thể thuộc về đơn đổi hàng (exchangeOrder)
 
     // ✅ PERFORMANCE: receiptsFromReturns now uses orderReceipts from useOrderReceipts hook
-    const receiptsFromReturns = React.useMemo(() => {
+    const receiptsFromReturns = useMemo(() => {
         if (!order) return [];
         return orderReceipts.filter(r => 
             r.status !== 'cancelled' &&
@@ -550,13 +550,13 @@ export function OrderDetailPage() {
 
     // ✅ Tổng tiền đã thu từ phiếu thu (đổi hàng)
     // ✅ Bao gồm cả receiptsFromReturns VÀ receiptsFromLinkedSalesReturn
-    const totalPaidFromReceipts = React.useMemo(() => {
+    const totalPaidFromReceipts = useMemo(() => {
         const fromReturns = receiptsFromReturns.reduce((sum, r) => sum + (r.amount || 0), 0);
         const fromLinkedSalesReturn = receiptsFromLinkedSalesReturnFiltered.reduce((sum, r) => sum + (r.amount || 0), 0);
         return fromReturns + fromLinkedSalesReturn;
     }, [receiptsFromReturns, receiptsFromLinkedSalesReturnFiltered]);
 
-    const totalPaid = React.useMemo(() => (order?.payments || []).reduce((sum, p) => sum + p.amount, 0), [order?.payments]);
+    const totalPaid = useMemo(() => (order?.payments || []).reduce((sum, p) => sum + p.amount, 0), [order?.payments]);
     // totalPaid: số tiền khách đã thanh toán
     // totalRefundedFromReturns: số tiền đã hoàn lại cho khách (từ sales returns)
     // netGrandTotal: công nợ thực tế sau khi trừ hàng trả
@@ -568,15 +568,15 @@ export function OrderDetailPage() {
     // ✅ Trừ cả phiếu thu từ đổi hàng (receiptsFromReturns)
     const amountRemaining = netGrandTotal - totalPaid - totalPaidFromReceipts + totalRefundedFromReturns;
 
-    const totalLineQuantity = React.useMemo(() => {
+    const totalLineQuantity = useMemo(() => {
         if (!order) return 0;
         return order.lineItems.reduce((sum, item) => sum + item.quantity, 0);
     }, [order]);
 
-    const codPayments = React.useMemo(() => (order?.payments || []).filter(p => p.method === 'Đối soát COD'), [order?.payments]);
-    const directPayments = React.useMemo(() => (order?.payments || []).filter(p => p.method !== 'Đối soát COD'), [order?.payments]);
+    const codPayments = useMemo(() => (order?.payments || []).filter(p => p.method === 'Đối soát COD'), [order?.payments]);
+    const directPayments = useMemo(() => (order?.payments || []).filter(p => p.method !== 'Đối soát COD'), [order?.payments]);
 
-    const totalActiveCod = React.useMemo(() => {
+    const totalActiveCod = useMemo(() => {
         if (!order?.packagings) return 0;
     
         return order.packagings.reduce((sum, pkg) => {
@@ -592,13 +592,13 @@ export function OrderDetailPage() {
     const payableAmount = Math.max(0, amountRemaining);
 
     // Helper: find product data from order lineItems (already embedded from API)
-    const findProductInOrder = React.useCallback((productSystemId: string) => {
+    const findProductInOrder = useCallback((productSystemId: string) => {
         if (!order) return undefined;
         const lineItem = order.lineItems.find(item => item.productSystemId === productSystemId);
         return lineItem?.product;
     }, [order]);
 
-    const getProductTypeLabel = React.useCallback((productSystemId: string) => {
+    const getProductTypeLabel = useCallback((productSystemId: string) => {
         const product = findProductInOrder(productSystemId);
         if (!product) return '---';
 
@@ -616,7 +616,7 @@ export function OrderDetailPage() {
         return 'Hàng hóa';
     }, [findProductInOrder, findProductTypeById]);
     
-    const { costOfGoods, profit, totalDiscount } = React.useMemo(() => {
+    const { costOfGoods, profit, totalDiscount } = useMemo(() => {
         if (!order) return { costOfGoods: 0, profit: 0, totalDiscount: 0 };
         const cost = order.lineItems.reduce((sum, item) => {
             const product = findProductInOrder(item.productSystemId);
@@ -649,14 +649,14 @@ export function OrderDetailPage() {
     
     const isActionable = !isCancelledStatus && (!isCompletedStatus || !hasActuallyCompleted);
 
-    const activePackaging = React.useMemo(() => {
+    const activePackaging = useMemo(() => {
         if (!order || !order.packagings || order.packagings.length === 0) {
             return null;
         }
         return [...order.packagings].reverse().find(p => p.status !== 'Hủy đóng gói') || null;
     }, [order]);
 
-    const existingPackerSystemId = React.useMemo<SystemId | undefined>(() => {
+    const existingPackerSystemId = useMemo<SystemId | undefined>(() => {
         if (!order) {
             return undefined;
         }
@@ -775,14 +775,14 @@ export function OrderDetailPage() {
             logError('[handleAddPayment] No order found', null);
         }
     };
-    const handleRequestPackaging = React.useCallback((assignedEmployeeId?: SystemId) => {
+    const handleRequestPackaging = useCallback((assignedEmployeeId?: SystemId) => {
         if (order) {
             requestPackaging(order.systemId, assignedEmployeeId);
         }
     }, [order, requestPackaging]);
-    const handleConfirmPackaging = React.useCallback((packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId); } }, [order, confirmPackaging]);
+    const handleConfirmPackaging = useCallback((packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId); } }, [order, confirmPackaging]);
     const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, '', reason); setCancelPackagingState(null); }};
-    const handleInStorePickup = React.useCallback((packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } }, [order, processInStorePickup]);
+    const handleInStorePickup = useCallback((packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } }, [order, processInStorePickup]);
     const handleShippingSubmit = async (data: Partial<OrderFormValues>, packagingSystemId?: string): Promise<{ success: boolean; message?: string } | undefined> => { 
         const pkgId = packagingSystemId || activePackaging?.systemId;
         if (!order || !pkgId) { 
@@ -882,7 +882,7 @@ export function OrderDetailPage() {
         }
     };
     
-    const handleDispatch = React.useCallback((packagingSystemId: SystemId) => { 
+    const handleDispatch = useCallback((packagingSystemId: SystemId) => { 
         if (order) { 
             const pkg = order.packagings.find(p => p.systemId === packagingSystemId);
             if (pkg?.deliveryMethod === 'Nhận tại cửa hàng') {
@@ -893,11 +893,11 @@ export function OrderDetailPage() {
         } 
     }, [order, confirmInStorePickup, dispatchFromWarehouse]);
 
-    const handleCompleteDelivery = React.useCallback((packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId); }}, [order, completeDelivery]);
+    const handleCompleteDelivery = useCallback((packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId); }}, [order, completeDelivery]);
     const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, reason); setCancelShipmentState(null); }};
     
     // ✅ Hủy giao hàng trực tiếp - Dùng khi CHƯA xuất kho (không cần dialog xác nhận)
-    const handleCancelDeliveryDirectly = React.useCallback(async (packagingSystemId: SystemId) => { 
+    const handleCancelDeliveryDirectly = useCallback(async (packagingSystemId: SystemId) => { 
         if (!order) return;
         
         const packaging = order.packagings.find(p => p.systemId === packagingSystemId);
@@ -980,7 +980,7 @@ export function OrderDetailPage() {
         }
     };
     
-    const handleCancelGHTKShipment = React.useCallback(async (packagingSystemId: SystemId, trackingCode: string) => {
+    const handleCancelGHTKShipment = useCallback(async (packagingSystemId: SystemId, trackingCode: string) => {
         if (!order) return;
         
         toast.info('Đang hủy vận đơn GHTK...', { description: 'Lưu ý: Chỉ có thể hủy khi đơn chưa được lấy hàng.' });
@@ -999,7 +999,7 @@ export function OrderDetailPage() {
     }, [order, cancelGHTKShipment]);
 
 
-    const handleRequestPackagingClick = React.useCallback(() => {
+    const handleRequestPackagingClick = useCallback(() => {
         if (existingPackerSystemId) {
             handleRequestPackaging(existingPackerSystemId);
             return;
@@ -1007,7 +1007,7 @@ export function OrderDetailPage() {
         setIsPackerSelectionOpen(true);
     }, [existingPackerSystemId, handleRequestPackaging, setIsPackerSelectionOpen]);
 
-    const headerActions = React.useMemo(() => {
+    const headerActions = useMemo(() => {
         if (!order) {
             return null;
         }
@@ -1045,7 +1045,7 @@ export function OrderDetailPage() {
         // Hủy giao hàng: chờ lấy hàng hoặc đang giao
         const canCancelDelivery = isPendingShip || isShipping;
 
-        const actions: React.ReactNode[] = [];
+        const actions: ReactNode[] = [];
 
         // Hủy đóng gói: khi đã đóng gói nhưng chưa chọn delivery method
         if (canSelectDelivery && activePackaging) {
@@ -1222,7 +1222,7 @@ export function OrderDetailPage() {
     }, [order, router, setIsCancelAlertOpen, activePackaging, handleDispatch, handleCompleteDelivery, handleCancelDeliveryDirectly, handleInStorePickup, setCreateShipmentState, setCancelShipmentState, setCancelPackagingState, isAdmin, can]);
 
     // Mobile: gom tất cả actions vào 1 dropdown overflow menu
-    const mobileHeaderActions = React.useMemo(() => {
+    const mobileHeaderActions = useMemo(() => {
         if (!order || !isMobile) return null;
 
         const deliveryStatusStr = String(activePackaging?.deliveryStatus || '');
@@ -1335,7 +1335,7 @@ export function OrderDetailPage() {
         return [
             <DropdownMenu key="mobile-overflow">
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="shrink-0">
+                    <Button variant="ghost" size="icon" className="shrink-0" aria-label="Tùy chọn">
                         <MoreHorizontal className="h-5 w-5" />
                     </Button>
                 </DropdownMenuTrigger>
@@ -1355,7 +1355,7 @@ export function OrderDetailPage() {
     }, [order, isMobile, activePackaging, handleDispatch, handleCompleteDelivery, handleCancelDeliveryDirectly, handleInStorePickup, setCreateShipmentState, setCancelShipmentState, setCancelPackagingState, isAdmin, can, router, setIsCancelAlertOpen, handleCopyOrder, handlePrintOrder, handleCancelGHTKShipment]);
 
     // Get Vietnamese label for status (handles both enum values like 'PROCESSING' and legacy Vietnamese values)
-    const _getStatusLabel = React.useCallback((status: string | undefined) => {
+    const _getStatusLabel = useCallback((status: string | undefined) => {
         if (!status) return undefined;
         // If it's an enum value (uppercase), convert to Vietnamese
         if (ORDER_STATUS_LABELS[status]) {
@@ -1365,7 +1365,7 @@ export function OrderDetailPage() {
         return status;
     }, []);
 
-    const displayStatus = React.useMemo(() => {
+    const displayStatus = useMemo(() => {
         if (!order) return undefined;
         
         // ✅ SAPO Standard: Main order status only has 5 values:
@@ -1418,12 +1418,12 @@ export function OrderDetailPage() {
 
     // In tem phụ cho tất cả sản phẩm trong đơn hàng (mỗi đơn vị 1 tem)
     // In tem phụ cho tất cả sản phẩm trong đơn hàng - dùng chung hook
-    const handlePrintProductLabels = React.useCallback(() => {
+    const handlePrintProductLabels = useCallback(() => {
         if (!order) return;
         sharedPrintProductLabels(order);
     }, [order, sharedPrintProductLabels]);
 
-    const headerBadge = React.useMemo(() => {
+    const headerBadge = useMemo(() => {
         if (!order || !displayStatus) {
             return undefined;
         }
@@ -1468,7 +1468,7 @@ export function OrderDetailPage() {
         );
     }, [order, displayStatus, handleCopyOrder, isCopying, handlePrintProductLabels, isMobile]);
 
-    const breadcrumb = React.useMemo(() => ([
+    const breadcrumb = useMemo(() => ([
         { label: 'Trang chủ', href: '/', isCurrent: false },
         { label: 'Đơn hàng', href: '/orders', isCurrent: false },
         { label: order?.id ? `Đơn ${order.id}` : 'Chi tiết', href: order ? `/orders/${order.systemId}` : '/orders', isCurrent: true },
@@ -1797,7 +1797,7 @@ export function OrderDetailPage() {
                             <DetailField label="Hẹn giao hàng" value={order.expectedDeliveryDate || '---'} />
                             <DetailField label="Nguồn" value={order._salesChannelName || order.source || '---'} />
                             <DetailField label="Kênh bán hàng" value="Khác" />
-                            <DetailField label="Ngày bán" value={formatDate(order.orderDate || order.createdAt) || formatDate(new Date())} />
+                            <DetailField label="Ngày bán" value={formatDate(order.orderDate || order.createdAt)} />
                             {order.expectedPaymentMethod && (
                                 <DetailField label="Hình thức thanh toán" value={order.expectedPaymentMethod} />
                             )}
@@ -1929,12 +1929,12 @@ export function OrderDetailPage() {
                                     <span className="text-muted-foreground">
                                         Phiếu chi từ phiếu trả hàng{' '}
                                         {paymentsFromLinkedSalesReturnFiltered.map((payment, idx) => (
-                                            <React.Fragment key={payment.systemId}>
+                                            <Fragment key={payment.systemId}>
                                                 {idx > 0 && ', '}
                                                 <Link href={`/payments/${payment.systemId}`} className="text-primary hover:underline">
                                                     {payment.id}
                                                 </Link>
-                                            </React.Fragment>
+                                            </Fragment>
                                         ))}:
                                     </span>
                                     <span className="font-medium text-red-600">-{formatCurrency(paymentsFromLinkedSalesReturnFiltered.reduce((sum, p) => sum + (p.amount || 0), 0))}</span>
@@ -2022,9 +2022,9 @@ export function OrderDetailPage() {
                         {directPayments.length > 0 && (
                             <div className="space-y-2 pt-2">
                                 {[...directPayments].reverse().map((payment, index) => (
-                                    <React.Fragment key={`direct-${payment.systemId}-${index}`}>
+                                    <Fragment key={`direct-${payment.systemId}-${index}`}>
                                         <PaymentInfo payment={payment} order={order} />
-                                    </React.Fragment>
+                                    </Fragment>
                                 ))}
                             </div>
                         )}
@@ -2038,9 +2038,9 @@ export function OrderDetailPage() {
                         ) : receiptsFromLinkedSalesReturnFiltered.length > 0 ? (
                             <div className="space-y-2 pt-2">
                                 {[...receiptsFromLinkedSalesReturnFiltered].reverse().map((receipt, index) => (
-                                    <React.Fragment key={`sr-receipt-${receipt.systemId}-${index}`}>
+                                    <Fragment key={`sr-receipt-${receipt.systemId}-${index}`}>
                                         <ReceiptInfo receipt={receipt} order={order} label="Phiếu trả hàng" linkedSalesReturnSystemId={order.linkedSalesReturnSystemId} />
-                                    </React.Fragment>
+                                    </Fragment>
                                 ))}
                             </div>
                         ) : null}
@@ -2048,9 +2048,9 @@ export function OrderDetailPage() {
                         {(totalActiveCod > 0 || codPayments.length > 0) && (
                             <div className="space-y-2 pt-2">
                                 {codPayments.length > 0 && [...codPayments].reverse().map((payment, index) => (
-                                    <React.Fragment key={`cod-${payment.systemId}-${index}`}>
+                                    <Fragment key={`cod-${payment.systemId}-${index}`}>
                                         <PaymentInfo payment={payment} order={order} />
-                                    </React.Fragment>
+                                    </Fragment>
                                 ))}
 
                                 {totalActiveCod > 0 && (
@@ -2251,7 +2251,7 @@ export function OrderDetailPage() {
                                 return new Date(b.requestDate || 0).getTime() - new Date(a.requestDate || 0).getTime();
                             })
                             .map(pkg => (
-                            <React.Fragment key={pkg.systemId}>
+                            <Fragment key={pkg.systemId}>
                                 <PackagingInfo
                                     order={order}
                                     packaging={pkg}
@@ -2274,7 +2274,7 @@ export function OrderDetailPage() {
                                     onInStorePickup={() => handleInStorePickup(pkg.systemId)}
                                     onCancelGHTKShipment={pkg.trackingCode ? () => handleCancelGHTKShipment(pkg.systemId, pkg.trackingCode!) : undefined}
                                 />
-                            </React.Fragment>
+                            </Fragment>
                         ))}
                     </CardContent>
                 </Card>

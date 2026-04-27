@@ -229,7 +229,7 @@ export async function createInventoryReceiptAction(
       })),
     };
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'InventoryReceipt',
@@ -294,7 +294,7 @@ export async function updateInventoryReceiptAction(
       include: { items: true },
     })
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'InventoryReceipt',
@@ -349,7 +349,7 @@ export async function deleteInventoryReceiptAction(
       where: { systemId },
     })
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'InventoryReceipt',
@@ -634,7 +634,7 @@ export async function confirmInventoryReceiptAction(
       }
     }
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'InventoryReceipt',
@@ -685,7 +685,7 @@ export async function cancelInventoryReceiptAction(
       data: { status: 'CANCELLED' },
     })
 
-    const userName = await getSessionUserName(session)
+    const userName = getSessionUserName(session)
     prisma.activityLog.create({
       data: {
         entityType: 'InventoryReceipt',

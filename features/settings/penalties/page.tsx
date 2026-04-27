@@ -6,6 +6,7 @@ import { usePenalties, usePenaltyMutations } from "./hooks/use-penalties";
 import type { PenaltyFilters } from "./api/penalties-api";
 import { useAllEmployees } from "../../employees/hooks/use-all-employees"
 import { useAllBranches } from "../branches/hooks/use-all-branches"
+import { useDebounce } from '@/hooks/use-debounce';
 import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useDefaultPageSize } from "../global/hooks/use-global-settings"
 import { getColumns } from "./columns"
@@ -59,7 +60,8 @@ export function PenaltiesPage() {
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false), [itemsToPrint, setItemsToPrint] = React.useState<Penalty[]>([])
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'issueDate', desc: true })
-  const [globalFilter, setGlobalFilter] = React.useState(''), [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('')
+  const [globalFilter, setGlobalFilter] = React.useState('');
+  const debouncedGlobalFilter = useDebounce(globalFilter, 300);
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set())
   const [employeeFilter, setEmployeeFilter] = React.useState('all'), [categoryFilter, setCategoryFilter] = React.useState<Set<string>>(new Set())
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize })
@@ -84,7 +86,6 @@ export function PenaltiesPage() {
   const pageCount = paginationInfo?.totalPages || 0;
 
   usePageHeader({ actions: React.useMemo(() => [canCreate && <Button key="add" size="sm" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>].filter(Boolean), [router, canCreate]) })
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t) }, [globalFilter])
   // Reset page when filters change
   React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })) }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter])
 

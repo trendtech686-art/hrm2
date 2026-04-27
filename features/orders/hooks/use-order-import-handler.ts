@@ -7,7 +7,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
 import { batchImportOrders } from "../api/orders-api";
-import { orderKeys } from "./use-orders";
 import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════

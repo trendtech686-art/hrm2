@@ -77,7 +77,6 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
   
   const confirmDelete = () => {
     if (idToDelete) {
-      const item = data.find(d => d.systemId === idToDelete);
       remove.mutate(idToDelete);
     }
     setIsAlertOpen(false);

@@ -73,6 +73,7 @@ export const createWarrantySchema = z.object({
   isReplacement: z.boolean().optional(),
   replacementProductId: z.string().optional(),
   replacementQuantity: z.number().optional(),
+  replacementProductSystemId: z.string().optional(),
   
   // ===== ADDITIONAL FIELDS FOR FULL WARRANTY DATA =====
   // Tracking & external references

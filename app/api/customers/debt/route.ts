@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
  * - Payment refund types (Hoàn tiền khách hàng / complaint_refund) → -amount (reduce debt)
  * - Other payments → +amount (increase debt)
  */
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async () => {
     // 1. Load all active customers with paymentTerms
     const customers = await prisma.customer.findMany({
       where: { isDeleted: false },

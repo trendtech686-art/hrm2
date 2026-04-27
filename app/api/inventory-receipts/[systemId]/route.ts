@@ -194,8 +194,7 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
 export const DELETE = apiHandler(async (request, { session, params }) => {
   try {
     const { systemId } = params;
-    const body = await request.json().catch(() => ({}));
-    const hard = body.hard === true;
+    await request.json().catch(() => ({}));
 
     // Get the receipt with items first to revert stock and supplier debt
     const receipt = await prisma.inventoryReceipt.findUnique({
@@ -264,7 +263,7 @@ export const DELETE = apiHandler(async (request, { session, params }) => {
     }
 
     // Log activity
-    getUserNameFromDb(session!.user?.id).then(userName =>
+    getUserNameFromDb(session?.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'inventory_receipt',

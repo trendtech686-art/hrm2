@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, Fragment, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Wallet, Calendar as CalendarIcon, Check } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -34,9 +34,8 @@ import { PayrollSummaryCards } from './components/summary-cards';
 import { payrollEngine, type PayrollCalculationResult } from '../../lib/payroll-engine';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
-import { attendanceSnapshotService as _attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
 import { cn } from '../../lib/utils';
-import { buildPayPeriodFromMonthKey as _buildPayPeriodFromMonthKey, getCurrentDateInTimezone } from '../../lib/date-utils';
+import { getCurrentDateInTimezone } from '../../lib/date-utils';
 import { mobileBleedCardClass } from '@/components/layout/page-section';
 
 const STEPS = [
@@ -57,7 +56,7 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
         const isCurrent = index === currentStep;
 
         return (
-          <React.Fragment key={step.id}>
+          <Fragment key={step.id}>
             <div className="flex flex-col items-center text-center w-28">
               <div
                 className={cn(
@@ -89,7 +88,7 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
                 )}
               />
             )}
-          </React.Fragment>
+          </Fragment>
         );
       })}
     </div>
@@ -426,7 +425,7 @@ export function PayrollRunPage() {
     onError: (err) => toast.error('Đã xảy ra lỗi', { description: err.message }),
   });
   const { data: penaltiesData } = usePenalties({});
-  const penalties = React.useMemo(() => penaltiesData?.data ?? [], [penaltiesData?.data]);
+  const penalties = useMemo(() => penaltiesData?.data ?? [], [penaltiesData?.data]);
   const { update: updatePenalty } = usePenaltyMutations({
     onSuccess: () => {},
   });
@@ -435,45 +434,45 @@ export function PayrollRunPage() {
 
   // ✅ Fix: Only run ensureDefault once on mount, not on every render
   const ensureDefaultMutate = ensureDefault.mutate;
-  React.useEffect(() => {
+  useEffect(() => {
     ensureDefaultMutate();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const latestLockedMonth = getLatestLockedMonth();
 
-  const [currentStep, setCurrentStep] = React.useState(0);
-  const [searchKeyword, setSearchKeyword] = React.useState('');
-  const [preview, setPreview] = React.useState<PayrollCalculationResult | null>(null);
-  const [isPreviewLoading, setIsPreviewLoading] = React.useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [preview, setPreview] = useState<PayrollCalculationResult | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   // Employee selection table state
-  const [empPagination, setEmpPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [empSorting, setEmpSorting] = React.useState<{ id: string; desc: boolean }>({ id: '', desc: false });
+  const [empPagination, setEmpPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [empSorting, setEmpSorting] = useState<{ id: string; desc: boolean }>({ id: '', desc: false });
 
   // Preview table state
-  const [previewPagination, setPreviewPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
-  const [previewSorting, setPreviewSorting] = React.useState<{ id: string; desc: boolean }>({ id: '', desc: false });
-  const [previewSearchKeyword, setPreviewSearchKeyword] = React.useState('');
+  const [previewPagination, setPreviewPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [previewSorting, setPreviewSorting] = useState<{ id: string; desc: boolean }>({ id: '', desc: false });
+  const [previewSearchKeyword, setPreviewSearchKeyword] = useState('');
 
   const defaultMonthKey = latestLockedMonth ?? getCurrentMonthKey();
   
   // ✅ Selected month (separate from formState for hook dependency)
-  const [selectedMonthKey, setSelectedMonthKey] = React.useState(defaultMonthKey);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(defaultMonthKey);
   
   // ✅ Fetch attendance data from database for selected month
   const { data: attendanceRows, isLoading: _isLoadingAttendance } = useAttendanceByMonth(selectedMonthKey);
-  const defaultPayrollDate = React.useMemo(
+  const defaultPayrollDate = useMemo(
     () => buildPayrollDate(selectedMonthKey, defaultPayday),
     [selectedMonthKey, defaultPayday]
   );
 
-  const defaultTemplateSystemId = React.useMemo(
+  const defaultTemplateSystemId = useMemo(
     () => getDefault()?.systemId,
     [getDefault]
   );
 
-  const [formState, setFormState] = React.useState({
+  const [formState, setFormState] = useState({
     title: '',
     monthKey: selectedMonthKey,
     payrollDate: defaultPayrollDate,
@@ -481,7 +480,7 @@ export function PayrollRunPage() {
     selectedEmployeeSystemIds: [] as SystemId[],
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     setFormState((prev) => {
       const hasValidSelection = prev.templateSystemId
         ? templates.some((template) => template.systemId === prev.templateSystemId)
@@ -499,7 +498,7 @@ export function PayrollRunPage() {
 
   // Use activeEmployees from hook
   const employees = activeEmployees;
-  const employeeLookup = React.useMemo(() => {
+  const employeeLookup = useMemo(() => {
     return employees.reduce<Record<SystemId, (typeof employees)[number]>>(
       (acc, employee) => {
         acc[employee.systemId] = employee;
@@ -509,7 +508,7 @@ export function PayrollRunPage() {
     );
   }, [employees]);
 
-  const filteredEmployees = React.useMemo(() => {
+  const filteredEmployees = useMemo(() => {
     if (!searchKeyword.trim()) {
       return employees;
     }
@@ -519,12 +518,12 @@ export function PayrollRunPage() {
     );
   }, [employees, searchKeyword]);
 
-  const selectedMonthLabel = React.useMemo(
+  const selectedMonthLabel = useMemo(
     () => formatMonthLabel(formState.monthKey) || formState.monthKey || 'Chưa chọn',
     [formState.monthKey]
   );
 
-  const selectedMonthBounds = React.useMemo(() => {
+  const selectedMonthBounds = useMemo(() => {
     if (!formState.monthKey) return null;
     const [year, month] = formState.monthKey.split('-').map(Number);
     if (!year || !month) return null;
@@ -543,13 +542,13 @@ export function PayrollRunPage() {
     toDate: pendingLeavesToDate,
   });
 
-  const isSelectedMonthLocked = React.useMemo(
+  const isSelectedMonthLocked = useMemo(
     () => Boolean(formState.monthKey && lockedMonths[formState.monthKey]),
     [formState.monthKey, lockedMonths]
   );
 
   // Check which employees have attendance data (from already fetched attendanceRows)
-  const snapshotBlockingEmployees = React.useMemo(() => {
+  const snapshotBlockingEmployees = useMemo(() => {
     if (!isSelectedMonthLocked || !formState.monthKey || !formState.selectedEmployeeSystemIds.length) {
       return [] as string[];
     }
@@ -567,7 +566,7 @@ export function PayrollRunPage() {
     return Array.from(blocked);
   }, [attendanceRows, employeeLookup, formState.monthKey, formState.selectedEmployeeSystemIds, isSelectedMonthLocked]);
 
-  const payrollBlockingReasons = React.useMemo(() => {
+  const payrollBlockingReasons = useMemo(() => {
     const reasons: string[] = [];
     if (!isSelectedMonthLocked) {
       reasons.push(`Tháng ${selectedMonthLabel} chưa được khóa trong Chấm công.`);
@@ -599,7 +598,7 @@ export function PayrollRunPage() {
   const salaryComponents = useAllSalaryComponents();
   
   // Convert SalaryComponent to PayrollComponent format
-  const payrollComponents = React.useMemo(() => {
+  const payrollComponents = useMemo(() => {
     // Get template's component IDs if template selected
     const template = formState.templateSystemId 
       ? templates.find(t => t.systemId === formState.templateSystemId)
@@ -634,7 +633,7 @@ export function PayrollRunPage() {
   }, [salaryComponents, formState.templateSystemId, templates]);
 
   // ✅ Transform attendance rows to snapshots for payroll engine
-  const attendanceSnapshots = React.useMemo(() => {
+  const attendanceSnapshots = useMemo(() => {
     if (!attendanceRows?.length) return [];
     const isLocked = !!lockedMonths[selectedMonthKey];
     const [year, month] = selectedMonthKey.split('-').map(Number);
@@ -678,7 +677,7 @@ export function PayrollRunPage() {
     });
   }, [attendanceRows, selectedMonthKey, lockedMonths, employeeSettings]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentStep !== 2) {
       setPreview(null);
       setIsPreviewLoading(false);
@@ -731,7 +730,7 @@ export function PayrollRunPage() {
     setIsPreviewLoading(false);
   }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeeData, penalties, attendanceSnapshots]);
 
-  const handleSelectEmployee = React.useCallback((systemId: SystemId, checked: boolean) => {
+  const handleSelectEmployee = useCallback((systemId: SystemId, checked: boolean) => {
     setFormState((prev) => ({
       ...prev,
       selectedEmployeeSystemIds: checked
@@ -742,7 +741,7 @@ export function PayrollRunPage() {
     }));
   }, []);
 
-  const handleSelectAll = React.useCallback((checked: boolean) => {
+  const handleSelectAll = useCallback((checked: boolean) => {
     setFormState((prev) => ({
       ...prev,
       selectedEmployeeSystemIds: checked ? filteredEmployees.map((employee) => employee.systemId) : [],
@@ -750,7 +749,7 @@ export function PayrollRunPage() {
   }, [filteredEmployees]);
 
   // Employee selection columns with handlers
-  const employeeSelectionColumns = React.useMemo(
+  const employeeSelectionColumns = useMemo(
     () => getEmployeeSelectionColumns(
       formState.selectedEmployeeSystemIds,
       handleSelectEmployee,
@@ -762,14 +761,14 @@ export function PayrollRunPage() {
 
   // Paginated employee data
   const empPageCount = Math.ceil(filteredEmployees.length / empPagination.pageSize);
-  const paginatedEmployees = React.useMemo(() => {
+  const paginatedEmployees = useMemo(() => {
     const start = empPagination.pageIndex * empPagination.pageSize;
     const end = start + empPagination.pageSize;
     return filteredEmployees.slice(start, end);
   }, [filteredEmployees, empPagination.pageIndex, empPagination.pageSize]);
 
   // Row selection state for ResponsiveDataTable
-  const empRowSelection = React.useMemo(() => {
+  const empRowSelection = useMemo(() => {
     const selection: Record<string, boolean> = {};
     formState.selectedEmployeeSystemIds.forEach((id) => {
       selection[id] = true;
@@ -777,7 +776,7 @@ export function PayrollRunPage() {
     return selection;
   }, [formState.selectedEmployeeSystemIds]);
 
-  const setEmpRowSelection = React.useCallback(
+  const setEmpRowSelection = useCallback(
     (updater: Record<string, boolean> | ((old: Record<string, boolean>) => Record<string, boolean>)) => {
       const newSelection = typeof updater === 'function' ? updater(empRowSelection) : updater;
       const newSelectedIds = Object.keys(newSelection).filter((key) => newSelection[key]) as SystemId[];
@@ -863,7 +862,7 @@ export function PayrollRunPage() {
     );
   };
 
-  const headerActions = React.useMemo(
+  const headerActions = useMemo(
     () => [
       <Button
         key="templates"
@@ -898,7 +897,7 @@ export function PayrollRunPage() {
     actions: headerActions,
   });
 
-  const previewWarnings = React.useMemo(() => {
+  const previewWarnings = useMemo(() => {
     if (!preview?.payslips.length) return [] as string[];
     return preview.warnings.map((w) => 
       w.employeeName ? `${w.employeeName} · ${w.message}` : w.message

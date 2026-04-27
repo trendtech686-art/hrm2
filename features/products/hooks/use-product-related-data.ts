@@ -14,6 +14,9 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOrders } from '../../orders/api/orders-api';
 import { fetchWarranties } from '../../warranty/api/warranties-api';
 import { fetchStockTransfers } from '../../stock-transfers/api/stock-transfers-api';
+import { orderKeys } from '../../orders/hooks/use-orders';
+import { warrantyKeys } from '../../warranty/hooks/use-warranties';
+import { stockTransferKeys } from '../../stock-transfers/hooks/use-stock-transfers';
 
 // ═══════════════════════════════════════════════════════════════
 // ORDERS for a specific product (via lineItems server-side filter)
@@ -21,7 +24,7 @@ import { fetchStockTransfers } from '../../stock-transfers/api/stock-transfers-a
 
 export function useProductOrders(productSystemId: string | undefined | null) {
   return useQuery({
-    queryKey: ['orders', 'byProduct', productSystemId],
+    queryKey: [...orderKeys.all, 'byProduct', productSystemId],
     queryFn: async () => {
       const res = await fetchOrders({ productSystemId: productSystemId! });
       return res.data;
@@ -38,7 +41,7 @@ export function useProductOrders(productSystemId: string | undefined | null) {
 
 export function useProductWarranties(productSystemId: string | undefined | null) {
   return useQuery({
-    queryKey: ['warranties', 'byProduct', productSystemId],
+    queryKey: [...warrantyKeys.all, 'byProduct', productSystemId],
     queryFn: async () => {
       const res = await fetchWarranties({ productId: productSystemId! });
       return res.data;
@@ -55,7 +58,7 @@ export function useProductWarranties(productSystemId: string | undefined | null)
 
 export function useProductStockTransfers(productSystemId: string | undefined | null) {
   return useQuery({
-    queryKey: ['stockTransfers', 'byProduct', productSystemId],
+    queryKey: [...stockTransferKeys.all, 'byProduct', productSystemId],
     queryFn: async () => {
       const res = await fetchStockTransfers({ productSystemId: productSystemId! });
       return res.data;

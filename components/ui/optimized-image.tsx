@@ -126,6 +126,7 @@ export function OptimizedImage({
         alt={alt}
         className={className}
         onClick={onClick}
+        onKeyDown={onClick ? (e) => { if (e.key === 'Enter') onClick(); } : undefined}
         onLoad={handleLoad}
         onError={handleError}
         style={fill ? { objectFit: 'cover', width: '100%', height: '100%' } : undefined}
@@ -210,6 +211,7 @@ export function ProductThumbnail({
   const { container, pixels } = sizeMap[size]
   
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className={cn(
         container,

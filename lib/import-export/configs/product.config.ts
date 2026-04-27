@@ -5,6 +5,119 @@ import { asSystemId } from '@/lib/id-types';
 // These helpers return empty arrays and will be replaced with API calls
 // import { prisma } from '@/lib/prisma';
 
+// ===== PRELOADED DATA CACHE =====
+export interface ProductImportCache {
+  productTypes: Array<{
+    systemId: string;
+    id: string;
+    name: string;
+    isDefault?: boolean;
+  }>;
+  pricingPolicies: Array<{
+    systemId: string;
+    id: string;
+    name: string;
+  }>;
+}
+
+// Build cache from preloaded data (called in dialog before preview)
+export function buildProductImportCache(preloadedData: Record<string, unknown>): ProductImportCache {
+  return {
+    productTypes: (preloadedData.productTypes as ProductImportCache['productTypes']) || [],
+    pricingPolicies: (preloadedData.pricingPolicies as ProductImportCache['pricingPolicies']) || [],
+  };
+}
+
+// Helper: Get ProductType systemId from name using cache (sync)
+function getProductTypeSystemIdByNameFromCache(
+  name: string, 
+  cache: ProductImportCache
+): string | null {
+  if (!name) return null;
+  const normalizedName = name.toLowerCase().trim();
+  
+  const productType = cache.productTypes.find(pt => 
+    pt.name.toLowerCase() === normalizedName ||
+    pt.id.toLowerCase() === normalizedName
+  );
+  
+  return productType?.systemId || null;
+}
+
+// Helper: Get ProductType name from systemId using cache (sync)
+function getProductTypeNameByIdFromCache(
+  systemId: string, 
+  cache: ProductImportCache
+): string {
+  if (!systemId) return '';
+  const productType = cache.productTypes.find(pt => pt.systemId === systemId);
+  return productType?.name || '';
+}
+
+// Helper: Map enum type ('physical', 'service', 'digital') to ProductType systemId using cache (sync)
+function getProductTypeSystemIdByEnumTypeFromCache(
+  enumType: ProductTypeEnum | string, 
+  cache: ProductImportCache
+): string | null {
+  if (!enumType) {
+    const defaultType = cache.productTypes.find(pt => pt.isDefault);
+    return defaultType?.systemId || cache.productTypes[0]?.systemId || null;
+  }
+  
+  const normalizedType = String(enumType).toLowerCase().trim();
+  
+  const typeNameMapping: Record<string, string[]> = {
+    'physical': ['hàng hóa', 'hang hoa', 'physical', 'hàng hoá'],
+    'service': ['dịch vụ', 'dich vu', 'service'],
+    'digital': ['digital', 'sản phẩm số', 'san pham so', 'kỹ thuật số', 'ky thuat so'],
+    'combo': ['combo', 'bộ sản phẩm', 'bo san pham'],
+  };
+  
+  for (const [_enumKey, names] of Object.entries(typeNameMapping)) {
+    if (names.includes(normalizedType)) {
+      const productType = cache.productTypes.find(pt => 
+        names.some(name => pt.name.toLowerCase().includes(name) || name.includes(pt.name.toLowerCase()))
+      );
+      if (productType) return productType.systemId;
+    }
+  }
+  
+  const productType = cache.productTypes.find(pt => 
+    pt.name.toLowerCase().includes(normalizedType) ||
+    normalizedType.includes(pt.name.toLowerCase())
+  );
+  
+  if (productType) return productType.systemId;
+  
+  const defaultType = cache.productTypes.find(pt => pt.isDefault);
+  return defaultType?.systemId || cache.productTypes[0]?.systemId || null;
+}
+
+// Helper: Get pricing policy systemId from code/name using cache (sync)
+function getPricingPolicySystemIdByCodeFromCache(
+  code: string,
+  cache: ProductImportCache
+): string | null {
+  if (!code) return null;
+  const normalizedCode = code.toUpperCase().trim();
+
+  // Find by id (e.g., "BANLE", "VIP", "PL_10")
+  const byId = cache.pricingPolicies.find(p =>
+    p.id.toUpperCase() === normalizedCode
+  );
+  if (byId) return byId.systemId;
+
+  // Find by name (e.g., "Bán lẻ", "VIP", "Bán sỉ")
+  const byName = cache.pricingPolicies.find(p =>
+    p.name.toUpperCase() === normalizedCode ||
+    p.name.toUpperCase().includes(normalizedCode) ||
+    normalizedCode.includes(p.name.toUpperCase())
+  );
+  if (byName) return byName.systemId;
+
+  return null;
+}
+
 /**
  * Product Import/Export Configuration
  * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
@@ -234,38 +347,8 @@ export const productFields: FieldConfig<Product>[] = [
     type: 'string',
     exportGroup: 'Thông tin cơ bản',
     example: 'Hàng hóa', // User nhập tên loại SP, hệ thống tự map sang systemId
-    // TODO: Transforms need async support or preloaded data cache
-    // The async helpers getProductTypeSystemIdByName, getProductTypeNameById are available
-    // but cannot be called from sync transform functions. Need framework support or
-    // handle in beforeImport/afterExport hooks.
-    // importTransform: async (value: unknown) => {
-    //   if (!value) return undefined;
-    //   const str = String(value).trim();
-    //   if (!str) return undefined;
-    //   
-    //   const systemId = await getProductTypeSystemIdByName(str);
-    //   if (systemId) return systemId;
-    //   
-    //   const enumSystemId = await getProductTypeSystemIdByEnumType(str);
-    //   return enumSystemId || undefined;
-    // },
-    // exportTransform: async (value: unknown) => {
-    //   return await getProductTypeNameById(value as string);
-    // },
-    // validator: async (value: unknown) => {
-    //   if (!value) return null;
-    //   const str = String(value).trim();
-    //   if (!str) return null;
-    //   
-    //   const systemId = await getProductTypeSystemIdByName(str);
-    //   if (!systemId) {
-    //     const enumSystemId = await getProductTypeSystemIdByEnumType(str);
-    //     if (!enumSystemId) {
-    //       return `Loại sản phẩm "${str}" không tồn tại trong hệ thống. Vui lòng kiểm tra danh sách loại SP trong Cài đặt > Kho hàng.`;
-    //     }
-    //   }
-    //   return null;
-    // },
+    // NOTE: Transform logic đã được di chuyển vào postTransformRow
+    // sử dụng preloadedDataCache từ dialog để lookup async
   },
   {
     key: 'status',
@@ -994,6 +1077,7 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
   preTransformRawRow: (rawRow: Record<string, unknown>) => {
     const normalized: Record<string, unknown> = {};
     const prices: Record<string, number> = {};
+    const priceRawData: Record<string, number> = {}; // Store raw price column data for async lookup
     
     // Map từ label tiếng Việt sang key
     const labelToKey: Record<string, string> = {};
@@ -1004,30 +1088,60 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
       labelToKey[labelWithoutStar] = field.key as string;
     });
     
+    // Regex patterns to detect pricing policy column names
+    // Pattern 1: "Giá: PL_10" or "Giá: BANLE" or "Gia VIP" (prefix with colon)
+    const pricePrefixWithColon = /^(giá|gia)\s*:\s*(.+)/i;
+    // Pattern 2: "PL_10", "BANLE", "VIP", "GIA_BANLE" (starts with known prefixes or all caps)
+    const priceCodePrefix = /^(PL_|price|giá|gia)_?/i;
+    
     Object.entries(rawRow).forEach(([key, value]) => {
-      // Normalize Excel header: strip (*) marker and lowercase
-      const normalizedExcelHeader = key.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
+      // Skip empty values
+      if (value === undefined || value === null || String(value).trim() === '') {
+        return;
+      }
       
-      // Check if this column looks like a pricing policy code (e.g., PL_10, BANLE, VIP)
-      // Store as price__ prefixed key for later async processing
-      const isPriceColumn = /^(giá|gia)\s*:/i.test(key) || /^(PL_|price|giá)/i.test(key);
+      // Check if this column is a pricing column
+      const matchWithColon = key.match(pricePrefixWithColon);
+      const isPriceColumn = pricePrefixWithColon.test(key) || priceCodePrefix.test(key);
+      
       if (isPriceColumn && value !== undefined && value !== null && value !== '') {
-        // This is a pricing column - parse price value and store for later processing
+        // Parse price value
         const priceValue = Number(String(value).replace(/[,.\s]/g, ''));
-        if (!isNaN(priceValue) && priceValue > 0) {
-          // Store with original key for async lookup later
-          normalized[`__price__${key}`] = priceValue;
+        if (!isNaN(priceValue) && priceValue >= 0) {
+          // Extract policy code from column name
+          let policyCode: string;
+          if (matchWithColon) {
+            // "Giá: BANLE" -> extract "BANLE"
+            policyCode = matchWithColon[2].trim().toUpperCase();
+          } else {
+            // "PL_10", "BANLE", "GIA_VIP" -> remove known prefixes
+            policyCode = key.replace(priceCodePrefix, '').trim().toUpperCase();
+            // If empty after removing prefix, use the original key
+            if (!policyCode) {
+              policyCode = key.trim().toUpperCase();
+            }
+          }
+          
+          // Add to prices object (normalized key)
+          prices[policyCode] = priceValue;
+          // Also store raw data with original key for reference
+          priceRawData[`__price__${key}`] = priceValue;
         }
       } else {
         // Normal field - map to key
+        const normalizedExcelHeader = key.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
         const normalizedKey = labelToKey[normalizedExcelHeader] || labelToKey[key.toLowerCase()] || key;
         normalized[normalizedKey] = value;
       }
     });
     
-    // Add prices if any pricing columns were found
+    // Add prices to normalized output if any pricing columns were found
     if (Object.keys(prices).length > 0) {
       normalized.prices = prices;
+      // Also keep raw price data for reference (in case needed)
+      Object.entries(priceRawData).forEach(([k, v]) => {
+        normalized[k] = v;
+      });
     }
     
     return normalized;
@@ -1035,8 +1149,18 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
   
   // Post-transform row (set defaults, enrich data)
   // NOTE: branchSystemId được truyền từ import dialog để xử lý tồn kho ban đầu
-  postTransformRow: (row, _index, branchSystemId) => {
+  // preloadedDataCache chứa productTypes, pricingPolicies được truyền qua context
+  postTransformRow: (row, _index, branchSystemIdOrContext) => {
     const typedRow = row as Partial<Product & { initialStock?: number }>;
+    
+    // Extract branchSystemId and preloadedData from context
+    const branchSystemId = typeof branchSystemIdOrContext === 'string' 
+      ? branchSystemIdOrContext 
+      : branchSystemIdOrContext?.branchSystemId;
+    const context = typeof branchSystemIdOrContext === 'object' 
+      ? branchSystemIdOrContext 
+      : undefined;
+    
     // Xử lý tồn kho ban đầu - chỉ áp dụng khi có initialStock và branchSystemId
     let inventoryByBranch = typedRow.inventoryByBranch || {};
     const initialStock = typedRow.initialStock;
@@ -1048,22 +1172,52 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
       };
     }
     
-    // Remove initialStock from final data (không lưu vào Product)
-    const { initialStock: _removed, ...cleanRow } = row as Partial<Product> & { initialStock?: number };
+    // Remove initialStock and raw price data from final data
+    const { initialStock: _removed, ...rowWithoutStock } = row as Partial<Product> & { initialStock?: number };
+    const cleanRow = { ...rowWithoutStock };
     
-    // TODO: Auto-set productTypeSystemId - requires async support
-    // For now, these fields should be handled in beforeImport hook if needed
-    // Auto-set productTypeSystemId nếu chưa có
-    // Ưu tiên: productTypeSystemId > type enum mapping > default
-    const productTypeSystemIdStr = cleanRow.productTypeSystemId as string | undefined;
-    // Note: The async helpers cannot be called here. This logic should be moved
-    // to beforeImport hook if productTypeSystemId transformation is needed.
-    // if (!productTypeSystemIdStr && cleanRow.type) {
-    //   productTypeSystemIdStr = await getProductTypeSystemIdByEnumType(cleanRow.type) || undefined;
-    // }
-    // if (!productTypeSystemIdStr) {
-    //   productTypeSystemIdStr = await getDefaultProductTypeSystemId() || undefined;
-    // }
+    // Remove raw price data (__price__* keys) from cleanRow
+    Object.keys(cleanRow).forEach(key => {
+      if (key.startsWith('__price__')) {
+        delete cleanRow[key as keyof typeof cleanRow];
+      }
+    });
+    
+    // Auto-set productTypeSystemId nếu chưa có - dùng preloadedDataCache
+    let productTypeSystemIdStr = cleanRow.productTypeSystemId as string | undefined;
+    
+    if (!productTypeSystemIdStr && context?.preloadedData) {
+      const cache = context.preloadedData as ProductImportCache;
+      
+      // Ưu tiên: productTypeSystemId > type enum mapping > default
+      if (!productTypeSystemIdStr && cleanRow.type) {
+        productTypeSystemIdStr = getProductTypeSystemIdByEnumTypeFromCache(cleanRow.type as string, cache) || undefined;
+      }
+      if (!productTypeSystemIdStr) {
+        const defaultType = cache.productTypes?.find(pt => pt.isDefault);
+        productTypeSystemIdStr = defaultType?.systemId || cache.productTypes?.[0]?.systemId || undefined;
+      }
+    }
+    
+    // Convert pricing policy codes to systemIds in prices object
+    let finalPrices: Record<string, number> = {};
+    if (cleanRow.prices && typeof cleanRow.prices === 'object') {
+      const cache = context?.preloadedData as ProductImportCache | undefined;
+      Object.entries(cleanRow.prices).forEach(([policyCode, priceValue]) => {
+        if (cache?.pricingPolicies && policyCode) {
+          // Convert code to systemId
+          const systemId = getPricingPolicySystemIdByCodeFromCache(policyCode, cache);
+          if (systemId) {
+            finalPrices[systemId] = Number(priceValue) || 0;
+          } else {
+            // Keep original code if not found in cache
+            finalPrices[policyCode] = Number(priceValue) || 0;
+          }
+        } else {
+          finalPrices[policyCode] = Number(priceValue) || 0;
+        }
+      });
+    }
     
     // Cast to SystemId if we have a value
     const productTypeSystemId = productTypeSystemIdStr ? asSystemId(productTypeSystemIdStr) : undefined;
@@ -1075,7 +1229,7 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
       status: cleanRow.status || 'active',
       unit: cleanRow.unit || 'Cái',
       isStockTracked: cleanRow.isStockTracked ?? true,
-      prices: cleanRow.prices || {},
+      prices: finalPrices,
       inventoryByBranch,
       committedByBranch: cleanRow.committedByBranch || {},
       inTransitByBranch: cleanRow.inTransitByBranch || {},

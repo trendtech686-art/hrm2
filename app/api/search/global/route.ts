@@ -14,6 +14,7 @@
 import { requireAuth } from '@/lib/api-utils'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 import { NextResponse } from 'next/server'
 import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliProduct } from '@/lib/meilisearch'
@@ -85,8 +86,7 @@ async function searchProducts(q: string, limit: number, offset: number): Promise
 }
 
 async function searchCustomers(q: string, limit: number, offset: number): Promise<SearchResult> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = { isDeleted: false }
+  const where: Prisma.CustomerWhereInput = { isDeleted: false }
   const sw = buildSearchWhere(q, ['name', 'phone', 'id'])
   if (sw) Object.assign(where, sw)
 
@@ -112,8 +112,7 @@ async function searchCustomers(q: string, limit: number, offset: number): Promis
 }
 
 async function searchOrders(q: string, limit: number, offset: number): Promise<SearchResult> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {}
+  const where: Prisma.OrderWhereInput = {}
   const sw = buildSearchWhere(q, ['id', 'customerName'])
   if (sw) Object.assign(where, sw)
 
@@ -143,8 +142,7 @@ async function searchOrders(q: string, limit: number, offset: number): Promise<S
 }
 
 async function searchEmployees(q: string, limit: number, offset: number): Promise<SearchResult> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = { isDeleted: false }
+  const where: Prisma.EmployeeWhereInput = { isDeleted: false }
   const sw = buildSearchWhere(q, ['fullName', 'id', 'workEmail'])
   if (sw) Object.assign(where, sw)
 

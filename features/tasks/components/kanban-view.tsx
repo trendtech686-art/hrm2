@@ -71,7 +71,9 @@ function DraggableTaskCard({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
+  // Lazy initialization for overdue check to avoid hydration mismatch
+  const now = React.useMemo(() => new Date(), []);
+  const isOverdue = new Date(task.dueDate) < now && task.status !== 'Hoàn thành';
   const priorityVariants: Record<TaskPriority, "default" | "secondary" | "warning" | "destructive"> = {
     "Thấp": "secondary",
     "Trung bình": "default",

@@ -114,13 +114,13 @@ async function saveAppearanceSettings(settings: AppearanceSettings): Promise<App
 
   // Apply theme to DOM IMMEDIATELY before any other operations
   if (typeof window !== 'undefined') {
-    console.log('[DEBUG] Saving theme, applying to DOM...')
+    console.warn('[DEBUG] Saving theme, applying to DOM...')
     applyTheme(savedSettings.customThemeConfig, savedSettings.colorMode, savedSettings.fontSize);
     
     // Verify CSS vars are set
     const root = document.documentElement
-    console.log('[DEBUG] chart-1 CSS var:', root.style.getPropertyValue('--chart-1'))
-    console.log('[DEBUG] chart-2 CSS var:', root.style.getPropertyValue('--chart-2'))
+    console.warn('[DEBUG] chart-1 CSS var:', root.style.getPropertyValue('--chart-1'))
+    console.warn('[DEBUG] chart-2 CSS var:', root.style.getPropertyValue('--chart-2'))
 
     // Dispatch theme-change event for other components
     window.dispatchEvent(new CustomEvent('theme-change', {
@@ -130,11 +130,11 @@ async function saveAppearanceSettings(settings: AppearanceSettings): Promise<App
         customThemeConfig: savedSettings.customThemeConfig,
       }
     }));
-    console.log('[DEBUG] theme-change event dispatched')
+    console.warn('[DEBUG] theme-change event dispatched')
 
     // Notify chart colors hooks to re-read from DOM
     notifyThemeChanged();
-    console.log('[DEBUG] notifyThemeChanged called')
+    console.warn('[DEBUG] notifyThemeChanged called')
   }
 
   return savedSettings;

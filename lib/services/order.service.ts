@@ -34,6 +34,10 @@ export interface CreateOrderInput {
   notes?: string;
   deliveryMethod?: string;
   expectedPaymentMethod?: string;
+  shippingFee?: number;
+  tax?: number;
+  discount?: number;
+  discountType?: 'FIXED' | 'PERCENTAGE';
 }
 
 export interface UpdateOrderStatusInput {
@@ -92,7 +96,18 @@ export const orderService = {
           deliveryStatus: 'PENDING_PACK',
           deliveryMethod: (data.deliveryMethod || 'SHIPPING') as 'SHIPPING' | 'PICKUP',
           subtotal,
-          grandTotal: subtotal, // TODO: Add tax, shipping, discount
+          // Calculate grandTotal: subtotal + shippingFee + tax - discount
+          grandTotal: this.calculateGrandTotal(
+            subtotal,
+            data.shippingFee || 0,
+            data.tax || 0,
+            data.discount || 0,
+            data.discountType
+          ),
+          shippingFee: data.shippingFee || 0,
+          tax: data.tax || 0,
+          discount: data.discount || 0,
+          discountType: data.discountType,
           shippingAddress: data.shippingAddress as unknown as Prisma.InputJsonValue,
           billingAddress: data.billingAddress as unknown as Prisma.InputJsonValue,
           notes: data.notes,
@@ -377,5 +392,30 @@ export const orderService = {
     });
 
     return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+  },
+
+  /**
+   * Calculate grand total from subtotal and additional fees
+   * Formula: grandTotal = subtotal + shippingFee + tax - discount
+   * For percentage discount, discount is already calculated as amount
+   */
+  calculateGrandTotal(
+    subtotal: number,
+    shippingFee: number,
+    tax: number,
+    discount: number,
+    discountType?: 'FIXED' | 'PERCENTAGE'
+  ): number {
+    // Ensure all values are valid numbers
+    const validSubtotal = Number(subtotal) || 0;
+    const validShippingFee = Number(shippingFee) || 0;
+    const validTax = Number(tax) || 0;
+    const validDiscount = Number(discount) || 0;
+
+    // Calculate: subtotal + shipping + tax - discount
+    const grandTotal = validSubtotal + validShippingFee + validTax - validDiscount;
+
+    // Grand total should never be negative
+    return Math.max(0, grandTotal);
   },
 };

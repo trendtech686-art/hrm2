@@ -11,7 +11,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-import * as React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Package, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
@@ -49,9 +49,13 @@ const ProductThumbnailCell = ({
     
     if (imageUrl) {
         return (
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
             <div
                 className={`group/thumbnail relative w-10 h-10 rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
+                onKeyDown={(e) => e.key === 'Enter' && onPreview?.(imageUrl, productName)}
+                role={onPreview ? "button" : undefined}
+                tabIndex={onPreview ? 0 : undefined}
             >
                 <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={40} height={40} />
                 {onPreview && (
@@ -105,17 +109,17 @@ export function ComboItemsReadOnlyTable({
     const { data: pricingPolicies } = useAllPricingPolicies();
     const { data: branches } = useAllBranches();
     
-    const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+    const [previewState, setPreviewState] = useState<{ open: boolean; image: string; title: string }>({
         open: false, image: '', title: ''
     });
 
     // Get default selling policy
-    const defaultPricingPolicy = React.useMemo(() => {
+    const defaultPricingPolicy = useMemo(() => {
         return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
     }, [pricingPolicies]);
 
     // Handle preview
-    const handlePreview = React.useCallback((image: string, title: string) => {
+    const handlePreview = useCallback((image: string, title: string) => {
         if (onImagePreview) {
             onImagePreview(image, title);
         } else {
@@ -124,14 +128,14 @@ export function ComboItemsReadOnlyTable({
     }, [onImagePreview]);
 
     // Get product type name
-    const getProductTypeName = React.useCallback((product?: Product | null) => {
+    const getProductTypeName = useCallback((product?: Product | null) => {
         if (!product?.productTypeSystemId) return 'Hàng hóa';
         const productType = findProductTypeById(product.productTypeSystemId as SystemId);
         return productType?.name || 'Hàng hóa';
     }, [findProductTypeById]);
 
     // Get unit price from pricing policy
-    const getUnitPrice = React.useCallback((product?: Product | null) => {
+    const getUnitPrice = useCallback((product?: Product | null) => {
         if (!product) return 0;
         if (defaultPricingPolicy && product.prices?.[defaultPricingPolicy.systemId]) {
             return product.prices[defaultPricingPolicy.systemId];
@@ -143,7 +147,7 @@ export function ComboItemsReadOnlyTable({
     }, [defaultPricingPolicy]);
 
     // Get available stock (sellable) across all branches
-    const getAvailableStock = React.useCallback((product?: Product | null) => {
+    const getAvailableStock = useCallback((product?: Product | null) => {
         if (!product) return 0;
         const inventoryByBranch = product.inventoryByBranch || {};
         const committedByBranch = product.committedByBranch || {};
@@ -158,7 +162,7 @@ export function ComboItemsReadOnlyTable({
     }, [branches]);
 
     // Process combo items with product details
-    const itemsWithDetails = React.useMemo(() => {
+    const itemsWithDetails = useMemo(() => {
         return comboItems.map(item => {
             const product = findProductById(item.productSystemId);
             const unitPrice = getUnitPrice(product);

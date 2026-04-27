@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SystemId } from '@/lib/id-types';
+import { productKeys } from './use-products';
 
 async function fetchSoldCount(productSystemId: string): Promise<Record<string, number>> {
   const res = await fetch(`/api/products/${encodeURIComponent(productSystemId)}/sold-count`);
@@ -14,7 +15,7 @@ async function fetchSoldCount(productSystemId: string): Promise<Record<string, n
  */
 export function useSoldByBranch(productSystemId: SystemId | undefined) {
   const { data: soldByBranch = {}, isLoading } = useQuery({
-    queryKey: ['products', 'sold-count', productSystemId],
+    queryKey: [...productKeys.all, 'sold-count', productSystemId] as const,
     queryFn: () => fetchSoldCount(productSystemId!),
     enabled: !!productSystemId,
     staleTime: 2 * 60 * 1000,

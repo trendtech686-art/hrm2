@@ -48,7 +48,6 @@ const REVERSE_PRIORITY_MAP: Record<string, TaskPriority> = {
 export async function GET(request: NextRequest) {
   const result = await requirePermission('view_tasks')
   if (result instanceof NextResponse) return result
-  const session = result
 
   const { searchParams } = new URL(request.url);
   const { page, limit, skip } = parsePagination(searchParams);

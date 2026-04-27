@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Label } from '../../../../components/ui/label';
@@ -34,6 +34,7 @@ function usePriceMappings() {
       }
       return mappings;
     },
+    // Always refetch: price mapping changes affect display immediately
     staleTime: 0,
   });
 }
@@ -65,10 +66,10 @@ export function PriceMappingTab() {
   const mutation = usePriceMappingMutation();
   
   // Local draft state for unsaved changes
-  const [draft, setDraft] = React.useState<PriceMapping>({});
+  const [draft, setDraft] = useState<PriceMapping>({});
   
   // Sync draft with server data when it loads/changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (serverMapping) {
       setDraft(serverMapping);
     }

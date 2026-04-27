@@ -186,7 +186,7 @@ export async function createPurchaseOrderAction(
         buyerName = employee?.fullName || ''
       }
 
-      const _purchaseOrder = await tx.purchaseOrder.create({
+      await tx.purchaseOrder.create({
         data: {
           systemId,
           id: businessId,

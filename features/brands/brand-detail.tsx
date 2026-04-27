@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { 
   Save, 
@@ -136,16 +136,16 @@ export function BrandDetailPage() {
   const { handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasicInfo, handleImportFromPkgx, hasPkgxMapping } = usePkgxBrandSync();
   
   // Confirm dialog state for sync actions
-  const [confirmAction, setConfirmAction] = React.useState<{
+  const [confirmAction, setConfirmAction] = useState<{
     open: boolean;
     title: string;
     description: string;
     action: (() => void) | null;
   }>({ open: false, title: '', description: '', action: null });
   
-  const handleConfirm = (title: string, description: string, action: () => void) => {
+  const handleConfirm = useCallback((title: string, description: string, action: () => void) => {
     setConfirmAction({ open: true, title, description, action });
-  };
+  }, []);
   
   const executeAction = () => {
     if (confirmAction.action) {
@@ -158,16 +158,16 @@ export function BrandDetailPage() {
     setConfirmAction({ open: false, title: '', description: '', action: null });
   };
   
-  const brand = React.useMemo(() => 
+  const brand = useMemo(() => 
     brands.find(b => b.systemId === systemId), 
     [brands, systemId]
   );
   
   // PKGX mapping hooks - use React Query hook instead of localStorage
   const { data: pkgxMappingsData } = usePkgxMappings();
-  const pkgxBrandMappings = React.useMemo(() => pkgxMappingsData?.brandMappings ?? [], [pkgxMappingsData?.brandMappings]);
+  const pkgxBrandMappings = useMemo(() => pkgxMappingsData?.brandMappings ?? [], [pkgxMappingsData?.brandMappings]);
   
-  const brandMapping = React.useMemo(() => 
+  const brandMapping = useMemo(() => 
     brand ? pkgxBrandMappings.find((m: { hrmBrandId: string }) => m.hrmBrandId === brand.systemId) : null,
     [brand, pkgxBrandMappings]
   );
@@ -176,7 +176,7 @@ export function BrandDetailPage() {
   const { deleteBrandMapping } = usePkgxBrandMappingMutations({ onSuccess: () => {
     toast.success('Đã hủy liên kết mapping với PKGX');
   }});
-  const handleUnlinkPkgx = React.useCallback(() => {
+  const handleUnlinkPkgx = useCallback(() => {
     if (!brand) return;
     const mapping = pkgxBrandMappings.find(m => m.hrmBrandId === brand.systemId);
     if (mapping) {
@@ -184,17 +184,17 @@ export function BrandDetailPage() {
     }
   }, [brand, pkgxBrandMappings, deleteBrandMapping]);
   
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<'general' | 'seo-default' | 'seo-pkgx' | 'seo-trendtech'>('general');
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'general' | 'seo-default' | 'seo-pkgx' | 'seo-trendtech'>('general');
   
   // Logo upload state
-  const [logoFiles, setLogoFiles] = React.useState<StagingFile[]>([]);
-  const [logoSessionId, setLogoSessionId] = React.useState<string | undefined>();
-  const [logoPermanentFiles, setLogoPermanentFiles] = React.useState<StagingFile[]>([]);
-  const [logoFilesToDelete, setLogoFilesToDelete] = React.useState<string[]>([]);
+  const [logoFiles, setLogoFiles] = useState<StagingFile[]>([]);
+  const [logoSessionId, setLogoSessionId] = useState<string | undefined>();
+  const [logoPermanentFiles, setLogoPermanentFiles] = useState<StagingFile[]>([]);
+  const [logoFilesToDelete, setLogoFilesToDelete] = useState<string[]>([]);
 
   // Load existing logo as permanent file
-  React.useEffect(() => {
+  useEffect(() => {
     if (brand?.logo && logoPermanentFiles.length === 0) {
       setLogoPermanentFiles([{
         id: 'existing-logo',
@@ -214,7 +214,7 @@ export function BrandDetailPage() {
   }, [brand?.logo, logoPermanentFiles.length]);
 
   // Handle marking logo for deletion
-  const handleMarkLogoForDeletion = React.useCallback((fileId: string) => {
+  const handleMarkLogoForDeletion = useCallback((fileId: string) => {
     setLogoFilesToDelete(prev => {
       if (prev.includes(fileId)) {
         return prev.filter(id => id !== fileId);
@@ -247,7 +247,7 @@ export function BrandDetailPage() {
   });
 
   // Reset form when brand data changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (brand) {
       form.reset({
         id: brand.id || '',
@@ -281,7 +281,7 @@ export function BrandDetailPage() {
   const watchedTrendtechKeywords = form.watch('websiteSeo.trendtech.seoKeywords');
   const watchedTrendtechSlug = form.watch('websiteSeo.trendtech.slug');
 
-  const handleSubmit = React.useCallback(async (data: BrandFormValues) => {
+  const handleSubmit = useCallback(async (data: BrandFormValues) => {
     if (!systemId) return;
     
     // Confirm logo staging files
@@ -316,12 +316,12 @@ export function BrandDetailPage() {
     remove.mutate(asSystemId(systemId));
   };
 
-  const handleSwitchToEdit = React.useCallback(() => {
+  const handleSwitchToEdit = useCallback(() => {
     router.push(`/brands/${systemId}/edit`);
   }, [router, systemId]);
 
   // Import handler
-  const _handleImport = React.useCallback(() => {
+  const _handleImport = useCallback(() => {
     if (!brand) return;
     
     
@@ -359,7 +359,7 @@ export function BrandDetailPage() {
   }, [brand, handleImportFromPkgx, form, systemId, update]);
 
   // Header actions
-  const headerActions = React.useMemo((): React.ReactNode[] => {
+  const headerActions = useMemo((): ReactNode[] => {
     if (isEditMode) {
       return [
         <Button key="cancel" variant="outline" size="sm" onClick={() => router.push(`/brands/${systemId}`)}>
@@ -462,10 +462,10 @@ export function BrandDetailPage() {
     }
     
     return actions;
-  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, brand, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasicInfo, handleUnlinkPkgx, pkgxBrandMappings, isAdmin, can, update.isPending]);
+  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, brand, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasicInfo, handleUnlinkPkgx, handleConfirm, pkgxBrandMappings, isAdmin, can, update.isPending]);
 
   // Mobile: gom tất cả view-mode actions vào 1 dropdown (edit mode 2 nút OK)
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!isMobile || isEditMode) return null;
     const brandWithBrandedIds = brand as unknown as _Brand;
     const hasPkgx = brand && hasPkgxMapping(brandWithBrandedIds);
@@ -517,7 +517,7 @@ export function BrandDetailPage() {
         </DropdownMenuContent>
       </DropdownMenu>,
     ];
-  }, [isMobile, isEditMode, headerActions, brand, hasPkgxMapping, handleSwitchToEdit, handleSyncAll, handleSyncBasicInfo, handleSyncSeo, handleSyncDescription, handleUnlinkPkgx, handleConfirm, isAdmin, can]);
+  }, [isMobile, isEditMode, brand, hasPkgxMapping, handleSwitchToEdit, handleSyncAll, handleSyncBasicInfo, handleSyncSeo, handleSyncDescription, handleUnlinkPkgx, handleConfirm, isAdmin, can]);
 
   usePageHeader({
     title: brand?.name,

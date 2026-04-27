@@ -287,6 +287,9 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                       isCancelled ? "bg-muted/50 opacity-60" : "bg-card hover:bg-accent"
                     )}
                     onClick={() => router.push(`/payments/${payment.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/payments/${payment.systemId}`); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={cn("text-xs text-muted-foreground", isCancelled && "line-through")}>Phiếu chi:</span>
@@ -311,6 +314,9 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                       isCancelled ? "bg-muted/50 opacity-60" : "bg-card hover:bg-accent"
                     )}
                     onClick={() => router.push(`/receipts/${receipt.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/receipts/${receipt.systemId}`); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={cn("text-xs text-muted-foreground", isCancelled && "line-through")}>Phiếu thu:</span>
@@ -336,6 +342,9 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                       isCancelled ? "bg-muted/50 opacity-60" : "bg-card hover:bg-accent"
                     )}
                     onClick={() => router.push(`/inventory-checks/${ic.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/inventory-checks/${ic.systemId}`); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
@@ -369,6 +378,9 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
                       isCancelled ? "bg-muted/50 opacity-60" : "bg-card hover:bg-accent"
                     )}
                     onClick={() => router.push(`/penalties/${penalty.systemId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/penalties/${penalty.systemId}`); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" />

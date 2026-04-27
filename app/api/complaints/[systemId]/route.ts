@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma, ComplaintPriority, ComplaintStatus } from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateComplaintSchema } from './validation'
 import { logError } from '@/lib/logger'

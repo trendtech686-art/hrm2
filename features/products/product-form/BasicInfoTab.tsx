@@ -315,6 +315,7 @@ export function BasicInfoTab({
           </div>
 
           <div className="space-y-2">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- Tags pattern */}
             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Tags
             </label>

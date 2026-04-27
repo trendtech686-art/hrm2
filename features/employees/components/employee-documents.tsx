@@ -221,7 +221,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     }
   };
   
-  const handleClosePreview = () => {
+  const _handleClosePreview = () => {
     setIsPreviewOpen(false);
     setPreviewFile(null);
   };

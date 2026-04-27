@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
-import { cache, CACHE_TAGS } from '@/lib/cache'
+import { cache } from '@/lib/cache'
 import { revalidatePath } from '@/lib/revalidation'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 

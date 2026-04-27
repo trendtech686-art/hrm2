@@ -13,6 +13,7 @@ import { ROUTES } from "@/lib/router";
 import type { Complaint } from "./types";
 import { useComplaints, useComplaintMutations, useComplaintStats, type ComplaintStats } from "./hooks/use-complaints";
 import { useAllEmployees } from "../employees/hooks/use-all-employees";
+import { useDebounce } from '@/hooks/use-debounce';
 import { checkOverdue } from "./sla-utils";
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useBreakpoint } from "@/contexts/breakpoint-context";
@@ -68,8 +69,7 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
   
   // Search state
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [debouncedSearch, setDebouncedSearch] = React.useState("");
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedSearch(searchQuery), 300); return () => clearTimeout(t); }, [searchQuery]);
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { update: updateMutation } = useComplaintMutations({
     onSuccess: () => {
@@ -194,7 +194,7 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
   const pageCount = complaintsData?.pagination?.totalPages ?? 0;
 
   // Reset pagination on filter change
-  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch, advancedFilters]);
+  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch, advancedFilters, setPagination]);
 
   const handleComplaintClick = (c: Complaint) => router.push(`/complaints/${c.systemId}`);
   const handleView = React.useCallback((id: string) => router.push(`/complaints/${id}`), [router]);

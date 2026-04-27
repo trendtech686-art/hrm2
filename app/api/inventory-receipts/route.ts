@@ -290,7 +290,7 @@ export const POST = apiHandler(async (request, { session }) => {
           
           
           // Get current inventory - use productSystemId for FK reference
-          const inventory = await tx.productInventory.findUnique({
+          await tx.productInventory.findUnique({
             where: {
               productId_branchId: {
                 productId: item.productSystemId,
@@ -301,7 +301,7 @@ export const POST = apiHandler(async (request, { session }) => {
 
           // Update ProductInventory - use productSystemId for FK reference
           // ✅ Use actual returned value from DB to ensure accuracy
-          const updatedInventory = await tx.productInventory.upsert({
+          const inventoryRecord = await tx.productInventory.upsert({
             where: {
               productId_branchId: {
                 productId: item.productSystemId,
@@ -324,7 +324,7 @@ export const POST = apiHandler(async (request, { session }) => {
 
           // G1: Decrease inTransit when receiving from an active PO
           if (linkedPOActive) {
-            const decrementBy = Math.min(quantity, updatedInventory.inTransit);
+            const decrementBy = Math.min(quantity, inventoryRecord.inTransit);
             if (decrementBy > 0) {
               await tx.productInventory.update({
                 where: { productId_branchId: { productId: item.productSystemId, branchId: branchId } },
@@ -341,7 +341,7 @@ export const POST = apiHandler(async (request, { session }) => {
               action: 'Nhập kho',
               source: 'Phiếu nhập kho',
               quantityChange: quantity,
-              newStockLevel: updatedInventory.onHand, // ✅ Use actual DB value
+              newStockLevel: inventoryRecord.onHand, // ✅ Use actual DB value
               documentId: businessId,
               documentType: 'inventory_receipt',
               employeeId: session!.user?.id,

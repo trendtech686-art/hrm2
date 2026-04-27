@@ -11,7 +11,14 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-import * as React from 'react';
+import {
+  memo,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  type FormEvent,
+} from 'react';
 import { Package, Plus, Info } from 'lucide-react';
 import type { Product, ProductType as ProductTypeEnum } from '../../features/products/types';
 import { useProductMutations } from '../../features/products/hooks/use-products';
@@ -74,6 +81,10 @@ export interface UnifiedProductSearchProps {
     /** Pricing policy ID để hiển thị giá theo bảng giá đã chọn */
     pricingPolicyId?: string;
     // ⚡ OPTIMIZED: Optional prefetched data to avoid duplicate API calls
+    /** @deprecated Use prefetchedUnits instead */
+    _prefetchedUnits?: Array<{ systemId: string; name: string }>;
+    /** @deprecated Use prefetchedProductTypes instead */
+    _prefetchedProductTypes?: Array<{ systemId: string; name: string }>;
     prefetchedUnits?: Array<{ systemId: string; name: string }>;
     prefetchedProductTypes?: Array<{ systemId: string; name: string }>;
     prefetchedPricingPolicies?: Array<{ systemId: string; name: string; type: string; isDefault: boolean }>;
@@ -90,7 +101,7 @@ export interface UnifiedProductSearchProps {
  * - Only fetches from server if no image available AND not already fetched
  * - Prevents N+1 API calls when rendering product list
  */
-const ProductOptionThumbnail = React.memo(({ 
+const ProductOptionThumbnail = memo(({ 
     productSystemId,
     productData 
 }: { 
@@ -117,7 +128,7 @@ const ProductOptionThumbnail = React.memo(({
     const displayImage = meiliImage || storeThumbnail || storeGallery;
 
     // Only fetch if: no image from Meilisearch AND never fetched before (uses batch queue)
-    React.useEffect(() => {
+    useEffect(() => {
         if (!meiliImage && !lastFetched && productSystemId) {
             import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
                 queueProductImageFetch(productSystemId);
@@ -164,11 +175,11 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
         onError: () => toast.error('Không thể tạo sản phẩm'),
     });
     const { data: _productTypes } = useActiveProductTypes({ enabled: open });
-    const getActiveProductTypes = React.useCallback(() => _productTypes, [_productTypes]);
+    const getActiveProductTypes = useCallback(() => _productTypes, [_productTypes]);
     const { data: units } = useAllUnits({ enabled: open });
     const { data: pricingPolicies = [] } = useAllPricingPolicies({ enabled: open });
     
-    const [formData, setFormData] = React.useState({
+    const [formData, setFormData] = useState({
         name: '',
         productTypeSystemId: '',
         unit: 'Chiếc',
@@ -176,15 +187,15 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
         sellingPrice: 0,
         barcode: '',
     });
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Get default pricing policy
-    const defaultSellingPolicy = React.useMemo(() => {
+    const defaultSellingPolicy = useMemo(() => {
         return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
     }, [pricingPolicies]);
 
     // Generate next product ID
-    const _generateNextProductId = React.useCallback(() => {
+    const _generateNextProductId = useCallback(() => {
         const existingIds = products.map(p => p.id).filter(id => id.startsWith('SP'));
         const numbers = existingIds.map(id => {
             const num = parseInt(id.replace('SP', ''), 10);
@@ -195,7 +206,7 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
     }, [products]);
 
     // Reset form when dialog opens
-    React.useEffect(() => {
+    useEffect(() => {
         if (open) {
             const defaultType = getActiveProductTypes().find(t => t.isDefault);
             setFormData({
@@ -209,7 +220,7 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
         }
     }, [open, getActiveProductTypes]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
         if (!formData.name.trim()) {
@@ -369,8 +380,8 @@ export function UnifiedProductSearch({
     branchSystemId: _branchSystemId,
     customFilter: _customFilter,
     pricingPolicyId,
-    prefetchedUnits,
-    prefetchedProductTypes,
+    _prefetchedUnits,
+    _prefetchedProductTypes,
     prefetchedPricingPolicies,
     prefetchedBranches,
 }: UnifiedProductSearchProps) {
@@ -381,12 +392,12 @@ export function UnifiedProductSearch({
     const branches = prefetchedBranches ?? fetchedBranches;
     const { findById: findProductTypeById } = useProductTypeFinder();
     
-    const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
-    const [showQuickAdd, setShowQuickAdd] = React.useState(false);
-    const [searchQuery, setSearchQuery] = React.useState('');
-    const [pendingProductId, setPendingProductId] = React.useState<string | null>(null);
+    const [selectedValue, setSelectedValue] = useState<ComboboxOption | null>(null);
+    const [showQuickAdd, setShowQuickAdd] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [pendingProductId, setPendingProductId] = useState<string | null>(null);
     // ⚡ Track if user has interacted with combobox
-    const [hasInteracted, setHasInteracted] = React.useState(false);
+    const [hasInteracted, setHasInteracted] = useState(false);
 
     // ✅ Use Meilisearch for fast product search
     // ✅ Infinite scroll support - load more on scroll
@@ -407,7 +418,7 @@ export function UnifiedProductSearch({
     const { data: selectedProduct } = useProduct(pendingProductId ?? undefined);
     
     // When full product is loaded, call onSelectProduct
-    React.useEffect(() => {
+    useEffect(() => {
         if (selectedProduct && pendingProductId) {
             // Guard against stale/cached data from a previous query
             if (selectedProduct.systemId !== pendingProductId) return;
@@ -417,18 +428,18 @@ export function UnifiedProductSearch({
     }, [selectedProduct, pendingProductId, onSelectProduct]);
 
     // Normalize excludeProductIds to Set
-    const excludeSet = React.useMemo(() => {
+    const excludeSet = useMemo(() => {
         if (excludeProductIds instanceof Set) return excludeProductIds;
         return new Set(excludeProductIds);
     }, [excludeProductIds]);
 
     // Get default selling policy
-    const defaultPricingPolicy = React.useMemo(() => {
+    const defaultPricingPolicy = useMemo(() => {
         return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
     }, [pricingPolicies]);
 
     // ✅ Filter Meilisearch results - flatten all pages
-    const searchProducts = React.useMemo(() => {
+    const searchProducts = useMemo(() => {
         const products = searchResult?.pages.flatMap(page => page.data) || [];
         return products.filter(p => {
             // Exclude already selected
@@ -447,7 +458,7 @@ export function UnifiedProductSearch({
     // Convert Meilisearch results to ComboboxOption format
     // ✅ Uses Meilisearch data directly (synced on every product mutation via Prisma hooks)
     // Full product data is fetched via useProduct() when user actually selects a product
-    const options: ComboboxOption[] = React.useMemo(() => {
+    const options: ComboboxOption[] = useMemo(() => {
         return searchProducts.map((p) => {
             // Get display price based on pricingPolicyId
             let displayPrice = p.price || 0;
@@ -485,7 +496,7 @@ export function UnifiedProductSearch({
         });
     }, [searchProducts, pricingPolicyId, defaultPricingPolicy, branches]);
 
-    const handleChange = React.useCallback((option: ComboboxOption | null) => {
+    const handleChange = useCallback((option: ComboboxOption | null) => {
         if (option) {
             // Set pending product ID to trigger full product fetch
             setPendingProductId(option.value);
@@ -493,13 +504,13 @@ export function UnifiedProductSearch({
         setSelectedValue(null);
     }, []);
 
-    const handleProductCreated = React.useCallback((product: Product) => {
+    const handleProductCreated = useCallback((product: Product) => {
         onSelectProduct(product);
     }, [onSelectProduct]);
 
     // Render option - with image, price, stock and branch tooltip
     // Wrapped in useCallback to prevent re-creating function every render
-    const renderOption = React.useCallback((option: ComboboxOption) => {
+    const renderOption = useCallback((option: ComboboxOption) => {
         const meta = option.metadata as {
             thumbnailImage?: string | null;
             displayPrice?: number;
@@ -569,8 +580,7 @@ export function UnifiedProductSearch({
     }, [showCostPrice, showPurchasePrice]);
 
     // Custom header with "Add new product" action
-    // Custom header with "Add new product" action
-    const renderHeader = React.useMemo(() => {
+    const renderHeader = useMemo(() => {
         if (!allowCreateNew) return undefined;
         return () => (
             <button
@@ -585,7 +595,7 @@ export function UnifiedProductSearch({
     }, [allowCreateNew]);
 
     // Memoize onLoadMore to prevent re-renders
-    const handleLoadMore = React.useCallback(() => {
+    const handleLoadMore = useCallback(() => {
         fetchNextPage();
     }, [fetchNextPage]);
 

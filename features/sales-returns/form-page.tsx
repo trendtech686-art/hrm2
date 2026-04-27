@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, useFieldArray, Controller, useWatch, FormProvider } from 'react-hook-form';
@@ -26,6 +26,7 @@ import {
 // types
 import type { LineItem as ExchangeLineItem, PackageInfo } from '@/lib/types/prisma-extended';
 import type { Product } from '@/lib/types/prisma-extended';
+import type { FormLineItem as LineItemsTableFormLineItem } from '../orders/components/line-items-table';
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 
@@ -111,29 +112,29 @@ export function SalesReturnFormPage() {
   const { data: pricingPolicies } = useAllPricingPolicies();
   
   // Get default selling price policy
-  const defaultSellingPolicy = React.useMemo(
+  const defaultSellingPolicy = useMemo(
     () => pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault),
     [pricingPolicies]
   );
   
-  const [isProductSelectionOpen, setIsProductSelectionOpen] = React.useState(false);
-  const [enableSplitLine, setEnableSplitLine] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // ✅ Guard to prevent double submission
-  const [selectedPricingPolicy, setSelectedPricingPolicy] = React.useState<string | undefined>(
+  const [isProductSelectionOpen, setIsProductSelectionOpen] = useState(false);
+  const [enableSplitLine, setEnableSplitLine] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // ✅ Guard to prevent double submission
+  const [selectedPricingPolicy, setSelectedPricingPolicy] = useState<string | undefined>(
     defaultSellingPolicy?.systemId
   );
   
   // Image preview state
-  const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+  const [previewState, setPreviewState] = useState<{ open: boolean; image: string; title: string }>({
     open: false,
     image: '',
     title: ''
   });
   
   // Combo expand state for return items
-  const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
+  const [expandedCombos, setExpandedCombos] = useState<Record<string, boolean>>({});
   
-  const getProductTypeLabel = React.useCallback((product: Product | null) => {
+  const getProductTypeLabel = useCallback((product: Product | null) => {
     if (!product) return 'Hàng hóa';
     if (product.productTypeSystemId) {
       const productType = findProductTypeById(product.productTypeSystemId);
@@ -143,35 +144,35 @@ export function SalesReturnFormPage() {
   }, [findProductTypeById]);
   
   // ✅ Memoize products lookup for ReturnItemRow - only create when needed
-  const getProductData = React.useCallback((productSystemId: string) => {
+  const getProductData = useCallback((productSystemId: string) => {
     return findProductById(productSystemId);
   }, [findProductById]);
   
-  const handlePreview = React.useCallback((image: string, title: string) => {
+  const handlePreview = useCallback((image: string, title: string) => {
     setPreviewState({ open: true, image, title });
   }, []);
   
-  const toggleComboRow = React.useCallback((key: string) => {
+  const toggleComboRow = useCallback((key: string) => {
     setExpandedCombos(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
   // State cho dialog ghi chú sản phẩm trả
-  const [editingReturnNoteIndex, setEditingReturnNoteIndex] = React.useState<number | null>(null);
-  const [tempReturnNote, setTempReturnNote] = React.useState('');
+  const [editingReturnNoteIndex, setEditingReturnNoteIndex] = useState<number | null>(null);
+  const [tempReturnNote, setTempReturnNote] = useState('');
   
   // State cho dialog ghi chú sản phẩm đổi
-  const [editingExchangeNoteIndex, setEditingExchangeNoteIndex] = React.useState<number | null>(null);
-  const [tempExchangeNote, setTempExchangeNote] = React.useState('');
+  const [editingExchangeNoteIndex, setEditingExchangeNoteIndex] = useState<number | null>(null);
+  const [tempExchangeNote, setTempExchangeNote] = useState('');
   
   // Sync selectedPricingPolicy when defaultSellingPolicy loads
-  React.useEffect(() => {
+  useEffect(() => {
     if (defaultSellingPolicy && !selectedPricingPolicy) {
       setSelectedPricingPolicy(defaultSellingPolicy.systemId);
     }
   }, [defaultSellingPolicy, selectedPricingPolicy]);
 
   // ✅ Check if order has been dispatched - redirect if not
-  React.useEffect(() => {
+  useEffect(() => {
     if (!order) return;
     
     const validDispatchStatuses = ['Xuất kho toàn bộ', 'FULLY_STOCKED_OUT', 'Xuất kho một phần', 'PARTIALLY_STOCKED_OUT'];
@@ -204,8 +205,8 @@ export function SalesReturnFormPage() {
   const { control, handleSubmit, setValue, reset, getValues, setError, formState: { errors: _errors } } = form;
 
   // ✅ Update exchangeItems prices when pricing policy changes
-  const prevPricingPolicyRef = React.useRef<string | undefined>(undefined);
-  React.useEffect(() => {
+  const prevPricingPolicyRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
     // Skip if policy didn't actually change or is first load
     if (!selectedPricingPolicy || prevPricingPolicyRef.current === selectedPricingPolicy) {
       prevPricingPolicyRef.current = selectedPricingPolicy;
@@ -237,13 +238,13 @@ export function SalesReturnFormPage() {
   });
 
   // Handlers cho dialog ghi chú sản phẩm trả
-  const handleOpenReturnNoteDialog = React.useCallback((index: number) => {
+  const handleOpenReturnNoteDialog = useCallback((index: number) => {
     const currentNote = getValues(`items.${index}.note`) || '';
     setTempReturnNote(currentNote);
     setEditingReturnNoteIndex(index);
   }, [getValues]);
 
-  const handleSaveReturnNote = React.useCallback(() => {
+  const handleSaveReturnNote = useCallback(() => {
     if (editingReturnNoteIndex !== null) {
       setValue(`items.${editingReturnNoteIndex}.note`, tempReturnNote.trim(), { shouldDirty: true });
       setEditingReturnNoteIndex(null);
@@ -252,13 +253,13 @@ export function SalesReturnFormPage() {
   }, [editingReturnNoteIndex, tempReturnNote, setValue]);
 
   // Handlers cho dialog ghi chú sản phẩm đổi
-  const _handleOpenExchangeNoteDialog = React.useCallback((index: number) => {
+  const _handleOpenExchangeNoteDialog = useCallback((index: number) => {
     const currentNote = getValues(`exchangeItems.${index}.note`) || '';
     setTempExchangeNote(currentNote);
     setEditingExchangeNoteIndex(index);
   }, [getValues]);
 
-  const handleSaveExchangeNote = React.useCallback(() => {
+  const handleSaveExchangeNote = useCallback(() => {
     if (editingExchangeNoteIndex !== null) {
       setValue(`exchangeItems.${editingExchangeNoteIndex}.note`, tempExchangeNote.trim(), { shouldDirty: true });
       setEditingExchangeNoteIndex(null);
@@ -266,7 +267,7 @@ export function SalesReturnFormPage() {
     }
   }, [editingExchangeNoteIndex, tempExchangeNote, setValue]);
   
-   const returnableQuantities = React.useMemo(() => {
+   const returnableQuantities = useMemo(() => {
     if (!order) return {};
     const returnsForThisOrder = allSalesReturns.filter(pr => pr.orderSystemId === order.systemId);
     
@@ -284,13 +285,13 @@ export function SalesReturnFormPage() {
   }, [order, allSalesReturns]);
 
   // ✅ Stable ref for returnableQuantities to use in useEffect
-  const returnableQuantitiesRef = React.useRef(returnableQuantities);
+  const returnableQuantitiesRef = useRef(returnableQuantities);
   returnableQuantitiesRef.current = returnableQuantities;
 
   // ✅ Track initialization to prevent infinite loops
-  const isInitializedRef = React.useRef(false);
+  const isInitializedRef = useRef(false);
   
-  React.useEffect(() => {
+  useEffect(() => {
       // ✅ Wait for all data to be loaded before initializing
       if (!order || !branches.length || allSalesReturns === undefined) return;
       
@@ -323,9 +324,8 @@ export function SalesReturnFormPage() {
       // ✅ Lấy địa chỉ giao hàng: ưu tiên từ đơn hàng gốc, fallback sang customer
       const orderShippingAddress = order.shippingAddress;
       const customerDefaultAddr = customer?.addresses?.find(a => a.isDefaultShipping);
-      // Cast to FormValues shippingAddress type - using explicit any to bypass complex type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const shippingAddress = (orderShippingAddress || customerDefaultAddr || null) as any;
+      // Cast to FormValues shippingAddress type
+      const shippingAddress = (orderShippingAddress || customerDefaultAddr || null) as FormValues['shippingAddress'];
       
       // Reset form với data mới
       reset({
@@ -385,18 +385,18 @@ export function SalesReturnFormPage() {
   };
 
 
-    const backDestination = React.useMemo(() => (
+    const backDestination = useMemo(() => (
         order ? generatePath(ROUTES.SALES.ORDER_VIEW, { systemId: order.systemId }) : ROUTES.SALES.ORDERS
     ), [order]);
 
-    const handleSubmitClick = React.useCallback(() => {
+    const handleSubmitClick = useCallback(() => {
         const formEl = document.getElementById('sales-return-form') as HTMLFormElement;
         if (formEl) {
             formEl.requestSubmit();
         }
     }, []);
 
-    const headerActions = React.useMemo(() => [
+    const headerActions = useMemo(() => [
         <Button
             key="cancel"
             variant="outline"
@@ -420,7 +420,7 @@ export function SalesReturnFormPage() {
         </Button>
     ], [router, backDestination, isSubmitting, handleSubmitClick]);
 
-    const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
+    const breadcrumb = useMemo<BreadcrumbItem[]>(() => {
         const items: BreadcrumbItem[] = [
             { label: 'Trang chủ', href: ROUTES.ROOT },
             { label: 'Đơn hàng', href: ROUTES.SALES.ORDERS },
@@ -437,7 +437,7 @@ export function SalesReturnFormPage() {
         return items;
     }, [order]);
 
-    const pageHeaderConfig = React.useMemo(() => ({
+    const pageHeaderConfig = useMemo(() => ({
         title: order ? `Tạo phiếu trả cho ${order.id}` : 'Tạo phiếu trả hàng',
         subtitle: undefined, // Removed subtitle per UX requirement
         breadcrumb,
@@ -1093,7 +1093,9 @@ export function SalesReturnFormPage() {
                     
                     <FormField control={control} name="isReceived" render={({ field }) => (
                         <RadioGroup onValueChange={(v) => field.onChange(v === 'true')} value={String(field.value)} className="flex gap-4">
+                            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- Button asChild pattern */}
                             <Button type="button" asChild variant={field.value ? 'default' : 'outline'}><label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="true" className="sr-only" /> Đã nhận và nhập kho</label></Button>
+                            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- Button asChild pattern */}
                             <Button type="button" asChild variant={!field.value ? 'default' : 'outline'}><label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="false" className="sr-only" /> Chưa nhận hàng</label></Button>
                         </RadioGroup>
                     )} />
@@ -1201,8 +1203,7 @@ export function SalesReturnFormPage() {
                     ) : (
                         <LineItemsTable
                             disabled={isFullyReadOnly}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            fields={exchangeFields.map(f => ({ ...f, systemId: f.id, tax: f.tax ?? 0 })) as any[]}
+                            fields={exchangeFields.map(f => ({ ...f, systemId: f.id, tax: f.tax ?? 0 })) as LineItemsTableFormLineItem[]}
                             remove={removeExchange}
                             pricingPolicyId={selectedPricingPolicy}
                             fieldName="exchangeItems"

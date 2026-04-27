@@ -141,14 +141,13 @@ export async function POST(request: Request, { params }: RouteParams) {
           }
 
           // ✅ Use returned value from DB update to ensure stock history matches actual DB state
-          let updatedInventory;
           if (existingInventory) {
-            updatedInventory = await tx.productInventory.update({
+            await tx.productInventory.update({
               where: { productId_branchId: { productId, branchId } },
               data: { onHand: targetStock },
             });
           } else {
-            updatedInventory = await tx.productInventory.create({
+            await tx.productInventory.create({
               data: { productId, branchId, onHand: targetStock, inTransit: 0, committed: 0 },
             });
           }

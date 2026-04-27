@@ -1,5 +1,5 @@
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useInfiniteMeiliProductSearch, type ProductSearchResult } from '../../hooks/use-meilisearch';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { fetchProductsByIds } from '../products/api/products-api';
@@ -35,13 +35,13 @@ interface ProductSelectionDialogProps {
 export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchSystemId, showQuantityInput = true, excludeTypes = [], pricingPolicyId, showCostPrice = false, showPurchasePrice = false, prefetchedBranches }: ProductSelectionDialogProps) {
     // ⚡ OPTIMIZED: Use prefetched data if available, otherwise fetch
     const { data: fetchedBranches } = useAllBranches({ enabled: !prefetchedBranches });
-    const branches = prefetchedBranches ?? fetchedBranches ?? [];
+    const branches = useMemo(() => prefetchedBranches ?? fetchedBranches ?? [], [prefetchedBranches, fetchedBranches]);
     
-    const [search, setSearch] = React.useState('');
-    const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-    const [quantities, setQuantities] = React.useState<Record<string, number>>({});
-    const [isConfirming, setIsConfirming] = React.useState(false);
-    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+    const [search, setSearch] = useState('');
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [quantities, setQuantities] = useState<Record<string, number>>({});
+    const [isConfirming, setIsConfirming] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     
     // ⚡ Use Meilisearch for fast search with infinite scroll — NO useAllProducts needed
     const { data: searchResult, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMeiliProductSearch({
@@ -51,7 +51,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
     });
     
     // ✅ Get products from Meilisearch response and filter - flatten all pages
-    const filteredProducts = React.useMemo(() => {
+    const filteredProducts = useMemo(() => {
         const products = searchResult?.pages.flatMap(page => page.data) || [];
         return products.filter((p) => 
             p.status !== 'combo' &&
@@ -61,7 +61,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
 
     // ⚡ Use Meilisearch inventory data directly (synced on every product mutation)
     // Meilisearch already contains branchStocks with branchName, use it directly
-    const getProductInventory = React.useCallback((meiliProduct: ProductSearchResult): { totalStock: number; branchStock: number; branchStocks: Array<{ branchId: string; branchName: string; onHand: number }> } => {
+    const getProductInventory = useCallback((meiliProduct: ProductSearchResult): { totalStock: number; branchStock: number; branchStocks: Array<{ branchId: string; branchName: string; onHand: number }> } => {
         const meiliStocks = meiliProduct.branchStocks || [];
         
         // Get selected branch stock
@@ -77,7 +77,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
     }, [branchSystemId]);
 
     // Get price for product based on selected pricing policy
-    const getDisplayPrice = React.useCallback((product: typeof filteredProducts[0]) => {
+    const getDisplayPrice = useCallback((product: typeof filteredProducts[0]) => {
         if (pricingPolicyId && product.prices?.[pricingPolicyId]) {
             return product.prices[pricingPolicyId];
         }
@@ -87,7 +87,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
     const totalProducts = filteredProducts.length;
     
     // Infinite scroll handler
-    const handleScroll = React.useCallback(() => {
+    const handleScroll = useCallback(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
         
@@ -100,13 +100,13 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
         }
     }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
     
-    const selectedBranchName = React.useMemo(() => {
+    const selectedBranchName = useMemo(() => {
         if (!branchSystemId) return '';
         return branches.find(branch => branch.systemId === branchSystemId)?.name || '';
     }, [branches, branchSystemId]);
 
     // Reset state when dialog closes
-    React.useEffect(() => {
+    useEffect(() => {
         if (!isOpen) {
             setSearch('');
             setSelectedIds(new Set());
@@ -179,7 +179,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
     };
 
     // Get total quantity selected
-    const totalQuantity = React.useMemo(() => {
+    const totalQuantity = useMemo(() => {
         return Object.values(quantities).reduce((sum, qty) => sum + qty, 0);
     }, [quantities]);
 
@@ -231,7 +231,8 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
 
                 {/* Table Header */}
                 <div className="border border-border rounded-lg overflow-hidden flex-1 flex flex-col">
-                    <div 
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- select all checkbox row */}
+                    <div
                         className="bg-muted/50 border-b border-border px-4 py-2 flex items-center gap-4 cursor-pointer hover:bg-muted/70 transition-colors"
                         onClick={() => handleSelectAll(!allPageSelected)}
                     >
@@ -272,6 +273,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
                                 const purchasePrice = product.lastPurchasePrice ?? 0;
 
                                 return (
+                                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- product row
                                     <div
                                         key={product.systemId}
                                         className={cn(
@@ -351,6 +353,7 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
 
                                         {/* Quantity Input */}
                                         {showQuantityInput && (
+                                            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- input wrapper */}
                                             <div className="shrink-0 md:ml-auto" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center gap-1 md:gap-1 justify-end">
                                                     <Button

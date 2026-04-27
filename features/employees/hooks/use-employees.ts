@@ -42,6 +42,7 @@ export const employeeKeys = {
   byDepartment: (id: string) => [...employeeKeys.all, 'department', id] as const,
   byBranch: (id: string) => [...employeeKeys.all, 'branch', id] as const,
   stats: () => [...employeeKeys.all, 'stats'] as const,
+  checkPhone: (phone: string, exclude?: string) => ['employees', 'check-phone', phone, exclude] as const,
 };
 
 // Types for initial data from Server Components

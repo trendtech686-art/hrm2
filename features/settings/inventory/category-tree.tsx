@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useMemo } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -49,7 +49,7 @@ interface TreeNodeProps {
 }
 
 function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level, overId, dropPosition }: TreeNodeProps) {
-  const [isExpanded, setIsExpanded] = React.useState(true);
+  const [isExpanded, setIsExpanded] = useState(true);
   const children = allCategories.filter(c => c.parentId === category.systemId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const hasChildren = children.length > 0;
 
@@ -96,7 +96,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing flex-shrink-0 p-1 hover:bg-muted rounded"
+            className="cursor-grab active:cursor-grabbing shrink-0 p-1 hover:bg-muted rounded"
             title="Kéo để di chuyển: Phía trên/Vào trong/Phía dưới"
           >
             <GripVertical className="h-5 w-5 text-muted-foreground" />
@@ -107,7 +107,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 flex-shrink-0"
+              className="h-6 w-6 p-0 shrink-0"
               onClick={() => setIsExpanded(!isExpanded)}
             >
               <ChevronDown
@@ -124,7 +124,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
           {/* Color indicator */}
           {category.color && (
             <div
-              className="w-3 h-3 rounded-full flex-shrink-0"
+              className="w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: category.color }}
             />
           )}
@@ -157,7 +157,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
 
           {/* Actions */}
           <div className={cn(
-            "flex items-center gap-1 flex-shrink-0 transition-opacity",
+            "flex items-center gap-1 shrink-0 transition-opacity",
             isOver && "opacity-0"
           )}>
             <Button
@@ -221,9 +221,9 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
 }
 
 export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove }: CategoryTreeProps) {
-  const [activeId, setActiveId] = React.useState<string | null>(null);
-  const [overId, setOverId] = React.useState<string | null>(null);
-  const [dropPosition, setDropPosition] = React.useState<DropPosition>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<DropPosition>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -236,12 +236,12 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
     })
   );
 
-  const rootCategories = React.useMemo(
+  const rootCategories = useMemo(
     () => categories.filter(c => !c.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
     [categories]
   );
 
-  const allCategoryIds = React.useMemo(
+  const allCategoryIds = useMemo(
     () => categories.map(c => c.systemId),
     [categories]
   );

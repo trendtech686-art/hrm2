@@ -159,14 +159,14 @@ export const getCashAccountColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(row)}>Chỉnh sửa</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onEdit(row)}>Chỉnh sửa</DropdownMenuItem>
             {!row.isDefault && (
-              <DropdownMenuItem onClick={() => onSetDefault(row)}>
+              <DropdownMenuItem onSelect={() => onSetDefault(row)}>
                 Đặt làm mặc định
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
-              onClick={() => onDelete(row.systemId)}
+              onSelect={() => onDelete(row.systemId)}
               className="text-destructive"
             >
               Xóa

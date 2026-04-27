@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { formatDate } from '../../lib/date-utils';
 import { cn } from '@/lib/utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useSalesReturns, salesReturnKeys } from './hooks/use-sales-returns';
+import { useDebounce } from '@/hooks/use-debounce';
 import { fetchSalesReturn } from './api/sales-returns-api';
 import { useAllSalesReturns } from './hooks/use-all-sales-returns';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
@@ -46,10 +47,8 @@ const formatCurrency = (value?: number) => typeof value === 'number' ? new Intl.
 export function SalesReturnsPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const [search, setSearch] = React.useState('');
-    const [debouncedSearch, setDebouncedSearch] = React.useState('');
-    
-    React.useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(t); }, [search]);
+const [search, setSearch] = useState('');
+const debouncedSearch = useDebounce(search, 300);
     
     const { data: branches } = useAllBranches();
     // ✅ OPTIMIZED: storeInfo lazy loaded in print handlers
@@ -59,17 +58,17 @@ export function SalesReturnsPage() {
     const { print, printMultiple } = usePrint();
     const isMobile = !useMediaQuery('(min-width: 768px)');
 
-    const [exportDialogOpen, setExportDialogOpen] = React.useState(false), [printDialogOpen, setPrintDialogOpen] = React.useState(false);
-    const [itemsToPrint, setItemsToPrint] = React.useState<SalesReturn[]>([]);
-    const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
-    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
-    const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+    const [exportDialogOpen, setExportDialogOpen] = useState(false), [printDialogOpen, setPrintDialogOpen] = useState(false);
+    const [itemsToPrint, setItemsToPrint] = useState<SalesReturn[]>([]);
+    const [sorting, setSorting] = useState({ id: 'createdAt', desc: true });
+    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 40 });
+    const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({}), [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
     const [columnOrder, setColumnOrder] = useColumnOrder('sales-returns'), [pinnedColumns, setPinnedColumns] = usePinnedColumns('sales-returns', ['id']);
 
     // Advanced filter panel
     const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('sales-returns');
-    const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    const filterConfigs: FilterConfig[] = useMemo(() => [
       { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: [{ label: 'Tất cả', value: 'all' }, ...branches.map(b => ({ label: b.name, value: b.systemId }))] },
       { id: 'status', label: 'Trạng thái', type: 'select' as const, options: [
         { label: 'Tất cả', value: 'all' },
@@ -85,20 +84,20 @@ export function SalesReturnsPage() {
       ] },
       { id: 'returnDate', label: 'Ngày trả hàng', type: 'date-range' as const },
     ], [branches]);
-    const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
-    const panelValues = React.useMemo(() => ({
+    const [advancedFilters, setAdvancedFilters] = useState<Record<string, unknown>>({});
+    const panelValues = useMemo(() => ({
       branch: advancedFilters.branch ?? null,
       status: advancedFilters.status ?? null,
       isReceived: advancedFilters.isReceived ?? null,
       returnDate: advancedFilters.returnDate ?? null,
     }), [advancedFilters]);
-    const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    const handlePanelApply = useCallback((v: Record<string, unknown>) => {
       setAdvancedFilters(v);
       setPagination(p => ({ ...p, pageIndex: 0 }));
     }, []);
 
     // ✅ Server-side pagination: API handles search, filter, sort, pagination
-    const queryParams = React.useMemo(() => {
+    const queryParams = useMemo(() => {
         const dateRange = advancedFilters.returnDate as { from?: string; to?: string } | null;
         const branch = advancedFilters.branch as string | undefined;
         const status = advancedFilters.status as string | undefined;
@@ -118,38 +117,38 @@ export function SalesReturnsPage() {
     }, [pagination.pageIndex, pagination.pageSize, debouncedSearch, advancedFilters, sorting]);
 
     const { data: response, isFetching } = useSalesReturns(queryParams);
-    const returns = response?.data ?? [];
+    const returns = useMemo(() => response?.data ?? [], [response?.data]);
     const totalCount = response?.pagination?.total ?? 0;
     const pageCount = response?.pagination?.totalPages ?? 0;
 
     // ✅ Lazy-load: only fetch ALL data when export dialog opens
     const { data: allReturnsForExport } = useAllSalesReturns({ enabled: exportDialogOpen });
-    const activeExportReturns = React.useMemo(() => allReturnsForExport.filter(r => (r as unknown as Record<string, unknown>).status !== 'Đã hủy'), [allReturnsForExport]);
+    const activeExportReturns = useMemo(() => allReturnsForExport.filter(r => (r as unknown as Record<string, unknown>).status !== 'Đã hủy'), [allReturnsForExport]);
 
-    const defaultColumnVisibility = React.useMemo(() => {
+    const defaultColumnVisibility = useMemo(() => {
         const initial: Record<string, boolean> = {};
         getColumns(() => {}).forEach(c => { if (c.id) initial[c.id] = true; });
         return initial;
     }, []);
     const [columnVisibility, setColumnVisibility] = useColumnVisibility('sales-returns', defaultColumnVisibility);
 
-    const handleCreateReturn = React.useCallback(() => router.push(ROUTES.SALES.ORDERS), [router]);
-    const headerActions = React.useMemo(() => [
+    const handleCreateReturn = useCallback(() => router.push(ROUTES.SALES.ORDERS), [router]);
+    const headerActions = useMemo(() => [
         canCreate && <Button key="create" size="sm" className="px-4" onClick={handleCreateReturn}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu trả</Button>
     ].filter(Boolean), [handleCreateReturn, canCreate]);
 
-    usePageHeader(React.useMemo(() => ({
+    usePageHeader(useMemo(() => ({
         title: 'Phiếu trả hàng',
         breadcrumb: [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Trả hàng', href: ROUTES.SALES.RETURNS, isCurrent: true }],
         showBackButton: false, actions: headerActions,
     }), [headerActions]));
 
     // Reset pagination on search change
-    React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch]);
+    useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch, setPagination]);
 
-    const handleBulkPrint = React.useCallback((rows: SalesReturn[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
+    const handleBulkPrint = useCallback((rows: SalesReturn[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
 
-    const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
+    const handlePrintConfirm = useCallback(async (options: SimplePrintOptionsResult) => {
         if (itemsToPrint.length === 0) return;
         const { branchSystemId, paperSize } = options;
         const selectedBranch = branches.find(b => b.systemId === branchSystemId);
@@ -164,7 +163,7 @@ export function SalesReturnsPage() {
         toast.success(`Đang in ${itemsToPrint.length} phiếu trả hàng`);
     }, [itemsToPrint, branches, printMultiple]);
 
-    const handlePrintReturn = React.useCallback(async (returnIds: string[]) => {
+    const handlePrintReturn = useCallback(async (returnIds: string[]) => {
         const { storeInfo } = await fetchPrintData();
         returnIds.forEach(id => {
             const ret = returns.find(r => r.systemId === id);
@@ -176,11 +175,11 @@ export function SalesReturnsPage() {
         });
     }, [returns, branches, print]);
 
-    const handlePrintSingleReturn = React.useCallback((returnId: string) => handlePrintReturn([returnId]), [handlePrintReturn]);
-    const columns = React.useMemo(() => getColumns(handlePrintSingleReturn), [handlePrintSingleReturn]);
+    const handlePrintSingleReturn = useCallback((returnId: string) => handlePrintReturn([returnId]), [handlePrintReturn]);
+    const columns = useMemo(() => getColumns(handlePrintSingleReturn), [handlePrintSingleReturn]);
 
-    const columnOrderInitRef = React.useRef(false);
-    React.useEffect(() => {
+    const columnOrderInitRef = useRef(false);
+    useEffect(() => {
       if (columnOrderInitRef.current || !columns.length) return;
       columnOrderInitRef.current = true;
       setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
@@ -190,15 +189,15 @@ export function SalesReturnsPage() {
 
     const handleRowClick = (row: SalesReturn) => router.push('/sales-returns/' + row.systemId);
 
-    const handleRowHover = React.useCallback((row: { systemId: string }) => {
+    const handleRowHover = useCallback((row: { systemId: string }) => {
         queryClient.prefetchQuery({
             queryKey: salesReturnKeys.detail(row.systemId),
             queryFn: () => fetchSalesReturn(asSystemId(row.systemId)),
             staleTime: 60_000,
         });
     }, [queryClient]);
-    const allSelectedRows = React.useMemo(() => returns.filter(r => rowSelection[r.systemId]), [returns, rowSelection]);
-    const bulkActions = React.useMemo(() => [{ label: 'In phiếu trả hàng', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
+    const allSelectedRows = useMemo(() => returns.filter(r => rowSelection[r.systemId]), [returns, rowSelection]);
+    const bulkActions = useMemo(() => [{ label: 'In phiếu trả hàng', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
     const MobileSalesReturnCard = ({ salesReturn }: { salesReturn: SalesReturn }) => {
         const totalQty = salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0);

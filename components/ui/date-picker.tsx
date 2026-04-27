@@ -1,6 +1,6 @@
 "use client"
 
-import * as React from "react"
+import { useState, useEffect, type ChangeEvent, type KeyboardEvent } from "react"
 import { CalendarIcon } from "lucide-react"
 
 import { cn } from "../../lib/utils"
@@ -68,19 +68,31 @@ type DatePickerProps = {
 };
 
 export function DatePicker({ id, value, onChange, placeholder = "dd/mm/yyyy", className, disabled, fromDate, toDate }: DatePickerProps) {
-  const [open, setOpen] = React.useState(false)
-  const [date, setDate] = React.useState<Date | undefined>(value ? new Date(value) : undefined)
-  const [month, setMonth] = React.useState<Date | undefined>(date)
-  const [inputValue, setInputValue] = React.useState(formatDate(date))
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [month, setMonth] = useState<Date | undefined>(undefined)
+  const [inputValue, setInputValue] = useState<string>('')
+  const [hydrated, setHydrated] = useState(false)
 
-  React.useEffect(() => {
-    const newDate = value ? new Date(value) : undefined
-    setDate(newDate)
-    setMonth(newDate)
-    setInputValue(formatDate(newDate))
-  }, [value])
+  // Hydration-safe: set initial value only on client
+  useEffect(() => {
+    const initialDate = value ? new Date(value) : undefined;
+    setDate(initialDate);
+    setMonth(initialDate);
+    setInputValue(formatDate(initialDate));
+    setHydrated(true);
+  }, [value]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (hydrated && value) {
+      const newDate = new Date(value);
+      setDate(newDate);
+      setMonth(newDate);
+      setInputValue(formatDate(newDate));
+    }
+  }, [value, hydrated]);
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setInputValue(newValue)
     
@@ -103,7 +115,7 @@ export function DatePicker({ id, value, onChange, placeholder = "dd/mm/yyyy", cl
     setOpen(false)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault()
       setOpen(true)

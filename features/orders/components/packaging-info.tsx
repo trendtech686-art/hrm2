@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useMemo, useCallback, memo, type ElementType } from 'react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import type { Order, Packaging, OrderDeliveryStatus } from '../types';
@@ -29,7 +29,7 @@ const formatCurrency = (value?: number) => {
 
 
 
-const packagingStatusIcons: Record<string, React.ElementType> = {
+const packagingStatusIcons: Record<string, ElementType> = {
     'Chờ đóng gói': PackageSearch,
     'Đã đóng gói': PackageCheck,
     'Hủy đóng gói': Ban,
@@ -82,8 +82,8 @@ export function PackagingInfo({
                         packaging.deliveryStatus === 'CANCELLED' ||
                         packaging.status === 'Hủy đóng gói' || 
                         packaging.status === 'CANCELLED';
-    const [isExpanded, setIsExpanded] = React.useState(!isCancelled);
-    const [isCopied, setIsCopied] = React.useState(false);
+    const [isExpanded, setIsExpanded] = useState(!isCancelled);
+    const [isCopied, setIsCopied] = useState(false);
     const { findById: findBranchById } = useBranchFinder();
     const { findById: findCustomerById } = useCustomerFinder();
     
@@ -95,7 +95,7 @@ export function PackagingInfo({
     // Shipment is already included via packaging relation from API
     const shipment = packaging.shipment;
 
-    const renderEmployeeLink = React.useCallback((employeeId?: SystemId, employeeName?: string) => {
+    const renderEmployeeLink = useCallback((employeeId?: SystemId, employeeName?: string) => {
         const resolvedName = employeeName;
         if (!employeeId && !resolvedName) {
             return '---';
@@ -112,7 +112,7 @@ export function PackagingInfo({
         );
     }, []);
 
-    const displayStatusText = React.useMemo(() => {
+    const displayStatusText = useMemo(() => {
         // ✅ If delivery is cancelled, always show "Đã hủy"
         if (packaging.deliveryStatus === 'Đã hủy') {
             return 'Đã hủy';
@@ -178,24 +178,24 @@ export function PackagingInfo({
     };
 
     // === PRINT HANDLERS ===
-    const storeSettings = React.useMemo(() => 
+    const storeSettings = useMemo(() => 
         createStoreSettings(branch)
     , [branch]);
 
     // Helper to safely get address fields
-    const getShippingAddressField = React.useCallback(<T extends keyof import('../types').OrderAddress>(
+    const getShippingAddressField = useCallback(<T extends keyof import('../types').OrderAddress>(
         field: T
     ): import('../types').OrderAddress[T] | undefined => {
         if (typeof order.shippingAddress === 'string') return undefined;
         return order.shippingAddress?.[field];
     }, [order.shippingAddress]);
 
-    const getFormattedShippingAddress = React.useCallback(() => {
+    const getFormattedShippingAddress = useCallback(() => {
         if (typeof order.shippingAddress === 'string') return order.shippingAddress;
         return order.shippingAddress?.formattedAddress || order.shippingAddress?.street || '';
     }, [order.shippingAddress]);
 
-    const handlePrintPacking = React.useCallback(() => {
+    const handlePrintPacking = useCallback(() => {
         const packingData = {
             code: packaging.id,
             createdAt: packaging.requestDate,
@@ -237,7 +237,7 @@ export function PackagingInfo({
         print('packing', { data: printData, lineItems });
     }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
 
-    const handlePrintShippingLabel = React.useCallback(() => {
+    const handlePrintShippingLabel = useCallback(() => {
         const labelData = {
             orderCode: order.id,
             createdAt: packaging.requestDate,
@@ -271,7 +271,7 @@ export function PackagingInfo({
         print('shipping-label', { data: printData });
     }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
 
-    const handlePrintDelivery = React.useCallback(() => {
+    const handlePrintDelivery = useCallback(() => {
         const deliveryData = {
             code: packaging.trackingCode || packaging.id,
             orderCode: order.id,
@@ -324,7 +324,7 @@ export function PackagingInfo({
     }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
 
     // ✅ In nhãn GHTK (lấy PDF từ GHTK có QR code)
-    const handlePrintGHTKLabel = React.useCallback(async () => {
+    const handlePrintGHTKLabel = useCallback(async () => {
         if (!packaging.trackingCode || packaging.carrier !== 'GHTK') {
             toast.error('Không có mã vận đơn GHTK');
             return;
@@ -521,7 +521,7 @@ export function PackagingInfo({
                             <div className="flex items-center gap-1 min-w-0">
                                 <Separator orientation="vertical" className="h-4 mx-1 hidden sm:block" />
                                 <span className="text-sm text-primary truncate">{packaging.trackingCode}</span>
-                                <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
+                                <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={(e) => { e.stopPropagation(); handleCopy(); }} aria-label="Sao chép mã vận đơn">
                                     {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
                             </div>
@@ -572,7 +572,7 @@ export function PackagingInfo({
                                 <TooltipContent>In phiếu giao hàng</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setIsExpanded(!isExpanded)}>
+                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? "Thu gọn" : "Mở rộng"}>
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
                     </div>
@@ -713,4 +713,4 @@ export function PackagingInfo({
 }
 
 // ✅ Export memoized component for performance
-export const MemoizedPackagingInfo = React.memo(PackagingInfo);
+export const MemoizedPackagingInfo = memo(PackagingInfo);

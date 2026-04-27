@@ -14,7 +14,13 @@
  * Formats scanned: EAN-13, EAN-8, UPC-A, UPC-E, Code-128, Code-39, QR, ITF.
  */
 
-import * as React from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useId,
+  type ReactNode,
+} from "react";
 import { ScanLine, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -71,10 +77,10 @@ export function BarcodeScannerButton({
   label,
   disabled,
 }: BarcodeScannerButtonProps) {
-  const [open, setOpen] = React.useState(false);
-  const [support, setSupport] = React.useState<Support>("pending");
+  const [open, setOpen] = useState(false);
+  const [support, setSupport] = useState<Support>("pending");
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!hasCamera()) {
       setSupport("unsupported");
       return;
@@ -122,7 +128,7 @@ export function BarcodeScannerButton({
               type="button"
               aria-label="Đóng"
               onClick={() => setOpen(false)}
-              className="h-8 w-8 flex items-center justify-center rounded-md text-white/80 hover:bg-white/10"
+              className="h-8 w-8 flex items-center justify-center rounded-md text-white/80 hover:bg-black/10"
             >
               <X className="h-4 w-4" />
             </button>
@@ -136,11 +142,11 @@ export function BarcodeScannerButton({
 }
 
 function NativeScannerSurface({ onDetected }: { onDetected: (code: string) => void }) {
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const [error, setError] = React.useState<string | null>(null);
-  const [starting, setStarting] = React.useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const Detector = getBarcodeDetector();
     if (!Detector) {
       setError("Trình duyệt không hỗ trợ quét mã vạch.");
@@ -205,11 +211,11 @@ function NativeScannerSurface({ onDetected }: { onDetected: (code: string) => vo
 }
 
 function Html5ScannerSurface({ onDetected }: { onDetected: (code: string) => void }) {
-  const regionId = React.useId().replace(/:/g, "_") + "-barcode-region";
-  const [error, setError] = React.useState<string | null>(null);
-  const [starting, setStarting] = React.useState(true);
+  const regionId = useId().replace(/:/g, "_") + "-barcode-region";
+  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
     let scanner: import("html5-qrcode").Html5Qrcode | null = null;
     let running = false;
@@ -278,7 +284,7 @@ function ScannerFrame({
   starting,
   error,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   starting: boolean;
   error: string | null;
 }) {

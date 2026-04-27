@@ -32,10 +32,33 @@ import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 import { FAB } from '@/components/mobile/fab';
 import { ListPageShell } from '@/components/layout/page-section';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
+// Loading component for dialogs
+function DialogLoadingFallback() {
+  return (
+    <Dialog open>
+      <DialogContent className="max-w-md">
+        <div className="space-y-4 p-4">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-1/2" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-const EmployeeImportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeImportDialog })), { ssr: false });
-const EmployeeExportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeExportDialog })), { ssr: false });
+const EmployeeImportDialog = dynamic(
+  () => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeImportDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
+const EmployeeExportDialog = dynamic(
+  () => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeExportDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
 
 export interface EmployeesPageProps {
   initialStats?: EmployeeStats;
@@ -74,14 +97,14 @@ export function EmployeesPage({ initialStats }: EmployeesPageProps = {}) {
       });
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, setPagination]);
   
   // Reset page when filters change (wrapped in transition)
   React.useEffect(() => {
     startFilterTransition(() => {
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     });
-  }, [branchFilter, departmentFilter, jobTitleFilter, statusFilter]);
+  }, [branchFilter, departmentFilter, jobTitleFilter, statusFilter, setPagination]);
   
   // Server-side paginated query
   const { data: employeesData, isLoading: isLoadingEmployees, isFetching: isFetchingEmployees } = useEmployees({

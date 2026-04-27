@@ -12,6 +12,7 @@ import { requireActionPermission } from '@/lib/api-utils'
 import { cache } from '@/lib/cache'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { invalidateNotificationSettingsCache } from '@/lib/notifications'
+import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -339,7 +340,7 @@ export async function updateModuleSettingSection(
     );
     if (isCreate) {
       createActivityLog({
-        entityType: entityType as any,
+        entityType: entityType as ActivityLogEntityType,
         entityId: key,
         action: `Tạo cài đặt ${sectionLabel}`,
         actionType: 'create',
@@ -417,7 +418,7 @@ export async function updateModuleSettingSection(
       if (changedLabels.length > 0) {
         const changeDetail = changedLabels.join(', ');
         createActivityLog({
-          entityType: entityType as any,
+          entityType: entityType as ActivityLogEntityType,
           entityId: key,
           action: `Cập nhật ${sectionLabel}: ${changeDetail}`,
           actionType: 'update',

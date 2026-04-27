@@ -27,6 +27,7 @@ export function AlertListBox({ items, activeFilter, onFilterChange, variant = 'd
           const borderColor = variant === 'destructive' ? 'border-l-destructive' : 'border-l-primary';
           
           return (
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- visual filter item
             <div
               key={key}
               onClick={() => onFilterChange(isActive ? 'all' : key)}

@@ -56,7 +56,6 @@ export const getColumns = (
   
   const pricingPolicies = lookups?.pricingPolicies ?? [];
   const activePricingPolicies = pricingPolicies.filter(p => p.isActive);
-  const _defaultSellingPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
 
   // Lookup functions from React Query hooks (passed from page.tsx)
   const findCategory = lookups?.findCategory;
@@ -97,7 +96,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableCell
                 value={row.id || ''}
                 onSave={(newValue) => onFieldUpdate(row, 'id', newValue)}
@@ -117,7 +116,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <div className="flex items-center gap-2 flex-wrap">
                 <InlineEditableCell
                   value={row.name || ''}
@@ -199,6 +198,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const isActive = row.status?.toString().toUpperCase() === 'ACTIVE';
         return (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- wrapper for Switch
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Switch
               checked={isActive}
@@ -238,7 +238,7 @@ export const getColumns = (
         
         if (onInventoryChange) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={totalInventory}
                 onSave={(newValue) => onInventoryChange(row, newValue)}
@@ -339,7 +339,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.pkgxId || 0}
                 onSave={(newValue) => onFieldUpdate(row, 'pkgxId', newValue)}
@@ -460,7 +460,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.reorderLevel ?? 0}
                 onSave={(newValue) => onFieldUpdate(row, 'reorderLevel', newValue)}
@@ -479,7 +479,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.safetyStock ?? 0}
                 onSave={(newValue) => onFieldUpdate(row, 'safetyStock', newValue)}
@@ -498,7 +498,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.maxStock ?? 0}
                 onSave={(newValue) => onFieldUpdate(row, 'maxStock', newValue)}
@@ -520,7 +520,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.weight ?? 0}
                 onSave={(newValue) => onFieldUpdate(row, 'weight', newValue)}
@@ -542,7 +542,7 @@ export const getColumns = (
           const dims = row.dimensions || { length: 0, width: 0, height: 0 };
           const currentValue = `${dims.length || 0}×${dims.width || 0}×${dims.height || 0}`;
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableCell
                 value={currentValue}
                 onSave={(newValue) => onFieldUpdate(row, 'dimensions', newValue)}
@@ -580,7 +580,7 @@ export const getColumns = (
       accessorKey: "isPublished",
       header: "Đăng web",
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <Switch
             checked={row.isPublished ?? false}
             onCheckedChange={(checked) => onFieldUpdate?.(row, 'isPublished', checked)}
@@ -594,7 +594,7 @@ export const getColumns = (
       accessorKey: "isFeatured",
       header: "Nổi bật",
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <Switch
             checked={row.isFeatured ?? false}
             onCheckedChange={(checked) => onFieldUpdate?.(row, 'isFeatured', checked)}
@@ -608,7 +608,7 @@ export const getColumns = (
       accessorKey: "isNewArrival",
       header: "Mới về",
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <Switch
             checked={row.isNewArrival ?? false}
             onCheckedChange={(checked) => onFieldUpdate?.(row, 'isNewArrival', checked)}
@@ -622,7 +622,7 @@ export const getColumns = (
       accessorKey: "isBestSeller",
       header: "Bán chạy",
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <Switch
             checked={row.isBestSeller ?? false}
             onCheckedChange={(checked) => onFieldUpdate?.(row, 'isBestSeller', checked)}
@@ -636,7 +636,7 @@ export const getColumns = (
       accessorKey: "isOnSale",
       header: "Đang giảm giá",
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <Switch
             checked={row.isOnSale ?? false}
             onCheckedChange={(checked) => onFieldUpdate?.(row, 'isOnSale', checked)}
@@ -652,7 +652,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.sortOrder ?? 0}
                 onSave={(newValue) => onFieldUpdate(row, 'sortOrder', newValue)}
@@ -723,7 +723,7 @@ export const getColumns = (
       accessorKey: "isStockTracked",
       header: "Theo dõi kho",
       cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
           <Switch
             checked={row.isStockTracked !== false}
             onCheckedChange={(checked) => onFieldUpdate?.(row, 'isStockTracked', checked)}
@@ -749,7 +749,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableCell
                 value={row.nameVat || ''}
                 onSave={(newValue) => onFieldUpdate(row, 'nameVat', newValue)}
@@ -792,7 +792,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableCell
                 value={row.sellerNote || ''}
                 onSave={(newValue) => onFieldUpdate(row, 'sellerNote', newValue)}
@@ -883,7 +883,7 @@ export const getColumns = (
       cell: ({ row }) => {
         if (onFieldUpdate) {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={row.trendtechId || 0}
                 onSave={(newValue) => onFieldUpdate(row, 'trendtechId', newValue)}
@@ -974,7 +974,7 @@ export const getColumns = (
         // ✅ Show restore button for deleted items
         if (row.deletedAt) {
           return (
-            <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -989,7 +989,7 @@ export const getColumns = (
         
         // ✅ Show edit/delete for active items
         return (
-          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" className="h-11 w-11 p-0" onClick={(e) => e.stopPropagation()}>
@@ -1031,7 +1031,7 @@ export const getColumns = (
         const price = row.prices?.[policy.systemId];
         if (onFieldUpdate) {
           return (
-            <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <div onClick={(e: React.MouseEvent) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
               <InlineEditableNumberCell
                 value={price || 0}
                 onSave={(newValue: number) => onFieldUpdate(row, `prices.${policy.systemId}`, newValue)}

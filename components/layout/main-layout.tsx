@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { useUiStore } from '../../lib/ui-store';
@@ -19,7 +19,7 @@ function UiStateInitializer() {
 
     // Set initial sidebar state based on screen size, and update on change
     // Uses matchMedia directly to avoid the intermediate false from useMediaQuery
-    React.useEffect(() => {
+    useEffect(() => {
         const mql = window.matchMedia('(min-width: 1024px)');
         setSidebarOpen(mql.matches);
         
@@ -32,16 +32,16 @@ function UiStateInitializer() {
 }
 
 interface MainLayoutProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarOpen, setSidebarOpen, isSidebarCollapsed } = useUiStore();
-  const [isMounted, setIsMounted] = React.useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   // Track when component is mounted to avoid hydration mismatch
-  React.useEffect(() => {
+  useEffect(() => {
     setIsMounted(true);
   }, []);
   

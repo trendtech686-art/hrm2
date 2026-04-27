@@ -6,10 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchReturnsOrderList, fetchReturnsProductAggregate } from '@/features/reports/api/reports-api';
 import type { ReportDateRange, ReturnOrderReportRow, ReturnProductReportRow } from '../types';
 import { REPORTS_QUERY_GC_MS, REPORTS_QUERY_STALE_MS } from '../lib/reports-query-config';
+import { reportKeys } from './report-keys';
 
 export function useReturnOrderReport(dateRange: ReportDateRange, page = 1, pageSize = 500) {
   const query = useQuery({
-    queryKey: ['reports', 'returns-aggregate', 'order-list', dateRange.from, dateRange.to, page, pageSize],
+    queryKey: reportKeys.returns.byOrder({ dateRange, page, pageSize }),
     queryFn: () => fetchReturnsOrderList(dateRange, page, pageSize),
     enabled: Boolean(dateRange.from && dateRange.to),
     staleTime: REPORTS_QUERY_STALE_MS,
@@ -33,7 +34,7 @@ export function useReturnOrderReport(dateRange: ReportDateRange, page = 1, pageS
 
 export function useReturnProductReport(dateRange: ReportDateRange) {
   const query = useQuery({
-    queryKey: ['reports', 'returns-aggregate', 'product', dateRange.from, dateRange.to],
+    queryKey: reportKeys.returns.byProduct({ dateRange }),
     queryFn: () => fetchReturnsProductAggregate(dateRange),
     enabled: Boolean(dateRange.from && dateRange.to),
     staleTime: REPORTS_QUERY_STALE_MS,

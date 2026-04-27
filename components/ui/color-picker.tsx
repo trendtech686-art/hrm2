@@ -1,4 +1,4 @@
-import * as React from 'react'
+import { useState, useRef, useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
 import { cn } from '../../lib/utils'
 import { Input } from './input'
 import { Label } from './label'
@@ -62,28 +62,23 @@ function hexToRgba(hex: string) {
 
 // Preset colors palette
 const presetColors = [
-    // Grays
     '#000000', '#374151', '#6B7280', '#9CA3AF', '#D1D5DB', '#F3F4F6', '#FFFFFF',
-    // Primary colors
     '#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6', '#3B82F6', '#8B5CF6', '#EC4899',
-    // Light variants
     '#FCA5A5', '#FDBA74', '#FDE047', '#86EFAC', '#5EEAD4', '#93C5FD', '#C4B5FD', '#F9A8D4',
-    // Dark variants  
     '#991B1B', '#C2410C', '#A16207', '#15803D', '#0F766E', '#1D4ED8', '#6D28D9', '#BE185D',
 ];
 
 export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; onChange: (color: string) => void }) => {
-    const [hsva, setHsva] = React.useState({ h: 0, s: 100, v: 100, a: 1 });
-    const [rgba, setRgba] = React.useState({ r: 255, g: 0, b: 0, a: 1 });
-    const [hex, setHex] = React.useState("#FF0000");
-    const [isDragging, setIsDragging] = React.useState(false);
-    const saturationRef = React.useRef<HTMLDivElement>(null);
-    const hueRef = React.useRef<HTMLDivElement>(null);
-    const rafRef = React.useRef<number>(0);
-    const pendingHsvaRef = React.useRef<typeof hsva | null>(null);
+    const [hsva, setHsva] = useState({ h: 0, s: 100, v: 100, a: 1 });
+    const [rgba, setRgba] = useState({ r: 255, g: 0, b: 0, a: 1 });
+    const [hex, setHex] = useState("#FF0000");
+    const [isDragging, setIsDragging] = useState(false);
+    const saturationRef = useRef<HTMLDivElement>(null);
+    const hueRef = useRef<HTMLDivElement>(null);
+    const rafRef = useRef<number>(0);
+    const pendingHsvaRef = useRef<typeof hsva | null>(null);
 
-    React.useEffect(() => {
-        // Skip external updates while dragging
+    useEffect(() => {
         if (isDragging) return;
         
         let r = 255, g = 0, b = 0, a = 1;
@@ -126,27 +121,72 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
         }
     }, [color, isDragging]);
 
-    // Local update only (no onChange) - for smooth dragging
-    const updateLocalFromHsva = React.useCallback((newHsva: typeof hsva) => {
+    const updateLocalFromHsva = useCallback((newHsva: typeof hsva) => {
         setHsva(newHsva);
         const newRgba = hsvaToRgba(newHsva.h, newHsva.s, newHsva.v, newHsva.a);
         setRgba(newRgba);
         setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
     }, []);
 
-    // Commit to parent (calls onChange)
-    const commitColor = React.useCallback((newRgba: typeof rgba) => {
+    const commitColor = useCallback((newRgba: typeof rgba) => {
         onChange(`rgba(${newRgba.r}, ${newRgba.g}, ${newRgba.b}, ${newRgba.a})`);
     }, [onChange]);
 
-    const handleSaturationMouseDown = (e: React.MouseEvent) => {
+    const handleHexChange = useCallback((newHex: string) => {
+        setHex(newHex);
+        if (/^#([A-Fa-f0-9]{6})$/.test(newHex)) {
+            const { r, g, b } = hexToRgba(newHex);
+            setRgba({ r, g, b, a: 1 });
+            setHsva(rgbaToHsva(r, g, b, 1));
+            commitColor({ r, g, b, a: 1 });
+        }
+    }, [commitColor]);
+
+    const handleOklchChange = useCallback((newColor: string) => {
+        onChange(newColor || '#000000');
+    }, [onChange]);
+
+    const handleRChange = useCallback((rValue: string) => {
+        const r = Math.min(255, Math.max(0, parseInt(rValue, 10) || 0));
+        const newRgba = { ...rgba, r };
+        setRgba(newRgba);
+        setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
+        setHsva(rgbaToHsva(newRgba.r, newRgba.g, newRgba.b, newRgba.a));
+        commitColor(newRgba);
+    }, [rgba, commitColor]);
+
+    const handleGChange = useCallback((gValue: string) => {
+        const g = Math.min(255, Math.max(0, parseInt(gValue, 10) || 0));
+        const newRgba = { ...rgba, g };
+        setRgba(newRgba);
+        setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
+        setHsva(rgbaToHsva(newRgba.r, newRgba.g, newRgba.b, newRgba.a));
+        commitColor(newRgba);
+    }, [rgba, commitColor]);
+
+    const handleBChange = useCallback((bValue: string) => {
+        const b = Math.min(255, Math.max(0, parseInt(bValue, 10) || 0));
+        const newRgba = { ...rgba, b };
+        setRgba(newRgba);
+        setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
+        setHsva(rgbaToHsva(newRgba.r, newRgba.g, newRgba.b, newRgba.a));
+        commitColor(newRgba);
+    }, [rgba, commitColor]);
+
+    const handleAChange = useCallback((aValue: string) => {
+        const a = Math.min(1, Math.max(0, parseFloat(aValue) || 0));
+        const newRgba = { ...rgba, a };
+        setRgba(newRgba);
+        commitColor(newRgba);
+    }, [rgba, commitColor]);
+
+    const handleSaturationMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
         setIsDragging(true);
         let currentHsva = { ...hsva };
         
-        const handleMove = (moveEvent: MouseEvent) => {
+        const handleMove = (moveEvent: globalThis.MouseEvent) => {
             if (!saturationRef.current) return;
             
-            // Cancel previous RAF
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             
             rafRef.current = requestAnimationFrame(() => {
@@ -165,7 +205,6 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
             document.removeEventListener('mousemove', handleMove);
             document.removeEventListener('mouseup', handleUp);
             
-            // Commit final color on mouse up
             if (pendingHsvaRef.current) {
                 const finalRgba = hsvaToRgba(
                     pendingHsvaRef.current.h,
@@ -183,11 +222,11 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
         document.addEventListener('mouseup', handleUp);
     };
 
-    const handleHueMouseDown = (e: React.MouseEvent) => {
+    const handleHueMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
         setIsDragging(true);
         let currentHsva = { ...hsva };
         
-        const handleMove = (moveEvent: MouseEvent) => {
+        const handleMove = (moveEvent: globalThis.MouseEvent) => {
             if (!hueRef.current) return;
             
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -236,15 +275,15 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
 
     return (
         <div className="p-3 space-y-3 w-[280px]">
-            {/* Saturation/Value picker */}
-            <div 
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+            <div
                 ref={saturationRef}
                 className="relative h-40 rounded-md cursor-crosshair"
                 style={{ backgroundColor: hueColor }}
                 onMouseDown={handleSaturationMouseDown}
             >
-                <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent rounded-md" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent rounded-md" />
+                <div className="absolute inset-0 bg-linear-to-r from-white to-transparent rounded-md" />
+                <div className="absolute inset-0 bg-linear-to-t from-black to-transparent rounded-md" />
                 <div 
                     className="absolute w-4 h-4 border-2 border-white rounded-full shadow-md -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                     style={{ 
@@ -255,11 +294,11 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
                 />
             </div>
 
-            {/* Hue slider */}
-            <div 
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+            <div
                 ref={hueRef}
                 className="relative h-3 rounded-full cursor-pointer"
-                style={{ 
+                style={{
                     background: 'linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)'
                 }}
                 onMouseDown={handleHueMouseDown}
@@ -273,7 +312,6 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
                 />
             </div>
 
-            {/* Preset colors */}
             <div className="grid grid-cols-8 gap-1">
                 {presetColors.map((presetColor) => (
                     <button
@@ -289,106 +327,69 @@ export const ColorPicker = ({ color = '#FF0000', onChange }: { color?: string; o
                 ))}
             </div>
 
-            {/* Hex and OKLCH inputs */}
             <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                     <Label className="text-xs">Hex</Label>
-                    <Input 
-                        value={hex} 
+                    <Input
+                        value={hex}
                         className="h-8 text-xs font-mono"
-                        onChange={(e) => {
-                            const newHex = e.target.value ?? '';
-                            setHex(newHex);
-                            if (/^#([A-Fa-f0-9]{6})$/.test(newHex)) {
-                                const {r,g,b} = hexToRgba(newHex);
-                                setRgba({r, g, b, a: 1});
-                                setHsva(rgbaToHsva(r, g, b, 1));
-                                commitColor({r, g, b, a: 1});
-                            }
-                        }} 
+                        onChange={(e) => handleHexChange(e.target.value ?? '')}
                     />
                 </div>
                 <div className="space-y-1">
                     <Label className="text-xs">OKLCH</Label>
-                    <Input 
-                        value={color ?? ''} 
+                    <Input
+                        value={color ?? ''}
                         className="h-8 text-xs font-mono"
-                        onChange={(e) => onChange(e.target.value ?? '#000000')} 
+                        onChange={(e) => handleOklchChange(e.target.value ?? '#000000')}
                     />
                 </div>
             </div>
 
-            {/* RGBA inputs */}
             <div className="grid grid-cols-4 gap-1">
                 <div className="space-y-1">
                     <Label className="text-xs">R</Label>
-                    <Input 
-                        type="number" 
-                        value={rgba.r} 
+                    <Input
+                        type="number"
+                        value={rgba.r}
                         min={0}
                         max={255}
                         className="h-8 text-xs"
-                        onChange={(e) => {
-                            const r = Math.min(255, Math.max(0, parseInt(e.target.value, 10) || 0));
-                            const newRgba = { ...rgba, r };
-                            setRgba(newRgba);
-                            setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
-                            setHsva(rgbaToHsva(newRgba.r, newRgba.g, newRgba.b, newRgba.a));
-                            commitColor(newRgba);
-                        }} 
+                        onChange={(e) => handleRChange(e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
                     <Label className="text-xs">G</Label>
-                    <Input 
-                        type="number" 
+                    <Input
+                        type="number"
                         value={rgba.g}
                         min={0}
                         max={255}
                         className="h-8 text-xs"
-                        onChange={(e) => {
-                            const g = Math.min(255, Math.max(0, parseInt(e.target.value, 10) || 0));
-                            const newRgba = { ...rgba, g };
-                            setRgba(newRgba);
-                            setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
-                            setHsva(rgbaToHsva(newRgba.r, newRgba.g, newRgba.b, newRgba.a));
-                            commitColor(newRgba);
-                        }} 
+                        onChange={(e) => handleGChange(e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
                     <Label className="text-xs">B</Label>
-                    <Input 
-                        type="number" 
+                    <Input
+                        type="number"
                         value={rgba.b}
                         min={0}
                         max={255}
                         className="h-8 text-xs"
-                        onChange={(e) => {
-                            const b = Math.min(255, Math.max(0, parseInt(e.target.value, 10) || 0));
-                            const newRgba = { ...rgba, b };
-                            setRgba(newRgba);
-                            setHex(rgbaToHex(newRgba.r, newRgba.g, newRgba.b));
-                            setHsva(rgbaToHsva(newRgba.r, newRgba.g, newRgba.b, newRgba.a));
-                            commitColor(newRgba);
-                        }} 
+                        onChange={(e) => handleBChange(e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
                     <Label className="text-xs">A</Label>
-                    <Input 
-                        type="number" 
-                        step="0.1" 
-                        max="1" 
-                        min="0" 
+                    <Input
+                        type="number"
+                        step="0.1"
+                        max="1"
+                        min="0"
                         value={rgba.a}
                         className="h-8 text-xs"
-                        onChange={(e) => {
-                            const a = Math.min(1, Math.max(0, parseFloat(e.target.value) || 0));
-                            const newRgba = { ...rgba, a };
-                            setRgba(newRgba);
-                            commitColor(newRgba);
-                        }} 
+                        onChange={(e) => handleAChange(e.target.value)}
                     />
                 </div>
             </div>

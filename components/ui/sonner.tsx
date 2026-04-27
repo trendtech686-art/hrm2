@@ -1,9 +1,9 @@
 "use client"
 
-import * as React from 'react'
+import { useState, useEffect, type ComponentProps } from 'react'
 import { Toaster as Sonner } from 'sonner'
 
-type ToasterProps = React.ComponentProps<typeof Sonner>
+type ToasterProps = ComponentProps<typeof Sonner>
 
 /**
  * Mobile-first toast position: we drop toasts at the top-center on narrow
@@ -13,9 +13,9 @@ type ToasterProps = React.ComponentProps<typeof Sonner>
  * the device or resize the window.
  */
 function useResponsiveToastPosition(): ToasterProps['position'] {
-  const [position, setPosition] = React.useState<ToasterProps['position']>('top-right')
+  const [position, setPosition] = useState<ToasterProps['position']>('top-right')
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === 'undefined') return
     const mq = window.matchMedia('(max-width: 767px)')
     const apply = () => setPosition(mq.matches ? 'top-center' : 'top-right')

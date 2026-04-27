@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react';
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, User, Menu, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
@@ -65,7 +65,7 @@ export function Header() {
           {breadcrumb.length > 0 && (
             <nav className="hidden md:flex items-center gap-1 text-sm min-w-0">
               {breadcrumb.map((item, index) => (
-                <React.Fragment key={index}>
+                <Fragment key={index}>
                   {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                   {item.isCurrent ? (
                     <span className="text-foreground font-medium truncate">{item.label}</span>
@@ -74,7 +74,7 @@ export function Header() {
                       {item.label}
                     </Link>
                   )}
-                </React.Fragment>
+                </Fragment>
               ))}
             </nav>
           )}

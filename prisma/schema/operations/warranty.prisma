@@ -68,6 +68,10 @@ model Warranty {
   settlementStatus String  @default("pending") // 'pending' | 'partial' | 'completed'
   stockDeducted    Boolean @default(false) // Flag: Đã trừ kho khi completed
 
+  // Replacement product tracking for stock management
+  replacementProductSystemId String? // Sản phẩm thay thế được đặt trước
+  replacementQuantity          Int     @default(0) // Số lượng sản phẩm thay thế
+
   // Status tracking
   statusReason String? // Lý do chuyển trạng thái
   cancelReason String? // Lý do hủy

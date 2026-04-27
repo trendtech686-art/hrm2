@@ -56,20 +56,29 @@ const generatePassword = (length: number = 12): string => {
   const symbols = '!@#$%^&*';
   const allChars = uppercase + lowercase + numbers + symbols;
   
+  const getRandomIndex = (max: number) => {
+    return crypto.getRandomValues(new Uint8Array(1))[0] % max;
+  };
+  
   let password = '';
   // Đảm bảo có ít nhất 1 ký tự mỗi loại
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += numbers[Math.floor(Math.random() * numbers.length)];
-  password += symbols[Math.floor(Math.random() * symbols.length)];
+  password += uppercase[getRandomIndex(uppercase.length)];
+  password += lowercase[getRandomIndex(lowercase.length)];
+  password += numbers[getRandomIndex(numbers.length)];
+  password += symbols[getRandomIndex(symbols.length)];
   
   // Thêm các ký tự ngẫu nhiên còn lại
   for (let i = password.length; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
+    password += allChars[getRandomIndex(allChars.length)];
   }
   
-  // Trộn ngẫu nhiên
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  // Shuffle using Fisher-Yates
+  const arr = password.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint8Array(1))[0] % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
 };
 
 export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {

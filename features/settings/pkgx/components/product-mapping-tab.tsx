@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger,
 } from '../../../../components/ui/dropdown-menu';
+import Image from 'next/image';
 import { Search, Link, RefreshCw, Loader2, CheckCircle2, TriangleAlert, Package, ExternalLink, Unlink, Link2, MoreHorizontal, FileText, DollarSign, AlignLeft, Tag, Download, Plus, ChevronDown } from 'lucide-react';
 import { Progress } from '../../../../components/ui/progress';
 import { toast } from 'sonner';
@@ -58,22 +59,22 @@ export function ProductMappingTab() {
   const { getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand } = usePkgxGetters();
   const { update: updateProductMutation } = useProductMutations({});
   
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [isSyncing, setIsSyncing] = React.useState(false);
-  const [isSyncPaused, setIsSyncPaused] = React.useState(false);
-  const [syncProgress, setSyncProgress] = React.useState({ current: 0, total: 0, saved: 0, phase: '' });
-  const syncPauseRef = React.useRef(false);
-  const [isImporting, setIsImporting] = React.useState(false);
-  const [isPaused, setIsPaused] = React.useState(false);
-  const [importProgress, setImportProgress] = React.useState({ current: 0, total: 0, currentName: '' });
-  const pauseRef = React.useRef(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncPaused, setIsSyncPaused] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, saved: 0, phase: '' });
+  const syncPauseRef = useRef(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentName: '' });
+  const pauseRef = useRef(false);
   
   // PKGX products pagination state for server-side pagination
-  const [pkgxPagination, setPkgxPagination] = React.useState({ page: 1, limit: 20 });
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = React.useState('');
+  const [pkgxPagination, setPkgxPagination] = useState({ page: 1, limit: 20 });
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   
   // Debounce search term for API calls
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       // Reset to page 1 when search changes
@@ -94,10 +95,10 @@ export function ProductMappingTab() {
   const { data: pkgxProductsCache, isLoading: _isLoadingCache, error: _cacheError } = usePkgxProductsCache({ enabled: false });
   
   // Local state for PKGX products (synced from cache or fresh fetch)
-  const [pkgxProductsLocal, setPkgxProductsLocal] = React.useState<PkgxProduct[]>([]);
+  const [pkgxProductsLocal, setPkgxProductsLocal] = useState<PkgxProduct[]>([]);
   
   // Sync local state with cache when cache updates
-  React.useEffect(() => {
+  useEffect(() => {
     if (pkgxProductsCache?.products && pkgxProductsCache.products.length > 0) {
       setPkgxProductsLocal(pkgxProductsCache.products);
     }
@@ -107,18 +108,18 @@ export function ProductMappingTab() {
   const pkgxProducts = pkgxProductsLocal;
   
   // For display: use paginated data (memoized to avoid dependency warnings)
-  const pkgxProductsForDisplay = React.useMemo(() => 
+  const pkgxProductsForDisplay = useMemo(() => 
     pkgxPaginatedData?.products || [], 
     [pkgxPaginatedData?.products]
   );
   const pkgxTotalCount = pkgxPaginatedData?.total ?? 0;
   
   // Fetch linked products from API with server-side pagination
-  const [linkedSearchInput, setLinkedSearchInput] = React.useState('');
-  const [debouncedLinkedSearch, setDebouncedLinkedSearch] = React.useState('');
-  const [linkedApiPagination, setLinkedApiPagination] = React.useState({ page: 1, limit: 20 });
+  const [linkedSearchInput, setLinkedSearchInput] = useState('');
+  const [debouncedLinkedSearch, setDebouncedLinkedSearch] = useState('');
+  const [linkedApiPagination, setLinkedApiPagination] = useState({ page: 1, limit: 20 });
   
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedLinkedSearch(linkedSearchInput);
       setLinkedApiPagination(prev => ({ ...prev, page: 1 }));
@@ -128,12 +129,12 @@ export function ProductMappingTab() {
   }, [linkedSearchInput]);
   
   // Fetch unlinked HRM products from API with server-side pagination
-  const [unlinkedSearchTerm, setUnlinkedSearchTerm] = React.useState('');
-  const [debouncedUnlinkedSearch, setDebouncedUnlinkedSearch] = React.useState('');
-  const [unlinkedApiPagination, setUnlinkedApiPagination] = React.useState({ page: 1, limit: 20 });
-  const [unlinkedPagination, setUnlinkedPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [unlinkedSearchTerm, setUnlinkedSearchTerm] = useState('');
+  const [debouncedUnlinkedSearch, setDebouncedUnlinkedSearch] = useState('');
+  const [unlinkedApiPagination, setUnlinkedApiPagination] = useState({ page: 1, limit: 20 });
+  const [unlinkedPagination, setUnlinkedPagination] = useState({ pageIndex: 0, pageSize: 20 });
   
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedUnlinkedSearch(unlinkedSearchTerm);
       setUnlinkedApiPagination(prev => ({ ...prev, page: 1 }));
@@ -243,7 +244,7 @@ export function ProductMappingTab() {
   });
   
   // Helper function để build URL ảnh PKGX
-  const buildPkgxImageUrl = React.useCallback((imagePath: string | undefined | null): string => {
+  const buildPkgxImageUrl = useCallback((imagePath: string | undefined | null): string => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
     // Xóa / ở đầu nếu có và build URL đầy đủ với /cdn/
@@ -252,29 +253,29 @@ export function ProductMappingTab() {
   }, []);
   
   // Product detail dialog state
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
-  const [selectedProductForDetail, setSelectedProductForDetail] = React.useState<PkgxProductRow | null>(null);
-  const [, setIsLoadingProductDetail] = React.useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<PkgxProductRow | null>(null);
+  const [, setIsLoadingProductDetail] = useState(false);
   
   // Gallery state
-  const [galleryImages, setGalleryImages] = React.useState<PkgxGalleryImage[]>([]);
-  const [isLoadingGallery, setIsLoadingGallery] = React.useState(false);
+  const [galleryImages, setGalleryImages] = useState<PkgxGalleryImage[]>([]);
+  const [isLoadingGallery, setIsLoadingGallery] = useState(false);
   
   // Link dialog state
-  const [selectedPkgxProduct, setSelectedPkgxProduct] = React.useState<PkgxProduct | null>(null);
-  const [isLinkDialogOpen, setIsLinkDialogOpen] = React.useState(false);
-  const [selectedHrmProductId, setSelectedHrmProductId] = React.useState('');
-  const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
+  const [selectedPkgxProduct, setSelectedPkgxProduct] = useState<PkgxProduct | null>(null);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [selectedHrmProductId, setSelectedHrmProductId] = useState('');
+  const [showWarningConfirm, setShowWarningConfirm] = useState(false);
   
   // Unlink dialog state
-  const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = React.useState(false);
-  const [productToUnlink, setProductToUnlink] = React.useState<{ pkgxProduct: PkgxProduct; hrmProduct: { systemId: string; name: string } } | null>(null);
+  const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
+  const [productToUnlink, setProductToUnlink] = useState<{ pkgxProduct: PkgxProduct; hrmProduct: { systemId: string; name: string } } | null>(null);
   
   // Row selection state
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   
   // Bulk unlink dialog state
-  const [isBulkUnlinkDialogOpen, setIsBulkUnlinkDialogOpen] = React.useState(false);
+  const [isBulkUnlinkDialogOpen, setIsBulkUnlinkDialogOpen] = useState(false);
   
   // Use shared PKGX entity sync hook
   const entitySync = usePkgxEntitySync({
@@ -285,14 +286,14 @@ export function ProductMappingTab() {
   });
   
   // Sync dialog state - Push (HRM to PKGX) - Default basic fields + prices
-  const [isPushDialogOpen, setIsPushDialogOpen] = React.useState(false);
-  const [productToPush, setProductToPush] = React.useState<PkgxProductRow | null>(null);
-  const [selectedPushFields, setSelectedPushFields] = React.useState<PushSyncFieldKey[]>(['goods_name', 'sync_prices', 'goods_number']);
-  const [isPushingProduct, setIsPushingProduct] = React.useState(false);
+  const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+  const [productToPush, setProductToPush] = useState<PkgxProductRow | null>(null);
+  const [selectedPushFields, setSelectedPushFields] = useState<PushSyncFieldKey[]>(['goods_name', 'sync_prices', 'goods_number']);
+  const [isPushingProduct, setIsPushingProduct] = useState(false);
   
   // Check price mappings
-  const [priceMappingsCount, setPriceMappingsCount] = React.useState(0);
-  const [hasPriceMappings, setHasPriceMappings] = React.useState(false);
+  const [priceMappingsCount, setPriceMappingsCount] = useState(0);
+  const [hasPriceMappings, setHasPriceMappings] = useState(false);
   
   // Fetch actual product stats from API (accurate count of linked products)
   const { data: productStats, refetch: refetchProductStats } = useQuery({
@@ -337,7 +338,7 @@ export function ProductMappingTab() {
   });
 
   // HRM products for dialog — only available when link dialog is open
-  const dialogHrmProducts = React.useMemo(
+  const dialogHrmProducts = useMemo(
     () => (dialogProductsData?.data ?? []).map(p => ({
       systemId: p.systemId as SystemId,
       name: p.name,
@@ -361,7 +362,7 @@ export function ProductMappingTab() {
   const unlinkedImportCount = Math.max(pkgxTotalCount - linkedCount, 0);
   
   // Find HRM product linked to a PKGX product — uses pkgxMappingData (server-side)
-  const findLinkedHrmProduct = React.useCallback((pkgxId: number) => {
+  const findLinkedHrmProduct = useCallback((pkgxId: number) => {
     if (pkgxMappingData && pkgxMappingData[pkgxId]) {
       const mapping = pkgxMappingData[pkgxId];
       return {
@@ -376,12 +377,12 @@ export function ProductMappingTab() {
   }, [pkgxMappingData]);
   
   // Check if a PKGX product is linked — uses pkgxMappingData (server-side)
-  const _isProductLinked = React.useCallback((pkgxId: number): boolean => {
+  const _isProductLinked = useCallback((pkgxId: number): boolean => {
     return !!(pkgxMappingData && pkgxMappingData[pkgxId]);
   }, [pkgxMappingData]);
   
   // Filter and transform PKGX products for display (server-side pagination)
-  const tableData = React.useMemo((): PkgxProductRow[] => {
+  const tableData = useMemo((): PkgxProductRow[] => {
     return pkgxProductsForDisplay.map((p) => {
       const linked = findLinkedHrmProduct(p.goods_id);
       return {
@@ -398,12 +399,12 @@ export function ProductMappingTab() {
   }, [pkgxProductsForDisplay, findLinkedHrmProduct]);
   
   // Sorting state for table
-  const [linkedPagination, setLinkedPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'goods_id', desc: true });
+  const [linkedPagination, setLinkedPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'goods_id', desc: true });
   
   // Data for linked tab - using API data with server-side PKGX JOIN
   // No longer needs full pkgxProducts cache for display
-  const linkedTableData = React.useMemo((): PkgxProductRow[] => {
+  const linkedTableData = useMemo((): PkgxProductRow[] => {
     
     if (!linkedProductsData?.data || linkedProductsData.data.length === 0) {
       return [];
@@ -526,12 +527,12 @@ export function ProductMappingTab() {
   const linkedPaginatedData = linkedTableData; // Already paginated from API
   
   // PKGX pagination adapter - convert from {page, limit} to {pageIndex, pageSize} for ResponsiveDataTable
-  const pagination = React.useMemo(() => ({
+  const pagination = useMemo(() => ({
     pageIndex: pkgxPagination.page - 1, // API is 1-based, table is 0-based
     pageSize: pkgxPagination.limit,
   }), [pkgxPagination]);
   
-  const setPagination = React.useCallback((updater: { pageIndex: number; pageSize: number } | ((prev: { pageIndex: number; pageSize: number }) => { pageIndex: number; pageSize: number })) => {
+  const setPagination = useCallback((updater: { pageIndex: number; pageSize: number } | ((prev: { pageIndex: number; pageSize: number }) => { pageIndex: number; pageSize: number })) => {
     if (typeof updater === 'function') {
       setPkgxPagination(prev => {
         const newVal = updater({ pageIndex: prev.page - 1, pageSize: prev.limit });
@@ -543,7 +544,7 @@ export function ProductMappingTab() {
   }, []);
   
   // Check price mappings from settings (not separate API)
-  React.useEffect(() => {
+  useEffect(() => {
     if (settings?.priceMapping) {
       const pm = settings.priceMapping;
       // Count how many price types are mapped
@@ -562,7 +563,7 @@ export function ProductMappingTab() {
   }, [settings?.priceMapping]);
   
   // Column definitions for ResponsiveDataTable
-  const columns = React.useMemo((): ColumnDef<PkgxProductRow>[] => [
+  const columns = useMemo((): ColumnDef<PkgxProductRow>[] => [
     // Checkbox column
     {
       id: 'select',
@@ -744,7 +745,7 @@ export function ProductMappingTab() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11">
+              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Tùy chọn">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -846,13 +847,21 @@ export function ProductMappingTab() {
   
   // Column definitions for unlinked HRM products tab
   type UnlinkedProduct = { systemId: string; id: string; name: string; thumbnailImage: string | null; costPrice: number; status: string; inventoryByBranch: Record<string, number> | null; createdAt: string };
-  const unlinkedColumns = React.useMemo((): ColumnDef<UnlinkedProduct>[] => [
+  const unlinkedColumns = useMemo((): ColumnDef<UnlinkedProduct>[] => [
     {
       id: 'thumbnailImage',
       header: '',
       size: 50,
       cell: ({ row }) => row.thumbnailImage ? (
-        <img src={row.thumbnailImage} alt="" className="h-8 w-8 rounded object-cover" />
+        <div className="h-8 w-8 rounded overflow-hidden">
+          <Image
+            src={row.thumbnailImage}
+            alt={row.name || 'Hình ảnh sản phẩm'}
+            width={32}
+            height={32}
+            className="object-cover"
+          />
+        </div>
       ) : (
         <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
           <Package className="h-4 w-4 text-muted-foreground" />
@@ -912,7 +921,7 @@ export function ProductMappingTab() {
   ], []);
   
   // Mobile card renderer
-  const renderMobileCard = React.useCallback((row: PkgxProductRow, _index: number) => (
+  const renderMobileCard = useCallback((row: PkgxProductRow, _index: number) => (
     <div className="p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <button 
@@ -962,7 +971,7 @@ export function ProductMappingTab() {
   ), [getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand]);
   
   // Handlers
-  const handleOpenDetailDialog = React.useCallback(async (row: PkgxProductRow) => {
+  const handleOpenDetailDialog = useCallback(async (row: PkgxProductRow) => {
     setSelectedProductForDetail(row);
     setIsDetailDialogOpen(true);
     setGalleryImages([]); // Reset gallery
@@ -997,11 +1006,11 @@ export function ProductMappingTab() {
     }
   }, [settings]);
   
-  const handleViewOnPkgx = React.useCallback((goodsId: number) => {
+  const handleViewOnPkgx = useCallback((goodsId: number) => {
     window.open(`https://phukiengiaxuong.com.vn/admin/goods.php?act=edit&goods_id=${goodsId}`, '_blank');
   }, []);
   
-  const handleOpenLinkDialog = React.useCallback((pkgxProduct?: PkgxProduct) => {
+  const handleOpenLinkDialog = useCallback((pkgxProduct?: PkgxProduct) => {
     // Load full PKGX products cache on-demand for dialog dropdown
     queryClient.ensureQueryData({
       queryKey: pkgxProductsCacheQueryKey,
@@ -1029,7 +1038,7 @@ export function ProductMappingTab() {
     setIsLinkDialogOpen(true);
   }, [validation, queryClient]);
   
-  const handleCloseLinkDialog = React.useCallback(() => {
+  const handleCloseLinkDialog = useCallback(() => {
     setIsLinkDialogOpen(false);
     setSelectedPkgxProduct(null);
     setSelectedHrmProductId('');
@@ -1037,7 +1046,7 @@ export function ProductMappingTab() {
     validation.clearValidation();
   }, [validation]);
   
-  const handleOpenUnlinkDialog = React.useCallback((pkgxProduct: PkgxProduct) => {
+  const handleOpenUnlinkDialog = useCallback((pkgxProduct: PkgxProduct) => {
     const hrmProduct = findLinkedHrmProduct(pkgxProduct.goods_id);
     if (hrmProduct) {
       setProductToUnlink({ pkgxProduct, hrmProduct });
@@ -1046,18 +1055,18 @@ export function ProductMappingTab() {
   }, [findLinkedHrmProduct]);
   
   // Get selected products that are linked (for bulk unlink)
-  const selectedLinkedProducts = React.useMemo(() => {
+  const selectedLinkedProducts = useMemo(() => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     return paginatedData.filter(p => selectedIds.includes(p.systemId) && p.linkedHrmProduct);
   }, [rowSelection, paginatedData]);
   
   // All selected rows for bulk actions
-  const allSelectedRows = React.useMemo(() => 
+  const allSelectedRows = useMemo(() => 
     paginatedData.filter(p => rowSelection[p.systemId]),
   [paginatedData, rowSelection]);
   
   // Bulk actions for ResponsiveDataTable
-  const bulkActions = React.useMemo(() => [
+  const bulkActions = useMemo(() => [
     {
       label: 'Hủy liên kết',
       icon: Unlink,
@@ -1073,7 +1082,7 @@ export function ProductMappingTab() {
     },
   ], [selectedLinkedProducts]);
   
-  const handleConfirmBulkUnlink = React.useCallback(async () => {
+  const handleConfirmBulkUnlink = useCallback(async () => {
     const toUnlink = selectedLinkedProducts.filter(p => p.linkedHrmProduct);
     const total = toUnlink.length;
     
@@ -1101,7 +1110,7 @@ export function ProductMappingTab() {
     setRowSelection({});
   }, [selectedLinkedProducts, updateProductMutation, addLog, refetchProductStats, refetchLinkedProducts, refetchPkgxMapping]);
   
-  const _handleOpenPushDialog = React.useCallback((row: PkgxProductRow) => {
+  const _handleOpenPushDialog = useCallback((row: PkgxProductRow) => {
     setProductToPush(row);
     // Reset to default fields when opening dialog
     setSelectedPushFields(['goods_name', 'sync_prices', 'goods_number']);
@@ -1367,12 +1376,12 @@ export function ProductMappingTab() {
   };
   
   // Ref to prevent double import
-  const importingRef = React.useRef(false);
+  const importingRef = useRef(false);
   // Counter to track invocations
-  const importCallIdRef = React.useRef(0);
+  const importCallIdRef = useRef(0);
   
   // Transform PKGX product → HRM bulk-import payload
-  const transformPkgxToHrm = React.useCallback((
+  const transformPkgxToHrm = useCallback((
     pkgxProd: PkgxProduct,
     categoryMappingsCache: Map<string, {hrmCategoryId: string}>,
     brandMappingsCache: Map<string, {hrmBrandId: string}>,
@@ -1773,7 +1782,7 @@ export function ProductMappingTab() {
   };
   
   // Validate when form values change
-  React.useEffect(() => {
+  useEffect(() => {
     if (isLinkDialogOpen && selectedPkgxProduct && selectedHrmProductId) {
       const hrmProduct = dialogHrmProducts.find(p => p.systemId === selectedHrmProductId);
       const input: ProductMappingInput = {

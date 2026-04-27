@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from "sonner";
-import { Package, Settings2, SlidersHorizontal, Columns3, Layers, FileUp, Download, PlusCircle, Settings } from "lucide-react";
+import { Package, Settings2, SlidersHorizontal, Layers, FileUp, Download, PlusCircle, Settings } from "lucide-react";
 
 import { useProductMutations, useTrashMutations, productKeys, useProductStats, useBulkProductMutations } from "./hooks/use-products"
 import { fetchProduct } from "./api/products-api"
@@ -49,11 +49,41 @@ import { cn } from "@/lib/utils"
 import type { ProductStats } from "./hooks/use-products"
 import { FAB } from '@/components/mobile/fab';
 import { ListPageShell } from '@/components/layout/page-section';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-const PkgxBulkSyncConfirmDialog = dynamic(() => import("../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog").then(mod => ({ default: mod.PkgxBulkSyncConfirmDialog })), { ssr: false });
-const PkgxLinkDialog = dynamic(() => import("./components/pkgx-link-dialog").then(mod => ({ default: mod.PkgxLinkDialog })), { ssr: false });
-const ProductImportDialog = dynamic(() => import("./components/product-import-export-dialogs").then(mod => ({ default: mod.ProductImportDialog })), { ssr: false });
-const ProductExportDialog = dynamic(() => import("./components/product-import-export-dialogs").then(mod => ({ default: mod.ProductExportDialog })), { ssr: false });
+// Loading component for dialogs
+function DialogLoadingFallback() {
+  return (
+    <Dialog open>
+      <DialogContent className="max-w-md">
+        <div className="space-y-4 p-4">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-1/2" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const PkgxBulkSyncConfirmDialog = dynamic(
+  () => import("../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog").then(mod => ({ default: mod.PkgxBulkSyncConfirmDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
+const PkgxLinkDialog = dynamic(
+  () => import("./components/pkgx-link-dialog").then(mod => ({ default: mod.PkgxLinkDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
+const ProductImportDialog = dynamic(
+  () => import("./components/product-import-export-dialogs").then(mod => ({ default: mod.ProductImportDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
+const ProductExportDialog = dynamic(
+  () => import("./components/product-import-export-dialogs").then(mod => ({ default: mod.ProductExportDialog })),
+  { ssr: false, loading: () => <DialogLoadingFallback /> }
+);
 
 const defaultTableState: ProductQueryParams = { search: '', statusFilter: 'all', typeFilter: 'all', categoryFilter: 'all', brandFilter: 'all', comboFilter: 'all', stockLevelFilter: 'all', pkgxFilter: 'all', dateRange: undefined, pagination: { pageIndex: 0, pageSize: 20 }, sorting: DEFAULT_PRODUCT_SORT };
 

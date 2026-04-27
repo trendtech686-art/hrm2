@@ -19,7 +19,6 @@ import { Badge } from '@/components/ui/badge';
 import { Comments, type Comment as CommentType } from '@/components/Comments';
 import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { useAuth } from '@/contexts/auth-context';
-import type { LeaveStatus } from '@/lib/types/prisma-extended';
 import { useComments } from '@/hooks/use-comments';
 import { toast } from 'sonner';
 import { useBreakpoint } from '@/contexts/breakpoint-context';

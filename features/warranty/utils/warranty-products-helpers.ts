@@ -148,7 +148,7 @@ export function checkMultipleProductsWarranty(
     
     // Debug: log tickets lookup
     if (claimedQty > 0 && tickets.length === 0) {
-      console.log('[DEBUG checkMultipleProductsWarranty] found qty but NO tickets for:', product.name, '| claimedQty:', claimedQty, '| lookup key:', product.name.toLowerCase().trim(), '| available keys:', Object.keys(claimedProductTickets));
+      console.warn('[DEBUG checkMultipleProductsWarranty] found qty but NO tickets for:', product.name, '| claimedQty:', claimedQty, '| lookup key:', product.name.toLowerCase().trim(), '| available keys:', Object.keys(claimedProductTickets));
     }
     
     const checkResult = checkProductWarranty(customerName, product, 1, allOrders, claimedQty, tickets);

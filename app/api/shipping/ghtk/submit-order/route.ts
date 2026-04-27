@@ -7,6 +7,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { randomUUID } from 'crypto';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { submitOrderSchema } from './validation';
 import { logError } from '@/lib/logger'
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 11);
+  const requestId = randomUUID();
 
   try {
     const { apiToken, partnerCode, ...orderParams } = validation.data;

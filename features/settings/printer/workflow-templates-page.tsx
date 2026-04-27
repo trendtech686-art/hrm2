@@ -13,7 +13,7 @@
 
 'use client'
 
-import * as React from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useColumnLayout } from '../../../hooks/use-column-visibility';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
@@ -103,12 +103,6 @@ export type { WorkflowTemplate } from '../../../hooks/use-workflow-templates';
 // ============================================================================
 // Storage Functions - DEPRECATED (kept for reference)
 // ============================================================================
-
-/**
- * @deprecated Use useWorkflowTemplates() hook instead
- * Kept for backward compatibility during migration
- */
-const _STORAGE_KEY = 'workflow_templates_v4';
 
 function getDefaultTemplates(): WorkflowTemplate[] {
   const now = new Date();
@@ -401,24 +395,24 @@ export function WorkflowTemplatesPage() {
   const { templates, setTemplates, isLoading, error } = useWorkflowTemplates();
   
   // Table states
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('workflow-templates', { pinned: ['select', 'actions'] });
   
   // Dialog states
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingTemplate, setEditingTemplate] = React.useState<WorkflowTemplate | null>(null);
-  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
-  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = React.useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<WorkflowTemplate | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
   // Form states
-  const [formName, setFormName] = React.useState('');
-  const [formLabel, setFormLabel] = React.useState('');
-  const [formDescription, setFormDescription] = React.useState('');
-  const [formSubtasks, setFormSubtasks] = React.useState<Subtask[]>([]);
+  const [formName, setFormName] = useState('');
+  const [formLabel, setFormLabel] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formSubtasks, setFormSubtasks] = useState<Subtask[]>([]);
 
-  const selectedRows = React.useMemo(() => {
+  const selectedRows = useMemo(() => {
     return templates.filter(t => rowSelection[t.systemId]);
   }, [templates, rowSelection]);
 
@@ -432,7 +426,7 @@ export function WorkflowTemplatesPage() {
   };
 
   // Tính số quy trình theo chức năng
-  const workflowCounts = React.useMemo(() => {
+  const workflowCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     WORKFLOW_TYPES.forEach(wt => {
       counts[wt.value] = templates.filter(t => t.name === wt.value).length;
@@ -441,7 +435,7 @@ export function WorkflowTemplatesPage() {
   }, [templates]);
 
   // Lấy các chức năng đã có quy trình
-  const activeWorkflows = React.useMemo(() => {
+  const activeWorkflows = useMemo(() => {
     return WORKFLOW_TYPES.filter(wt => workflowCounts[wt.value] > 0);
   }, [workflowCounts]);
 
@@ -463,7 +457,7 @@ export function WorkflowTemplatesPage() {
 
   // Note: useWorkflowTemplates hook handles saving automatically - no need for useEffect
 
-  const handleEdit = React.useCallback((template: WorkflowTemplate) => {
+  const handleEdit = useCallback((template: WorkflowTemplate) => {
     setEditingTemplate(template);
     setFormName(template.name);
     setFormLabel(template.label);
@@ -534,7 +528,7 @@ export function WorkflowTemplatesPage() {
     setIsDialogOpen(false);
   };
 
-  const handleDeleteClick = React.useCallback((templateId: string) => {
+  const handleDeleteClick = useCallback((templateId: string) => {
     setDeleteTargetId(templateId);
   }, []);
 
@@ -597,7 +591,7 @@ export function WorkflowTemplatesPage() {
     setShowBulkDeleteDialog(false);
   };
 
-  const handleToggleDefault = React.useCallback(async (template: WorkflowTemplate, checked: boolean) => {
+  const handleToggleDefault = useCallback(async (template: WorkflowTemplate, checked: boolean) => {
     let newTemplates: WorkflowTemplate[];
     
     if (checked) {
@@ -643,13 +637,13 @@ export function WorkflowTemplatesPage() {
     }
   }, [templates, setTemplates, queryClient]);
 
-  const columns = React.useMemo(
+  const columns = useMemo(
     () => createColumns(handleEdit, handleDeleteClick, handleToggleDefault),
     [handleEdit, handleDeleteClick, handleToggleDefault]
   );
 
   // Show error if any
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
       toast.error(error);
     }

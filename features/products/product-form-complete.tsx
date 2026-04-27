@@ -15,7 +15,6 @@ import { MIN_COMBO_ITEMS, MAX_COMBO_ITEMS, calculateComboCostPrice, calculateFin
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { UploadedImage } from '@/components/ui/simple-image-upload';
-import { logError } from '@/lib/logger'
 import {
   BasicInfoTab,
   ImagesTab,

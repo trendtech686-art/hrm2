@@ -668,24 +668,267 @@ function mapPricingLevel(level?: string): 'RETAIL' | 'WHOLESALE' | 'VIP' | 'PART
 }
 
 /**
- * Import products batch - placeholder
+ * Import products batch - basic implementation for Excel import
+ * NOTE: For full feature parity, consider using /api/products/bulk-import
  */
 async function importProductsBatch(
-  _data: Record<string, unknown>[],
-  _mode: 'insert-only' | 'update-only' | 'upsert',
+  data: Record<string, unknown>[],
+  mode: 'insert-only' | 'update-only' | 'upsert',
   _branchId?: string
 ): Promise<{ inserted: number; updated: number; skipped: number; failed: number; errors: Array<{ row: number; message: string }> }> {
-  // TODO: Implement product batch import
-  throw new Error('Product batch import not implemented yet')
+  const result = {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+    errors: [] as Array<{ row: number; message: string }>,
+  }
+
+  // Get existing products by id or barcode
+  const ids = data.map(d => d.id).filter(Boolean) as string[]
+  const barcodes = data.map(d => d.barcode).filter(Boolean) as string[]
+  
+  const existingProducts = await prisma.product.findMany({
+    where: {
+      isDeleted: false,
+      OR: [
+        ...(ids.length > 0 ? [{ id: { in: ids } }] : []),
+        ...(barcodes.length > 0 ? [{ barcode: { in: barcodes } }] : []),
+      ],
+    },
+    select: { id: true, barcode: true, systemId: true },
+  })
+  
+  const existingById = new Map(existingProducts.map(p => [p.id, p]))
+  const existingByBarcode = new Map(
+    existingProducts.filter(p => p.barcode).map(p => [p.barcode!, p])
+  )
+
+  // Get default product type
+  const defaultProductType = await prisma.settingsData.findFirst({
+    where: { type: 'product-type', isActive: true, isDeleted: false, isDefault: true },
+    select: { systemId: true },
+  })
+
+  // Process each row
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i]
+    const rowNum = i + 2
+
+    try {
+      if (!row.name || String(row.name).trim() === '') {
+        result.errors.push({ row: rowNum, message: 'Tên sản phẩm là bắt buộc' })
+        result.failed++
+        continue
+      }
+
+      // Find existing product
+      let existing = row.id ? existingById.get(row.id as string) : null
+      if (!existing && row.barcode) {
+        existing = existingByBarcode.get(row.barcode as string)
+      }
+
+      if (existing) {
+        if (mode === 'insert-only') {
+          result.skipped++
+          continue
+        }
+        
+        // Update existing product
+        await prisma.product.update({
+          where: { systemId: existing.systemId },
+          data: {
+            name: String(row.name).trim(),
+            barcode: row.barcode ? String(row.barcode) : undefined,
+            unit: row.unit ? String(row.unit) : 'Cái',
+            costPrice: row.costPrice ? Number(row.costPrice) : 0,
+            status: mapProductStatus(row.status as string),
+            ...(defaultProductType?.systemId && { 
+              productTypeSystemId: defaultProductType.systemId 
+            }),
+          },
+        })
+        result.updated++
+      } else {
+        if (mode === 'update-only') {
+          result.errors.push({ row: rowNum, message: `Không tìm thấy SP mã ${row.id || row.barcode}` })
+          result.failed++
+          continue
+        }
+
+        // Create new product
+        const systemId = `PRODUCT${String(Date.now()).slice(-6)}${String(i).padStart(4, '0')}`
+        const productId = (row.id as string) || `SP${String(i + 1).padStart(5, '0')}`
+        
+        await prisma.product.create({
+          data: {
+            systemId,
+            id: productId,
+            name: String(row.name).trim(),
+            barcode: row.barcode ? String(row.barcode) : undefined,
+            unit: row.unit ? String(row.unit) : 'Cái',
+            costPrice: row.costPrice ? Number(row.costPrice) : 0,
+            status: mapProductStatus(row.status as string),
+            productTypeSystemId: defaultProductType?.systemId,
+            prices: {},
+            inventoryByBranch: {},
+            committedByBranch: {},
+            inTransitByBranch: {},
+          },
+        })
+        result.inserted++
+      }
+    } catch (err) {
+      result.errors.push({
+        row: rowNum,
+        message: err instanceof Error ? err.message : 'Lỗi không xác định',
+      })
+      result.failed++
+    }
+  }
+
+  return result
+}
+
+function mapProductStatus(status?: string): 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' {
+  if (!status) return 'ACTIVE'
+  const normalized = status.toLowerCase().trim()
+  if (normalized.includes('ngừng kinh doanh') || normalized === 'inactive') return 'INACTIVE'
+  if (normalized.includes('ngừng nhập') || normalized === 'discontinued') return 'DISCONTINUED'
+  return 'ACTIVE'
 }
 
 /**
- * Import employees batch - placeholder
+ * Import employees batch - basic implementation for Excel import
  */
 async function importEmployeesBatch(
-  _data: Record<string, unknown>[],
-  _mode: 'insert-only' | 'update-only' | 'upsert'
+  data: Record<string, unknown>[],
+  mode: 'insert-only' | 'update-only' | 'upsert'
 ): Promise<{ inserted: number; updated: number; skipped: number; failed: number; errors: Array<{ row: number; message: string }> }> {
-  // TODO: Implement employee batch import
-  throw new Error('Employee batch import not implemented yet')
+  const result = {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+    errors: [] as Array<{ row: number; message: string }>,
+  }
+
+  // Get existing employees by id, phone, or nationalId
+  const ids = data.map(d => d.id).filter(Boolean) as string[]
+  const phones = data.map(d => d.phone).filter(Boolean) as string[]
+  const nationalIds = data.map(d => d.nationalId).filter(Boolean) as string[]
+  
+  const existingEmployees = await prisma.employee.findMany({
+    where: {
+      OR: [
+        ...(ids.length > 0 ? [{ id: { in: ids } }] : []),
+        ...(phones.length > 0 ? [{ phone: { in: phones } }] : []),
+        ...(nationalIds.length > 0 ? [{ nationalId: { in: nationalIds } }] : []),
+      ],
+    },
+    select: { id: true, phone: true, nationalId: true, systemId: true },
+  })
+  
+  const existingById = new Map(existingEmployees.map(e => [e.id, e]))
+  const existingByPhone = new Map(
+    existingEmployees.filter(e => e.phone).map(e => [e.phone!, e])
+  )
+  const existingByNationalId = new Map(
+    existingEmployees.filter(e => e.nationalId).map(e => [e.nationalId!, e])
+  )
+
+  // Process each row
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i]
+    const rowNum = i + 2
+
+    try {
+      if (!row.fullName || String(row.fullName).trim() === '') {
+        result.errors.push({ row: rowNum, message: 'Họ tên nhân viên là bắt buộc' })
+        result.failed++
+        continue
+      }
+
+      // Find existing employee
+      let existing = row.id ? existingById.get(row.id as string) : null
+      if (!existing && row.phone) {
+        existing = existingByPhone.get(row.phone as string)
+      }
+      if (!existing && row.nationalId) {
+        existing = existingByNationalId.get(row.nationalId as string)
+      }
+
+      if (existing) {
+        if (mode === 'insert-only') {
+          result.skipped++
+          continue
+        }
+        
+        // Update existing employee
+        await prisma.employee.update({
+          where: { systemId: existing.systemId },
+          data: {
+            fullName: String(row.fullName).trim(),
+            dob: row.dob ? new Date(row.dob as string) : undefined,
+            gender: row.gender ? mapGender(row.gender as string) : undefined,
+            phone: row.phone ? String(row.phone) : undefined,
+            personalEmail: row.personalEmail ? String(row.personalEmail) : undefined,
+            workEmail: row.workEmail ? String(row.workEmail) : undefined,
+            nationalId: row.nationalId ? String(row.nationalId) : undefined,
+          },
+        })
+        result.updated++
+      } else {
+        if (mode === 'update-only') {
+          result.errors.push({ 
+            row: rowNum, 
+            message: `Không tìm thấy NV mã ${row.id || row.phone || row.nationalId}` 
+          })
+          result.failed++
+          continue
+        }
+
+        // Create new employee
+        const systemId = `EMP${String(Date.now()).slice(-6)}${String(i).padStart(4, '0')}`
+        const employeeId = (row.id as string) || `NV${String(i + 1).padStart(5, '0')}`
+        
+        await prisma.employee.create({
+          data: {
+            systemId,
+            id: employeeId,
+            fullName: String(row.fullName).trim(),
+            dob: row.dob ? new Date(row.dob as string) : undefined,
+            gender: row.gender ? mapGender(row.gender as string) : 'OTHER',
+            phone: row.phone ? String(row.phone) : undefined,
+            personalEmail: row.personalEmail ? String(row.personalEmail) : undefined,
+            workEmail: row.workEmail ? String(row.workEmail) : undefined,
+            nationalId: row.nationalId ? String(row.nationalId) : undefined,
+            nationalIdIssueDate: row.nationalIdIssueDate 
+              ? new Date(row.nationalIdIssueDate as string) 
+              : undefined,
+            nationalIdIssuePlace: row.nationalIdIssuePlace 
+              ? String(row.nationalIdIssuePlace) 
+              : undefined,
+          },
+        })
+        result.inserted++
+      }
+    } catch (err) {
+      result.errors.push({
+        row: rowNum,
+        message: err instanceof Error ? err.message : 'Lỗi không xác định',
+      })
+      result.failed++
+    }
+  }
+
+  return result
+}
+
+function mapGender(gender?: string): 'MALE' | 'FEMALE' | 'OTHER' {
+  if (!gender) return 'OTHER'
+  const normalized = gender.toLowerCase().trim()
+  if (normalized === 'nam' || normalized === 'male' || normalized === 'm') return 'MALE'
+  if (normalized === 'nữ' || normalized === 'nu' || normalized === 'female' || normalized === 'f') return 'FEMALE'
+  return 'OTHER'
 }

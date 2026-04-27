@@ -84,10 +84,12 @@ export function PreviewAuthentication() {
               <Checkbox id="terms" />
               <Label htmlFor="terms" className="text-sm font-normal">
                 Tôi đồng ý với{' '}
+                {/* eslint-disable-next-line jsx-a11y/anchor-is-valid -- Preview placeholder link */}
                 <a href="#" className="underline underline-offset-4 hover:text-primary">
                   điều khoản dịch vụ
                 </a>{' '}
                 và{' '}
+                {/* eslint-disable-next-line jsx-a11y/anchor-is-valid -- Preview placeholder link */}
                 <a href="#" className="underline underline-offset-4 hover:text-primary">
                   chính sách bảo mật
                 </a>
@@ -99,6 +101,7 @@ export function PreviewAuthentication() {
           <Button className="w-full">Tạo tài khoản</Button>
           <p className="text-center text-sm text-muted-foreground">
             Đã có tài khoản?{' '}
+            {/* eslint-disable-next-line jsx-a11y/anchor-is-valid -- Preview placeholder link */}
             <a href="#" className="underline underline-offset-4 hover:text-primary">
               Đăng nhập
             </a>

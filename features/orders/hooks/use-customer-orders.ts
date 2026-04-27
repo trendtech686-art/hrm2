@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import type { Order } from '@/lib/types/prisma-extended';
+import { orderKeys } from './use-orders';
 
 interface UseCustomerOrdersOptions {
   customerSystemId?: string;
@@ -22,7 +23,7 @@ export function useCustomerOrders(options: UseCustomerOrdersOptions = {}) {
   const { customerSystemId, enabled = true } = options;
 
   const query = useQuery<Order[]>({
-    queryKey: ['orders', 'customer', customerSystemId],
+    queryKey: orderKeys.customer(customerSystemId!),
     queryFn: async () => {
       if (!customerSystemId) return [];
       return fetchAllPages<Order>(async (p) => {

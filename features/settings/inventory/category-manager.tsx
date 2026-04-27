@@ -93,6 +93,9 @@ function TreeNode({
             matchesSearch && !isSelected && 'bg-yellow-50 dark:bg-yellow-900/20',
           )}
           onClick={() => onSelect(category)}
+          onKeyDown={(e) => { if (e.key === 'Enter') onSelect(category); }}
+          role="button"
+          tabIndex={0}
         >
           {/* Expand/Collapse */}
           <button

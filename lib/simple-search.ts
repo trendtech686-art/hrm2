@@ -9,7 +9,7 @@ import { removeVietnameseAccents } from './filename-utils';
 
 export interface SearchOptions<T> {
   /** Keys to search in the object */
-  keys: (keyof T)[];
+  keys: (keyof T | string)[];
   /** Whether to use accent-insensitive search (default: true) */
   accentInsensitive?: boolean;
 }
@@ -23,7 +23,7 @@ export interface SearchOptions<T> {
  * @param options - Search options including keys to search
  * @returns Filtered array of matching items
  */
-export function simpleSearch<T extends Record<string, unknown>>(
+export function simpleSearch<T>(
   items: T[],
   query: string,
   options: SearchOptions<T>
@@ -39,8 +39,10 @@ export function simpleSearch<T extends Record<string, unknown>>(
     : normalizedQuery;
 
   return items.filter(item => {
+    // Cast to any for dynamic key access
+    const itemRecord = item as Record<string, unknown>;
     return keys.some(key => {
-      const value = item[key];
+      const value = itemRecord[String(key)];
       if (value == null) return false;
       
       const stringValue = String(value).toLowerCase();
@@ -73,7 +75,7 @@ export function simpleSearch<T extends Record<string, unknown>>(
  * @param options - Search options
  * @returns Object with paginated items and hasNextPage flag
  */
-export function paginatedSearch<T extends Record<string, unknown>>(
+export function paginatedSearch<T>(
   items: T[],
   query: string,
   page: number,

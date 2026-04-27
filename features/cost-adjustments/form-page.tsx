@@ -125,8 +125,21 @@ export function CostAdjustmentFormPage() {
   const [adjustmentValue, setAdjustmentValue] = React.useState<number>(0);
   
   const currentEmployee = user?.employeeId ? findEmployeeById(asSystemId(user.employeeId)) : null;
-  // TODO: Implement generateNextId via API if needed
+  
+  /**
+   * Next ID generation uses 'AUTO' to let server auto-generate businessId.
+   * Server generates sequential ID (e.g., 'DGGV-00001') on insert.
+   * 
+   * TODO: If manual ID entry is required, implement API endpoint:
+   * GET /api/cost-adjustments/next-id → { nextId: "DGGV-00002" }
+   */
   const nextId = 'AUTO';
+  
+  /**
+   * ID validation placeholder — custom ID is optional.
+   * If validation is needed, implement API endpoint:
+   * POST /api/cost-adjustments/validate-id { businessId: string } → { valid: boolean, error?: string }
+   */
   const customIdError = null;
   
   const form = useForm<FormData>({
@@ -147,9 +160,7 @@ export function CostAdjustmentFormPage() {
   
   const watchItems = form.watch('items');
   const watchCustomId = form.watch('customId');
-  
-  // TODO: Implement ID validation via API if needed
-  
+
   // Calculate totals
   const totalOldValue = watchItems.reduce((sum, item) => sum + item.oldCostPrice, 0);
   const totalNewValue = watchItems.reduce((sum, item) => sum + item.newCostPrice, 0);

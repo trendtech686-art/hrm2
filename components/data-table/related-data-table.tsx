@@ -1,4 +1,11 @@
-import * as React from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  type SetStateAction,
+} from 'react';
 import { simpleSearch } from '@/lib/simple-search';
 // XLSX is lazy loaded in handleExportExcel to reduce bundle size (~500KB)
 import { Printer, FileSpreadsheet } from 'lucide-react';
@@ -83,18 +90,18 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   const defaultPageSize = useDefaultPageSize();
   
   // State
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>(defaultSorting || { id: '', desc: false });
-  const [globalFilter, setGlobalFilter] = React.useState(serverPagination?.search ?? '');
-  const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
-  const [pagination, setPaginationInternal] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
-  const lastAppliedSearchTokenRef = React.useRef<string | null>(null);
+  const [rowSelection, setRowSelection] = useState({});
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }>(defaultSorting || { id: '', desc: false });
+  const [globalFilter, setGlobalFilter] = useState(serverPagination?.search ?? '');
+  const [dateFilter, setDateFilter] = useState<[string | undefined, string | undefined] | undefined>();
+  const [pagination, setPaginationInternal] = useState({ pageIndex: 0, pageSize: defaultPageSize });
+  const lastAppliedSearchTokenRef = useRef<string | null>(null);
 
   // When serverPagination is used, sync internal state and route changes externally
   const effectivePagination = serverPagination
     ? { pageIndex: serverPagination.page - 1, pageSize: serverPagination.pageSize }
     : pagination;
-  const setPagination = React.useCallback((updater: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => {
+  const setPagination = useCallback((updater: SetStateAction<{ pageIndex: number; pageSize: number }>) => {
     if (serverPagination) {
       const next = typeof updater === 'function' ? updater({ pageIndex: serverPagination.page - 1, pageSize: serverPagination.pageSize }) : updater;
       if (next.pageIndex !== serverPagination.page - 1) {
@@ -109,12 +116,12 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   }, [serverPagination]);
   
   // State for column customization
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
-  const [isInitialized, setIsInitialized] = React.useState(false);
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [pinnedColumns, setPinnedColumns] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!controlledSearch) {
       return;
     }
@@ -127,9 +134,9 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     setGlobalFilter(controlledSearch.query);
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
     onControlledSearchApplied?.();
-  }, [controlledSearch, onControlledSearchApplied]);
+  }, [controlledSearch, onControlledSearchApplied, setPagination]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Only run this on initial mount or when columns fundamentally change.
     // This prevents wiping out user's visibility changes.
     if (!isInitialized && columns.length > 0) {
@@ -147,19 +154,19 @@ export function RelatedDataTable<TData extends { systemId: string }>({
 
   // When server search is enabled, delegate search to server
   const hasServerSearch = !!serverPagination?.onSearchChange;
-  const handleSearchChange = React.useCallback((value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setGlobalFilter(value);
     if (serverPagination?.onSearchChange) {
       serverPagination.onSearchChange(value);
     }
   }, [serverPagination]);
 
-  const searchedData = React.useMemo(() => 
+  const searchedData = useMemo(() => 
     hasServerSearch ? data : simpleSearch(data, globalFilter, { keys: searchKeys as (keyof TData)[] }), 
     [data, globalFilter, searchKeys, hasServerSearch]
   );
 
-  const filteredData = React.useMemo(() => {
+  const filteredData = useMemo(() => {
     let filtered = globalFilter ? searchedData : data;
 
     if (dateFilterColumn && dateFilter && (dateFilter[0] || dateFilter[1])) {
@@ -182,7 +189,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     return filtered;
   }, [data, globalFilter, searchedData, dateFilter, dateFilterColumn]);
 
-  const sortedData = React.useMemo(() => {
+  const sortedData = useMemo(() => {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
@@ -207,7 +214,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   const pageCount = serverPagination
     ? Math.ceil(serverPagination.totalItems / serverPagination.pageSize)
     : Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => {
+  const paginatedData = useMemo(() => {
     if (serverPagination) return sortedData; // data is already one page from server
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
@@ -215,7 +222,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   }, [sortedData, pagination, serverPagination]);
 
   // ✅ Calculate all selected rows from filteredData (not just current page)
-  const allSelectedRows = React.useMemo(() => {
+  const allSelectedRows = useMemo(() => {
     return Object.keys(rowSelection)
       .filter(id => rowSelection[id as keyof typeof rowSelection])
       .map(id => filteredData.find(row => row.systemId === id))
@@ -223,7 +230,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   }, [rowSelection, filteredData]);
 
   // ✅ Build display columns with optional checkbox
-  const displayColumns = React.useMemo(() => {
+  const displayColumns = useMemo(() => {
     if (!showCheckbox) return columns;
 
     const selectColumn: ColumnDef<TData> = {
@@ -258,7 +265,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   };
 
   // ✅ Default bulk actions: In, Xuất Excel, Xuất PDF
-  const defaultBulkActions: BulkAction<TData>[] = React.useMemo(() => {
+  const defaultBulkActions: BulkAction<TData>[] = useMemo(() => {
     const exportableColumns = columns.filter(c => 
       c.id !== 'select' && c.id !== 'actions' && c.id !== 'expander' && c.id !== 'settings'
     );

@@ -1,10 +1,11 @@
 ﻿'use client'
 
-import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { useProduct, useProductMutations } from './hooks/use-products';
 import { useAllProducts } from './hooks/use-all-products';
@@ -151,7 +152,7 @@ export function ProductDetailPage() {
     onError: (err) => toast.error(err.message || 'Xóa sản phẩm thất bại'),
   });
   
-  const findProductById = React.useCallback((id: string) => 
+  const findProductById = useCallback((id: string) => 
     allProducts.find(p => p.systemId === id), 
   [allProducts]);
   
@@ -159,12 +160,12 @@ export function ProductDetailPage() {
   const { data: pricingPolicies } = useAllPricingPolicies();
   // Stock history now fetched from API instead of Zustand store
   const { data: branches } = useAllBranches();
-  const { data: allPurchaseOrders } = useAllPurchaseOrders();
+  const { data: _allPurchaseOrders } = useAllPurchaseOrders();
   const { data: allInventoryReceipts } = useAllInventoryReceipts();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { data: allWarranties } = useAllWarranties();
-  const { data: allInventoryChecks } = useAllInventoryChecks();
-  const { data: allStockTransfers } = useAllStockTransfers();
+  const { data: _allWarranties } = useAllWarranties();
+  const { data: _allInventoryChecks } = useAllInventoryChecks();
+  const { data: _allStockTransfers } = useAllStockTransfers();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findCategoryById } = useCategoryFinder();
   const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
@@ -177,7 +178,7 @@ export function ProductDetailPage() {
   
   // PKGX log mutations - use React Query to persist to database
   const { addLog } = usePkgxLogMutations();
-  const addPkgxLog = React.useCallback((log: Parameters<typeof addLog.mutate>[0]) => addLog.mutate(log), [addLog]);
+  const addPkgxLog = useCallback((log: Parameters<typeof addLog.mutate>[0]) => addLog.mutate(log), [addLog]);
   
   // PKGX sync hook - same as list page for consistency
   const { 
@@ -194,41 +195,41 @@ export function ProductDetailPage() {
   } = usePkgxSync({ addPkgxLog });
   
   // Confirm dialog state for PKGX sync actions
-  const [confirmAction, setConfirmAction] = React.useState<{
+  const [confirmAction, setConfirmAction] = useState<{
     open: boolean;
     title: string;
     description: string;
     action: (() => void) | null;
   }>({ open: false, title: '', description: '', action: null });
   
-  const handleConfirm = React.useCallback((title: string, description: string, action: () => void) => {
+  const handleConfirm = useCallback((title: string, description: string, action: () => void) => {
     setConfirmAction({ open: true, title, description, action });
   }, []);
   
-  const executeAction = React.useCallback(() => {
+  const executeAction = useCallback(() => {
     if (confirmAction.action) {
       confirmAction.action();
     }
     setConfirmAction({ open: false, title: '', description: '', action: null });
   }, [confirmAction]);
   
-  const cancelConfirm = React.useCallback(() => {
+  const cancelConfirm = useCallback(() => {
     setConfirmAction({ open: false, title: '', description: '', action: null });
   }, []);
   
-  const [historyBranchFilter, setHistoryBranchFilter] = React.useState<'all' | SystemId>('all');
-  const [priceHistoryBranchFilter, setPriceHistoryBranchFilter] = React.useState<'all' | SystemId>('all');
-  const [committedDialogOpen, setCommittedDialogOpen] = React.useState(false);
-  const [selectedBranch, setSelectedBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
-  const [inTransitDialogOpen, setInTransitDialogOpen] = React.useState(false);
-  const [inTransitBranch, setInTransitBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
-  const [inDeliveryDialogOpen, setInDeliveryDialogOpen] = React.useState(false);
-  const [inDeliveryBranch, setInDeliveryBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
-  const [soldDialogOpen, setSoldDialogOpen] = React.useState(false);
-  const [soldBranch, setSoldBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
+  const [historyBranchFilter, setHistoryBranchFilter] = useState<'all' | SystemId>('all');
+  const [priceHistoryBranchFilter, setPriceHistoryBranchFilter] = useState<'all' | SystemId>('all');
+  const [committedDialogOpen, setCommittedDialogOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<{ systemId: SystemId; name: string } | null>(null);
+  const [inTransitDialogOpen, setInTransitDialogOpen] = useState(false);
+  const [inTransitBranch, setInTransitBranch] = useState<{ systemId: SystemId; name: string } | null>(null);
+  const [inDeliveryDialogOpen, setInDeliveryDialogOpen] = useState(false);
+  const [inDeliveryBranch, setInDeliveryBranch] = useState<{ systemId: SystemId; name: string } | null>(null);
+  const [soldDialogOpen, setSoldDialogOpen] = useState(false);
+  const [soldBranch, setSoldBranch] = useState<{ systemId: SystemId; name: string } | null>(null);
 
   // ✅ Ưu tiên React Query, fallback to store
-  const product = React.useMemo(() => {
+  const product = useMemo(() => {
     if (systemId) {
       return productFromQuery || findProductById(asSystemId(systemId)) || null;
     }
@@ -236,13 +237,13 @@ export function ProductDetailPage() {
   }, [systemId, productFromQuery, findProductById]);
   
   const productSystemId = product?.systemId ?? null;
-  const supplier = React.useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
-  const createdByEmployee = React.useMemo(() => (product?.createdBy ? findEmployeeById(product.createdBy) : null), [product, findEmployeeById]);
-  const updatedByEmployee = React.useMemo(() => (product?.updatedBy ? findEmployeeById(product.updatedBy) : null), [product, findEmployeeById]);
-  const productType = React.useMemo(() => (product?.productTypeSystemId ? findProductTypeById(product.productTypeSystemId) : null), [product, findProductTypeById]);
-  const category = React.useMemo(() => (product?.categorySystemId ? findCategoryById(product.categorySystemId) : null), [product, findCategoryById]);
-  const brand = React.useMemo(() => (product?.brandSystemId ? findBrandById(product.brandSystemId) : null), [product, findBrandById]);
-  const storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
+  const supplier = useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
+  const createdByEmployee = useMemo(() => (product?.createdBy ? findEmployeeById(product.createdBy) : null), [product, findEmployeeById]);
+  const updatedByEmployee = useMemo(() => (product?.updatedBy ? findEmployeeById(product.updatedBy) : null), [product, findEmployeeById]);
+  const productType = useMemo(() => (product?.productTypeSystemId ? findProductTypeById(product.productTypeSystemId) : null), [product, findProductTypeById]);
+  const category = useMemo(() => (product?.categorySystemId ? findCategoryById(product.categorySystemId) : null), [product, findCategoryById]);
+  const brand = useMemo(() => (product?.brandSystemId ? findBrandById(product.brandSystemId) : null), [product, findBrandById]);
+  const storageLocation = useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
 
   // Comments from database
   const { 
@@ -251,7 +252,7 @@ export function ProductDetailPage() {
     deleteComment: dbDeleteComment 
   } = useComments('product', systemId || '');
 
-  const comments = React.useMemo(() => 
+  const comments = useMemo(() => 
     dbComments.map(c => ({
       id: c.systemId as unknown as SystemId,
       content: c.content,
@@ -266,46 +267,46 @@ export function ProductDetailPage() {
     [dbComments]
   );
 
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+  const handleAddComment = useCallback((content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
   }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+  const handleUpdateComment = useCallback((_commentId: string, _content: string) => {
   }, []);
 
-  const handleDeleteComment = React.useCallback((commentId: string) => {
+  const handleDeleteComment = useCallback((commentId: string) => {
     dbDeleteComment(commentId);
   }, [dbDeleteComment]);
 
-  const commentCurrentUser = React.useMemo(() => ({
+  const commentCurrentUser = useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
   // ✅ Fetch stock history từ API với server-side pagination để load toàn bộ dữ liệu + infinite scroll mobile
-  const [stockHistoryPage, setStockHistoryPage] = React.useState(1);
-  const [stockHistoryPageSize, setStockHistoryPageSize] = React.useState(20);
+  const [stockHistoryPage, setStockHistoryPage] = useState(1);
+  const [stockHistoryPageSize, setStockHistoryPageSize] = useState(20);
   const { data: stockHistoryResponse } = useProductStockHistory(product?.systemId, {
     page: stockHistoryPage,
     limit: stockHistoryPageSize,
     branchId: historyBranchFilter,
   });
-  const stockHistoryData = stockHistoryResponse?.data ?? [];
+  const stockHistoryData = useMemo(() => stockHistoryResponse?.data ?? [], [stockHistoryResponse?.data]);
   const stockHistoryTotal = stockHistoryResponse?.pagination?.total ?? stockHistoryData.length;
 
   // Reset về trang 1 khi đổi filter chi nhánh
-  React.useEffect(() => {
+  useEffect(() => {
     setStockHistoryPage(1);
   }, [historyBranchFilter]);
 
   // API đã trả về dữ liệu đã lọc theo branch + sort theo ngày giảm dần; không cần client-side filter thêm
-  const productHistory = React.useMemo(() => {
+  const productHistory = useMemo(() => {
     return [...stockHistoryData].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
   }, [stockHistoryData]);
   
-  const purchasePriceHistory = React.useMemo<PriceHistoryEntry[]>(() => {
+  const purchasePriceHistory = useMemo<PriceHistoryEntry[]>(() => {
     if (!productSystemId) return [];
     
     const history: PriceHistoryEntry[] = [];
@@ -426,7 +427,7 @@ export function ProductDetailPage() {
     return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [allInventoryReceipts, productSystemId, product?.unit, priceHistoryBranchFilter, product?.pkgxId, product?.createdAt, branches, product?.id, product?.name, product?.costPrice, createdByEmployee]);
 
-  const stockHistoryColumns = React.useMemo(() => 
+  const stockHistoryColumns = useMemo(() => 
     getStockHistoryColumns(),
     []
   );
@@ -435,18 +436,18 @@ export function ProductDetailPage() {
   // IMAGE DISPLAY - Đơn giản: chỉ đọc từ product data (database)
   // Không dùng imageStore cho display - chỉ dùng cho form staging
   // ═══════════════════════════════════════════════════════════════
-  const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
-  const [previewImages, setPreviewImages] = React.useState<string[]>([]);
-  const [previewIndex, setPreviewIndex] = React.useState(0);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   
   // Đọc trực tiếp từ product data - source of truth từ database
   const thumbnailImage = product?.thumbnailImage || null;
-  const galleryImages = React.useMemo(() => {
+  const galleryImages = useMemo(() => {
     return product?.galleryImages ?? product?.images ?? [];
   }, [product?.galleryImages, product?.images]);
   const hasImages = Boolean(thumbnailImage) || galleryImages.length > 0;
 
-  const previewSources = React.useMemo(() => {
+  const previewSources = useMemo(() => {
     const sources: string[] = [];
     const seen = new Set<string>();
     if (thumbnailImage && !seen.has(thumbnailImage)) {
@@ -462,7 +463,7 @@ export function ProductDetailPage() {
     return sources;
   }, [thumbnailImage, galleryImages]);
 
-  const handleOpenPreview = React.useCallback((targetUrl: string) => {
+  const handleOpenPreview = useCallback((targetUrl: string) => {
     if (!targetUrl) return;
     const index = previewSources.findIndex(url => url === targetUrl);
     if (index === -1) return;
@@ -473,7 +474,7 @@ export function ProductDetailPage() {
 
   const { print: printLabel } = usePrint();
   const { info: storeInfo } = useStoreInfoData();
-  const storeSettings = React.useMemo(() => ({
+  const storeSettings = useMemo(() => ({
     name: storeInfo?.brandName || storeInfo?.companyName || '',
     address: storeInfo?.headquartersAddress,
     phone: storeInfo?.hotline,
@@ -481,12 +482,12 @@ export function ProductDetailPage() {
   }), [storeInfo]);
 
   // Default selling policy for price lookup
-  const defaultSellingPolicy = React.useMemo(
+  const defaultSellingPolicy = useMemo(
     () => pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault),
     [pricingPolicies]
   );
 
-  const handlePrintLabel = React.useCallback(async () => {
+  const handlePrintLabel = useCallback(async () => {
     if (!product) return;
     // ✅ Lazy load print mapper
     const { mapProductToLabelPrintData } = await import('@/lib/print-mappers/product-label.mapper');
@@ -508,12 +509,12 @@ export function ProductDetailPage() {
     printLabel('product-label', { data: printData });
   }, [product, printLabel, storeSettings, defaultSellingPolicy, findBrandById, findCategoryById]);
 
-  const handleMoveToTrash = React.useCallback(() => {
+  const handleMoveToTrash = useCallback(() => {
     if (!product) return;
     removeMutation.mutate(product.systemId);
   }, [product, removeMutation]);
 
-  const headerActions = React.useMemo(() => {
+  const headerActions = useMemo(() => {
     if (!product) return null;
     if (!can('edit_products')) return null;
     
@@ -687,7 +688,7 @@ export function ProductDetailPage() {
   }, [product, router, handlePrintLabel, handleMoveToTrash, handleConfirm, handlePkgxSyncAll, handlePkgxSyncBasicInfo, handlePkgxUpdatePrice, handlePkgxSyncInventory, handlePkgxUpdateSeo, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncImages, handlePkgxPublish, handlePkgxUnlink, can]);
 
   // Mobile: gom tất cả actions vào 1 dropdown menu
-  const mobileHeaderActions = React.useMemo(() => {
+  const mobileHeaderActions = useMemo(() => {
     if (!product || !isMobile || !can('edit_products')) return null;
 
     type MobileAction = { label: string; icon: React.ReactNode; onClick: () => void; destructive?: boolean; };
@@ -726,7 +727,7 @@ export function ProductDetailPage() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
           {menuItems.map((item, i) => (
-            <React.Fragment key={item.label}>
+            <Fragment key={item.label}>
               {i === 3 && <DropdownMenuSeparator />}
               <DropdownMenuItem
                 onClick={item.onClick}
@@ -735,7 +736,7 @@ export function ProductDetailPage() {
                 {item.icon}
                 {item.label}
               </DropdownMenuItem>
-            </React.Fragment>
+            </Fragment>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>,
@@ -743,7 +744,7 @@ export function ProductDetailPage() {
   }, [product, isMobile, can, router, handlePrintLabel, handleMoveToTrash, handleConfirm, handlePkgxSyncAll, handlePkgxSyncBasicInfo, handlePkgxUpdatePrice, handlePkgxSyncInventory, handlePkgxUpdateSeo, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncImages, handlePkgxPublish, handlePkgxUnlink]);
 
   // Calculate combo stock for low stock warning in header
-  const comboTotalStock = React.useMemo(() => {
+  const comboTotalStock = useMemo(() => {
     if (!product || !isComboProduct(product)) return 0;
     let total = 0;
     branches.forEach(branch => {
@@ -753,7 +754,7 @@ export function ProductDetailPage() {
   }, [product, allProducts, branches]);
 
   // Determine stock alerts for header
-  const stockAlerts = React.useMemo(() => {
+  const stockAlerts = useMemo(() => {
     if (!product) return { isLow: false, isCritical: false, message: '' };
     
     const reorderLevel = product.reorderLevel ?? 0;
@@ -778,7 +779,7 @@ export function ProductDetailPage() {
   }, [product, comboTotalStock]);
 
   // Header badges including status and stock alerts
-  const headerBadges = React.useMemo(() => {
+  const headerBadges = useMemo(() => {
     if (!product) return undefined;
     
     return (
@@ -861,10 +862,8 @@ export function ProductDetailPage() {
 
   const handlePullRefresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['product', systemId] }),
-      queryClient.invalidateQueries({ queryKey: ['products'] }),
-      queryClient.invalidateQueries({ queryKey: ['stock-history'] }),
-      queryClient.invalidateQueries({ queryKey: ['inventory-receipts'] }),
+      invalidateRelated(queryClient, 'products'),
+      invalidateRelated(queryClient, 'inventory-receipts'),
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] }),
     ]);
   };
@@ -882,6 +881,9 @@ export function ProductDetailPage() {
                   <div
                     className="relative aspect-square rounded-lg overflow-hidden border-border border bg-muted cursor-pointer"
                     onClick={() => handleOpenPreview(thumbnailImage)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleOpenPreview(thumbnailImage); }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <LazyImage
                       src={thumbnailImage}
@@ -1087,6 +1089,7 @@ export function ProductDetailPage() {
                       <div className="space-y-3 lg:col-span-3">
                         <p className="text-sm font-medium text-muted-foreground">Ảnh thumbnail</p>
                         {thumbnailImage ? (
+                          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- image preview
                           <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer" onClick={() => handleOpenPreview(thumbnailImage)}>
                             <LazyImage src={thumbnailImage} alt={`${product.name} - Thumbnail`} className="w-full h-full object-cover" rootMargin="400px" />
                           </div>
@@ -1097,6 +1100,7 @@ export function ProductDetailPage() {
                         {galleryImages.length > 0 ? (
                           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                             {galleryImages.map((url, i) => (
+                              // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- image preview
                               <div key={`${url}-${i}`} className="aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer" onClick={() => handleOpenPreview(url)}>
                                 <LazyImage src={url} alt={`${product.name} - ${i + 1}`} className="w-full h-full object-cover" rootMargin="400px" />
                               </div>

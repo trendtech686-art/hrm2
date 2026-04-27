@@ -41,7 +41,7 @@ import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import type { CostAdjustmentStatus, CostAdjustment } from '@/lib/types/prisma-extended';
+import type { CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 import { usePrint } from '../../lib/use-print';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
 import { useBreakpoint } from '@/contexts/breakpoint-context';
