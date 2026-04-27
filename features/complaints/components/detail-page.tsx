@@ -759,9 +759,9 @@ export function ComplaintDetailPage() {
         onProcessInventory={handleProcessInventory}
       />
 
-      {/* Info Row - Mobile: stacked, Desktop: 2 cols - Left: Info cards, Right: Workflow */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 lg:gap-6 overflow-x-hidden">
-        {/* Column 1: Info cards stacked (Left side) */}
+      {/* Info Row - Mobile: stacked, Desktop: 2 cols - Left: 70% Info cards, Right: 30% Workflow */}
+      <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-4 lg:gap-6 overflow-x-hidden">
+        {/* Column 1: Info cards stacked (Left side - 70%) */}
         <div className="space-y-4 min-w-0 overflow-x-hidden">
           {/* Complaint Details Card - includes badges + tracking link */}
           <ComplaintDetailsCard
@@ -785,18 +785,19 @@ export function ComplaintDetailPage() {
           />
         </div>
 
-        {/* Column 2: Workflow + Customer Info (Right side - sticky on desktop) */}
+        {/* Column 2: Customer Info + Workflow (Right side - 30%, sticky) */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          {/* Customer Info Card - above Workflow */}
+          <ComplaintCustomerInfoCard
+            complaint={complaint}
+            orderCustomerSystemId={(relatedOrder as Record<string, unknown> | null)?.customerSystemId as string | undefined}
+          />
+
+          {/* Workflow Section */}
           <ComplaintWorkflowSection
             complaint={complaint}
             currentUser={currentUser}
             updateComplaint={updateComplaint}
-          />
-
-          {/* Customer Info Card - moved to workflow column */}
-          <ComplaintCustomerInfoCard
-            complaint={complaint}
-            orderCustomerSystemId={(relatedOrder as Record<string, unknown> | null)?.customerSystemId as string | undefined}
           />
         </div>
       </div>
