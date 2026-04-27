@@ -26,8 +26,8 @@ interface PenaltyFormProps {
 }
 
 export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDelete: _onDelete }: PenaltyFormProps) {
-  const { data: employees } = useAllEmployees();
-  const { data: penaltyTypes } = useAllPenaltyTypes();
+  const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees();
+  const { data: penaltyTypes, isLoading: isLoadingPenaltyTypes } = useAllPenaltyTypes();
   
   // Filter active penalty types
   const activePenaltyTypes = React.useMemo(() => 
@@ -109,8 +109,16 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
                 <FormItem>
                     <FormLabel>Nhân viên bị phạt</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger></FormControl>
-                        <SelectContent>{employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)}</SelectContent>
+                        <FormControl><SelectTrigger><SelectValue placeholder={isLoadingEmployees ? "Đang tải..." : "Chọn nhân viên"} /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {isLoadingEmployees ? (
+                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">Đang tải nhân viên...</div>
+                          ) : employees.length === 0 ? (
+                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">Không có nhân viên</div>
+                          ) : (
+                            employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)
+                          )}
+                        </SelectContent>
                     </Select>
                 </FormItem>
             )} />
@@ -118,8 +126,14 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
                 <FormItem>
                     <FormLabel>Người lập phiếu</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn người lập" /></SelectTrigger></FormControl>
-                        <SelectContent>{employees.map(e => <SelectItem key={e.systemId} value={e.fullName}>{e.fullName}</SelectItem>)}</SelectContent>
+                        <FormControl><SelectTrigger><SelectValue placeholder={isLoadingEmployees ? "Đang tải..." : "Chọn người lập"} /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {isLoadingEmployees ? (
+                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">Đang tải...</div>
+                          ) : (
+                            employees.map(e => <SelectItem key={e.systemId} value={e.fullName}>{e.fullName}</SelectItem>)
+                          )}
+                        </SelectContent>
                     </Select>
                 </FormItem>
             )} />
@@ -129,20 +143,26 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
           <FormItem>
               <FormLabel>Loại phạt</FormLabel>
               <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn loại phạt" /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger><SelectValue placeholder={isLoadingPenaltyTypes ? "Đang tải..." : "Chọn loại phạt"} /></SelectTrigger></FormControl>
                   <SelectContent>
-                    {Object.entries(groupedPenaltyTypes).map(([category, types]) => (
-                      <React.Fragment key={category}>
-                        <SelectItem value={`__header_${category}`} disabled className="font-semibold text-xs text-muted-foreground uppercase">
-                          {penaltyCategoryLabels[category as keyof typeof penaltyCategoryLabels] || category}
-                        </SelectItem>
-                        {types.map(type => (
-                          <SelectItem key={type.systemId} value={type.systemId}>
-                            {type.name} ({type.defaultAmount.toLocaleString('vi-VN')}đ)
+                    {isLoadingPenaltyTypes ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">Đang tải loại phạt...</div>
+                    ) : Object.keys(groupedPenaltyTypes).length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">Không có loại phạt nào</div>
+                    ) : (
+                      Object.entries(groupedPenaltyTypes).map(([category, types]) => (
+                        <React.Fragment key={category}>
+                          <SelectItem value={`__header_${category}`} disabled className="font-semibold text-xs text-muted-foreground uppercase">
+                            {penaltyCategoryLabels[category as keyof typeof penaltyCategoryLabels] || category}
                           </SelectItem>
-                        ))}
-                      </React.Fragment>
-                    ))}
+                          {types.map(type => (
+                            <SelectItem key={type.systemId} value={type.systemId}>
+                              {type.name} ({type.defaultAmount.toLocaleString('vi-VN')}đ)
+                            </SelectItem>
+                          ))}
+                        </React.Fragment>
+                      ))
+                    )}
                   </SelectContent>
               </Select>
           </FormItem>
