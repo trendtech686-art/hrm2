@@ -11,6 +11,24 @@ import { notifyWarrantyCreated } from '@/lib/warranty-notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
 
+// Valid fields for sorting
+const VALID_SORT_FIELDS = [
+  'createdAt',
+  'updatedAt',
+  'receivedAt',
+  'startedAt',
+  'completedAt',
+  'returnedAt',
+  'status',
+  'priority',
+  'title',
+  'customerName',
+  'productName',
+  'trackingCode',
+  'publicTrackingCode',
+  'id',
+]
+
 // GET /api/warranties - List all warranties with filtering and pagination
 export async function GET(request: Request) {
   const session = await requireAuth()
@@ -27,7 +45,11 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
     const branchId = searchParams.get('branchId')
-    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    // Validate sortBy to prevent Prisma errors
+    let sortBy = searchParams.get('sortBy') || 'createdAt'
+    if (!VALID_SORT_FIELDS.includes(sortBy)) {
+      sortBy = 'createdAt'
+    }
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
 
     const where: Prisma.WarrantyWhereInput = {

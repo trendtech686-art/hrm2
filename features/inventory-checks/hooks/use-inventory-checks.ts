@@ -88,7 +88,7 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
       const result = await updateInventoryCheckAction({ 
         systemId, 
         checkDate: data.checkDate,
-        description: data.description,
+        note: data.note,
         updatedBy: data.updatedBy,
       });
       if (!result.success) throw new Error(result.error || 'Failed to update inventory check');

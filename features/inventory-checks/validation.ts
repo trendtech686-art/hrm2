@@ -4,46 +4,57 @@
 import { z } from 'zod';
 import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
-// Status enum
+// Status enum - MUST match Prisma schema enum InventoryCheckStatus
+// Database values: DRAFT, IN_PROGRESS, PENDING, COMPLETED, BALANCED, CANCELLED
 export const inventoryCheckStatusSchema = z.enum([
+  'DRAFT',
+  'IN_PROGRESS',
+  'PENDING',
+  'COMPLETED',
+  'BALANCED',
+  'CANCELLED',
+  // Also support lowercase for legacy compatibility (will be normalized to uppercase)
   'draft',
-  'balanced', 
   'in_progress',
   'completed',
-  'cancelled'
+  'balanced',
+  'cancelled',
 ]);
 
-// Difference reason enum
+// Difference reason enum - MUST match inventory-check-item.prisma reason field
+// Database values: other, damaged, wear, return, transfer, production
 export const differenceReasonSchema = z.enum([
+  'other',
   'damaged',
-  'expired', 
-  'lost',
-  'theft',
-  'system_error',
-  'counting_error',
-  'other'
+  'wear',
+  'return',
+  'transfer',
+  'production',
 ]);
 
-// Item schema
+// Item schema - field names match database columns
 export const inventoryCheckItemSchema = z.object({
   productSystemId: systemIdSchema,
   productId: businessIdSchema,
   productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
+  productSku: z.string().optional(),
+  unit: z.string().optional(),
   systemQuantity: z.number().int().min(0, 'Số lượng hệ thống phải >= 0'),
   actualQuantity: z.number().int().min(0, 'Số lượng thực tế phải >= 0'),
-  difference: z.number().int(),
-  differenceReason: differenceReasonSchema.optional(),
-  notes: z.string().optional(),
-  unitPrice: z.number().min(0).optional(),
+  difference: z.number().int().optional(),
+  reason: differenceReasonSchema.optional(),
+  note: z.string().optional(), // Single 'note' field (not 'notes')
 });
 
-// Create schema
+// Create schema - field names match database columns
 export const createInventoryCheckSchema = z.object({
   branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
+  branchId: z.string().optional(), // Legacy field, use branchSystemId instead
   branchName: z.string().optional(),
-  notes: z.string().optional(),
+  note: z.string().optional(), // Single 'note' field (not 'notes')
   checkDate: z.string().optional(),
   items: z.array(inventoryCheckItemSchema).min(1, 'Phải có ít nhất 1 sản phẩm'),
+  linkedComplaintSystemId: z.string().optional(),
 });
 
 // Update schema  

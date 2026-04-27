@@ -29,10 +29,15 @@ model InventoryCheck {
   // Items (stored as JSON for flexibility)
   checkItems Json? // Array of InventoryCheckItem with reason
 
+  // === CROSS-MODULE REFERENCES ===
+  linkedComplaintSystemId String? // Link to Complaint that created this inventory check
+
   // === RELATIONS ===
   items InventoryCheckItem[]
+  linkedComplaint Complaint? @relation(fields: [linkedComplaintSystemId], references: [systemId])
 
   @@index([branchId])
   @@index([status])
+  @@index([linkedComplaintSystemId])
   @@map("inventory_checks")
 }

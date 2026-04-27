@@ -620,6 +620,17 @@ export function InventoryCheckDetailPage() {
                 </div>
               </>
             )}
+            {(check as unknown as { linkedComplaintSystemId?: string }).linkedComplaintSystemId && (
+              <div className="md:col-span-2">
+                <div className="text-sm text-muted-foreground">Khiếu nại liên quan</div>
+                <Link
+                  href={`/complaints/${(check as unknown as { linkedComplaintSystemId: string }).linkedComplaintSystemId}`}
+                  className="text-primary hover:underline font-medium flex items-center gap-1"
+                >
+                  {(check as unknown as { linkedComplaintSystemId: string }).linkedComplaintSystemId}
+                </Link>
+              </div>
+            )}
             {check.note && (
               <div className="md:col-span-2">
                 <div className="text-sm text-muted-foreground">Ghi chú</div>
