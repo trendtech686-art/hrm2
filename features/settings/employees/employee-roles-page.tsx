@@ -32,7 +32,7 @@ import type { Employee } from '@/lib/types/prisma-extended';
 export function EmployeeRolesPage() {
   const { data: roles = [] } = useRoleSettings();
   const { addRole, updateRole, deleteRole, resetRole } = useRoleMutations();
-  const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees();
+  const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees({ enabled: false });
   const { data: departmentsData } = useDepartments();
   const { update: updateEmployeeMutation } = useEmployeeMutations();
   

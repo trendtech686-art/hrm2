@@ -87,7 +87,7 @@ export function StoreInfoPage() {
     const updateBranch = (systemId: SystemId, data: Partial<Branch>) => updateBranchMutation.mutate({ systemId: String(systemId), data } as unknown as Parameters<typeof updateBranchMutation.mutate>[0]);
     const removeBranch = (systemId: SystemId) => removeBranchMutation.mutate(systemId as unknown as string);
     const setDefaultBranch = (systemId: SystemId) => setDefaultBranchMutation.mutate(systemId as unknown as string);
-    const { data: employees } = useAllEmployees();
+    const { data: employees } = useAllEmployees({ enabled: false });
     const { employee: authEmployee } = useAuth();
     
     // Use React Query for store info (persisted to database)

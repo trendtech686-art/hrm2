@@ -35,7 +35,7 @@ interface BranchFormProps {
 
 export function BranchForm({ initialData, onSubmit, onCancel, isPending }: BranchFormProps) {
   const { searchEmployees } = useEmployeeSearcher();
-  const { data: allEmployees } = useAllEmployees();
+  const { data: allEmployees } = useAllEmployees({ enabled: false });
   const { data: provinces = [] } = useProvinces();
 
   const form = useForm<BranchFormValues>({

@@ -24,7 +24,7 @@ import {
 } from '../utils/hierarchy-helpers';
 
 export function useOrgChart() {
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const { data: departments } = useAllDepartments();
   

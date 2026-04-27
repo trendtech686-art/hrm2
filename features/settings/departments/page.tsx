@@ -59,7 +59,7 @@ export function DepartmentsPage() {
   const updateDepartment = React.useCallback((systemId: string, data: Partial<Department>) => {
     updateDepartmentMutation.mutate({ systemId, data });
   }, [updateDepartmentMutation]);
-  const { data: employees } = useAllEmployees();
+  const { data: employees } = useAllEmployees({ enabled: false });
   const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const router = useRouter();
 

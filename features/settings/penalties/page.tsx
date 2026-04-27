@@ -49,7 +49,7 @@ export function PenaltiesPage() {
   const canCreate = can('edit_employees');
   const canEdit = can('edit_employees');
   const { update } = usePenaltyMutations();
-  const { data: employees } = useAllEmployees()
+  const { data: employees } = useAllEmployees({ enabled: false })
   const { data: branches } = useAllBranches()
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrintConfirm
   const router = useRouter()
