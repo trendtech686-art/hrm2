@@ -19,9 +19,46 @@ export async function POST(_request: Request, { params }: RouteParams) {
     // Get the order with payments
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: { 
-        payments: true,
-        packagings: true,
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        paymentStatus: true,
+        deliveryStatus: true,
+        stockOutStatus: true,
+        grandTotal: true,
+        paidAmount: true,
+        linkedSalesReturnValue: true,
+        payments: {
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            amount: true,
+            method: true,
+            description: true,
+            createdBy: true,
+            createdAt: true,
+          },
+        },
+        packagings: {
+          select: {
+            systemId: true,
+            id: true,
+            status: true,
+            deliveryStatus: true,
+            assignedEmployeeId: true,
+            assignedEmployeeName: true,
+            shipment: {
+              select: {
+                systemId: true,
+                id: true,
+                status: true,
+                carrier: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -68,11 +105,79 @@ export async function POST(_request: Request, { params }: RouteParams) {
           paidAmount: totalPaid,
           paymentStatus: isFullyPaid ? PaymentStatus.PAID : (totalPaid > 0 ? PaymentStatus.PARTIAL : PaymentStatus.UNPAID),
         },
-        include: {
-          customer: true,
-          lineItems: { include: { product: true } },
-          payments: true,
-          packagings: { include: { assignedEmployee: true, shipment: true } },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          completedDate: true,
+          paidAmount: true,
+          customerId: true,
+          customerName: true,
+          branchId: true,
+          salespersonId: true,
+          grandTotal: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              tax: true,
+              total: true,
+              note: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              orderId: true,
+              amount: true,
+              method: true,
+              description: true,
+              createdBy: true,
+              createdAt: true,
+            },
+          },
+          packagings: {
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              deliveryStatus: true,
+              assignedEmployeeId: true,
+              assignedEmployeeName: true,
+              shipment: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
+            },
+          },
         },
       });
 

@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { requireAuth, validateBody, apiPaginated, apiSuccess, apiError } from '@/lib/api-utils';
+import { parsePagination } from '@/lib/api-utils';
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants';
 import { createSettingsDataSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
 import { logError } from '@/lib/logger'
@@ -13,6 +15,8 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
+  const { page, limit, skip } = parsePagination(searchParams);
+  const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT);
 
   try {
     const where: { type?: string; isDeleted?: boolean } = { isDeleted: false };
@@ -20,13 +24,18 @@ export async function GET(request: NextRequest) {
       where.type = type;
     }
 
-    const settings = await prisma.settingsData.findMany({
-      where,
-      orderBy: [
-        { type: 'asc' },
-        { name: 'asc' },
-      ],
-    });
+    const [settings, total] = await Promise.all([
+      prisma.settingsData.findMany({
+        where,
+        orderBy: [
+          { type: 'asc' },
+          { name: 'asc' },
+        ],
+        skip,
+        take: safeLimit,
+      }),
+      prisma.settingsData.count({ where }),
+    ]);
 
     // Transform metadata back to flat structure
     const transformed = settings.map(s => ({
@@ -44,7 +53,7 @@ export async function GET(request: NextRequest) {
       ...(s.metadata as Record<string, unknown> || {}),
     }));
 
-    return apiSuccess(transformed);
+    return apiPaginated(transformed, { page, limit, total });
   } catch (error) {
     logError('[Settings Data API] GET error', error);
     return apiError('Failed to fetch settings data', 500);

@@ -8,37 +8,35 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionFromCookie, serializeDecimals } from '@/lib/api-utils';
+import { getSessionFromCookie, parsePagination, apiPaginated, serializeDecimals, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
-import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants';
+import { z } from 'zod';
+
+// Validation schema for POST activity log
+const createActivityLogSchema = z.object({
+  entityType: z.string().min(1, 'entityType is required'),
+  entityId: z.string().min(1, 'entityId is required'),
+  action: z.string().min(1, 'action is required'),
+  actionType: z.string().optional(),
+  changes: z.any().optional(),
+  metadata: z.any().optional(),
+  note: z.string().optional(),
+  createdBy: z.string().optional(),
+})
 
 // POST - Create activity log
 export async function POST(request: NextRequest) {
   try {
     const session = await getSessionFromCookie();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('Unauthorized', 401);
     }
 
-    const body = await request.json();
-    
-    const {
-      entityType,
-      entityId,
-      action,
-      actionType,
-      changes,
-      metadata,
-      note,
-    } = body;
-    
-    // Validate required fields
-    if (!entityType || !entityId || !action) {
-      return NextResponse.json(
-        { error: 'entityType, entityId, and action are required' },
-        { status: 400 }
-      );
+    const validation = await validateBody(request, createActivityLogSchema);
+    if (!validation.success) {
+      return apiError(validation.error, 400);
     }
+    const { entityType, entityId, action, actionType, changes, metadata, note, createdBy } = validation.data;
     
     const activityLog = await prisma.activityLog.create({
       data: {
@@ -49,17 +47,14 @@ export async function POST(request: NextRequest) {
         changes: changes || null,
         metadata: metadata || null,
         note: note || null,
-        createdBy: body.createdBy || session.user?.employee?.fullName || session.user?.name || session.user?.email || 'Hệ thống',
+        createdBy: createdBy || session.user?.employee?.fullName || session.user?.name || session.user?.email || 'Hệ thống',
       },
     });
     
-    return NextResponse.json(activityLog, { status: 201 });
+    return apiSuccess(activityLog, 201);
   } catch (error) {
     logError('[Activity Logs API] POST error', error);
-    return NextResponse.json(
-      { error: 'Failed to create activity log' },
-      { status: 500 }
-    );
+    return apiError('Failed to create activity log', 500);
   }
 }
 
@@ -68,22 +63,17 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getSessionFromCookie();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('Unauthorized', 401);
     }
 
     const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams);
     const entityType = searchParams.get('entityType');
     const entityId = searchParams.get('entityId');
     const action = searchParams.get('action');
     const userId = searchParams.get('userId');
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
-
-    // Pagination
-    const page = Math.max(parseInt(searchParams.get('page') || '1') || 1, 1);
-    const rawLimit = parseInt(searchParams.get('limit') || '50') || 50;
-    const limit = Math.min(Math.max(rawLimit, 1), API_MAX_PAGE_LIMIT);
-    const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
     if (entityType) {
@@ -141,20 +131,9 @@ export async function GET(request: NextRequest) {
       return log;
     });
 
-    return NextResponse.json({
-      data: serializeDecimals(enrichedLogs),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(serializeDecimals(enrichedLogs), { page, limit, total });
   } catch (error) {
     logError('[Activity Logs API] GET error', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch activity logs' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch activity logs', 500);
   }
 }

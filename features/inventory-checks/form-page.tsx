@@ -6,7 +6,7 @@ import { useInventoryCheck, useInventoryCheckMutations, type CreateInventoryChec
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { FormPageShell, mobileBleedCardClass } from '../../components/layout/page-section';
@@ -146,7 +146,12 @@ export function InventoryCheckFormPage() {
   const { data: branches } = useAllBranches();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
-  const { data: allEmployees } = useAllEmployees({ enabled: isEditMode });
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const allEmployees = employeesData?.data || [];
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
   

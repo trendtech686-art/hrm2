@@ -1,10 +1,23 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiPaginated, validateBody } from '@/lib/api-utils'
+import { parsePagination } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { randomUUID } from 'crypto'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import type { ActivityLogEntityType } from '@/lib/types/prisma-extended'
+import { z } from 'zod'
+
+// Validation schema for import job POST
+const createImportJobSchema = z.object({
+  entityType: z.string().min(1, 'entityType is required'),
+  data: z.array(z.any()).min(1, 'data must be a non-empty array'),
+  mode: z.enum(['insert-only', 'update-only', 'upsert']).optional().default('upsert'),
+  branchId: z.string().optional(),
+  fileName: z.string().optional(),
+  fileSize: z.number().optional(),
+})
 
 /**
  * Parse Prisma errors into user-friendly messages
@@ -118,16 +131,9 @@ export async function POST(request: Request) {
     const session = await requireAuth()
     if (!session) return apiError('Unauthorized', 401)
 
-    const body = await request.json()
-    const { entityType, data, mode = 'upsert', branchId, fileName, fileSize } = body
-
-    if (!entityType) {
-      return apiError('entityType is required', 400)
-    }
-
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      return apiError('No data provided', 400)
-    }
+    const validation = await validateBody(request, createImportJobSchema)
+    if (!validation.success) return apiError(validation.error, 400)
+    const { entityType, data, mode, branchId, fileName, fileSize } = validation.data
 
     // Limit to 20k records per import
     if (data.length > 20000) {
@@ -213,39 +219,50 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const entityType = searchParams.get('entityType')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
 
-    const jobs = await prisma.importExportLog.findMany({
-      where: {
-        type: 'import',
-        ...(status && { status }),
-        ...(entityType && { entityType }),
-      },
-      orderBy: { performedAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        entityType: true,
-        status: true,
-        totalRecords: true,
-        successCount: true,
-        errorCount: true,
-        skippedCount: true,
-        insertedCount: true,
-        updatedCount: true,
-        progress: true,
-        processedRecords: true,
-        currentChunk: true,
-        totalChunks: true,
-        fileName: true,
-        performedAt: true,
-        startedAt: true,
-        completedAt: true,
-        performedBy: true,
-      },
-    })
+    const [jobs, total] = await Promise.all([
+      prisma.importExportLog.findMany({
+        where: {
+          type: 'import',
+          ...(status && { status }),
+          ...(entityType && { entityType }),
+        },
+        orderBy: { performedAt: 'desc' },
+        skip,
+        take: safeLimit,
+        select: {
+          id: true,
+          entityType: true,
+          status: true,
+          totalRecords: true,
+          successCount: true,
+          errorCount: true,
+          skippedCount: true,
+          insertedCount: true,
+          updatedCount: true,
+          progress: true,
+          processedRecords: true,
+          currentChunk: true,
+          totalChunks: true,
+          fileName: true,
+          performedAt: true,
+          startedAt: true,
+          completedAt: true,
+          performedBy: true,
+        },
+      }),
+      prisma.importExportLog.count({
+        where: {
+          type: 'import',
+          ...(status && { status }),
+          ...(entityType && { entityType }),
+        },
+      }),
+    ])
 
-    return apiSuccess(jobs)
+    return apiPaginated(jobs, { page, limit, total })
   } catch (error) {
     logError('Error listing import jobs', error)
     return apiError('Failed to list import jobs', 500)

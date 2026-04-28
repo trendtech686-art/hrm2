@@ -1,22 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, apiPaginated, parsePagination, apiError, apiSuccess } from '@/lib/api-utils';
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger';
 import { createActivityLog } from '@/lib/services/activity-log-service';
 
-// GET - List all templates
-export async function GET() {
+// GET - List all templates with pagination and search
+export async function GET(request: NextRequest) {
   const result = await requirePermission('view_tasks');
   if (result instanceof NextResponse) return result;
 
-  try {
-    const templates = await prisma.taskTemplate.findMany({
-      where: { isDeleted: false },
-      orderBy: [{ usageCount: 'desc' }, { createdAt: 'desc' }],
-    });
+  const { searchParams } = new URL(request.url);
+  const { page, limit, skip } = parsePagination(searchParams);
+  const search = searchParams.get('search') || '';
+  const category = searchParams.get('category');
 
-    return apiSuccess(templates);
+  try {
+    const where: Record<string, unknown> = { isDeleted: false };
+
+    // Search by name or title
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Filter by category
+    if (category) {
+      where.category = category;
+    }
+
+    const [templates, total] = await Promise.all([
+      prisma.taskTemplate.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ usageCount: 'desc' }, { createdAt: 'desc' }],
+      }),
+      prisma.taskTemplate.count({ where }),
+    ]);
+
+    return apiPaginated(templates, { page, limit, total });
   } catch (error) {
     logError('Failed to fetch task templates', error);
     return apiError('Không thể tải mẫu công việc', 500);

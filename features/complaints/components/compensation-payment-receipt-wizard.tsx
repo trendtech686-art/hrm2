@@ -33,6 +33,7 @@ import type { Payment } from "@/features/payments/types";
 import type { Receipt } from "@/features/receipts/types";
 import type { CashAccount } from "@/features/cashbook/types";
 import type { Employee } from "@/features/employees/types";
+import type { EmployeeSearchResult } from "@/hooks/use-meilisearch";
 import type { Complaint } from "../types";
 import { type SystemId } from "@/lib/id-types";
 import { useAuth } from "@/contexts/auth-context";
@@ -64,7 +65,7 @@ interface CompensationPaymentReceiptWizardProps {
   onOpenChange: (open: boolean) => void;
   complaint: Complaint;
   accounts: CashAccount[]; // Can be empty, will lazy-load if needed
-  employees: Employee[];
+  employees: EmployeeSearchResult[];
   onComplete: (result: CompensationResult) => void;
 }
 

@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
-import { useEmployeeSearcher } from '@/features/employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 
 interface PackerSelectionDialogProps {
@@ -20,28 +20,35 @@ export function PackerSelectionDialog({
     onSubmit,
     existingPackerSystemId,
 }: PackerSelectionDialogProps) {
-  const { searchEmployees } = useEmployeeSearcher();
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedEmployee, setSelectedEmployee] = React.useState<ComboboxOption | null>(null);
+  
+  const { data: searchResult, isLoading } = useMeiliEmployeeSearch({
+    query: searchQuery,
+    limit: 100,
+    enabled: isOpen,
+  });
 
-    const handleSubmit = () => {
-        onSubmit(selectedEmployee ? asSystemId(selectedEmployee.value) : undefined);
-    onOpenChange(false);
+  const handleSubmit = () => {
+      onSubmit(selectedEmployee ? asSystemId(selectedEmployee.value) : undefined);
+      onOpenChange(false);
   };
 
   // Preload existing packer if set in order
   React.useEffect(() => {
       if (isOpen && existingPackerSystemId) {
-          // Find employee and set as selected
-          searchEmployees('', 0, 100).then(result => {
-              const existing = result.items.find(e => e.value === existingPackerSystemId);
-              if (existing) {
-                  setSelectedEmployee(existing);
-              }
-          });
+          // Find employee in search results and set as selected
+          const existing = searchResult?.data.find(e => e.systemId === existingPackerSystemId);
+          if (existing) {
+              setSelectedEmployee({
+                  value: existing.systemId,
+                  label: existing.fullName,
+              });
+          }
       } else if (isOpen) {
           setSelectedEmployee(null);
       }
-  }, [isOpen, existingPackerSystemId, searchEmployees]);
+  }, [isOpen, existingPackerSystemId, searchResult]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -56,13 +63,15 @@ export function PackerSelectionDialog({
           <Combobox
             value={selectedEmployee}
             onChange={setSelectedEmployee}
-            onSearch={async (query: string, page: number) => {
-              const result = await searchEmployees(query, page, 100);
-              return { items: result.items, hasNextPage: result.hasNextPage };
-            }}
+            onSearch={setSearchQuery}
+            isLoading={isLoading}
             placeholder="Tìm nhân viên..."
             searchPlaceholder="Tìm kiếm..."
-            emptyPlaceholder="Không tìm thấy nhân viên."
+            emptyPlaceholder={isLoading ? "Đang tải..." : "Không tìm thấy nhân viên."}
+            options={searchResult?.data.map(e => ({
+              value: e.systemId,
+              label: e.fullName,
+            })) || []}
           />
         </div>
         <DialogFooter>

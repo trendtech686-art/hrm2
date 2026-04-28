@@ -23,14 +23,70 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const [payroll, auditLogs] = await Promise.all([
       prisma.payroll.findUnique({
         where: { systemId },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          month: true,
+          year: true,
+          status: true,
+          totalGross: true,
+          totalDeductions: true,
+          totalNet: true,
+          totalEmployees: true,
+          processedAt: true,
+          processedBy: true,
+          paidAt: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
           items: {
-            include: {
+            select: {
+              systemId: true,
+              employeeId: true,
+              employeeName: true,
+              employeeCode: true,
+              baseSalary: true,
+              grossSalary: true,
+              workDays: true,
+              otHours: true,
+              leaveDays: true,
+              socialInsurance: true,
+              healthInsurance: true,
+              unemploymentIns: true,
+              tax: true,
+              otherDeductions: true,
+              totalDeductions: true,
+              netSalary: true,
+              personalDeduction: true,
+              dependentDeduction: true,
+              numberOfDependents: true,
+              calculationSnapshot: true,
               employee: {
-                include: {
-                  department: true,
-                  branch: true,
-                  jobTitle: true,
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                  department: {
+                    select: {
+                      systemId: true,
+                      id: true,
+                      name: true,
+                    },
+                  },
+                  branch: {
+                    select: {
+                      systemId: true,
+                      id: true,
+                      name: true,
+                    },
+                  },
+                  jobTitle: {
+                    select: {
+                      systemId: true,
+                      id: true,
+                      name: true,
+                    },
+                  },
                 },
               },
             },
@@ -224,9 +280,43 @@ export async function PUT(request: Request, { params }: RouteParams) {
           }))),
         } : undefined,
       },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        month: true,
+        year: true,
+        status: true,
+        totalGross: true,
+        totalDeductions: true,
+        totalNet: true,
+        totalEmployees: true,
+        processedAt: true,
+        processedBy: true,
+        paidAt: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
         items: {
-          include: { employee: true },
+          select: {
+            systemId: true,
+            employeeId: true,
+            employeeName: true,
+            employeeCode: true,
+            baseSalary: true,
+            netSalary: true,
+            grossSalary: true,
+            workDays: true,
+            otHours: true,
+            leaveDays: true,
+            payrollId: true,
+            employee: {
+              select: {
+                systemId: true,
+                id: true,
+                fullName: true,
+              },
+            },
+          },
         },
       },
     })

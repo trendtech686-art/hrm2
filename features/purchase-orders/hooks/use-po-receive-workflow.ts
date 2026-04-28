@@ -8,7 +8,7 @@ import { formatDateCustom } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { usePurchaseOrderMutations } from './use-purchase-orders';
-import { useAllInventoryReceipts } from '@/features/inventory-receipts/hooks/use-all-inventory-receipts';
+import { useAllInventoryReceipts } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
 import { useInventoryReceiptMutations } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAuth } from '@/contexts/auth-context';

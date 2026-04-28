@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiNotFound, apiError } from '@/lib/api-utils'
+import { apiSuccess, apiNotFound, apiError, validateBody } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import type { Prisma } from '@/generated/prisma/client'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { updatePaymentSchema } from '../validation'
 
 type Decimal = Prisma.Decimal;
 
@@ -63,19 +64,35 @@ export const GET = apiHandler(async (_request, { params }) => {
     const [payment, auditLogs] = await Promise.all([
       prisma.payment.findUnique({
         where: { systemId },
-        include: {
-          purchaseOrder: {
-            include: {
-              items: {
-                include: {
-                  product: {
-                    select: { systemId: true, id: true, name: true },
-                  },
-                },
-              },
+        select: {
+          systemId: true,
+          id: true,
+          type: true,
+          paymentDate: true,
+          amount: true,
+          paymentMethod: true,
+          description: true,
+          status: true,
+          referenceType: true,
+          referenceId: true,
+          customerSystemId: true,
+          supplierId: true,
+          purchaseOrderSystemId: true,
+          affectsDebt: true,
+          runningBalance: true,
+          linkedSalesReturnSystemId: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+          cancelledAt: true,
+          recognitionDate: true,
+          suppliers: {
+            select: {
+              systemId: true,
+              name: true,
+              phone: true,
             },
           },
-          suppliers: true,
         },
       }),
       prisma.auditLog.findMany({
@@ -129,7 +146,13 @@ export const GET = apiHandler(async (_request, { params }) => {
 export const PUT = apiHandler(async (request, { session, params }) => {
   try {
     const { systemId } = params
-    const body = await request.json()
+    
+    // Validate request body with Zod schema
+    const validation = await validateBody(request, updatePaymentSchema)
+    if (!validation.success) {
+      return apiError(validation.error, 400)
+    }
+    const body = validation.data
 
     // Fetch existing payment for change detection
     const existingPayment = await prisma.payment.findUnique({
@@ -157,9 +180,35 @@ export const PUT = apiHandler(async (request, { session, params }) => {
       // No actual changes, just return the existing payment
       const payment = await prisma.payment.findUnique({
         where: { systemId },
-        include: {
-          purchaseOrder: true,
-          suppliers: true,
+        select: {
+          systemId: true,
+          id: true,
+          type: true,
+          paymentDate: true,
+          amount: true,
+          paymentMethod: true,
+          description: true,
+          status: true,
+          referenceType: true,
+          referenceId: true,
+          customerSystemId: true,
+          supplierId: true,
+          purchaseOrderSystemId: true,
+          affectsDebt: true,
+          runningBalance: true,
+          linkedSalesReturnSystemId: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+          cancelledAt: true,
+          recognitionDate: true,
+          suppliers: {
+            select: {
+              systemId: true,
+              name: true,
+              phone: true,
+            },
+          },
         },
       })
       if (!payment) return apiNotFound('Payment')
@@ -178,15 +227,41 @@ export const PUT = apiHandler(async (request, { session, params }) => {
         paymentMethod: body.method || body.paymentMethod,
         description: body.description,
       },
-      include: {
-        purchaseOrder: true,
-        suppliers: true,
+      select: {
+        systemId: true,
+        id: true,
+        type: true,
+        paymentDate: true,
+        amount: true,
+        paymentMethod: true,
+        description: true,
+        status: true,
+        referenceType: true,
+        referenceId: true,
+        customerSystemId: true,
+        supplierId: true,
+        purchaseOrderSystemId: true,
+        affectsDebt: true,
+        runningBalance: true,
+        linkedSalesReturnSystemId: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        cancelledAt: true,
+        recognitionDate: true,
+        suppliers: {
+          select: {
+            systemId: true,
+            name: true,
+            phone: true,
+          },
+        },
       },
     })
 
     // Update customer debt if payment affects debt
     if (payment.affectsDebt && !payment.linkedSalesReturnSystemId) {
-      const customerSystemId = payment.customerSystemId || payment.recipientSystemId;
+      const customerSystemId = payment.customerSystemId;
       if (customerSystemId) {
         await updateCustomerDebt(customerSystemId).catch(err => {
           logError('[Update Payment] Failed to update customer debt', err);

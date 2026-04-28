@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { apiSuccess, apiPaginated, apiError, parsePagination, validateBody } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { createBrandSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { cache, CACHE_TTL } from '@/lib/cache'
@@ -13,6 +14,7 @@ import { buildSearchWhere } from '@/lib/search/build-search-where'
 export const GET = apiHandler(async (request, { session: _session }) => {
   const { searchParams } = new URL(request.url)
   const { page, limit, skip } = parsePagination(searchParams)
+  const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
   const search = searchParams.get('search') || ''
   const sortBy = searchParams.get('sortBy') || 'name'
   const sortOrder = searchParams.get('sortOrder') === 'desc' ? 'desc' : 'asc'
@@ -37,7 +39,24 @@ export const GET = apiHandler(async (request, { session: _session }) => {
     const brands = await prisma.brand.findMany({
       where,
       orderBy: { [safeSortBy]: sortOrder },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        logo: true,
+        logoUrl: true,
+        website: true,
+        isActive: true,
+        isDeleted: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        websiteSeo: true,
+        createdAt: true,
+        updatedAt: true,
         _count: { select: { products: true } },
       },
     })
@@ -50,9 +69,26 @@ export const GET = apiHandler(async (request, { session: _session }) => {
     prisma.brand.findMany({
       where,
       skip,
-      take: limit,
+      take: safeLimit,
       orderBy: { [safeSortBy]: sortOrder },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        logo: true,
+        logoUrl: true,
+        website: true,
+        isActive: true,
+        isDeleted: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        websiteSeo: true,
+        createdAt: true,
+        updatedAt: true,
         _count: { select: { products: true } },
       },
     }),

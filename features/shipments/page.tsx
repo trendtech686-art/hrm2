@@ -6,11 +6,11 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { useShipments, useShipmentStats, type ShipmentStats } from './hooks/use-shipments';
 import { useAllShipments, useShipmentCarriers } from './hooks/use-all-shipments';
 import { fetchOrder } from '../orders/api/orders-api';
-import { useAllCustomers } from '../customers/hooks/use-all-customers';
+import { useMeiliCustomerSearch, useMeiliShipmentSearch } from '@/hooks/use-meilisearch';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from '../../lib/use-print';
-import { convertShipmentToDeliveryForPrint, convertShipmentsToHandoverForPrint, mapDeliveryToPrintData, mapDeliveryLineItems, mapHandoverToPrintData, mapHandoverLineItems, createStoreSettings } from '../../lib/print/shipment-print-helper';
+import { convertShipmentToDeliveryForPrint, convertShipmentsToHandoverForPrint, mapDeliveryToPrintData, mapDeliveryLineItems, mapHandoverToPrintData, mapHandoverLineItems, createStoreSettings, type CustomerLike } from '../../lib/print/shipment-print-helper';
 import dynamic from 'next/dynamic';
 import type { ShipmentView } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
@@ -63,7 +63,14 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
 
   // Data sources for print (lazy-loaded: only fetch when print is needed)
   const isPrintMode = printTriggered || printDialogOpen || itemsToPrint.length > 0;
-  const { data: allCustomers } = useAllCustomers({ enabled: isPrintMode });
+  // ✅ Use Meilisearch for customer search (high limit for print operations)
+  const { data: customersData } = useMeiliCustomerSearch({ 
+    query: '',
+    enabled: isPrintMode,
+    limit: 1000,
+    debounceMs: 0,
+  });
+  const allCustomers = React.useMemo(() => customersData?.data ?? [], [customersData]);
   const { data: branches } = useAllBranches();
   // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
 
@@ -108,14 +115,31 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
   }, [branchFilter, statusFilter, partnerFilter, reconciliationFilter, dateRange]);
 
-  // Server-side query
-  const { data: shipmentsData, isLoading: isLoadingShipments, isFetching } = useShipments({
+  // Meilisearch: Use when search query exists AND no advanced Prisma-only filters
+  const hasPrismaOnlyFilters = branchFilter !== 'all' || reconciliationFilter !== 'all';
+  const useMeiliForSearch = !hasPrismaOnlyFilters && (!!debouncedSearch || !!dateRange);
+
+  // Meilisearch query (for fuzzy search when no Prisma-only filters)
+  const { data: meiliData, isLoading: isLoadingMeili } = useMeiliShipmentSearch({
+    query: debouncedSearch || '',
+    limit: pagination.pageSize,
+    offset: pagination.pageIndex * pagination.pageSize,
+    debounceMs: 0, // Already debounced in component
+    enabled: useMeiliForSearch,
+    filters: {
+      deliveryStatus: statusFilter !== 'all' ? statusFilter : undefined,
+      carrier: partnerFilter !== 'all' ? partnerFilter : undefined,
+    },
+  });
+
+  // Prisma query (for full filters, or when Meilisearch not applicable)
+  const { data: prismaData, isLoading: isLoadingPrisma, isFetching } = useShipments({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
-    search: debouncedSearch || undefined,
+    search: !useMeiliForSearch ? (debouncedSearch || undefined) : undefined,
     branchId: branchFilter !== 'all' ? branchFilter : undefined,
-    deliveryStatus: statusFilter !== 'all' ? statusFilter : undefined,
-    carrier: partnerFilter !== 'all' ? partnerFilter : undefined,
+    deliveryStatus: !useMeiliForSearch && statusFilter !== 'all' ? statusFilter : undefined,
+    carrier: !useMeiliForSearch && partnerFilter !== 'all' ? partnerFilter : undefined,
     reconciliationStatus: reconciliationFilter !== 'all' ? reconciliationFilter : undefined,
     fromDate: dateRange?.from || undefined,
     toDate: dateRange?.to || undefined,
@@ -123,9 +147,34 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
     sortOrder: sorting.desc ? 'desc' : 'asc',
   });
 
-  const shipments = React.useMemo(() => (shipmentsData?.data ?? []) as ShipmentView[], [shipmentsData?.data]);
-  const totalRows = shipmentsData?.pagination?.total ?? 0;
-  const pageCount = shipmentsData?.pagination?.totalPages ?? 1;
+  // Combine data from either source
+  const isLoadingShipments = useMeiliForSearch ? isLoadingMeili : isLoadingPrisma;
+  const shipmentsData = useMeiliForSearch ? meiliData : prismaData;
+
+  const shipments = React.useMemo(() => {
+    if (useMeiliForSearch && meiliData?.data) {
+      // Meilisearch returns different shape - map to ShipmentView
+      return meiliData.data.map(s => ({
+        ...s,
+        // Additional fields needed for UI but not in Meilisearch
+        packagingDate: s.pickedAt || null,
+        dispatchDate: s.pickedAt || null,
+        shippingFeeToPartner: s.shippingFee,
+        codAmount: 0,
+        branchName: null,
+        customerName: s.recipientName,
+        customerAddress: s.recipientAddress,
+      })) as unknown as ShipmentView[];
+    }
+    return (prismaData?.data ?? []) as ShipmentView[];
+  }, [useMeiliForSearch, meiliData, prismaData]);
+
+  const totalRows = useMeiliForSearch
+    ? (meiliData?.meta?.total ?? 0)
+    : (prismaData?.pagination?.total ?? 0);
+  const pageCount = useMeiliForSearch
+    ? Math.ceil((meiliData?.meta?.total ?? 0) / pagination.pageSize) || 1
+    : (prismaData?.pagination?.totalPages ?? 1);
 
   // ✅ Lazy-load all shipments — only for export dialog
   const { data: allShipments } = useAllShipments({ enabled: exportDialogOpen });
@@ -196,7 +245,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
     const results = await Promise.all(selected.map(async s => {
       const o = await fetchOrderForShipment(s);
       if (!o) return null;
-      const c = allCustomers.find(x => x.systemId === o.customerSystemId);
+      const c = allCustomers.find(x => x.systemId === o.customerSystemId) as CustomerLike | null;
       const d = convertShipmentToDeliveryForPrint(s, o, { customer: c });
       return { data: mapDeliveryToPrintData(d, st), lineItems: mapDeliveryLineItems(d.items) };
     }));
@@ -224,7 +273,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
       const results = await Promise.all(itemsToPrint.map(async s => {
         const o = await fetchOrderForShipment(s);
         if (!o) return null;
-        const c = allCustomers.find(x => x.systemId === o.customerSystemId);
+        const c = allCustomers.find(x => x.systemId === o.customerSystemId) as CustomerLike | null;
         const br = options.branchSystemId ? branches.find(b => b.systemId === options.branchSystemId) : null;
         const st = br ? createStoreSettings(br) : createStoreSettings(storeInfo);
         const d = convertShipmentToDeliveryForPrint(s, o, { customer: c });

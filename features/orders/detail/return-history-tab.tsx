@@ -6,7 +6,7 @@ import { Printer, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { SalesReturn } from '@/features/sales-returns/types';
-import { useOrderFinder } from '@/features/orders/hooks/use-all-orders';
+import { useOrderFinder } from '@/features/orders/hooks/use-orders';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { fetchPrintData } from '@/lib/lazy-print-data';

@@ -16,7 +16,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     const category = await prisma.category.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        isDeleted: true,
+        permanentlyDeletedAt: true,
         _count: { select: { children: true } },
       },
     })

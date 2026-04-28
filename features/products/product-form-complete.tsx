@@ -1,7 +1,7 @@
 ﻿import * as React from "react";
 import { useForm, useWatch, FormProvider } from "react-hook-form";
 import type { Product } from "@/lib/types/prisma-extended";
-import { useAllProducts } from "./hooks/use-all-products";
+import { useProductFinder } from "./hooks/use-all-products";
 import { useProductFormData } from "./hooks/use-product-form-data";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useAllTaxes } from "../settings/taxes/hooks/use-taxes";
@@ -51,9 +51,7 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
   defaultType,
 }, ref) {
   const formRef = React.useRef<HTMLFormElement>(null);
-  // ✅ OPTIMIZED: Only fetch all products for combo — saves ~4.6s for non-combo edits
-  const isInitiallyCombo = initialData?.type?.toLowerCase() === 'combo' || defaultType === 'combo';
-  const { data: products } = useAllProducts({ enabled: isInitiallyCombo });
+  const { findById: findProductById } = useProductFinder();
   // ✅ OPTIMIZED: 9 reference data calls → 1 consolidated API call
   const {
     pricingPolicies, units, suppliers,
@@ -393,7 +391,7 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
         productSystemId: item.productSystemId as SystemId,
         quantity: item.quantity,
       })),
-      products,
+      findProductById,
       defaultPricingPolicy?.systemId
         ? { fallbackPricingPolicyId: defaultPricingPolicy.systemId }
         : undefined
@@ -402,7 +400,7 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
     // Calculate total original price (sum of selling prices)
     let totalOriginalPrice = 0;
     for (const item of comboItems) {
-      const product = products.find(p => p.systemId === item.productSystemId);
+      const product = findProductById(item.productSystemId);
       if (product) {
         // Get unit price based on default policy or first available
         let unitPrice = 0;
@@ -430,7 +428,7 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
     }
     
     return { costPrice, comboPrice, totalOriginalPrice };
-  }, [isComboProduct, comboItems, comboPricingType, comboDiscount, products, defaultPricingPolicy]);
+  }, [isComboProduct, comboItems, comboPricingType, comboDiscount, findProductById, defaultPricingPolicy]);
 
   const finalComboPricesByPolicy = React.useMemo(() => {
     if (!isComboProduct || !comboItems || comboItems.length === 0 || !comboPricingType) {
@@ -442,7 +440,7 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
         productSystemId: item.productSystemId as SystemId,
         quantity: item.quantity,
       })),
-      products,
+      findProductById,
       comboPricingType,
       comboDiscount || 0,
       defaultPricingPolicy?.systemId
@@ -452,7 +450,7 @@ export const ProductFormComplete = React.forwardRef<ProductFormCompleteHandle, P
     comboItems,
     comboPricingType,
     comboDiscount,
-    products,
+    findProductById,
     defaultPricingPolicy?.systemId,
   ]);
   

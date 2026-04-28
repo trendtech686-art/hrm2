@@ -1,12 +1,22 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { z } from 'zod'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
 }
+
+// Validation schema for updating attendance
+const updateAttendanceSchema = z.object({
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  status: z.string().optional(),
+  notes: z.string().optional(),
+  workHours: z.number().optional(),
+})
 
 // GET /api/attendance/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
@@ -18,11 +28,37 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const attendance = await prisma.attendanceRecord.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        employeeId: true,
+        date: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        workHours: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
         employee: {
-          include: {
-            department: true,
-            branch: true,
+          select: {
+            systemId: true,
+            id: true,
+            fullName: true,
+            avatar: true,
+            department: {
+              select: {
+                systemId: true,
+                name: true,
+                code: true,
+              },
+            },
+            branch: {
+              select: {
+                systemId: true,
+                name: true,
+                code: true,
+              },
+            },
           },
         },
       },
@@ -46,7 +82,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params
-    const body = await request.json()
+    
+    // Validate request body with Zod schema
+    const validation = await validateBody(request, updateAttendanceSchema)
+    if (!validation.success) {
+      return apiError(validation.error, 400)
+    }
+    const body = validation.data
 
     // Fetch existing data before update for change detection
     const existing = await prisma.attendanceRecord.findUnique({
@@ -71,7 +113,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
         notes: body.notes,
         workHours: body.workHours,
       },
-      include: { employee: true },
+      select: {
+        systemId: true,
+        employeeId: true,
+        date: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        workHours: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        employee: {
+          select: {
+            systemId: true,
+            id: true,
+            fullName: true,
+            avatar: true,
+          },
+        },
+      },
     })
 
     // Notify employee about attendance change (if admin edits)

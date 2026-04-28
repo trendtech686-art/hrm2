@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logError } from '@/lib/logger'
-import { requireAuth } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 
 type RouteParams = { params: Promise<{ systemId: string }> }
@@ -12,7 +12,7 @@ type RouteParams = { params: Promise<{ systemId: string }> }
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401)
   }
 
   try {
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const existing = await prisma.district.findUnique({ where: { systemId } })
     if (!existing || existing.isDeleted) {
-      return NextResponse.json({ success: false, error: 'Không tìm thấy quận/huyện' }, { status: 404 })
+      return apiNotFound('District')
     }
 
     const changes: Record<string, { from: unknown; to: unknown }> = {}
@@ -47,10 +47,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       createdBy: session.user?.id,
     })
 
-    return NextResponse.json({ success: true, data: district })
+    return apiSuccess(district)
   } catch (error) {
     logError('Failed to update district', error)
-    return NextResponse.json({ success: false, error: 'Không thể cập nhật quận/huyện' }, { status: 500 })
+    return apiError('Không thể cập nhật quận/huyện', 500)
   }
 }
 
@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401)
   }
 
   try {
@@ -68,7 +68,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     const existing = await prisma.district.findUnique({ where: { systemId } })
     if (!existing || existing.isDeleted) {
-      return NextResponse.json({ success: false, error: 'Không tìm thấy quận/huyện' }, { status: 404 })
+      return apiNotFound('District')
     }
 
     await prisma.district.update({
@@ -85,9 +85,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       createdBy: session.user?.id,
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     logError('Failed to delete district', error)
-    return NextResponse.json({ success: false, error: 'Không thể xóa quận/huyện' }, { status: 500 })
+    return apiError('Không thể xóa quận/huyện', 500)
   }
 }

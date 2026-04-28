@@ -7,12 +7,13 @@
  * Protected by CRON_SECRET (Vercel cron header).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logError } from '@/lib/logger';
 import { getWarehouseNotificationSettings, createBulkNotifications } from '@/lib/notifications';
 import { defaultSlaSettings } from '@/features/settings/inventory/sla-settings-service';
 import type { ProductSlaSettings } from '@/features/settings/inventory/types';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 /** Read SLA settings from DB (server-side, with fallback) */
 async function getSlaSettings(): Promise<ProductSlaSettings> {
@@ -42,13 +43,13 @@ function verifyCronSecret(request: NextRequest): boolean {
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('Unauthorized', 401);
   }
 
   try {
     const settings = await getWarehouseNotificationSettings();
     if (!settings.lowStockAlert) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'lowStockAlert disabled' });
+      return apiSuccess({ skipped: true, reason: 'lowStockAlert disabled' });
     }
 
     // Prefer the explicit alert threshold from notification settings;
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (lowStockProducts.length === 0) {
-      return NextResponse.json({ success: true, count: 0, reason: 'No low stock products' });
+      return apiSuccess({ count: 0, reason: 'No low stock products' });
     }
 
     // Get admin/manager employee IDs for notification
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
 
     const recipientIds = adminEmployees.map(e => e.systemId);
     if (recipientIds.length === 0) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'No admin recipients' });
+      return apiSuccess({ skipped: true, reason: 'No admin recipients' });
     }
 
     // Build notification message
@@ -116,14 +117,13 @@ export async function GET(request: NextRequest) {
       settingsKey: 'stock:low',
     });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       lowStockCount: lowStockProducts.length,
       criticalCount,
       notified: result.count,
     });
   } catch (error) {
     logError('[Cron] Stock alerts failed', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return apiError('Internal error', 500);
   }
 }

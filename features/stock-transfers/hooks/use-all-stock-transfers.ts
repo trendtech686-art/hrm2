@@ -1,24 +1,28 @@
 /**
  * useAllStockTransfers - Convenience hook for flat array of stock transfers
  * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng startDate/endDate để filter theo ngày
+ * - Dùng fromBranchId/toBranchId để filter theo chi nhánh
  */
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { fetchStockTransfers } from '../api/stock-transfers-api';
+import { fetchStockTransfers, type StockTransfersParams } from '../api/stock-transfers-api';
 import { stockTransferKeys } from './use-stock-transfers';
 import { asBusinessId, type BusinessId } from '@/lib/id-types';
 
-interface UseAllStockTransfersOptions {
+export interface UseAllStockTransfersOptions extends Pick<StockTransfersParams, 'startDate' | 'endDate' | 'fromBranchId' | 'toBranchId' | 'status' | 'search'> {
   enabled?: boolean;
 }
 
 export function useAllStockTransfers(options: UseAllStockTransfersOptions = {}) {
-  const { enabled = true } = options;
+  const { enabled = true, startDate, endDate, fromBranchId, toBranchId, status, search } = options;
   const query = useQuery({
-    queryKey: [...stockTransferKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchStockTransfers(p)),
+    queryKey: [...stockTransferKeys.all, 'all', { startDate, endDate, fromBranchId, toBranchId, status, search }],
+    queryFn: () => fetchAllPages((p) => fetchStockTransfers({ ...p, startDate, endDate, fromBranchId, toBranchId, status, search })),
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     enabled,

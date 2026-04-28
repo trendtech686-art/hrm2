@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiError, parsePagination, apiPaginated } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { z } from 'zod'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
     const isDefaultSale = searchParams.get('isDefaultSale')
     const isDefaultPurchase = searchParams.get('isDefaultPurchase')
 
@@ -37,21 +39,13 @@ export async function GET(request: Request) {
       prisma.tax.findMany({
         where,
         skip,
-        take: limit,
+        take: safeLimit,
         orderBy: { name: 'asc' },
       }),
       prisma.tax.count({ where }),
     ])
 
-    return apiSuccess({
-      data: taxes,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(taxes, { page, limit, total })
   } catch (error) {
     logError('Error fetching taxes', error)
     return apiError('Không thể tải danh sách thuế', 500)

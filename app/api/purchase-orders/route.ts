@@ -122,10 +122,21 @@ export const GET = apiHandler(async (request) => {
         skip,
         take: limit,
         orderBy,
-        include: {
-          supplier: true,
+        select: {
+          supplier: {
+            select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+          },
           items: {
-            include: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              receivedQty: true,
               product: {
                 select: { systemId: true, id: true, name: true, imageUrl: true, unit: true },
               },
@@ -283,10 +294,25 @@ export const POST = apiHandler(async (request, { session }) => {
           reference: body.reference || null,
           items: itemsData.length > 0 ? { create: itemsData } : undefined,
         },
-        include: {
-          supplier: true,
+        select: {
+          supplier: {
+            select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+          },
           items: {
-            include: { product: true },
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              receivedQty: true,
+              product: {
+                select: { systemId: true, id: true, name: true, imageUrl: true, unit: true },
+              },
+            },
           },
         },
       });

@@ -45,7 +45,7 @@ export const GET = apiHandler(async (req, { session: _session }) => {
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
-      include: {
+      select: {
         branch: { select: { systemId: true, name: true } },
         _count: { select: { items: true } },
       },
@@ -132,8 +132,24 @@ export const POST = apiHandler(async (req, { session }) => {
           })),
         },
       },
-      include: {
-        items: true,
+      select: {
+        items: {
+          select: {
+            systemId: true,
+            packagingId: true,
+            trackingCode: true,
+            orderId: true,
+            orderSystemId: true,
+            customerName: true,
+            codSystem: true,
+            codPartner: true,
+            codDifference: true,
+            feeSystem: true,
+            feePartner: true,
+            feeDifference: true,
+            note: true,
+          },
+        },
         branch: { select: { systemId: true, name: true } },
       },
     })

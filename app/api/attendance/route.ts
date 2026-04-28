@@ -59,14 +59,30 @@ export async function GET(request: Request) {
       const allRecords = await prisma.attendanceRecord.findMany({
         where,
         orderBy: { date: 'desc' },
-        include: {
+        select: {
+          systemId: true,
+          employeeId: true,
+          date: true,
+          status: true,
+          checkIn: true,
+          checkOut: true,
+          workHours: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
           employee: {
             select: {
               systemId: true,
               id: true,
               fullName: true,
               avatar: true,
-              department: true,
+              department: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -191,14 +207,30 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { date: 'desc' },
-        include: {
+        select: {
+          systemId: true,
+          employeeId: true,
+          date: true,
+          status: true,
+          checkIn: true,
+          checkOut: true,
+          workHours: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
           employee: {
             select: {
               systemId: true,
               id: true,
               fullName: true,
               avatar: true,
-              department: true,
+              department: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -267,7 +299,26 @@ export async function POST(request: Request) {
           status: (body.status as AttendanceStatus) || AttendanceStatus.PRESENT,
           notes: body.notes,
         },
-        include: { employee: true },
+        select: {
+          systemId: true,
+          employeeId: true,
+          date: true,
+          checkIn: true,
+          checkOut: true,
+          status: true,
+          workHours: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          employee: {
+            select: {
+              systemId: true,
+              id: true,
+              fullName: true,
+              avatar: true,
+            },
+          },
+        },
       })
       // Log activity - check out
       getUserNameFromDb(session.user?.id).then(userName =>
@@ -297,7 +348,26 @@ export async function POST(request: Request) {
         status: (body.status as AttendanceStatus) || AttendanceStatus.PRESENT,
         notes: body.notes,
       },
-      include: { employee: true },
+      select: {
+        systemId: true,
+        employeeId: true,
+        date: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        workHours: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        employee: {
+          select: {
+            systemId: true,
+            id: true,
+            fullName: true,
+            avatar: true,
+          },
+        },
+      },
     })
 
     // Log activity - check in

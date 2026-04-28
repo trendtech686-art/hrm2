@@ -28,11 +28,20 @@ export async function GET(_request: Request, { params }: RouteParams) {
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
+        employeeId: true,
         employee: {
-          include: {
-            department: true,
-            branch: true,
-            jobTitle: true,
+          select: {
+            systemId: true,
+            fullName: true,
+            department: {
+              select: { systemId: true, name: true },
+            },
+            branch: {
+              select: { systemId: true, name: true },
+            },
+            jobTitle: {
+              select: { systemId: true, name: true },
+            },
           },
         },
       },

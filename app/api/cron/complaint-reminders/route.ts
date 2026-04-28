@@ -7,13 +7,14 @@
  * Protected by CRON_SECRET.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logError } from '@/lib/logger';
 import { createBulkNotifications } from '@/lib/notifications';
 import { notifyComplaintOverdue } from '@/lib/complaint-notifications';
 import { defaultSLA, defaultReminders } from '@/features/settings/complaints/types';
 import type { SLASettings, ReminderSettings } from '@/features/settings/complaints/types';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 export const maxDuration = 60;
 
@@ -51,14 +52,14 @@ async function getSettings() {
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('Unauthorized', 401);
   }
 
   try {
     const { sla, reminders } = await getSettings();
 
     if (!reminders.enabled) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'Reminders disabled' });
+      return apiSuccess({ skipped: true, reason: 'Reminders disabled' });
     }
 
     const now = new Date();
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (openComplaints.length === 0) {
-      return NextResponse.json({ success: true, count: 0 });
+      return apiSuccess({ count: 0 });
     }
 
     // Classify overdue complaints
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     const totalOverdue = overdueResponse.length + overdueResolve.length + escalations.length;
     if (totalOverdue === 0) {
-      return NextResponse.json({ success: true, count: 0 });
+      return apiSuccess({ count: 0 });
     }
 
     // Get admin/manager IDs
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     const allRecipients = Array.from(new Set([...managerIds, ...assigneeNotify]));
 
     if (allRecipients.length === 0) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'No recipients' });
+      return apiSuccess({ skipped: true, reason: 'No recipients' });
     }
 
     // Build consolidated message
@@ -174,8 +175,7 @@ export async function GET(request: NextRequest) {
       }).catch(() => {}); // fire-and-forget
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       overdueResponse: overdueResponse.length,
       overdueResolve: overdueResolve.length,
       escalations: escalations.length,
@@ -183,6 +183,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logError('[Cron] Complaint reminders failed', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return apiError('Internal error', 500);
   }
 }

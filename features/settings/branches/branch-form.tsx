@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import type { Branch } from '@/lib/types/prisma-extended';
-import { useAllEmployees, useEmployeeSearcher } from '../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useProvinces, useWards2Level } from '../provinces/hooks/use-administrative-units';
 import { Button } from '../../../components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -34,8 +34,19 @@ interface BranchFormProps {
 }
 
 export function BranchForm({ initialData, onSubmit, onCancel, isPending }: BranchFormProps) {
-  const { searchEmployees } = useEmployeeSearcher();
-  const { data: allEmployees } = useAllEmployees({ enabled: false });
+  const [managerSearchQuery, setManagerSearchQuery] = React.useState('');
+  const { data: allEmployeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const allEmployees = allEmployeesData?.data || [];
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: managerSearchQuery,
+    limit: 20,
+    debounceMs: 0, // Combobox handles debouncing internally
+  });
+  const employees = employeesData?.data || [];
   const { data: provinces = [] } = useProvinces();
 
   const form = useForm<BranchFormValues>({
@@ -79,6 +90,10 @@ export function BranchForm({ initialData, onSubmit, onCancel, isPending }: Branc
     const employee = allEmployees.find(e => e.systemId === managerId);
     return employee ? { value: employee.systemId, label: employee.fullName } : null;
   }, [managerId, allEmployees]);
+
+  const handleManagerSearch = React.useCallback((query: string) => {
+    setManagerSearchQuery(query);
+  }, []);
 
   return (
     <Form {...form}>
@@ -249,7 +264,7 @@ export function BranchForm({ initialData, onSubmit, onCancel, isPending }: Branc
                     <Combobox
                       value={selectedManager}
                       onChange={(option) => field.onChange(option ? option.value : undefined)}
-                      onSearch={searchEmployees}
+                      onSearch={handleManagerSearch}
                       placeholder="Chọn quản lý"
                       searchPlaceholder="Tìm nhân viên..."
                       emptyPlaceholder="Không tìm thấy nhân viên."

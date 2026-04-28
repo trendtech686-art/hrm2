@@ -6,6 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchCostAdjustments,
   fetchCostAdjustmentById,
@@ -179,3 +180,33 @@ export function useDraftCostAdjustments() {
 export function useCostAdjustmentsByStatus(status: CostAdjustmentStatus) {
   return useCostAdjustments({ status });
 }
+
+/**
+ * Returns all cost adjustments as a flat array via auto-pagination.
+ * Use when you need to iterate over ALL adjustments (e.g., print all, export all).
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng fromDate/toDate để filter theo ngày
+ * - Dùng status/type để filter cụ thể
+ */
+export interface UseAllCostAdjustmentsOptions extends Pick<CostAdjustmentFilters, 'fromDate' | 'toDate' | 'status' | 'type' | 'search' | 'productId'> {
+  enabled?: boolean;
+}
+
+export function useAllCostAdjustments(options: UseAllCostAdjustmentsOptions = {}) {
+  const { enabled = true, fromDate, toDate, status, type, search, productId } = options;
+  const query = useQuery({
+    queryKey: [...costAdjustmentKeys.all, 'all', { fromDate, toDate, status, type, search, productId }],
+    queryFn: () => fetchAllPages((p) => fetchCostAdjustments({ ...p, fromDate, toDate, status, type, search, productId })),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    enabled,
+  });
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+

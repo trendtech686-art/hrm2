@@ -12,7 +12,6 @@ export function getStatusTimestamp(ticket: PublicWarrantyTicket, status: Warrant
   const directTimestampByStatus: Partial<Record<WarrantyStatus, string | undefined>> = {
     RECEIVED: ticket.createdAt,
     PROCESSING: ticket.processingStartedAt,
-    WAITING_PARTS: undefined,
     COMPLETED: ticket.processedAt,
     RETURNED: ticket.returnedAt,
     CANCELLED: ticket.cancelledAt,

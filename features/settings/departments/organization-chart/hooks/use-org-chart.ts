@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useReactFlow, type Node } from 'reactflow';
-import { useAllEmployees } from '../../../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useEmployeeMutations } from '../../../../employees/hooks/use-employees';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { useAllDepartments } from '../../hooks/use-all-departments';
@@ -24,7 +24,13 @@ import {
 } from '../utils/hierarchy-helpers';
 
 export function useOrgChart() {
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({ 
+    query: '', 
+    limit: 1000, 
+    debounceMs: 0,
+    enabled: true, 
+  });
+  const employees = employeesData?.data || [];
   const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const { data: departments } = useAllDepartments();
   

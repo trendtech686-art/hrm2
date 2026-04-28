@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { useTaskById, useTaskMutations } from '../hooks/use-tasks';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { formatDate, formatDateTimeForDisplay } from '@/lib/date-utils';
@@ -96,7 +96,15 @@ export function TaskDetailPage() {
   
   const { isAdmin, employee, can } = useAuth();
   const { isMobile } = useBreakpoint();
-  const { data: allEmployees } = useAllEmployees({ enabled: false });
+  // Employee search for @mention in comments
+  const [employeeSearch, setEmployeeSearch] = React.useState('');
+  const [debouncedEmployeeSearch, setDebouncedEmployeeSearch] = React.useState('');
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEmployeeSearch(employeeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
+  const { data: employeesResult } = useMeiliEmployeeSearch({ query: debouncedEmployeeSearch, limit: 100 });
+  const allEmployees = React.useMemo(() => employeesResult?.data ?? [], [employeesResult?.data]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = React.useState(false);
   const [showEvidenceViewer, setShowEvidenceViewer] = React.useState(false);
@@ -105,11 +113,11 @@ export function TaskDetailPage() {
   // Get all employees for @mention in comments
   const employeeMentions = React.useMemo(() => {
     return allEmployees
-      .filter(e => !e.isDeleted)
+      .filter(e => !(e as any).isDeleted)
       .map(e => ({
         id: e.systemId,
         label: e.fullName,
-        avatar: e.avatarUrl,
+        avatar: (e as any).avatarUrl || e.avatar,
       }));
   }, [allEmployees]);
 

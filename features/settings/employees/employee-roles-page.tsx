@@ -23,7 +23,7 @@ import { Plus, Save, Search, Eye, EyeOff, Clipboard, MoreHorizontal, Loader2, Ed
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { PERMISSION_GROUPS, PERMISSION_LABELS, type Permission } from '../../employees/permissions';
 import { useRoleSettings, useRoleMutations, type CustomRole } from './hooks/use-role-settings';
-import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useEmployeeMutations } from '../../employees/hooks/use-employees';
 import { useDepartments } from '../departments/hooks/use-departments';
 import { getRoleColumns } from './role-columns';
@@ -32,7 +32,13 @@ import type { Employee } from '@/lib/types/prisma-extended';
 export function EmployeeRolesPage() {
   const { data: roles = [] } = useRoleSettings();
   const { addRole, updateRole, deleteRole, resetRole } = useRoleMutations();
-  const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees({ enabled: false });
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const { data: employeesData, isFetching: isLoadingEmployees } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
   const { data: departmentsData } = useDepartments();
   const { update: updateEmployeeMutation } = useEmployeeMutations();
   
@@ -53,8 +59,7 @@ export function EmployeeRolesPage() {
   const [roleToDelete, setRoleToDelete] = React.useState<CustomRole | null>(null);
   const [roleForm, setRoleForm] = React.useState({ name: '', description: '' });
   
-  // Tab 2: Gán vai trò
-  const [searchTerm, setSearchTerm] = React.useState('');
+  // Tab 2: Gán vai trò - search term and role filter
   const [roleFilter, setRoleFilter] = React.useState<string>('all');
   
   // Password management

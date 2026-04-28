@@ -11,9 +11,13 @@
  * - Local types
  */
 
+import * as React from 'react';
+import { useCallback } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchOrders, fetchOrder, fetchOrderStats, type OrdersParams, type PaginatedResponse, type OrderStatsResponse } from '../api/orders-api';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import type { Order } from '@/lib/types/prisma-extended';
+import type { SystemId } from '@/lib/id-types';
 
 // Query keys - exported for invalidation
 export const orderKeys = {
@@ -125,5 +129,40 @@ export function useOrderSearch(search: string, limit = 20) {
   });
 }
 
-// Re-export from use-all-orders for backward compatibility
-export { useAllOrders, useOrderFinder } from './use-all-orders';
+/**
+ * Cache-only finder: subscribes to the orders query cache but NEVER triggers a fetch.
+ * Requires another component to have already loaded the orders list.
+ *
+ * @example
+ * ```tsx
+ * const { findById, findByBusinessId } = useOrderFinder();
+ * const order = findById(systemId);
+ * ```
+ */
+export function useOrderFinder() {
+  const { data } = useQuery({
+    queryKey: [...orderKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchOrders(p)),
+    enabled: false, // Cache-only: never triggers a fetch
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+
+  const findById = useCallback(
+    (systemId: SystemId | string | undefined): Order | undefined => {
+      if (!systemId) return undefined;
+      return data?.find(o => o.systemId === systemId);
+    },
+    [data]
+  );
+
+  const findByBusinessId = useCallback(
+    (businessId: string | undefined): Order | undefined => {
+      if (!businessId) return undefined;
+      return data?.find(o => o.id === businessId);
+    },
+    [data]
+  );
+
+  return { findById, findByBusinessId };
+}

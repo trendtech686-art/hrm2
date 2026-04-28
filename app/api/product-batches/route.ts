@@ -57,56 +57,61 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/product-batches
 export const POST = apiHandler(async (req) => {
-  const result = await validateBody(req, batchSchema)
-  if (!result.success) return apiError(result.error, 400)
-  const body = result.data
+  try {
+    const result = await validateBody(req, batchSchema)
+    if (!result.success) return apiError(result.error, 400)
+    const body = result.data
 
-  // Verify product exists
-  const product = await prisma.product.findUnique({
-    where: { systemId: body.productId },
-    select: { systemId: true },
-  })
-  if (!product) return apiError('Sản phẩm không tồn tại', 404)
+    // Verify product exists
+    const product = await prisma.product.findUnique({
+      where: { systemId: body.productId },
+      select: { systemId: true },
+    })
+    if (!product) return apiError('Sản phẩm không tồn tại', 404)
 
-  // Check unique batch number per product+branch
-  const existing = await prisma.productBatch.findUnique({
-    where: {
-      productId_branchId_batchNumber: {
+    // Check unique batch number per product+branch
+    const existing = await prisma.productBatch.findUnique({
+      where: {
+        productId_branchId_batchNumber: {
+          productId: body.productId,
+          branchId: body.branchId,
+          batchNumber: body.batchNumber,
+        },
+      },
+    })
+    if (existing) return apiError('Mã lô đã tồn tại cho sản phẩm này tại chi nhánh', 400)
+
+    const batch = await prisma.productBatch.create({
+      data: {
         productId: body.productId,
         branchId: body.branchId,
         batchNumber: body.batchNumber,
+        manufactureDate: body.manufactureDate ? new Date(body.manufactureDate) : null,
+        expiryDate: body.expiryDate ? new Date(body.expiryDate) : null,
+        quantity: body.quantity,
+        initialQty: body.quantity,
+        supplierName: body.supplierName,
+        notes: body.notes,
       },
-    },
-  })
-  if (existing) return apiError('Mã lô đã tồn tại cho sản phẩm này tại chi nhánh', 400)
+    })
 
-  const batch = await prisma.productBatch.create({
-    data: {
-      productId: body.productId,
-      branchId: body.branchId,
-      batchNumber: body.batchNumber,
-      manufactureDate: body.manufactureDate ? new Date(body.manufactureDate) : null,
-      expiryDate: body.expiryDate ? new Date(body.expiryDate) : null,
-      quantity: body.quantity,
-      initialQty: body.quantity,
-      supplierName: body.supplierName,
-      notes: body.notes,
-    },
-  })
+    createActivityLog({
+      entityType: 'product' as ActivityLogEntityType,
+      entityId: batch.systemId,
+      action: `Thêm lô sản phẩm: ${batch.batchNumber}`,
+      actionType: 'create',
+      metadata: {
+        batchNumber: batch.batchNumber,
+        productId: batch.productId,
+        branchId: batch.branchId,
+        quantity: batch.quantity,
+      },
+      createdBy: 'System',
+    }).catch(e => logError('[product-batches] activity log failed', e))
 
-  createActivityLog({
-    entityType: 'product' as ActivityLogEntityType,
-    entityId: batch.systemId,
-    action: `Thêm lô sản phẩm: ${batch.batchNumber}`,
-    actionType: 'create',
-    metadata: {
-      batchNumber: batch.batchNumber,
-      productId: batch.productId,
-      branchId: batch.branchId,
-      quantity: batch.quantity,
-    },
-    createdBy: 'System',
-  }).catch(e => logError('[product-batches] activity log failed', e))
-
-  return apiSuccess(batch)
+    return apiSuccess(batch)
+  } catch (error) {
+    logError('POST /api/product-batches failed', error)
+    return apiError('Failed to create product batch', 500)
+  }
 }, { permission: 'edit_products' })

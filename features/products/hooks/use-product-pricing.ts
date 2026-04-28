@@ -10,7 +10,7 @@ import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pric
 import type { PricingPolicy } from '../../settings/pricing/types';
 import type { Product } from '../types';
 import { calculateComboPrice, isComboProduct } from '../combo-utils';
-import { useAllProducts } from './use-all-products';
+import { useProductFinder } from './use-all-products';
 import type { SystemId } from '@/lib/id-types';
 
 /**
@@ -41,7 +41,7 @@ export function useSalesPolicies(): PricingPolicy[] {
  */
 export function useProductDefaultPrice(product: Product | null | undefined): number {
   const defaultPolicy = useDefaultSellingPolicy();
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     if (!product || !defaultPolicy) return 0;
@@ -50,7 +50,7 @@ export function useProductDefaultPrice(product: Product | null | undefined): num
     if (isComboProduct(product) && product.comboItems) {
       return calculateComboPrice(
         product.comboItems,
-        allProducts,
+        findById,
         defaultPolicy.systemId as SystemId,
         product.comboPricingType || 'fixed',
         product.comboDiscount || 0
@@ -59,7 +59,7 @@ export function useProductDefaultPrice(product: Product | null | undefined): num
     
     // Regular product - get from prices record
     return product.prices?.[defaultPolicy.systemId] || 0;
-  }, [product, defaultPolicy, allProducts]);
+  }, [product, defaultPolicy, findById]);
 }
 
 /**
@@ -67,7 +67,7 @@ export function useProductDefaultPrice(product: Product | null | undefined): num
  */
 export function useProductPrices(product: Product | null | undefined): Record<string, number> {
   const { data: pricingPolicies } = useAllPricingPolicies();
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     if (!product) return {};
@@ -79,7 +79,7 @@ export function useProductPrices(product: Product | null | undefined): Record<st
       if (isComboProduct(product) && product.comboItems) {
         prices[policy.systemId] = calculateComboPrice(
           product.comboItems,
-          allProducts,
+          findById,
           policy.systemId as SystemId,
           product.comboPricingType || 'fixed',
           product.comboDiscount || 0
@@ -90,7 +90,7 @@ export function useProductPrices(product: Product | null | undefined): Record<st
     }
     
     return prices;
-  }, [product, pricingPolicies, allProducts]);
+  }, [product, pricingPolicies, findById]);
 }
 
 /**
@@ -101,7 +101,7 @@ export function usePriceWithPolicyName(
   policySystemId: string
 ): { price: number; policyName: string } {
   const { data: pricingPolicies } = useAllPricingPolicies();
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     const policy = pricingPolicies.find(p => p.systemId === policySystemId);
@@ -111,7 +111,7 @@ export function usePriceWithPolicyName(
     if (isComboProduct(product) && product.comboItems) {
       price = calculateComboPrice(
         product.comboItems,
-        allProducts,
+        findById,
         policySystemId as SystemId,
         product.comboPricingType || 'fixed',
         product.comboDiscount || 0
@@ -121,5 +121,5 @@ export function usePriceWithPolicyName(
     }
     
     return { price, policyName: policy.name };
-  }, [product, policySystemId, pricingPolicies, allProducts]);
+  }, [product, policySystemId, pricingPolicies, findById]);
 }

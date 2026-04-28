@@ -26,7 +26,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Fetch sales return
     const salesReturn = await prisma.salesReturn.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        isReceived: true,
+        status: true,
+        branchId: true,
+        branchSystemId: true,
+        items: {
+          select: {
+            systemId: true,
+            returnId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            total: true,
+            reason: true,
+          },
+        },
+      },
     });
 
     if (!salesReturn) {
@@ -120,8 +140,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           updatedAt: new Date(),
           updatedBy: session.user?.id || null,
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          isReceived: true,
+          status: true,
+          updatedAt: true,
+          employeeId: true,
+          items: {
+            select: {
+              systemId: true,
+              returnId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
         },
       });
 

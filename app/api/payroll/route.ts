@@ -68,9 +68,33 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy,
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          month: true,
+          year: true,
+          status: true,
+          totalGross: true,
+          totalDeductions: true,
+          totalNet: true,
+          totalEmployees: true,
+          processedAt: true,
+          processedBy: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
           items: {
-            include: {
+            select: {
+              systemId: true,
+              employeeId: true,
+              employeeName: true,
+              employeeCode: true,
+              baseSalary: true,
+              netSalary: true,
+              grossSalary: true,
+              workDays: true,
+              otHours: true,
+              leaveDays: true,
               employee: {
                 select: {
                   id: true,
@@ -178,9 +202,42 @@ export async function POST(request: Request) {
             }) || []),
           },
         },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          month: true,
+          year: true,
+          status: true,
+          totalGross: true,
+          totalDeductions: true,
+          totalNet: true,
+          totalEmployees: true,
+          processedAt: true,
+          processedBy: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
           items: {
-            include: { employee: true },
+            select: {
+              systemId: true,
+              employeeId: true,
+              employeeName: true,
+              employeeCode: true,
+              baseSalary: true,
+              netSalary: true,
+              grossSalary: true,
+              workDays: true,
+              otHours: true,
+              leaveDays: true,
+              payrollId: true,
+              employee: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                },
+              },
+            },
           },
         },
       });

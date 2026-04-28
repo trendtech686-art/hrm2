@@ -64,17 +64,53 @@ export const GET = apiHandler(async (request) => {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          brand: true,
-          productInventory: true,
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          slug: true,
+          thumbnailImage: true,
+          imageUrl: true,
+          type: true,
+          status: true,
+          costPrice: true,
+          lastPurchasePrice: true,
+          lastPurchaseDate: true,
+          weight: true,
+          weightUnit: true,
+          barcode: true,
+          unit: true,
+          warrantyPeriodMonths: true,
+          isPublished: true,
+          isFeatured: true,
+          isNewArrival: true,
+          isBestSeller: true,
+          isOnSale: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          brand: {
+            select: { systemId: true, name: true },
+          },
+          productInventory: {
+            select: {
+              branchId: true,
+              onHand: true,
+              committed: true,
+              inTransit: true,
+              inDelivery: true,
+            },
+          },
           prices: {
-            include: {
-              pricingPolicy: true,
+            select: {
+              pricingPolicyId: true,
+              price: true,
             },
           },
           productCategories: {
-            include: {
-              category: true,
+            select: {
+              categoryId: true,
             },
           },
         },
@@ -259,7 +295,18 @@ export const POST = apiHandler(async (request, { session }) => {
       product = await prisma.product.update({
         where: { systemId: existingProduct.systemId },
         data: productData,
-        include: { brand: true },
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          slug: true,
+          thumbnailImage: true,
+          imageUrl: true,
+          status: true,
+          brand: { select: { systemId: true, name: true } },
+          createdAt: true,
+          updatedAt: true,
+        },
       });
     } else {
       // Create new product with unified ID system
@@ -276,7 +323,18 @@ export const POST = apiHandler(async (request, { session }) => {
             ...productData,
             id: businessId,
           },
-          include: { brand: true },
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            slug: true,
+            thumbnailImage: true,
+            imageUrl: true,
+            status: true,
+            brand: { select: { systemId: true, name: true } },
+            createdAt: true,
+            updatedAt: true,
+          },
         });
       });
     }
@@ -334,7 +392,7 @@ export const POST = apiHandler(async (request, { session }) => {
               },
             });
           } else {
-            console.warn(`[Products API] Skipping price: PricingPolicy ${policySystemId} not found`);
+            logInfo(`[Products API] Skipping price: PricingPolicy ${policySystemId} not found`)
           }
         }
       }
@@ -373,7 +431,7 @@ export const POST = apiHandler(async (request, { session }) => {
               },
             });
           } else {
-            console.warn(`[Products API] Skipping price mapping: PricingPolicy ${mapping.pricingPolicyId} not found`);
+            logInfo(`[Products API] Skipping price mapping: PricingPolicy ${mapping.pricingPolicyId} not found`)
           }
         }
       }
@@ -506,18 +564,18 @@ export const POST = apiHandler(async (request, { session }) => {
       // Try to find and return the existing product instead of failing
       
       // Try to find the product that was just created
-      type ProductWithBrand = Awaited<ReturnType<typeof prisma.product.findFirst<{ include: { brand: true } }>>>;
+      type ProductWithBrand = Awaited<ReturnType<typeof prisma.product.findFirst<{ select: { systemId: true; id: true; name: true; slug: true; thumbnailImage: true; imageUrl: true; status: true; brand: { select: { systemId: true; name: true } }; createdAt: true; updatedAt: true } }>>>;
       let existingProd: ProductWithBrand = null;
       if (body.pkgxId) {
         existingProd = await prisma.product.findFirst({
           where: { pkgxId: body.pkgxId },
-          include: { brand: true },
+          select: { systemId: true, id: true, name: true, slug: true, thumbnailImage: true, imageUrl: true, status: true, brand: { select: { systemId: true, name: true } }, createdAt: true, updatedAt: true },
         });
       }
       if (!existingProd && body.id) {
         existingProd = await prisma.product.findFirst({
           where: { id: body.id },
-          include: { brand: true },
+          select: { systemId: true, id: true, name: true, slug: true, thumbnailImage: true, imageUrl: true, status: true, brand: { select: { systemId: true, name: true } }, createdAt: true, updatedAt: true },
         });
       }
       
@@ -530,4 +588,4 @@ export const POST = apiHandler(async (request, { session }) => {
 
     throw error
   }
-}, { permission: 'create_products', rateLimit: { max: 500, windowMs: 60_000 } })
+}, { permission: 'create_products', rateLimit: { max: 30, windowMs: 60_000 } })

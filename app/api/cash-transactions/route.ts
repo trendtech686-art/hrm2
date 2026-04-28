@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, CashTransactionType } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { requireAuth, requirePermission, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createCashTransactionSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
@@ -41,8 +41,20 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { transactionDate: 'desc' },
-        include: {
-          cash_accounts: true,
+        select: {
+          systemId: true,
+          id: true,
+          accountId: true,
+          type: true,
+          amount: true,
+          referenceType: true,
+          referenceId: true,
+          description: true,
+          transactionDate: true,
+          createdAt: true,
+          cash_accounts: {
+            select: { systemId: true, id: true, name: true, type: true, balance: true },
+          },
         },
       }),
       prisma.cashTransaction.count({ where }),
@@ -57,8 +69,9 @@ export async function GET(request: Request) {
 
 // POST /api/cash-transactions - Create new transaction
 export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  const result = await requirePermission('create_cash_transaction')
+  if (result instanceof Response) return result
+  const session = result
 
   const validation = await validateBody(request, createCashTransactionSchema)
   if (!validation.success) {
@@ -66,31 +79,49 @@ export async function POST(request: Request) {
   }
   const body = validation.data
 
+  // Extract account ID for validation
+  const accountId = body.accountId || body.cashAccountId || ''
+
   try {
-    // Generate business ID
-    let businessId = body.id
-    if (!businessId) {
-      const prefix = body.type === 'IN' || body.transactionType === 'IN' ? 'PT' : 'PC'
-      const lastTxn = await prisma.cashTransaction.findFirst({
-        where: { id: { startsWith: prefix } },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      })
-      const lastNum = lastTxn?.id 
-        ? parseInt(lastTxn.id.replace(prefix, '')) 
-        : 0
-      businessId = `${prefix}${String(lastNum + 1).padStart(6, '0')}`
+    // 1. Verify account exists BEFORE starting transaction
+    const account = await prisma.cashAccount.findUnique({
+      where: { systemId: accountId },
+      select: { systemId: true, name: true },
+    })
+    if (!account) {
+      return apiError('Tài khoản tiền mặt không tồn tại', 400)
     }
 
-    // Create transaction and update account balance in a transaction
+    // 2. Determine ID prefix
+    const prefix = body.type === 'IN' || body.transactionType === 'IN' ? 'PT' : 'PC'
+
+    // 3. Create transaction with serializable isolation to prevent race condition on ID generation
     const result = await prisma.$transaction(async (tx) => {
+      // Generate ID inside transaction with serializable isolation to prevent duplicates
+      // Use raw query for row-level locking (PostgreSQL)
+      let businessId = body.id
+      if (!businessId) {
+        // Lock the last row for this prefix to prevent concurrent ID generation
+        const lastTxn = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "CashTransaction" 
+          WHERE id LIKE ${prefix + '%'}
+          ORDER BY "createdAt" DESC 
+          LIMIT 1
+          FOR UPDATE
+        `
+        const lastNum = lastTxn && lastTxn.length > 0 && lastTxn[0].id
+          ? parseInt(lastTxn[0].id.replace(prefix, ''))
+          : 0
+        businessId = `${prefix}${String(lastNum + 1).padStart(6, '0')}`
+      }
+
       const { systemId } = await generateNextIds('cashbook')
-      
+
       const transaction = await tx.cashTransaction.create({
         data: {
           systemId,
           id: businessId,
-          accountId: body.accountId || body.cashAccountId || '',
+          accountId,
           type: (body.type || body.transactionType) as CashTransactionType,
           amount: body.amount,
           transactionDate: body.transactionDate ? new Date(body.transactionDate) : new Date(),
@@ -98,19 +129,33 @@ export async function POST(request: Request) {
           referenceId: body.referenceId,
           referenceType: body.referenceType,
         },
-        include: { cash_accounts: true },
+        select: {
+          systemId: true,
+          id: true,
+          accountId: true,
+          type: true,
+          amount: true,
+          referenceType: true,
+          referenceId: true,
+          description: true,
+          transactionDate: true,
+          createdAt: true,
+        },
       })
 
-      // Update account balance
+      // Update account balance (account already verified to exist)
       const balanceChange = (body.type || body.transactionType) === 'IN' ? body.amount : -body.amount
       await tx.cashAccount.update({
-        where: { systemId: body.accountId || body.cashAccountId },
+        where: { systemId: accountId },
         data: {
           balance: { increment: balanceChange },
         },
       })
 
       return transaction
+    }, {
+      isolationLevel: 'Serializable',
+      timeout: 10000,
     })
 
     createActivityLog({

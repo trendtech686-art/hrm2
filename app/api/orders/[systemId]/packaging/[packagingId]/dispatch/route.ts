@@ -30,10 +30,22 @@ export async function POST(_request: Request, { params }: RouteParams) {
     // Get the packaging with order and line items
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: { 
+      select: {
+        systemId: true,
+        orderId: true,
+        confirmDate: true,
         order: {
-          include: { lineItems: true }
-        } 
+          select: {
+            lineItems: {
+              select: {
+                productId: true,
+                productName: true,
+                quantity: true,
+              },
+            },
+            branchId: true,
+          },
+        },
       },
     });
 
@@ -95,16 +107,89 @@ export async function POST(_request: Request, { params }: RouteParams) {
           stockOutStatus: 'FULLY_STOCKED_OUT',
           dispatchedDate: new Date(),
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          deliveryStatus: true,
+          stockOutStatus: true,
+          branchId: true,
+          customerId: true,
+          customerName: true,
+          salespersonId: true,
+          salespersonName: true,
+          grandTotal: true,
+          paidAmount: true,
+          paymentStatus: true,
+          deliveryMethod: true,
+          shippingCarrier: true,
+          trackingCode: true,
+          notes: true,
+          shippingFee: true,
+          createdAt: true,
+          dispatchedDate: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+              address: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              product: {
+                select: {
+                  systemId: true,
+                  barcode: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              amount: true,
+              method: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              confirmDate: true,
+              cancelDate: true,
+              deliveryStatus: true,
+              trackingCode: true,
+              carrier: true,
+              assignedEmployeeId: true,
+              assignedEmployeeName: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  trackingCode: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
             },
           },
         },

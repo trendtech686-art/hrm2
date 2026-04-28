@@ -527,7 +527,7 @@ export function StockTransferDetailPage() {
                       const productTypeName = product?.productTypeSystemId 
                         ? getProductTypeName(product.productTypeSystemId)
                         : 'Hàng hóa';
-                      const imageUrl = product?.thumbnailImage || product?.imageUrl || product?.galleryImages?.[0] || product?.images?.[0];
+                      const imageUrl = product?.thumbnailImage || (product as any).imageUrl || product?.galleryImages?.[0] || product?.images?.[0];
                       const currentFromStock = product?.inventoryByBranch?.[transfer.fromBranchSystemId] || 0;
                       const currentToStock = product?.inventoryByBranch?.[transfer.toBranchSystemId] || 0;
                       const unitPrice = product?.costPrice || 0;
@@ -628,7 +628,7 @@ export function StockTransferDetailPage() {
                   const productTypeName = product?.productTypeSystemId
                     ? getProductTypeName(product.productTypeSystemId)
                     : 'Hàng hóa';
-                  const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  const imageUrl = product?.thumbnailImage || (product as any).imageUrl || product?.galleryImages?.[0] || product?.images?.[0];
                   const currentFromStock = product?.inventoryByBranch?.[transfer.fromBranchSystemId] || 0;
                   const currentToStock = product?.inventoryByBranch?.[transfer.toBranchSystemId] || 0;
                   const unitPrice = product?.costPrice || 0;

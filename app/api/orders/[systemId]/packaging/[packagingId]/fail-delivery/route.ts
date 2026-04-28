@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { DeliveryStatus } from '@/generated/prisma/client';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { createActivityLog } from '@/lib/services/activity-log-service'
@@ -21,7 +22,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get the packaging
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: { order: true },
+      select: {
+        orderId: true,
+      },
     });
 
     if (!packaging) {
@@ -38,7 +41,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       await tx.packaging.update({
         where: { systemId: packagingId },
         data: {
-          deliveryStatus: 'RESCHEDULED',
+          deliveryStatus: DeliveryStatus.RESCHEDULED,
           notes: reason,
         },
       });
@@ -48,18 +51,73 @@ export async function POST(request: Request, { params }: RouteParams) {
         where: { systemId },
         data: { 
           status: 'FAILED_DELIVERY',
-          deliveryStatus: 'RESCHEDULED', // ✅ Also update order-level deliveryStatus
+          deliveryStatus: DeliveryStatus.RESCHEDULED,
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          salespersonId: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              date: true,
+              method: true,
+              amount: true,
+              description: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              deliveryStatus: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  trackingCode: true,
+                  status: true,
+                  deliveryStatus: true,
+                  carrier: true,
+                },
+              },
             },
           },
         },

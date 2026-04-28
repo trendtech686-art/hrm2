@@ -7,7 +7,8 @@
 
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 import { GHTK_API_BASE } from '@/lib/ghtk-sync'
@@ -16,18 +17,12 @@ type Props = {
   params: Promise<{ trackingCode: string }>;
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: Props
-) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async (req, { params }) => {
   const requestId = randomUUID();
   const { trackingCode } = await params;
 
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const apiToken = searchParams.get('apiToken');
     const partnerCode = searchParams.get('partnerCode');
 
@@ -52,4 +47,6 @@ export async function GET(
     logError(`[GHTK-STATUS-${requestId}] Get order status error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+});

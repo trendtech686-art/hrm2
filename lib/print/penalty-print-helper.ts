@@ -5,11 +5,22 @@
 
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
+import type { EmployeeSearchResult } from '@/hooks/use-meilisearch';
 import { 
   PenaltyForPrint, 
   mapPenaltyToPrintData, 
 } from '../print-mappers/penalty.mapper';
 import { StoreSettings, getStoreLogo } from '../print-service';
+
+// Minimal employee type needed for penalty print
+type MinimalEmployeeForPrint = {
+  fullName?: string;
+  id?: string;
+  department?: string | null;
+  position?: string | null;
+  phone?: string;
+  email?: string | null;
+};
 
 // Interface cho penalty - flexible để nhận nhiều type
 interface PenaltyLike {
@@ -50,10 +61,10 @@ export function convertPenaltyForPrint(
   penalty: PenaltyLike,
   options: {
     branch?: Branch | null;
-    employee?: Employee | null;
-    issuer?: Employee | null;
-    creator?: Employee | null;
-    approver?: Employee | null;
+    employee?: MinimalEmployeeForPrint | null;
+    issuer?: MinimalEmployeeForPrint | null;
+    creator?: MinimalEmployeeForPrint | null;
+    approver?: MinimalEmployeeForPrint | null;
   } = {}
 ): PenaltyForPrint {
   const { branch, employee, issuer, creator, approver } = options;

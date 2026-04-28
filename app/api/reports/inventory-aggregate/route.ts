@@ -7,7 +7,9 @@
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
-import { apiError, apiSuccess } from '@/lib/api-utils'
+import { apiError, apiSuccess, apiPaginated } from '@/lib/api-utils'
+import { parsePagination } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { logError } from '@/lib/logger'
 import type {
   InventoryBranchReportRow,
@@ -34,6 +36,8 @@ export const GET = apiHandler(async (request) => {
   const branchId = searchParams.get('branchId') || undefined
   const categoryId = searchParams.get('categoryId') || undefined
   const stockStatus = searchParams.get('stockStatus') || undefined
+  const { page, limit, skip } = parsePagination(searchParams)
+  const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
 
   if (!['product', 'branch', 'category'].includes(view)) {
     return apiError('view không hợp lệ', 400)
@@ -127,7 +131,39 @@ export const GET = apiHandler(async (request) => {
         WHERE 1 = 1
           ${stockFilter}
         ORDER BY "inventoryValue" DESC NULLS LAST
+        LIMIT ${safeLimit}
+        OFFSET ${skip}
       `
+
+      const totalRows = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        WITH pi_agg AS (
+          SELECT pi."productId"
+          FROM product_inventory pi
+          WHERE 1 = 1
+            ${branchFilter}
+          GROUP BY pi."productId"
+        ),
+        enriched AS (
+          SELECT
+            p."systemId" AS "productSystemId",
+            (a.on_hand::numeric * COALESCE(p."costPrice", 0)) AS "inventoryValue",
+            CASE
+              WHEN (a.on_hand - a.committed) <= 0 THEN 'out_of_stock'
+              WHEN p."reorderLevel" IS NOT NULL AND (a.on_hand - a.committed) < p."reorderLevel" THEN 'low_stock'
+              WHEN p."maxStock" IS NOT NULL AND (a.on_hand - a.committed) > p."maxStock" THEN 'over_stock'
+              ELSE 'normal'
+            END AS stock_status
+          FROM pi_agg a
+          INNER JOIN products p ON p."systemId" = a."productId"
+          WHERE p."isDeleted" = false
+            AND COALESCE(p."isStockTracked", true) = true
+            ${categoryFilter}
+        )
+        SELECT COUNT(*) as count FROM enriched
+        WHERE 1 = 1
+          ${stockFilter}
+      `
+      const total = Number(totalRows[0]?.count ?? 0)
 
       const data: InventoryProductReportRow[] = rows.map((r) => ({
         productSystemId: r.productSystemId as SystemId,
@@ -158,7 +194,7 @@ export const GET = apiHandler(async (request) => {
         lowStockCount: data.filter((x) => x.stockStatus === 'low_stock').length,
       }
 
-      return apiSuccess({ data, summary })
+      return apiPaginated(data, { page, limit, total, summary })
     }
 
     if (view === 'branch') {
@@ -251,7 +287,7 @@ export const GET = apiHandler(async (request) => {
         totalOutOfStock: data.reduce((s, x) => s + x.outOfStockCount, 0),
       }
 
-      return apiSuccess({ data, summary })
+      return apiPaginated(data, { page, limit, total, summary })
     }
 
     // category
@@ -330,4 +366,4 @@ export const GET = apiHandler(async (request) => {
     logError('[reports/inventory-aggregate]', e)
     return apiError('Không thể tạo báo cáo tồn kho', 500)
   }
-})
+}, { auth: true })

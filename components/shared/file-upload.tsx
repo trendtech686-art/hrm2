@@ -7,7 +7,7 @@
 import NextImage from 'next/image'
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, X, File, Image, Loader2 } from 'lucide-react'
+import { Upload, X, File, ImageIcon, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -122,7 +122,7 @@ export function FileUpload({
             {isUploading ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : isImage ? (
-              <Image className="h-4 w-4 mr-2" />
+              <ImageIcon className="h-4 w-4 mr-2" />
             ) : (
               <Upload className="h-4 w-4 mr-2" />
             )}
@@ -156,7 +156,7 @@ export function FileUpload({
           {isUploading ? (
             <Loader2 className="h-10 w-10 text-muted-foreground animate-spin" />
           ) : isImage ? (
-            <Image className="h-10 w-10 text-muted-foreground" />
+            <ImageIcon className="h-10 w-10 text-muted-foreground" />
           ) : (
             <Upload className="h-10 w-10 text-muted-foreground" />
           )}

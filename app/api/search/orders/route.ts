@@ -1,7 +1,6 @@
 import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliOrder } from '@/lib/meilisearch'
-import { requireAuth, apiError } from '@/lib/api-utils'
-import { NextResponse } from 'next/server'
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 
 /**
@@ -96,7 +95,7 @@ export async function GET(request: Request) {
       } : undefined,
     }))
 
-    return NextResponse.json({
+    return apiSuccess({
       data: orders,
       meta: {
         total: results.estimatedTotalHits,

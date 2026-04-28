@@ -26,7 +26,7 @@ import { ProductSelectionDialog } from '@/features/shared/product-selection-dial
 import { UnifiedProductSearch } from '@/components/shared/unified-product-search';
 import { toast } from 'sonner';
 import type { Product } from '@/features/products/types';
-import { useAllProducts } from '@/features/products/hooks/use-all-products';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useCustomerOrders } from '@/features/customers/hooks/use-customer-related-data';
 import { useAllPricingPolicies, useDefaultSellingPolicy } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 
@@ -44,6 +44,7 @@ import { WarrantyProductMobileCard } from './warranty-product-mobile-card';
 
 interface WarrantyProductsSectionProps {
   disabled?: boolean;
+  notesDisabled?: boolean;
   // Callback để lấy state khi submit (gọi 1 lần, không sync liên tục)
   getImagesStateRef?: React.MutableRefObject<(() => {
     productPermanentFiles: Record<string, SimpleImageFile[]>;
@@ -67,6 +68,7 @@ const EMPTY_STRINGS_ARRAY: string[] = [];
 
 export function WarrantyProductsSection({ 
   disabled = false, 
+  notesDisabled = true,
   getImagesStateRef,
   getWarrantyCheckResultsRef,
 }: WarrantyProductsSectionProps) {
@@ -132,19 +134,22 @@ export function WarrantyProductsSection({
     }
   }, [defaultPolicy, selectedPricingPolicyId]);
   
-  // ✅ Lấy danh sách tất cả sản phẩm để hiển thị thông tin trong row
-  const { data: allProducts = [] } = useAllProducts();
+  // ✅ Dùng useProductFinder để tra cứu từ cache (không trigger fetch)
+  const { findById } = useProductFinder();
   
-  // ✅ PERFORMANCE: Memoize mapped products để tránh re-render
-  const mappedProducts = React.useMemo(() => {
-    return allProducts.map(p => ({
-      systemId: p.systemId,
-      id: p.id,
-      name: p.name,
-      costPrice: p.costPrice,
-      warrantyPeriodMonths: (p as { warrantyPeriodMonths?: number }).warrantyPeriodMonths,
-    }));
-  }, [allProducts]);
+  // Lấy thông tin sản phẩm từ cache
+  const getProductInfo = React.useCallback((systemId?: string) => {
+    if (!systemId) return null;
+    const product = findById(systemId);
+    if (!product) return null;
+    return {
+      systemId: product.systemId,
+      id: product.id,
+      name: product.name,
+      costPrice: product.costPrice,
+      warrantyPeriodMonths: (product as { warrantyPeriodMonths?: number }).warrantyPeriodMonths,
+    };
+  }, [findById]);
   
   const watchedProducts = watch('products');
   const products: WarrantyProductField[] = React.useMemo(() => watchedProducts || [], [watchedProducts]);
@@ -420,8 +425,10 @@ export function WarrantyProductsSection({
                         index={index}
                         field={typedField}
                         control={control}
-                        availableProducts={mappedProducts}
+                        availableProducts={[]}
+                        getProductInfo={getProductInfo}
                         disabled={disabled}
+                        notesDisabled={notesDisabled}
                         permanentFiles={productPermanentFiles[productSystemId] || EMPTY_SIMPLE_FILES_ARRAY}
                         stagingFiles={productStagingFiles[productSystemId] || EMPTY_FILES_ARRAY}
                         sessionId={productSessionIds[productSystemId]}
@@ -451,7 +458,8 @@ export function WarrantyProductsSection({
                     index={index}
                     field={typedField}
                     control={control}
-                    availableProducts={mappedProducts}
+                    availableProducts={[]}
+                    getProductInfo={getProductInfo}
                     disabled={disabled}
                     permanentFiles={productPermanentFiles[productSystemId] || EMPTY_SIMPLE_FILES_ARRAY}
                     stagingFiles={productStagingFiles[productSystemId] || EMPTY_FILES_ARRAY}

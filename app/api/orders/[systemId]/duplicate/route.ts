@@ -41,14 +41,53 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get original order with line items
     const originalOrder = await prisma.order.findUnique({
       where: { systemId },
-      include: {
-        lineItems: true,
+      select: {
+        lineItems: {
+          select: {
+            systemId: true,
+            productId: true,
+            productSku: true,
+            productName: true,
+            quantity: true,
+            unitPrice: true,
+            discount: true,
+            discountType: true,
+            tax: true,
+            total: true,
+            note: true,
+          },
+        },
         customer: {
           select: { systemId: true, name: true },
         },
         branch: {
           select: { systemId: true, name: true },
         },
+        // Include all order fields needed for duplication
+        customerId: true,
+        customerName: true,
+        branchId: true,
+        branchName: true,
+        salespersonId: true,
+        salespersonName: true,
+        deliveryMethod: true,
+        shippingAddress: true,
+        billingAddress: true,
+        subtotal: true,
+        shippingFee: true,
+        tax: true,
+        discount: true,
+        grandTotal: true,
+        codAmount: true,
+        orderDiscount: true,
+        orderDiscountType: true,
+        orderDiscountReason: true,
+        notes: true,
+        source: true,
+        tags: true,
+        expectedPaymentMethod: true,
+        referenceUrl: true,
+        id: true,
       },
     });
 
@@ -149,17 +188,57 @@ export async function POST(request: Request, { params }: RouteParams) {
             create: lineItemsData,
           },
         },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          customerId: true,
+          customerName: true,
+          branchId: true,
+          branchName: true,
+          salespersonId: true,
+          salespersonName: true,
+          orderDate: true,
+          grandTotal: true,
+          paidAmount: true,
+          createdAt: true,
+          createdBy: true,
           customer: {
-            select: { systemId: true, id: true, name: true },
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
           },
           branch: {
-            select: { systemId: true, id: true, name: true },
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
           },
           lineItems: {
-            include: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              discountType: true,
+              tax: true,
+              total: true,
+              note: true,
               product: {
-                select: { systemId: true, id: true, name: true, imageUrl: true },
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  imageUrl: true,
+                },
               },
             },
           },

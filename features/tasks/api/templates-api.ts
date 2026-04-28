@@ -7,17 +7,50 @@ import type { TaskTemplate } from '../template-types';
 
 const BASE_URL = '/api/tasks/templates';
 
+export interface TaskTemplatesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  category?: string;
+}
+
 /**
- * Fetch all task templates
+ * Fetch task templates with filters and pagination
  */
-export async function fetchTaskTemplates(): Promise<TaskTemplate[]> {
-  const response = await fetch(BASE_URL);
-  
+export async function fetchTaskTemplates(params: TaskTemplatesParams = {}): Promise<{
+  data: TaskTemplate[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.limit) searchParams.set('limit', String(params.limit));
+  if (params.search) searchParams.set('search', params.search);
+  if (params.category) searchParams.set('category', params.category);
+
+  const url = searchParams.toString() ? `${BASE_URL}?${searchParams}` : BASE_URL;
+  const response = await fetch(url);
+
   if (!response.ok) {
     throw new Error('Failed to fetch task templates');
   }
-  
+
   return response.json();
+}
+
+/**
+ * Fetch all task templates (legacy - for backward compatibility)
+ * @deprecated Use fetchTaskTemplates with params instead
+ */
+export async function fetchAllTaskTemplates(): Promise<TaskTemplate[]> {
+  const response = await fetch(BASE_URL);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch task templates');
+  }
+
+  const data = await response.json();
+  // Handle both paginated and non-paginated responses
+  return Array.isArray(data) ? data : data.data || [];
 }
 
 /**

@@ -1,41 +1,48 @@
 import { prisma } from '@/lib/prisma'
 import { AttendanceStatus } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { z } from 'zod'
 
-interface AttendanceDayRecord {
-  status: string;
-  checkIn?: string;
-  checkOut?: string;
-  notes?: string;
-}
+// Attendance record type definition
+const attendanceDayRecordSchema = z.object({
+  status: z.string(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  notes: z.string().optional(),
+})
 
-interface BulkUpdateItem {
-  systemId: string;
-  data: {
-    action?: string;
-    monthKey: string;
-    employeeSystemId: string;
-    dayKey: string;
-    record: AttendanceDayRecord;
-  };
-}
+// Individual bulk update item
+const bulkUpdateItemSchema = z.object({
+  systemId: z.string().optional(),
+  data: z.object({
+    action: z.string().optional(),
+    monthKey: z.string().regex(/^\d{4}-\d{2}$/, 'monthKey must be YYYY-MM format'),
+    employeeSystemId: z.string(),
+    dayKey: z.string().regex(/^day_\d+$/, 'dayKey must be day_N format'),
+    record: attendanceDayRecordSchema,
+  }),
+})
+
+// Validation schema for PATCH request
+const bulkAttendanceSchema = z.object({
+  records: z.array(bulkUpdateItemSchema).min(1, 'At least one record is required'),
+})
 
 // PATCH /api/attendance/bulk - Bulk update attendance records
 export async function PATCH(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, bulkAttendanceSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const { records } = validation.data
+
   try {
-    const body = await request.json()
-    const { records } = body as { records: BulkUpdateItem[] }
-
-    if (!records || !Array.isArray(records) || records.length === 0) {
-      return apiError('records array is required', 400)
-    }
-
     // Map frontend status to database enum
     const statusMap: Record<string, string> = {
       'present': 'PRESENT',

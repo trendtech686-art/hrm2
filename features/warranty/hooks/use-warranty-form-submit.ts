@@ -187,15 +187,17 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         }
       }
       
-      // Check 3: Block nếu có cảnh báo nghiêm trọng (❌)
+      // Check 3: Block nếu có cảnh báo nghiêm trọng (❌) VÀ resolution KHÔNG phải là "return"
+      // Sản phẩm không được BH nhưng chọn "Trả lại" vẫn được tạo phiếu
       for (const product of products) {
         const result = currentWarrantyCheckResults![product.productName];
         if (result) {
           const hasCriticalWarning = result.warnings.some((w: string) => w.includes('❌'));
+          const isReturnResolution = product.resolution === 'return';
           
-          if (hasCriticalWarning) {
+          if (hasCriticalWarning && !isReturnResolution) {
             toast.error('Không thể tạo phiếu', {
-              description: `Sản phẩm "${product.productName}" có cảnh báo nghiêm trọng. Vui lòng kiểm tra lại.`,
+              description: `Sản phẩm "${product.productName}" không được bảo hành. Vui lòng chọn kết quả "Trả lại" để tạo phiếu trả hàng.`,
               duration: 6000
             });
             setIsSubmitting(false);

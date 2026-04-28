@@ -7,6 +7,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchComplaints,
   fetchComplaint,
@@ -22,8 +24,9 @@ import {
   type CreateComplaintInput,
   type UpdateComplaintInput,
 } from '@/app/actions/complaints';
-import type { Complaint } from '@/lib/types/prisma-extended';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
+import type { Complaint } from '@/lib/types/prisma-extended';
+import type { SystemId } from '@/lib/id-types';
 
 // Re-export types for backwards compatibility
 export type { CreateComplaintInput, UpdateComplaintInput };
@@ -244,3 +247,50 @@ export function useComplaintsByCustomer(customerId: string | null | undefined) {
 export function useComplaintsByOrder(orderId: string | null | undefined) {
   return useComplaints({ orderId: orderId || undefined });
 }
+
+/**
+ * Returns all complaints as a flat array via auto-pagination.
+ * Use when you need to iterate over ALL complaints (e.g., print all, export all).
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng startDate/endDate để filter theo ngày
+ * - Dùng branchId/status/priority để filter cụ thể
+ */
+export interface UseAllComplaintsOptions extends Pick<ComplaintsParams, 'startDate' | 'endDate' | 'branchId' | 'status' | 'priority' | 'search'> {
+  enabled?: boolean;
+}
+
+export function useAllComplaints(options: UseAllComplaintsOptions = {}) {
+  const { enabled = true, startDate, endDate, branchId, status, priority, search } = options;
+  const query = useQuery({
+    queryKey: [...complaintKeys.all, 'all', { startDate, endDate, branchId, status, priority, search }],
+    queryFn: () => fetchAllPages((p) => fetchComplaints({ ...p, startDate, endDate, branchId, status, priority, search })),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    enabled,
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+/**
+ * Cache-only finder: subscribes to the complaints query cache but NEVER triggers a fetch.
+ * Requires another component to have already loaded the complaints list.
+ */
+export function useComplaintFinder() {
+  const { data } = useAllComplaints({ enabled: false });
+
+  const getComplaintById = useCallback(
+    (systemId: SystemId): Complaint | null =>
+      data.find((c) => c.systemId === systemId) ?? null,
+    [data]
+  );
+
+  return { getComplaintById };
+}
+

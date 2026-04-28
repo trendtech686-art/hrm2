@@ -8,7 +8,8 @@
 
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { submitOrderSchema } from './validation';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
@@ -24,11 +25,10 @@ interface Product {
   length?: number;
 }
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
+export const POST = apiHandler(async (req, { session }) => {
   if (!session) return apiError('Unauthorized', 401);
 
-  const validation = await validateBody(request, submitOrderSchema);
+  const validation = await validateBody(req, submitOrderSchema);
   if (!validation.success) {
     return apiError(validation.error, 400);
   }
@@ -176,4 +176,6 @@ export async function POST(request: NextRequest) {
     
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+});

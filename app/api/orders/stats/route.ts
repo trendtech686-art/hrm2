@@ -3,6 +3,7 @@ import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { ORDER_STATUS_LABELS } from '@/lib/constants/order-enums'
 import { OrderStatus, DeliveryStatus, PaymentStatus } from '@/generated/prisma/client'
 import { Prisma } from '@/generated/prisma/client'
+import { logError } from '@/lib/logger'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -136,7 +137,7 @@ export async function GET(_request: Request) {
       },
     })
   } catch (error) {
-    console.error('Error fetching order stats:', error)
+    logError('Failed to fetch order stats', error)
     return apiError('Failed to fetch order stats', 500)
   }
 }

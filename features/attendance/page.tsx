@@ -9,7 +9,7 @@ import dynamic from 'next/dynamic';
 import { formatDateCustom, subtractMonths, addMonths, getDayOfWeek } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/router';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch'
 import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useEmployeeSettings, DEFAULT_EMPLOYEE_SETTINGS } from '@/features/settings/employees/hooks/use-employee-settings';
@@ -75,7 +75,8 @@ export function AttendancePage() {
   const { isMobile } = useBreakpoint();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({ query: '', enabled: false, limit: 100 });
+  const employees = employeesData?.data || [];
   const { data: departments } = useAllDepartments();
   const { data: rawSettings } = useEmployeeSettings();
   const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;

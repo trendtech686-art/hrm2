@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { validateBody, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { updateReceiptSchema } from './validation'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
@@ -105,14 +105,54 @@ export const GET = apiHandler(async (_request, { params }) => {
 
     const receipt = await prisma.receipt.findUnique({
       where: { systemId },
-      include: {
-        order: true,
-        customers: true,
+      select: {
+        systemId: true,
+        id: true,
+        type: true,
+        receiptDate: true,
+        amount: true,
+        paymentMethod: true,
+        description: true,
+        status: true,
+        affectsDebt: true,
+        affectsBusinessReport: true,
+        category: true,
+        customerId: true,
+        customerSystemId: true,
+        customerName: true,
+        orderId: true,
+        linkedOrderSystemId: true,
+        linkedSalesReturnSystemId: true,
+        linkedWarrantySystemId: true,
+        linkedComplaintSystemId: true,
+        purchaseOrderSystemId: true,
+        purchaseOrderId: true,
+        originalDocumentId: true,
+        payerTypeSystemId: true,
+        payerTypeName: true,
+        payerName: true,
+        payerSystemId: true,
+        paymentMethodSystemId: true,
+        paymentMethodName: true,
+        accountSystemId: true,
+        paymentReceiptTypeSystemId: true,
+        paymentReceiptTypeName: true,
+        branchSystemId: true,
+        branchName: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        order: {
+          select: { systemId: true, id: true },
+        },
+        customers: {
+          select: { systemId: true, id: true, name: true },
+        },
       },
     })
 
     if (!receipt) {
-      return apiError('Phiếu thu không tồn tại', 404)
+      return apiNotFound('Receipt')
     }
 
     // Resolve creator name
@@ -161,7 +201,7 @@ export const PUT = apiHandler(async (request, { session, params }) => {
     })
 
     if (!existingReceipt) {
-      return apiError('Phiếu thu không tồn tại', 404)
+      return apiNotFound('Receipt')
     }
 
     // Check if any values actually changed
@@ -175,12 +215,52 @@ export const PUT = apiHandler(async (request, { session, params }) => {
       // No actual changes, just return the existing receipt
       const receipt = await prisma.receipt.findUnique({
         where: { systemId },
-        include: {
-          order: true,
-          customers: true,
+        select: {
+          systemId: true,
+          id: true,
+          type: true,
+          receiptDate: true,
+          amount: true,
+          paymentMethod: true,
+          description: true,
+          status: true,
+          affectsDebt: true,
+          affectsBusinessReport: true,
+          category: true,
+          customerId: true,
+          customerSystemId: true,
+          customerName: true,
+          orderId: true,
+          linkedOrderSystemId: true,
+          linkedSalesReturnSystemId: true,
+          linkedWarrantySystemId: true,
+          linkedComplaintSystemId: true,
+          purchaseOrderSystemId: true,
+          purchaseOrderId: true,
+          originalDocumentId: true,
+          payerTypeSystemId: true,
+          payerTypeName: true,
+          payerName: true,
+          payerSystemId: true,
+          paymentMethodSystemId: true,
+          paymentMethodName: true,
+          accountSystemId: true,
+          paymentReceiptTypeSystemId: true,
+          paymentReceiptTypeName: true,
+          branchSystemId: true,
+          branchName: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+          order: {
+            select: { systemId: true, id: true },
+          },
+          customers: {
+            select: { systemId: true, id: true, name: true },
+          },
         },
       })
-      if (!receipt) return apiError('Phiếu thu không tồn tại', 404)
+      if (!receipt) return apiNotFound('Receipt')
       return apiSuccess(serializeReceipt(receipt))
     }
 
@@ -191,9 +271,49 @@ export const PUT = apiHandler(async (request, { session, params }) => {
         paymentMethod: body.method || body.paymentMethod,
         description: body.description,
       },
-      include: {
-        order: true,
-        customers: true,
+      select: {
+        systemId: true,
+        id: true,
+        type: true,
+        receiptDate: true,
+        amount: true,
+        paymentMethod: true,
+        description: true,
+        status: true,
+        affectsDebt: true,
+        affectsBusinessReport: true,
+        category: true,
+        customerId: true,
+        customerSystemId: true,
+        customerName: true,
+        orderId: true,
+        linkedOrderSystemId: true,
+        linkedSalesReturnSystemId: true,
+        linkedWarrantySystemId: true,
+        linkedComplaintSystemId: true,
+        purchaseOrderSystemId: true,
+        purchaseOrderId: true,
+        originalDocumentId: true,
+        payerTypeSystemId: true,
+        payerTypeName: true,
+        payerName: true,
+        payerSystemId: true,
+        paymentMethodSystemId: true,
+        paymentMethodName: true,
+        accountSystemId: true,
+        paymentReceiptTypeSystemId: true,
+        paymentReceiptTypeName: true,
+        branchSystemId: true,
+        branchName: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        order: {
+          select: { systemId: true, id: true },
+        },
+        customers: {
+          select: { systemId: true, id: true, name: true },
+        },
       },
     })
 
@@ -309,7 +429,7 @@ export const DELETE = apiHandler(async (_request, { session, params }) => {
     });
 
     if (!receipt) {
-      return apiError('Phiếu thu không tồn tại', 404)
+      return apiNotFound('Receipt')
     }
 
     // Chặn xóa phiếu thu tự động sinh từ giao dịch

@@ -81,7 +81,6 @@ export function calculateWarrantyStats(tickets: WarrantyTicket[], slaTargets?: W
       acc.total += 1;
       if (ticket.status === 'RECEIVED') acc.received += 1;
       if (ticket.status === 'PROCESSING') acc.processing += 1;
-      if (ticket.status === 'WAITING_PARTS') acc.waitingParts += 1;
       if (ticket.status === 'COMPLETED') acc.completed += 1;
       if (ticket.status === 'RETURNED') acc.returned += 1;
       if (ticket.status === 'CANCELLED') acc.cancelled += 1;
@@ -91,7 +90,7 @@ export function calculateWarrantyStats(tickets: WarrantyTicket[], slaTargets?: W
       }
       return acc;
     },
-    { total: 0, received: 0, processing: 0, waitingParts: 0, completed: 0, returned: 0, cancelled: 0, overdue: 0 }
+    { total: 0, received: 0, processing: 0, completed: 0, returned: 0, cancelled: 0, overdue: 0 }
   );
 }
 

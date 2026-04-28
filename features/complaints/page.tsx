@@ -12,7 +12,7 @@ import { ROUTES } from "@/lib/router";
 
 import type { Complaint } from "./types";
 import { useComplaints, useComplaintMutations, useComplaintStats, type ComplaintStats } from "./hooks/use-complaints";
-import { useAllEmployees } from "../employees/hooks/use-all-employees";
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useDebounce } from '@/hooks/use-debounce';
 import { checkOverdue } from "./sla-utils";
 import { usePageHeader } from "@/contexts/page-header-context";
@@ -77,7 +77,12 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
     },
     onError: (err) => toast.error(err.message)
   });
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
 
 
   // ✅ Settings from React Query (DB via server actions)

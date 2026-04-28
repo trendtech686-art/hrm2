@@ -6,17 +6,14 @@
  * Auth: Token header
  */
 
-import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (req) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { token, environment, orderNumber } = body;
 
     if (!token) {
@@ -60,4 +57,6 @@ export async function POST(request: NextRequest) {
       500
     );
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+});

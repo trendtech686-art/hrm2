@@ -13,12 +13,11 @@ export const listCashTransactionsSchema = z.object({
   toDate: z.string().optional(),
 })
 
-// Create cash transaction schema
+// Create cash transaction schema - use cashAccountId consistently
 export const createCashTransactionSchema = z.object({
   id: z.string().optional(),
-  accountId: z.string().optional(),
-  cashAccountId: z.string().optional(),
-  type: z.string().optional(),
+  cashAccountId: z.string().min(1, 'cashAccountId là bắt buộc'),
+  type: z.string().min(1, 'type là bắt buộc'),
   transactionType: z.string().optional(),
   amount: z.number().min(0, 'Số tiền phải >= 0'),
   transactionDate: z.string().optional(),

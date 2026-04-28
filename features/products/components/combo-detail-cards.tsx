@@ -13,9 +13,9 @@ import { mobileBleedCardClass } from '@/components/layout/page-section';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LazyImage } from '@/components/ui/lazy-image';
-import { useAllProducts } from '../hooks/use-all-products';
+import { useProductFinder } from '../hooks/use-all-products';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { calculateComboStock } from '../combo-utils';
+import { calculateComboStock, type ProductFinder } from '../combo-utils';
 import type { Product } from '../types';
 import type { SystemId } from '@/lib/id-types';
 
@@ -53,14 +53,14 @@ export function ComboItemsCard({
   pricingPolicies,
   onImagePreview,
 }: ComboItemsCardProps) {
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   const defaultPricingPolicy = pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
   
   // Get combo items with product details
   const comboItemsWithDetails = React.useMemo(() => {
     if (!product.comboItems) return [];
     return product.comboItems.map(item => {
-      const childProduct = allProducts.find(p => p.systemId === item.productSystemId);
+      const childProduct = findById(item.productSystemId);
       
       // Fallback price: 1) default policy price, 2) first available price, 3) costPrice, 4) 0
       let unitPrice = 0;
@@ -86,7 +86,7 @@ export function ComboItemsCard({
         lineCostTotal: costPrice * item.quantity,
       };
     });
-  }, [product.comboItems, allProducts, defaultPricingPolicy]);
+  }, [product.comboItems, defaultPricingPolicy]); // findById is stable
   
   // Calculate totals
   const totalOriginalPrice = comboItemsWithDetails.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -243,13 +243,13 @@ export function ComboItemsCard({
 
 interface ComboLowStockWarningProps {
   product: Product;
-  allProducts: Product[];
+  findById: ProductFinder;
 }
 
 /**
  * ComboLowStockWarning - Hiển thị cảnh báo khi combo sắp hết hàng
  */
-export function ComboLowStockWarning({ product, allProducts }: ComboLowStockWarningProps) {
+export function ComboLowStockWarning({ product, findById }: ComboLowStockWarningProps) {
   const { data: branches } = useAllBranches();
   
   // Calculate total combo stock across all branches
@@ -258,13 +258,13 @@ export function ComboLowStockWarning({ product, allProducts }: ComboLowStockWarn
     branches.forEach(branch => {
       const branchStock = calculateComboStock(
         product.comboItems || [],
-        allProducts,
+        findById,
         branch.systemId
       );
       total += branchStock;
     });
     return total;
-  }, [product.comboItems, allProducts, branches]);
+  }, [product.comboItems, findById, branches]);
   
   const reorderLevel = product.reorderLevel ?? 0;
   const safetyStock = product.safetyStock ?? 0;
@@ -316,7 +316,7 @@ export function ComboLowStockWarning({ product, allProducts }: ComboLowStockWarn
 interface ComboInventoryCardProps {
   product: Product;
   branches: { systemId: SystemId; name: string }[];
-  allProducts: Product[];
+  findById: ProductFinder;
   onCommittedClick?: (branch: { systemId: SystemId; name: string }) => void;
   onInTransitClick?: (branch: { systemId: SystemId; name: string }) => void;
 }
@@ -328,7 +328,7 @@ interface ComboInventoryCardProps {
 export function ComboInventoryCard({ 
   product, 
   branches,
-  allProducts,
+  findById,
   onCommittedClick,
   onInTransitClick,
 }: ComboInventoryCardProps) {
@@ -337,7 +337,7 @@ export function ComboInventoryCard({
     return branches.map(branch => {
       const comboStock = calculateComboStock(
         product.comboItems || [],
-        allProducts,
+        findById,
         branch.systemId
       );
       
@@ -356,7 +356,7 @@ export function ComboInventoryCard({
         inTransit,
       };
     });
-  }, [product.comboItems, product.committedByBranch, product.inTransitByBranch, allProducts, branches]);
+  }, [product.comboItems, product.committedByBranch, product.inTransitByBranch, findById, branches]);
   
   return (
     <Card className={mobileBleedCardClass}>

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Save, Clock, Monitor, Upload, Trash2, UserCog, Palette, Image, Shield, HardDrive, Loader2 } from 'lucide-react';
+import { Save, Clock, Monitor, Upload, Trash2, UserCog, Palette, ImageIcon, Shield, HardDrive, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Label } from '@/components/ui/label';
@@ -213,7 +213,7 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
                   {settings.logoUrl ? (
                     <OptimizedImage src={settings.logoUrl} alt="Logo" width={128} height={64} className="max-w-full max-h-full object-contain" unoptimized />
                   ) : (
-                    <Image className="h-8 w-8 text-muted-foreground" />
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 space-y-2">
@@ -247,7 +247,7 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
                   {settings.faviconUrl ? (
                     <OptimizedImage src={settings.faviconUrl} alt="Favicon" width={64} height={64} className="max-w-full max-h-full object-contain" unoptimized />
                   ) : (
-                    <Image className="h-6 w-6 text-muted-foreground" />
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 space-y-2">

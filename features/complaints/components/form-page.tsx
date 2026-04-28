@@ -11,7 +11,7 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 // Types & Store
 import type { Complaint, ComplaintType } from "../types";
 import { useComplaintMutations, useComplaint } from "../hooks/use-complaints";
-import { useComplaintFinder } from "../hooks/use-all-complaints";
+import { useComplaintFinder } from "../hooks/use-complaints";
 import type { StagingFile } from "@/lib/file-upload-api";
 import { complaintNotifications } from "../notification-utils";
 

@@ -24,11 +24,11 @@ export function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = React.useState(false)
   const [countdown, setCountdown] = React.useState(0)
 
-  // Countdown timer cho nút gửi lại OTP
+  // Countdown timer cho nút gửi lại OTP - using setTimeout pattern
   React.useEffect(() => {
     if (countdown <= 0) return
-    const timer = setInterval(() => setCountdown(c => c - 1), 1000)
-    return () => clearInterval(timer)
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
   }, [countdown])
 
   const handleSendOTP = async () => {

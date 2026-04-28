@@ -18,7 +18,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const brand = await prisma.brand.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        logo: true,
+        logoUrl: true,
+        website: true,
+        isActive: true,
+        isDeleted: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        websiteSeo: true,
+        createdAt: true,
+        updatedAt: true,
         products: {
           where: { isDeleted: false },
           take: 10,

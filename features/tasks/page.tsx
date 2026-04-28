@@ -8,7 +8,7 @@ import type { TaskStatus, TaskPriority } from '@/lib/types/prisma-extended';
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { useAuth } from "../../contexts/auth-context";
-import { useAllEmployees } from "../employees/hooks/use-all-employees";
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { PageFilters } from "../../components/layout/page-filters"
 import { PageToolbar } from "../../components/layout/page-toolbar"
@@ -94,8 +94,16 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const restoreTimer = React.useCallback(() => {
     // Timer restoration logic if needed
   }, []);
-  
-  const { data: employees } = useAllEmployees({ enabled: false });
+
+  // Employee search for assignee filter dropdown
+  const [employeeSearch, setEmployeeSearch] = React.useState('');
+  const [debouncedEmployeeSearch, setDebouncedEmployeeSearch] = React.useState('');
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEmployeeSearch(employeeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
+  const { data: employeesResult } = useMeiliEmployeeSearch({ query: debouncedEmployeeSearch, limit: 50 });
+  const employees = React.useMemo(() => employeesResult?.data ?? [], [employeesResult?.data]);
   const { isMobile } = useBreakpoint();
   const { isAdmin, employee, can } = useAuth();
   const router = useRouter();

@@ -78,6 +78,30 @@ export function useSalesReturn(id: string | null | undefined) {
   });
 }
 
+/**
+ * Fetch sales returns for a specific order.
+ * Use for sales return form to get existing returns for an order.
+ * API filters server-side via orderSystemId parameter.
+ */
+export function useSalesReturnsByOrder(orderSystemId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: salesReturnKeys.byOrder(orderSystemId || ''),
+    queryFn: async () => {
+      const response = await fetchSalesReturns({ orderSystemId: orderSystemId!, limit: 1000 });
+      return response.data; // Return flat array
+    },
+    enabled: !!orderSystemId,
+    staleTime: 60_000,
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
 interface UseSalesReturnMutationsOptions {
   onCreateSuccess?: (salesReturn: SalesReturn) => void;
   onUpdateSuccess?: (salesReturn: SalesReturn) => void;

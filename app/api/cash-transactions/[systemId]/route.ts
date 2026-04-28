@@ -4,6 +4,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 
@@ -21,8 +22,20 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     const cashTransaction = await prisma.cashTransaction.findUnique({
       where: { systemId },
-      include: {
-        cash_accounts: true,
+      select: {
+        systemId: true,
+        id: true,
+        accountId: true,
+        type: true,
+        amount: true,
+        referenceType: true,
+        referenceId: true,
+        description: true,
+        transactionDate: true,
+        createdAt: true,
+        cash_accounts: {
+          select: { systemId: true, id: true, name: true, type: true, balance: true },
+        },
       },
     });
 
@@ -39,8 +52,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 // DELETE - Delete cash transaction (and reverse balance)
 export async function DELETE(request: Request, { params }: RouteParams) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  const result = await requirePermission('delete_cash_transaction')
+  if (result instanceof Response) return result
+  const session = result;
 
   try {
     const { systemId } = await params;

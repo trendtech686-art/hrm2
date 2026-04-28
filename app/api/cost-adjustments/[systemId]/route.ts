@@ -4,6 +4,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 
@@ -77,8 +78,47 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     const costAdjustment = await prisma.costAdjustment.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        adjustmentDate: true,
+        status: true,
+        type: true,
+        reason: true,
+        note: true,
+        referenceCode: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        confirmedDate: true,
+        confirmedBySystemId: true,
+        confirmedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        items: {
+          select: {
+            systemId: true,
+            adjustmentId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productImage: true,
+            oldCost: true,
+            newCost: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+            quantity: true,
+            reason: true,
+          },
+        },
       },
     });
 
@@ -116,8 +156,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 // PATCH - Update cost adjustment
 export async function PATCH(request: Request, { params }: RouteParams) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  const result = await requirePermission('edit_cost_adjustment')
+  if (result instanceof Response) return result
+  const session = result;
 
   try {
     const { systemId } = await params;
@@ -144,8 +185,47 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         ...(updatedBy !== undefined && { updatedBy }),
         updatedAt: new Date(),
       },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        adjustmentDate: true,
+        status: true,
+        type: true,
+        reason: true,
+        note: true,
+        referenceCode: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        confirmedDate: true,
+        confirmedBySystemId: true,
+        confirmedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        items: {
+          select: {
+            systemId: true,
+            adjustmentId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productImage: true,
+            oldCost: true,
+            newCost: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+            quantity: true,
+            reason: true,
+          },
+        },
       },
     });
 
@@ -178,8 +258,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
 // DELETE - Delete cost adjustment
 export async function DELETE(request: Request, { params }: RouteParams) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  const result = await requirePermission('edit_cost_adjustment')
+  if (result instanceof Response) return result
+  const session = result;
 
   try {
     const { systemId } = await params;

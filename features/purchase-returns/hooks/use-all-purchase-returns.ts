@@ -2,27 +2,36 @@
  * useAllPurchaseReturns - Convenience hook for components needing all purchase returns as flat array
  * 
  * Replaces legacy usePurchaseReturnStore().data pattern
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng startDate/endDate để filter theo ngày
+ * - Dùng branchId/supplierId để filter cụ thể
  */
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { fetchPurchaseReturns } from '../api/purchase-returns-api';
+import { fetchPurchaseReturns, type PurchaseReturnsParams } from '../api/purchase-returns-api';
 import { purchaseReturnKeys } from './use-purchase-returns';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
+
+export interface UseAllPurchaseReturnsOptions extends Pick<PurchaseReturnsParams, 'startDate' | 'endDate' | 'branchId' | 'supplierId' | 'status' | 'search'> {
+  enabled?: boolean;
+}
 
 /**
  * Returns all purchase returns as a flat array
  * Compatible with legacy store pattern: { data: returns }
  */
-export function useAllPurchaseReturns(options?: { enabled?: boolean }) {
+export function useAllPurchaseReturns(options: UseAllPurchaseReturnsOptions = {}) {
+  const { enabled = true, startDate, endDate, branchId, supplierId, status, search } = options;
   const query = useQuery({
-    queryKey: [...purchaseReturnKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchPurchaseReturns(p)),
+    queryKey: [...purchaseReturnKeys.all, 'all', { startDate, endDate, branchId, supplierId, status, search }],
+    queryFn: () => fetchAllPages((p) => fetchPurchaseReturns({ ...p, startDate, endDate, branchId, supplierId, status, search })),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
-    enabled: options?.enabled ?? true,
+    enabled,
   });
   
   return {

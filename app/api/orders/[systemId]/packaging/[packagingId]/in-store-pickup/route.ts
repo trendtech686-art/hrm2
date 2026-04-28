@@ -25,11 +25,28 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get the packaging with order
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: { 
+      select: {
+        systemId: true,
+        orderId: true,
+        confirmDate: true,
+        deliveryMethod: true,
+        deliveryStatus: true,
+        id: true,
         order: {
-          include: {
-            customer: true,
-          }
+          select: {
+            id: true,
+            customerId: true,
+            customerName: true,
+            grandTotal: true,
+            salespersonId: true,
+            customer: {
+              select: {
+                systemId: true,
+                name: true,
+                phone: true,
+              },
+            },
+          },
         },
       },
     });
@@ -93,16 +110,57 @@ export async function POST(request: Request, { params }: RouteParams) {
           status: 'READY_FOR_PICKUP',
           deliveryStatus: 'PACKED', // Packed and waiting for customer pickup
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          id: true,
+          systemId: true,
+          status: true,
+          deliveryStatus: true,
+          salespersonId: true,
+          customerId: true,
+          grandTotal: true,
+          linkedSalesReturnValue: true,
+          customer: {
+            select: {
+              systemId: true,
+              name: true,
+              phone: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              systemId: true,
+              amount: true,
+              linkedReceiptSystemId: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              deliveryMethod: true,
+              deliveryStatus: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  status: true,
+                  trackingCode: true,
+                },
+              },
             },
           },
         },

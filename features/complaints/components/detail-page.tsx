@@ -50,7 +50,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Copy } from 'lucide-react';
 
 // Hooks & Context
-import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useOrder } from "@/features/orders/hooks/use-orders";
 import { useComplaintHandlers } from "../hooks/use-complaint-handlers";
 import { useVerificationHandlers } from "../hooks/use-verification-handlers";
@@ -72,7 +72,12 @@ export function ComplaintDetailPage() {
     onError: (err) => toast.error(err.message)
   });
   // Load employees for selectors - bật enabled để fetch khi cần
-  const { data: employees } = useAllEmployees({ enabled: true });
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
   // REMOVED: Payments/receipts loaded separately in components that need them
 
   // ✅ Use dedicated query for single complaint - auto-refreshes after mutation

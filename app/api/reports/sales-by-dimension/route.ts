@@ -775,4 +775,4 @@ export const GET = apiHandler(async (request) => {
     logError('[reports/sales-by-dimension]', e)
     return apiError('Không thể tạo báo cáo bán hàng theo chiều', 500)
   }
-})
+}, { auth: true })

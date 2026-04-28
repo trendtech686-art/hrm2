@@ -12,7 +12,7 @@ import { usePageHeader } from '@/contexts/page-header-context'
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings'
 import { Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
-import { useAllSuppliers } from '@/features/suppliers/hooks/use-all-suppliers'
+import { useMeiliSupplierSearch } from '@/hooks/use-meilisearch'
 import type { SupplierWarranty } from './types'
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel'
 import { useFilterPresets } from '@/hooks/use-filter-presets'
@@ -32,7 +32,8 @@ const WARRANTY_STATUSES = [
 export function SupplierWarrantyPage() {
   const router = useRouter()
   const { can } = useAuth()
-  const { data: suppliers = [] } = useAllSuppliers()
+  const { data: supplierData } = useMeiliSupplierSearch({ query: '', limit: 100 });
+  const suppliers = React.useMemo(() => supplierData?.data || [], [supplierData]);
 
   // Filter presets
   const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('supplier-warranty')

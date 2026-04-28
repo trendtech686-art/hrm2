@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAllRecurringTasks } from '../hooks/use-all-recurring-tasks';
 import { useRecurringTaskMutations } from '../hooks/use-recurring-tasks';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,15 @@ export function RecurringTasksPage() {
     onSuccess: () => toast.success('Đã cập nhật'),
     onError: (error) => toast.error(error.message),
   });
-  const { data: employees } = useAllEmployees({ enabled: false });
+  // Employee search for assignee selection
+  const [employeeSearch, setEmployeeSearch] = React.useState('');
+  const [debouncedEmployeeSearch, setDebouncedEmployeeSearch] = React.useState('');
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEmployeeSearch(employeeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
+  const { data: employeesResult } = useMeiliEmployeeSearch({ query: debouncedEmployeeSearch, limit: 100 });
+  const employees = React.useMemo(() => employeesResult?.data ?? [], [employeesResult?.data]);
 
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [formData, setFormData] = React.useState({

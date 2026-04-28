@@ -40,8 +40,12 @@ interface WarrantyProductRowProps {
   field: WarrantyProductField;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   control: Control<any>;
+  /** @deprecated Use getProductInfo instead */
   availableProducts: ProductForSelection[];
+  /** Function to get product info - uses cache, no extra API calls */
+  getProductInfo: (systemId?: string) => { systemId: string; id: string; name: string; costPrice?: number; warrantyPeriodMonths?: number } | null;
   disabled?: boolean;
+  notesDisabled?: boolean;
   permanentFiles: SimpleImageFile[];
   stagingFiles: StagingFile[];
   sessionId?: string;
@@ -104,7 +108,9 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
   field,
   control,
   availableProducts,
+  getProductInfo,
   disabled,
+  notesDisabled = true,
   permanentFiles,
   stagingFiles,
   sessionId,
@@ -119,17 +125,23 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = React.useState<string>('');
 
-  // Find product by productSystemId hoặc SKU
+  // Find product info using cache lookup (no extra API calls)
+  const productInfo = React.useMemo(() => {
+    return getProductInfo(field.productSystemId);
+  }, [field.productSystemId, getProductInfo]);
+  
+  // Build compatible product object for existing code that expects full product
   const product = React.useMemo(() => {
-    // Ưu tiên tìm bằng productSystemId (systemId của sản phẩm gốc)
-    if (field.productSystemId) {
-      return availableProducts.find((p) => p.systemId === field.productSystemId);
-    }
-    if (field.sku) {
-      return availableProducts.find((p) => p.id === field.sku);
-    }
-    return availableProducts.find((p) => p.name === field.productName);
-  }, [field.productSystemId, field.sku, field.productName, availableProducts]);
+    if (!productInfo) return null;
+    return {
+      ...productInfo,
+      costPrice: productInfo.costPrice ?? 0,
+      price: productInfo.costPrice ?? 0, // Alias for price
+      unit: field.unit || 'Chiếc',
+      thumbnailImage: field.thumbnailImage,
+      status: 'physical',
+    };
+  }, [productInfo, field.unit, field.thumbnailImage]);
   
   // ✅ Get product image URL - ưu tiên thumbnailImage đã lưu, sau đó mới fetch
   const fetchedImageUrl = useProductImage(
@@ -284,7 +296,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
             <Input
               {...formField}
               placeholder="Mô tả tình trạng..."
-              disabled={disabled}
+              disabled={notesDisabled}
               className="w-full text-sm"
             />
           )}

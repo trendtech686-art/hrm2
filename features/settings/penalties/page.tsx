@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { formatDate } from '../../../lib/date-utils'
 import { usePenalties, usePenaltyMutations } from "./hooks/use-penalties";
 import type { PenaltyFilters } from "./api/penalties-api";
-import { useAllEmployees } from "../../employees/hooks/use-all-employees"
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useAllBranches } from "../branches/hooks/use-all-branches"
 import { useDebounce } from '@/hooks/use-debounce';
 import { fetchPrintData } from '@/lib/lazy-print-data';
@@ -49,7 +49,12 @@ export function PenaltiesPage() {
   const canCreate = can('edit_employees');
   const canEdit = can('edit_employees');
   const { update } = usePenaltyMutations();
-  const { data: employees } = useAllEmployees({ enabled: false })
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
   const { data: branches } = useAllBranches()
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrintConfirm
   const router = useRouter()

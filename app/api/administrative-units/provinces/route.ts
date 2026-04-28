@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logError } from '@/lib/logger'
-import { requireAuth } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { nanoid } from 'nanoid'
 
@@ -37,8 +37,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const response = NextResponse.json({
-      success: true,
+    const response = apiSuccess({
       data: provinces,
       count: provinces.length,
     });
@@ -46,10 +45,7 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     logError('Failed to fetch provinces', error);
-    return NextResponse.json(
-      { success: false, error: 'Không thể tải danh sách tỉnh thành', details: String(error) },
-      { status: 500 }
-    );
+    return apiError('Không thể tải danh sách tỉnh thành', 500);
   }
 }
 
@@ -60,7 +56,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401)
   }
 
   try {
@@ -68,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { id, name, level = '2-level' } = body
 
     if (!id || !name) {
-      return NextResponse.json({ success: false, error: 'Mã và tên tỉnh thành là bắt buộc' }, { status: 400 })
+      return apiError('Mã và tên tỉnh thành là bắt buộc', 400)
     }
 
     const province = await prisma.province.create({
@@ -90,9 +86,9 @@ export async function POST(request: NextRequest) {
       createdBy: session.user?.id,
     })
 
-    return NextResponse.json({ success: true, data: province })
+    return apiSuccess(province, 201)
   } catch (error) {
     logError('Failed to create province', error)
-    return NextResponse.json({ success: false, error: 'Không thể tạo tỉnh thành' }, { status: 500 })
+    return apiError('Không thể tạo tỉnh thành', 500)
   }
 }

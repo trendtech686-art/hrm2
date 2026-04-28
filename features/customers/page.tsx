@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useCustomers, useCustomerMutations, useCustomerStats, useBulkCustomerMutations, usePrefetchCustomer, type CustomerStats } from "./hooks/use-customers";
-import { useAllCustomers } from "./hooks/use-all-customers";
+import { useMeiliCustomerSearch } from "@/hooks/use-meilisearch";
 import { useActiveCustomerTypes } from "../settings/customers/hooks/use-all-customer-settings";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { type Customer } from "@/lib/types/prisma-extended";
@@ -178,10 +178,11 @@ export function CustomersPage({ initialStats, initialGroups: _initialGroups }: C
   const totalRows = customersData?.pagination?.total ?? 0;
   const serverPageCount = customersData?.pagination?.totalPages ?? 1;
   
-  // Lazy-load all customers only when Import/Export dialogs are open
+  // Lazy-load all customers for Import/Export dialogs using Meilisearch (high limit, no debounce)
   const [showImportDialog, setShowImportDialog] = React.useState(false);
   const [showExportDialog, setShowExportDialog] = React.useState(false);
-  const { data: allCustomers = [] } = useAllCustomers({ enabled: showImportDialog || showExportDialog });
+  const { data: allCustomersForExport } = useMeiliCustomerSearch({ query: '', enabled: showImportDialog || showExportDialog, limit: 1000, debounceMs: 0 });
+  const allCustomers = React.useMemo(() => allCustomersForExport?.data ?? [], [allCustomersForExport]);
   const { remove: removeMutation } = useCustomerMutations({
     onDeleteSuccess: () => toast.success("Đã chuyển khách hàng vào thùng rác"),
     onUpdateSuccess: () => toast.success("Đã cập nhật khách hàng"),

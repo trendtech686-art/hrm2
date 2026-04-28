@@ -46,7 +46,7 @@ export const GET = apiHandler(async (
   const [items, total] = await Promise.all([
     prisma.supplierWarrantyItem.findMany({
       where,
-      include: {
+      select: {
         warranty: {
           select: {
             systemId: true,

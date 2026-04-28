@@ -2,8 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { simpleSearch } from '@/lib/simple-search';
-import { useAllWiki } from './hooks/use-all-wiki';
+import { useWikiArticles } from './hooks/use-wiki';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -48,10 +47,20 @@ export function WikiPage() {
   const canCreate = can('create_wiki');
   const _canDelete = can('delete_wiki');
   const _canEdit = can('edit_wiki');
-  const { data: articles } = useAllWiki();
   const router = useRouter();
   const { isMobile } = useBreakpoint();
   
+  const [searchQuery, setSearchQuery] = React.useState('');
+  
+  // ✅ Use API Filter hook with server-side search
+  const { data, isLoading } = useWikiArticles({ 
+    search: searchQuery,
+    page: 1,
+    limit: 100,
+  });
+  
+  const articles = React.useMemo(() => data?.data || [], [data?.data]);
+
   const headerActions = React.useMemo(() => ([
     canCreate && <Button key="add" size="sm" className="gap-2" onClick={() => router.push('/wiki/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
@@ -67,15 +76,9 @@ export function WikiPage() {
       { label: 'Wiki', href: '/wiki', isCurrent: true },
     ],
   });
-  const [searchQuery, setSearchQuery] = React.useState('');
 
-  const filteredArticles = React.useMemo(() => 
-    simpleSearch(articles, searchQuery, { keys: ['title', 'category', 'tags', 'author', 'content'] }), 
-    [articles, searchQuery]
-  );
-  
   const articlesByCategory = React.useMemo(() => {
-    return filteredArticles.reduce((acc, article) => {
+    return articles.reduce((acc, article) => {
         const category = article.category || 'Chưa phân loại';
         if (!acc[category]) {
             acc[category] = [];
@@ -83,7 +86,7 @@ export function WikiPage() {
         acc[category].push(article);
         return acc;
     }, {} as Record<string, WikiArticle[]>);
-  }, [filteredArticles]);
+  }, [articles]);
 
   return (
     <div className="space-y-6">
@@ -104,9 +107,14 @@ export function WikiPage() {
         )}
       </div>
 
-      {Object.keys(articlesByCategory).length > 0 ? (
+      {isLoading ? (
+        <div className="grid gap-3 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      ) : Object.keys(articlesByCategory).length > 0 ? (
         <div className="space-y-8">
-            {/* FIX: Replaced `Object.entries` with `Object.keys` for iteration to resolve a TypeScript type inference issue where the array of articles was being typed as `unknown`. */}
             {Object.keys(articlesByCategory).map((category) => (
                 <section key={category}>
                     <h2 className="text-lg font-semibold tracking-tight mb-4">{category}</h2>

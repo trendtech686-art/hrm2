@@ -8,7 +8,8 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils';
+import { balanceInventoryCheckSchema } from '../../validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
 import { logError } from '@/lib/logger'
 import { syncProductsInventory } from '@/lib/meilisearch-sync'
@@ -24,15 +25,56 @@ export async function POST(request: Request, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, balanceInventoryCheckSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
+  const { balancedBy } = validation.data;
+
   try {
     const { systemId } = await params;
-    const body = await request.json().catch(() => ({}));
-    const { balancedBy } = body;
 
     // Get the inventory check with items
     const inventoryCheck = await prisma.inventoryCheck.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        checkDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        branchSystemId: true,
+        branchName: true,
+        balancedAt: true,
+        balancedBy: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        cancelledReason: true,
+        linkedComplaintSystemId: true,
+        items: {
+          select: {
+            systemId: true,
+            checkId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productSku: true,
+            unit: true,
+            systemQty: true,
+            actualQty: true,
+            difference: true,
+            reason: true,
+            notes: true,
+          },
+        },
+      },
     });
 
     if (!inventoryCheck) {
@@ -55,9 +97,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Resolve employee info
-    const userId = balancedBy || session.user?.id || null;
+    const userId = balancedBy || session!.user?.id || null;
     let employeeSystemId: string | null = null;
-    let employeeName = session.user?.name || 'Hệ thống';
+    let employeeName = session!.user?.name || 'Hệ thống';
 
     if (userId) {
       const user = await prisma.user.findUnique({
@@ -206,11 +248,47 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Fetch the updated record
     const updatedCheck = await prisma.inventoryCheck.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        checkDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        branchSystemId: true,
+        branchName: true,
+        balancedAt: true,
+        balancedBy: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        cancelledReason: true,
+        linkedComplaintSystemId: true,
+        items: {
+          select: {
+            systemId: true,
+            checkId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productSku: true,
+            unit: true,
+            systemQty: true,
+            actualQty: true,
+            difference: true,
+            reason: true,
+            notes: true,
+          },
+        },
+      },
     });
 
     // Notify the assigned employee about balance completion
-    if (inventoryCheck.createdBy && inventoryCheck.createdBy !== session.user?.employeeId) {
+    if (inventoryCheck.createdBy && inventoryCheck.createdBy !== session!.user?.employeeId) {
       createNotification({
         type: 'inventory_check',
         settingsKey: 'inventory-check:updated',
@@ -218,13 +296,13 @@ export async function POST(request: Request, { params }: RouteParams) {
         message: `Phiếu kiểm kho ${inventoryCheck.id || systemId} đã được cân bằng (${updateResults.length} sản phẩm)`,
         link: `/inventory-checks/${systemId}`,
         recipientId: inventoryCheck.createdBy,
-        senderId: session.user?.employeeId,
-        senderName: session.user?.name,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
       }).catch(e => logError('[Inventory Check Balance] notification failed', e));
     }
 
     // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
+    getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'inventory_check',

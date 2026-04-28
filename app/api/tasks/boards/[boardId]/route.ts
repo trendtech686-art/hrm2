@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
 import { createActivityLog } from '@/lib/services/activity-log-service';
+import { z } from 'zod';
+
+// Validation schema for PUT request
+const updateBoardSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+  isActive: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+  sortOrder: z.number().optional(),
+  updatedBy: z.string().optional(),
+})
 
 // Build field-level diff between existing record and new values
 function buildChanges<T extends Record<string, unknown>>(
@@ -59,9 +72,13 @@ export async function PUT(
 
   const { boardId } = await params;
 
-  try {
-    const body = await request.json();
+  const validation = await validateBody(request, updateBoardSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const body = validation.data;
 
+  try {
     const existing = await prisma.taskBoard.findUnique({
       where: { systemId: boardId },
     });

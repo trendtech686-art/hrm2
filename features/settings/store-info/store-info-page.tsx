@@ -12,7 +12,7 @@ import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useAuth } from '../../../contexts/auth-context';
 import { useAllBranches } from '../branches/hooks/use-all-branches';
 import { useBranchMutations } from '../branches/hooks/use-branches';
-import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useProvinces, useWards2Level } from '../provinces/hooks/use-administrative-units';
 import type { Branch } from '../branches/types';
 import { BranchForm, type BranchFormValues } from '../branches/branch-form';
@@ -87,7 +87,12 @@ export function StoreInfoPage() {
     const updateBranch = (systemId: SystemId, data: Partial<Branch>) => updateBranchMutation.mutate({ systemId: String(systemId), data } as unknown as Parameters<typeof updateBranchMutation.mutate>[0]);
     const removeBranch = (systemId: SystemId) => removeBranchMutation.mutate(systemId as unknown as string);
     const setDefaultBranch = (systemId: SystemId) => setDefaultBranchMutation.mutate(systemId as unknown as string);
-    const { data: employees } = useAllEmployees({ enabled: false });
+    const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
     const { employee: authEmployee } = useAuth();
     
     // Use React Query for store info (persisted to database)

@@ -79,7 +79,7 @@ interface OrderLike {
 }
 
 // Interface cho Customer (optional)
-interface CustomerLike {
+export interface CustomerLike {
   name?: string;
   phone?: string;
   email?: string;

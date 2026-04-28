@@ -15,8 +15,35 @@ export async function GET(_request: NextRequest) {
   try {
     const mappings = await prisma.pkgxCategoryMapping.findMany({
       where: { isActive: true },
-      include: {
-        pkgxCategory: true,
+      select: {
+        systemId: true,
+        hrmCategoryId: true,
+        hrmCategoryName: true,
+        pkgxCategoryId: true,
+        pkgxCategoryName: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        pkgxCategory: {
+          select: {
+            id: true,
+            name: true,
+            parentId: true,
+            sortOrder: true,
+            isShow: true,
+            catDesc: true,
+            longDesc: true,
+            keywords: true,
+            metaTitle: true,
+            metaDesc: true,
+            catAlias: true,
+            style: true,
+            grade: true,
+            filterAttr: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -78,7 +105,36 @@ export async function POST(request: NextRequest) {
               pkgxCategoryName: pkgxCategoryName || '',
               createdBy: session.user?.id,
             },
-            include: { pkgxCategory: true },
+            select: {
+              systemId: true,
+              hrmCategoryId: true,
+              hrmCategoryName: true,
+              pkgxCategoryId: true,
+              pkgxCategoryName: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+              createdBy: true,
+              updatedBy: true,
+              pkgxCategory: {
+                select: {
+                  id: true,
+                  name: true,
+                  parentId: true,
+                  sortOrder: true,
+                  isShow: true,
+                  catDesc: true,
+                  longDesc: true,
+                  keywords: true,
+                  metaTitle: true,
+                  metaDesc: true,
+                  catAlias: true,
+                  style: true,
+                  grade: true,
+                  filterAttr: true,
+                },
+              },
+            },
           })
         })
         createActivityLog({
@@ -123,8 +179,35 @@ export async function POST(request: NextRequest) {
         pkgxCategoryName: pkgxCategoryName || '',
         createdBy: session.user?.id,
       },
-      include: {
-        pkgxCategory: true,
+      select: {
+        systemId: true,
+        hrmCategoryId: true,
+        hrmCategoryName: true,
+        pkgxCategoryId: true,
+        pkgxCategoryName: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        pkgxCategory: {
+          select: {
+            id: true,
+            name: true,
+            parentId: true,
+            sortOrder: true,
+            isShow: true,
+            catDesc: true,
+            longDesc: true,
+            keywords: true,
+            metaTitle: true,
+            metaDesc: true,
+            catAlias: true,
+            style: true,
+            grade: true,
+            filterAttr: true,
+          },
+        },
       },
     })
 

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { parsePagination, requireAuth } from '@/lib/api-utils';
+import { parsePagination, requireAuth, apiSuccess, apiError, apiPaginated } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { nanoid } from 'nanoid'
@@ -55,23 +55,12 @@ export async function GET(request: NextRequest) {
       prisma.ward.count({ where }),
     ]);
 
-    const response = NextResponse.json({
-      data: wards,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    const response = apiPaginated(wards, { page, limit, total });
     response.headers.set('Cache-Control', 'private, no-cache');
     return response;
   } catch (error) {
     logError('Failed to fetch wards', error);
-    return NextResponse.json(
-      { success: false, error: 'Không thể tải danh sách phường/xã' },
-      { status: 500 }
-    );
+    return apiError('Không thể tải danh sách phường/xã', 500);
   }
 }
 
@@ -82,7 +71,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401)
   }
 
   try {
@@ -90,7 +79,7 @@ export async function POST(request: NextRequest) {
     const { id, name, provinceId, provinceName, districtId, districtName, level = '2-level' } = body
 
     if (!id || !name || !provinceId) {
-      return NextResponse.json({ success: false, error: 'Mã, tên và tỉnh thành là bắt buộc' }, { status: 400 })
+      return apiError('Mã, tên và tỉnh thành là bắt buộc', 400)
     }
 
     const ward = await prisma.ward.create({
@@ -116,9 +105,9 @@ export async function POST(request: NextRequest) {
       createdBy: session.user?.id,
     })
 
-    return NextResponse.json({ success: true, data: ward })
+    return apiSuccess(ward, 201)
   } catch (error) {
     logError('Failed to create ward', error)
-    return NextResponse.json({ success: false, error: 'Không thể tạo phường/xã' }, { status: 500 })
+    return apiError('Không thể tạo phường/xã', 500)
   }
 }

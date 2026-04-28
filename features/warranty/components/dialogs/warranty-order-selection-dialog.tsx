@@ -5,6 +5,9 @@
  * - Hiện đơn hàng hiện tại (nếu có)
  * - Tìm kiếm và chọn đơn hàng mới
  * - Xóa liên kết đơn hàng
+ *
+ * Sử dụng shared hook useOrderSelection để thống nhất nguồn dữ liệu với
+ * WarrantyReturnMethodDialog (Trả hàng cho khách).
  */
 
 import * as React from 'react';
@@ -19,22 +22,19 @@ import {
 import { Button } from '../../../../components/ui/button';
 import { Label } from '../../../../components/ui/label';
 import { Badge } from '../../../../components/ui/badge';
-import { VirtualizedCombobox, type ComboboxOption } from '../../../../components/ui/virtualized-combobox';
+import { VirtualizedCombobox } from '../../../../components/ui/virtualized-combobox';
 import { Unlink, Link2 } from 'lucide-react';
 import type { WarrantyTicket } from '../../types';
-import { searchOrdersPaginated, type OrderSearchResult } from '../../../orders/order-search-api';
-import { logError } from '@/lib/logger';
+import { useOrderSelection } from '../../hooks/use-order-selection';
 import { Loader2 } from 'lucide-react';
 
 interface WarrantyOrderSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ticket: WarrantyTicket | null;
+  ticket?: WarrantyTicket | null;
   currentOrderId?: string | null | undefined;
   onOrderLinked: (orderSystemId: string | null) => void;
 }
-
-const ORDER_PAGE_SIZE = 30;
 
 export function WarrantyOrderSelectionDialog({
   open,
@@ -43,94 +43,63 @@ export function WarrantyOrderSelectionDialog({
   currentOrderId,
   onOrderLinked,
 }: WarrantyOrderSelectionDialogProps) {
-  const [selectedOrderValue, setSelectedOrderValue] = React.useState<ComboboxOption | null>(null);
-  const [orderSearchQuery, setOrderSearchQuery] = React.useState('');
-  const [orderSearchResults, setOrderSearchResults] = React.useState<OrderSearchResult[]>([]);
-  const [isSearchingOrders, setIsSearchingOrders] = React.useState(false);
-  const [_totalOrderCount, setTotalOrderCount] = React.useState(0);
-  const [hasMoreOrders, setHasMoreOrders] = React.useState(false);
-  const [isLoadingMoreOrders, setIsLoadingMoreOrders] = React.useState(false);
-  const [orderPage, setOrderPage] = React.useState(1);
+  const branchSystemId = ticket?.branchSystemId;
+  const customerSystemId = ticket?.customerSystemId;
   const [isSaving, setIsSaving] = React.useState(false);
 
-  // Initialize selected order when dialog opens
+  // Use shared hook for order selection
+  const {
+    selectedOrder,
+    searchQuery,
+    searchResults,
+    isSearching,
+    totalCount,
+    hasMore,
+    isLoadingMore,
+    setSelectedOrder,
+    setSearchQuery,
+    loadMore,
+    reset,
+    triggerSearch,
+    getSelectedOrderId,
+  } = useOrderSelection({
+    branchSystemId,
+    customerSystemId,
+    initialSelectedOrderId: currentOrderId,
+    autoSearch: false, // We trigger search manually when dialog opens
+  });
+
+  // Track if we've triggered initial search for current open state
+  const hasTriggeredSearchRef = React.useRef(false);
+
+  // Trigger initial search when dialog opens
   React.useEffect(() => {
-    if (open && currentOrderId) {
-      setSelectedOrderValue({
-        value: currentOrderId,
-        label: currentOrderId,
-      });
-    } else {
-      setSelectedOrderValue(null);
+    if (open && !hasTriggeredSearchRef.current) {
+      hasTriggeredSearchRef.current = true;
+      triggerSearch();
     }
-    setOrderSearchQuery('');
-    setOrderPage(1);
-    setOrderSearchResults([]);
-    setTotalOrderCount(0);
-    setHasMoreOrders(false);
-  }, [open, currentOrderId]);
-
-  const searchOrders = React.useCallback(async (query: string, page: number) => {
-    if (page === 1) {
-      setIsSearchingOrders(true);
-    } else {
-      setIsLoadingMoreOrders(true);
+    if (!open) {
+      hasTriggeredSearchRef.current = false;
+      reset();
     }
-    try {
-      const { results, total, hasMore } = await searchOrdersPaginated({
-        query,
-        limit: ORDER_PAGE_SIZE,
-        page,
-        branchSystemId: ticket?.branchSystemId,
-        customerSystemId: ticket?.customerSystemId || undefined,
-      });
-      setOrderSearchResults(prev => page === 1 ? results : [...prev, ...results]);
-      setTotalOrderCount(total);
-      setHasMoreOrders(hasMore);
-    } catch (error) {
-      logError('Failed to search orders for warranty linking', error);
-    } finally {
-      setIsSearchingOrders(false);
-      setIsLoadingMoreOrders(false);
-    }
-  }, [ticket?.branchSystemId, ticket?.customerSystemId]);
-
-  const handleSearchChange = React.useCallback((query: string) => {
-    setOrderSearchQuery(query);
-    setOrderPage(1);
-    if (query.length >= 0) {
-      searchOrders(query, 1);
-    }
-  }, [searchOrders]);
-
-  const handleLoadMore = React.useCallback(() => {
-    if (!isLoadingMoreOrders && hasMoreOrders) {
-      const nextPage = orderPage + 1;
-      setOrderPage(nextPage);
-      searchOrders(orderSearchQuery, nextPage);
-    }
-  }, [isLoadingMoreOrders, hasMoreOrders, orderPage, orderSearchQuery, searchOrders]);
-
-  const handleOrderSelect = React.useCallback((option: ComboboxOption | null) => {
-    setSelectedOrderValue(option);
-  }, []);
+  }, [open, triggerSearch, reset]);
 
   const handleConfirm = React.useCallback(async () => {
     setIsSaving(true);
     try {
-      const newOrderSystemId = selectedOrderValue?.value ?? null;
+      const newOrderSystemId = getSelectedOrderId();
       onOrderLinked(newOrderSystemId);
       onOpenChange(false);
     } finally {
       setIsSaving(false);
     }
-  }, [selectedOrderValue, onOrderLinked, onOpenChange]);
+  }, [getSelectedOrderId, onOrderLinked, onOpenChange]);
 
   const handleRemoveLink = React.useCallback(() => {
-    setSelectedOrderValue(null);
-  }, []);
+    setSelectedOrder(null);
+  }, [setSelectedOrder]);
 
-  const isChanged = (selectedOrderValue?.value ?? null) !== (currentOrderId ?? null);
+  const isChanged = getSelectedOrderId() !== (currentOrderId ?? null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -168,32 +137,37 @@ export function WarrantyOrderSelectionDialog({
             </div>
           )}
 
-          {/* Order search */}
+          {/* Order search - using shared order selection */}
           <div className="space-y-2">
             <Label>Tìm kiếm đơn hàng</Label>
             <VirtualizedCombobox
-              value={selectedOrderValue}
-              onChange={handleOrderSelect}
-              onSearchChange={handleSearchChange}
+              value={selectedOrder}
+              onChange={setSelectedOrder}
+              onSearchChange={setSearchQuery}
               searchPlaceholder="Tìm theo mã đơn, tên khách hàng..."
               emptyPlaceholder="Không tìm thấy đơn hàng"
-              options={orderSearchResults.map(order => ({
+              options={searchResults.map((order) => ({
                 value: order.value,
                 label: order.label,
               }))}
-              isLoading={isSearchingOrders}
-              hasMore={hasMoreOrders}
-              onLoadMore={handleLoadMore}
-              isLoadingMore={isLoadingMoreOrders}
+              isLoading={isSearching}
+              hasMore={hasMore}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
             />
+            {totalCount > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {searchQuery ? `Tìm thấy ${totalCount} đơn hàng` : `${searchResults.length}/${totalCount} đơn hàng gần nhất`}
+              </p>
+            )}
           </div>
 
           {/* Selected order preview */}
-          {selectedOrderValue && (
+          {selectedOrder && (
             <div className="bg-green-50 rounded-lg p-3 border border-green-200">
               <Label className="text-xs text-green-700">Đơn hàng đã chọn</Label>
               <p className="font-mono font-medium text-green-800 mt-1">
-                {selectedOrderValue.label}
+                {selectedOrder.label}
               </p>
             </div>
           )}

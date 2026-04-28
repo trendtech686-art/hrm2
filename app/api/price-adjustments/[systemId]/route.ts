@@ -6,9 +6,17 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { z } from 'zod'
+
+// Validation schema for PATCH request
+const updatePriceAdjustmentSchema = z.object({
+  reason: z.string().optional(),
+  note: z.string().optional(),
+  referenceCode: z.string().optional(),
+})
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -25,8 +33,36 @@ export async function GET(request: Request, { params }: RouteParams) {
     // Try to find by systemId first, then by business id
     let adjustment = await prisma.priceAdjustment.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        pricingPolicyId: true,
+        pricingPolicyName: true,
+        type: true,
+        status: true,
+        reason: true,
+        note: true,
+        referenceCode: true,
+        createdBy: true,
+        createdByName: true,
+        createdBySystemId: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            systemId: true,
+            productSystemId: true,
+            productId: true,
+            productName: true,
+            productImage: true,
+            oldPrice: true,
+            newPrice: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+            note: true,
+          },
+        },
       },
     });
 
@@ -34,8 +70,36 @@ export async function GET(request: Request, { params }: RouteParams) {
     if (!adjustment) {
       adjustment = await prisma.priceAdjustment.findUnique({
         where: { id: systemId },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          branchId: true,
+          pricingPolicyId: true,
+          pricingPolicyName: true,
+          type: true,
+          status: true,
+          reason: true,
+          note: true,
+          referenceCode: true,
+          createdBy: true,
+          createdByName: true,
+          createdBySystemId: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              systemId: true,
+              productSystemId: true,
+              productId: true,
+              productName: true,
+              productImage: true,
+              oldPrice: true,
+              newPrice: true,
+              adjustmentAmount: true,
+              adjustmentPercent: true,
+              note: true,
+            },
+          },
         },
       });
     }
@@ -68,9 +132,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, updatePriceAdjustmentSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params;
-    const body = await request.json();
 
     // Check if adjustment exists
     const existing = await prisma.priceAdjustment.findUnique({
@@ -94,8 +163,36 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         referenceCode: body.referenceCode,
         updatedAt: new Date(),
       },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        pricingPolicyId: true,
+        pricingPolicyName: true,
+        type: true,
+        status: true,
+        reason: true,
+        note: true,
+        referenceCode: true,
+        createdBy: true,
+        createdByName: true,
+        createdBySystemId: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            systemId: true,
+            productSystemId: true,
+            productId: true,
+            productName: true,
+            productImage: true,
+            oldPrice: true,
+            newPrice: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+            note: true,
+          },
+        },
       },
     });
 

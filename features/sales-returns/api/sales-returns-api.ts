@@ -16,6 +16,7 @@ export interface SalesReturnsParams {
   status?: string;
   customerId?: string;
   orderId?: string;
+  orderSystemId?: string;
   branchId?: string;
   isReceived?: boolean;
   startDate?: string;
@@ -43,6 +44,7 @@ export async function fetchSalesReturns(params: SalesReturnsParams = {}): Promis
   if (params.status) searchParams.set('status', params.status);
   if (params.customerId) searchParams.set('customerId', params.customerId);
   if (params.orderId) searchParams.set('orderId', params.orderId);
+  if (params.orderSystemId) searchParams.set('orderSystemId', params.orderSystemId);
   if (params.branchId) searchParams.set('branchId', params.branchId);
   if (params.isReceived !== undefined) searchParams.set('isReceived', String(params.isReceived));
   if (params.startDate) searchParams.set('startDate', params.startDate);

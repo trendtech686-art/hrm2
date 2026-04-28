@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { PullToRefresh } from '@/components/shared/pull-to-refresh';
 import { useProduct, useProductMutations } from './hooks/use-products';
-import { useAllProducts } from './hooks/use-all-products';
+import { useProductFinder } from './hooks/use-all-products';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/auth-context';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Edit, Printer, RefreshCw, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video, ChevronDown, DollarSign, Package2, FileText, Flag, ExternalLink, Unlink, Layers, Info, Image, Upload, MoreHorizontal } from 'lucide-react';
+import { Edit, Printer, RefreshCw, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video, ChevronDown, DollarSign, Package2, FileText, Flag, ExternalLink, Unlink, Layers, Info, ImageIcon, Upload, MoreHorizontal } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
 import {
   DropdownMenu,
@@ -44,6 +44,8 @@ const Comments = dynamic(
 );
 
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
+import { useEmployeeFinder } from '../employees/hooks/use-employee-finder';
+import { useInventoryReceiptsByProduct } from '../inventory-receipts/hooks/use-inventory-receipts';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useProductStockHistory } from '../stock-history/hooks/use-stock-history';
 import { getStockHistoryColumns } from '../stock-history/columns';
@@ -54,12 +56,6 @@ import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { MobileCard, MobileCardBody, MobileCardHeader } from '@/components/mobile/mobile-card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
-import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
-import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
-import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
-import { useAllInventoryChecks } from '../inventory-checks/hooks/use-all-inventory-checks';
-import { useAllStockTransfers } from '../stock-transfers/hooks/use-all-stock-transfers';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { calculateComboStock, isComboProduct } from './combo-utils';
 import { StockAlertBadges } from './components/stock-alert-badges';
@@ -134,10 +130,8 @@ export function ProductDetailPage() {
   // ✅ React Query hooks - fetch product first
   const { data: productFromQuery, isLoading } = useProduct(systemId);
   
-  // ✅ OPTIMIZED: Only fetch all products when current product is a combo
-  // This avoids loading 1000+ products for non-combo products
-  const isCombo = productFromQuery?.type === 'combo';
-  const { data: allProducts = [] } = useAllProducts({ enabled: isCombo });
+  // Use cache-only finder - data is available if any other component has loaded all products
+  const { findById: findProductById } = useProductFinder();
   
   const { remove: removeMutation } = useProductMutations({
     onDeleteSuccess: () => {
@@ -152,20 +146,14 @@ export function ProductDetailPage() {
     onError: (err) => toast.error(err.message || 'Xóa sản phẩm thất bại'),
   });
   
-  const findProductById = useCallback((id: string) => 
-    allProducts.find(p => p.systemId === id), 
-  [allProducts]);
   
   const { findById: findSupplierById } = useSupplierFinder();
   const { data: pricingPolicies } = useAllPricingPolicies();
   // Stock history now fetched from API instead of Zustand store
   const { data: branches } = useAllBranches();
-  const { data: _allPurchaseOrders } = useAllPurchaseOrders();
-  const { data: allInventoryReceipts } = useAllInventoryReceipts();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { data: _allWarranties } = useAllWarranties();
-  const { data: _allInventoryChecks } = useAllInventoryChecks();
-  const { data: _allStockTransfers } = useAllStockTransfers();
+  // Fetch inventory receipts for this product only (server-side filter)
+  const { data: inventoryReceiptsForProduct } = useInventoryReceiptsByProduct(productSystemId);
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findCategoryById } = useCategoryFinder();
   const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
@@ -312,7 +300,7 @@ export function ProductDetailPage() {
     const history: PriceHistoryEntry[] = [];
 
     // Add history from Inventory Receipts
-    allInventoryReceipts.forEach(receipt => {
+    inventoryReceiptsForProduct.forEach(receipt => {
       // Filter by branch
       if (priceHistoryBranchFilter !== 'all' && receipt.branchSystemId !== priceHistoryBranchFilter) {
         return;
@@ -425,7 +413,7 @@ export function ProductDetailPage() {
     }
 
     return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [allInventoryReceipts, productSystemId, product?.unit, priceHistoryBranchFilter, product?.pkgxId, product?.createdAt, branches, product?.id, product?.name, product?.costPrice, createdByEmployee]);
+  }, [inventoryReceiptsForProduct, productSystemId, product?.unit, priceHistoryBranchFilter, product?.pkgxId, product?.createdAt, branches, product?.id, product?.name, product?.costPrice, createdByEmployee]);
 
   const stockHistoryColumns = useMemo(() => 
     getStockHistoryColumns(),
@@ -590,7 +578,7 @@ export function ProductDetailPage() {
             `Bạn có chắc muốn đồng bộ hình ảnh (thumbnail, gallery) của "${product.name}" lên PKGX?`,
             () => handlePkgxSyncImages(product)
           )}>
-            <Image className="mr-2 h-4 w-4" />
+            <ImageIcon className="mr-2 h-4 w-4" />
             Hình ảnh
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -708,7 +696,7 @@ export function ProductDetailPage() {
         { label: 'Sync SEO', icon: <Globe className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync SEO', `Đồng bộ SEO "${product.name}" lên PKGX?`, () => handlePkgxUpdateSeo(product)) },
         { label: 'Sync mô tả', icon: <FileText className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync mô tả', `Đồng bộ mô tả "${product.name}" lên PKGX?`, () => handlePkgxSyncDescription(product)) },
         { label: 'Sync flags', icon: <Flag className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync flags', `Đồng bộ flags "${product.name}" lên PKGX?`, () => handlePkgxSyncFlags(product)) },
-        { label: 'Sync hình ảnh', icon: <Image className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync hình ảnh', `Đồng bộ hình ảnh "${product.name}" lên PKGX?`, () => handlePkgxSyncImages(product)) },
+        { label: 'Sync hình ảnh', icon: <ImageIcon className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync hình ảnh', `Đồng bộ hình ảnh "${product.name}" lên PKGX?`, () => handlePkgxSyncImages(product)) },
         { label: 'Xem trên web', icon: <ExternalLink className="mr-2 h-4 w-4" />, onClick: () => window.open(`https://phukiengiaxuong.com.vn/product/${product.pkgxId}`, '_blank') },
         { label: 'Hủy liên kết PKGX', icon: <Unlink className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Hủy liên kết PKGX', `Hủy liên kết sản phẩm "${product.name}" với PKGX?`, () => handlePkgxUnlink(product)), destructive: true },
       );
@@ -748,10 +736,10 @@ export function ProductDetailPage() {
     if (!product || !isComboProduct(product)) return 0;
     let total = 0;
     branches.forEach(branch => {
-      total += calculateComboStock(product.comboItems || [], allProducts, branch.systemId);
+      total += calculateComboStock(product.comboItems || [], findProductById, branch.systemId);
     });
     return total;
-  }, [product, allProducts, branches]);
+  }, [product, findProductById, branches]);
 
   // Determine stock alerts for header
   const stockAlerts = useMemo(() => {
@@ -1274,7 +1262,7 @@ export function ProductDetailPage() {
             {isComboProduct(product) && (
               <TabsContent value="combo" className="mt-4">
                 <ComboItemsCard product={product} pricingPolicies={pricingPolicies} onImagePreview={(url) => { setPreviewImages([url]); setPreviewIndex(0); setIsPreviewOpen(true); }} />
-                <ComboLowStockWarning product={product} allProducts={allProducts} />
+                <ComboLowStockWarning product={product} findById={findProductById} />
               </TabsContent>
             )}
         </Tabs>
@@ -1292,7 +1280,7 @@ export function ProductDetailPage() {
               {/* Sub-tab: Tồn kho theo chi nhánh */}
               <TabsContent value="inventory" className="mt-4">
                 {product.type === 'combo' ? (
-                  <ComboInventoryCard product={product} branches={branches} allProducts={allProducts}
+                  <ComboInventoryCard product={product} branches={branches} findById={findProductById}
                     onCommittedClick={(b) => { setSelectedBranch({ systemId: b.systemId, name: b.name }); setCommittedDialogOpen(true); }}
                     onInTransitClick={(b) => { setInTransitBranch({ systemId: b.systemId, name: b.name }); setInTransitDialogOpen(true); }}
                   />

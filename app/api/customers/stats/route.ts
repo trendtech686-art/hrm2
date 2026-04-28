@@ -5,12 +5,14 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { apiSuccess } from '@/lib/api-utils'
+import { apiSuccess, apiError } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = apiHandler(async () => {
+  try {
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     const now = new Date()
     const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
@@ -124,4 +126,8 @@ export const GET = apiHandler(async () => {
       newCustomersThisMonth,
       deletedCount,
     })
+  } catch (error) {
+    logError('[customers/stats] Failed to fetch customer stats', error)
+    return apiError('Failed to fetch customer statistics', 500)
+  }
 })

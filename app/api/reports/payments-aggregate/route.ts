@@ -285,4 +285,4 @@ export const GET = apiHandler(async (request) => {
     logError('[reports/payments-aggregate]', e)
     return apiError('Không thể tạo báo cáo thanh toán', 500)
   }
-})
+}, { auth: true })

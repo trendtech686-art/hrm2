@@ -19,7 +19,20 @@ export async function POST(_request: Request, { params }: RouteParams) {
     // Get the packaging
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: { order: true },
+      select: {
+        systemId: true,
+        orderId: true,
+        order: {
+          select: {
+            systemId: true,
+            id: true,
+            status: true,
+            grandTotal: true,
+            linkedSalesReturnValue: true,
+            branchId: true,
+          },
+        },
+      },
     });
 
     if (!packaging) {
@@ -94,16 +107,68 @@ export async function POST(_request: Request, { params }: RouteParams) {
           deliveryStatus: 'DELIVERED', // ✅ Use enum value, not Vietnamese
           ...(completedDate && { completedDate }),
         },
-        include: {
-          customer: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          grandTotal: true,
+          customerId: true,
+          branchId: true,
+          salespersonId: true,
           lineItems: {
-            include: { product: true },
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                },
+              },
+            },
           },
-          payments: true,
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              amount: true,
+              method: true,
+              date: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  status: true,
+                  trackingCode: true,
+                },
+              },
+            },
+          },
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
             },
           },
         },

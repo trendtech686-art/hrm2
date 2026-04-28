@@ -32,9 +32,23 @@ export const POST = apiHandler(async (request, { session, params }) => {
     // Fetch purchase order
     const po = await prisma.purchaseOrder.findUnique({
       where: { systemId },
-      include: {
-        items: true,
-        supplier: true,
+      select: {
+        systemId: true,
+        id: true,
+        supplierId: true,
+        status: true,
+        branchSystemId: true,
+        buyerSystemId: true,
+        supplier: {
+          select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+        },
+        items: {
+          select: {
+            systemId: true,
+            productId: true,
+            quantity: true,
+          },
+        },
       },
     })
 
@@ -54,7 +68,7 @@ export const POST = apiHandler(async (request, { session, params }) => {
       // Get already received quantities from linked inventory receipts
       const receipts = await prisma.inventoryReceipt.findMany({
         where: { purchaseOrderSystemId: systemId, status: 'CONFIRMED' },
-        include: { items: { select: { productId: true, quantity: true } } },
+        select: { items: { select: { productId: true, quantity: true } } },
       });
       const receivedQtyMap = new Map<string, number>();
       for (const r of receipts) {
@@ -114,9 +128,20 @@ export const POST = apiHandler(async (request, { session, params }) => {
       data: {
         status: 'CANCELLED',
       },
-      include: {
-        items: true,
-        supplier: true,
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        items: {
+          select: {
+            systemId: true,
+            productId: true,
+            quantity: true,
+          },
+        },
+        supplier: {
+          select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+        },
       },
     })
 

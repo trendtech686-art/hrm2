@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiPaginated } from '@/lib/api-utils'
+import { parsePagination } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 
 /**
  * GET /api/attendance/employee-summary?employeeId=X
@@ -20,6 +22,9 @@ export async function GET(request: Request) {
     if (!employeeId) {
       return apiError('employeeId is required', 400)
     }
+
+    const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
 
     // Use raw SQL for efficient server-side grouping by month
     const monthlyData = await prisma.$queryRaw<Array<{
@@ -46,7 +51,18 @@ export async function GET(request: Request) {
         OR "employeeSystemId" = ${employeeId}
       GROUP BY to_char(date, 'YYYY-MM')
       ORDER BY month_key DESC
+      LIMIT ${safeLimit}
+      OFFSET ${skip}
     `
+
+    // Get total count for pagination
+    const countResult = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(DISTINCT to_char(date, 'YYYY-MM')) as count
+      FROM attendance_records
+      WHERE "employeeId" = ${employeeId}
+        OR "employeeSystemId" = ${employeeId}
+    `
+    const total = Number(countResult[0]?.count ?? 0)
 
     const summaries = monthlyData.map(row => ({
       monthKey: row.month_key,
@@ -59,7 +75,7 @@ export async function GET(request: Request) {
       recordCount: Number(row.record_count),
     }))
 
-    return apiSuccess(summaries)
+    return apiPaginated(summaries, { page, limit, total })
   } catch (error) {
     logError('[API] Error fetching employee attendance summary', error)
     return apiError('Failed to fetch attendance summary', 500)

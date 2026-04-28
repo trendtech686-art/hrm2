@@ -110,7 +110,32 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy,
-        include: {
+        select: {
+          // Warranty scalar fields
+          systemId: true, id: true, trackingCode: true, publicTrackingCode: true,
+          productId: true, orderId: true, customerId: true,
+          productName: true, customerName: true, customerPhone: true, customerEmail: true, customerAddress: true,
+          serialNumber: true, title: true, description: true, issueDescription: true, notes: true,
+          status: true, priority: true, isUnderWarranty: true,
+          purchaseDate: true, startedAt: true, warrantyExpireDate: true,
+          receivedAt: true, completedAt: true, returnedAt: true,
+          branchSystemId: true, branchName: true,
+          employeeSystemId: true, employeeName: true,
+          assigneeId: true,
+          diagnosis: true, solution: true,
+          shippingFee: true, referenceUrl: true, externalReference: true,
+          receivedImages: true, processedImages: true,
+          products: true, settlement: true, settlementStatus: true,
+          summary: true, history: true, comments: true, subtasks: true,
+          linkedOrderSystemId: true, replacementProductSystemId: true, replacementQuantity: true,
+          partsCost: true, laborCost: true, totalCost: true,
+          images: true,
+          cancelReason: true, cancelledAt: true,
+          processingStartedAt: true, processedAt: true,
+          stockDeducted: true,
+          statusReason: true,
+          isDeleted: true, createdAt: true, updatedAt: true,
+          // Relations
           product: {
             select: { systemId: true, id: true, name: true, imageUrl: true },
           },
@@ -235,34 +260,34 @@ export async function POST(request: Request) {
           startedAt: body.startDate ? new Date(body.startDate) : undefined,
           warrantyExpireDate: body.endDate ? new Date(body.endDate) : undefined,
           solution: body.solution,
-          
+
           // ===== ADDITIONAL FIELDS =====
           // Shipping & external refs
           shippingFee: body.shippingFee,
           referenceUrl: body.referenceUrl,
           externalReference: body.externalReference,
-          
+
           // Images
           receivedImages: body.receivedImages || [],
           processedImages: body.processedImages || [],
-          
+
           // Products (JSON array)
           products: body.products || [],
-          
+
           // Settlement (JSON object)
           settlement: body.settlement,
           settlementStatus: body.settlementStatus || 'pending',
-          
+
           // Summary (JSON object)
           summary: body.summary,
-          
+
           // History & comments (JSON arrays)
           history: body.history || [],
           comments: body.comments || [],
-          
+
           // Subtasks
           subtasks: body.subtasks || [],
-          
+
           // Order linking
           linkedOrderSystemId: body.linkedOrderSystemId,
 
@@ -274,12 +299,40 @@ export async function POST(request: Request) {
           createdBy: body.createdBy || session.user?.email || 'system',
           createdBySystemId: body.createdBySystemId || session.user?.id,
         },
-        include: {
+        select: {
+          // Warranty scalar fields
+          systemId: true, id: true, trackingCode: true, publicTrackingCode: true,
+          productId: true, orderId: true, customerId: true,
+          productName: true, customerName: true, customerPhone: true, customerEmail: true, customerAddress: true,
+          serialNumber: true, title: true, description: true, issueDescription: true, notes: true,
+          status: true, priority: true, isUnderWarranty: true,
+          purchaseDate: true, startedAt: true, warrantyExpireDate: true,
+          receivedAt: true, completedAt: true, returnedAt: true,
+          branchSystemId: true, branchName: true,
+          employeeSystemId: true, employeeName: true,
+          assigneeId: true,
+          diagnosis: true, solution: true,
+          shippingFee: true, referenceUrl: true, externalReference: true,
+          receivedImages: true, processedImages: true,
+          products: true, settlement: true, settlementStatus: true,
+          summary: true, history: true, comments: true, subtasks: true,
+          linkedOrderSystemId: true, replacementProductSystemId: true, replacementQuantity: true,
+          partsCost: true, laborCost: true, totalCost: true,
+          images: true,
+          cancelReason: true, cancelledAt: true,
+          processingStartedAt: true, processedAt: true,
+          stockDeducted: true,
+          statusReason: true,
+          isDeleted: true, createdAt: true, updatedAt: true,
+          // Relations
           product: {
             select: { systemId: true, id: true, name: true, imageUrl: true },
           },
           customers: {
             select: { systemId: true, id: true, name: true, phone: true },
+          },
+          order: {
+            select: { systemId: true, id: true },
           },
         },
       })

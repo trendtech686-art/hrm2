@@ -1,6 +1,15 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiPaginated, apiError } from '@/lib/api-utils'
+import { parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { logError } from '@/lib/logger'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
+import { z } from 'zod'
+
+// Query validation schema
+const employeeHistoryQuerySchema = z.object({
+  employeeId: z.string().min(1, 'employeeId is required'),
+})
 
 /**
  * GET /api/payroll/employee-history?employeeId=X
@@ -10,43 +19,73 @@ import { logError } from '@/lib/logger'
  *   ❌ payrollPayslips.filter(slip => slip.employeeSystemId === id)
  *   ✅ GET /api/payroll/employee-history?employeeId=X
  */
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url)
-    const employeeId = searchParams.get('employeeId')
 
-    if (!employeeId) {
-      return apiError('employeeId is required', 400)
+    const validation = employeeHistoryQuerySchema.safeParse({
+      employeeId: searchParams.get('employeeId'),
+    })
+    if (!validation.success) {
+      return apiError(validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '), 400)
     }
 
-    const items = await prisma.payrollItem.findMany({
-      where: { employeeId },
-      orderBy: { payroll: { year: 'desc' } },
-      include: {
-        payroll: {
-          select: {
-            systemId: true,
-            id: true,
-            year: true,
-            month: true,
-            status: true,
-            processedAt: true,
-            paidAt: true,
-            createdAt: true,
+    const { employeeId } = validation.data
+
+    const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
+
+    const [items, total] = await Promise.all([
+      prisma.payrollItem.findMany({
+        where: { employeeId },
+        orderBy: { payroll: { year: 'desc' } },
+        skip,
+        take: safeLimit,
+        select: {
+          systemId: true,
+          employeeId: true,
+          employeeName: true,
+          employeeCode: true,
+          baseSalary: true,
+          otPay: true,
+          allowances: true,
+          bonus: true,
+          grossSalary: true,
+          socialInsurance: true,
+          healthInsurance: true,
+          unemploymentIns: true,
+          tax: true,
+          otherDeductions: true,
+          totalDeductions: true,
+          netSalary: true,
+          workDays: true,
+          otHours: true,
+          leaveDays: true,
+          notes: true,
+          payrollId: true,
+          payroll: {
+            select: {
+              systemId: true,
+              id: true,
+              year: true,
+              month: true,
+              status: true,
+              processedAt: true,
+              paidAt: true,
+              createdAt: true,
+            },
+          },
+          employee: {
+            select: {
+              systemId: true,
+              id: true,
+              fullName: true,
+            },
           },
         },
-        employee: {
-          select: {
-            systemId: true,
-            id: true,
-            fullName: true,
-          },
-        },
-      },
-    })
+      }),
+      prisma.payrollItem.count({ where: { employeeId } }),
+    ])
 
     // Transform to a shape compatible with the detail page's PayrollHistoryRow
     const history = items.map((item) => {
@@ -98,9 +137,9 @@ export async function GET(request: Request) {
     // Sort by date descending (newest first)
     history.sort((a, b) => new Date(b.payrollDate).getTime() - new Date(a.payrollDate).getTime())
 
-    return apiSuccess(history)
+    return apiPaginated(history, { page, limit, total })
   } catch (error) {
     logError('[API] Error fetching employee payroll history', error)
     return apiError('Failed to fetch payroll history', 500)
   }
-}
+}, { auth: true, rateLimit: { max: 120, windowMs: 60_000 } })

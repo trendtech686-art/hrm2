@@ -25,12 +25,12 @@ import { PayrollStatusBadge } from './components/status-badge';
 import { PayslipDataTable, type PayslipRow, type PayslipActions } from './components/payslip-data-table';
 import { PayslipEditDialog, type PayslipUpdatePayload } from './components/payslip-edit-dialog';
 import { CreatePaymentDialog } from './components/create-payment-dialog';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useDepartments } from '../settings/departments/hooks/use-departments';
 import { usePayments } from '../payments/hooks/use-payments';
 import { usePenalties } from '../settings/penalties/hooks/use-penalties';
 import type { PayrollAuditLog, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
-import { asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import {
@@ -246,7 +246,15 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
   type BatchWithItems = PayrollBatch & { items?: Payslip[]; auditLogs?: PayrollAuditLog[] };
   const payslips = React.useMemo(() => (batch as BatchWithItems | undefined)?.items ?? [], [batch]);
   const templates = useAllPayrollTemplates();
-  const { data: employees } = useAllEmployees({ enabled: false });
+  // Employee search for lookup (department, position names)
+  const [employeeSearch, setEmployeeSearch] = React.useState('');
+  const [debouncedEmployeeSearch, setDebouncedEmployeeSearch] = React.useState('');
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEmployeeSearch(employeeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
+  const { data: employeesResult } = useMeiliEmployeeSearch({ query: debouncedEmployeeSearch, limit: 100 });
+  const employees = React.useMemo(() => employeesResult?.data ?? [], [employeesResult?.data]);
   const { data: departmentsData } = useDepartments();
   const departments = React.useMemo(() => departmentsData?.data ?? [], [departmentsData?.data]);
 
@@ -296,10 +304,10 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
       return {
         systemId: payslip.systemId,
         employeeSystemId: payslip.employeeSystemId,
-        employeeId: employee?.id ?? payslip.employeeId,
+        employeeId: asBusinessId(employee?.id ?? payslip.employeeId), // ✅ Cast to BusinessId
         employeeName: employee?.fullName ?? `Nhân viên ${payslip.employeeId}`,
         departmentName: departmentName ?? employee?.department ?? '—',
-        positionName: employee?.positionName,
+        positionName: employee?.position ?? undefined,
         totals: payslip.totals,
       } satisfies PayslipRow;
     });
@@ -340,7 +348,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
         ? departmentLookup[slip.departmentSystemId]?.name
         : employee?.department;
       return {
-        employeeId: employee?.id ?? slip.employeeId,
+        employeeId: asBusinessId(employee?.id ?? slip.employeeId), // ✅ Cast to BusinessId
         employeeName: employee?.fullName ?? `Nhân viên ${slip.employeeId}`,
         departmentName: departmentName ?? 'Không xác định',
         earnings: slip.totals.earnings,
@@ -707,7 +715,7 @@ export function PayrollDetailPage() {
           id: employee.id,
           fullName: employee.fullName,
           department: departmentName,
-          position: employee.positionName,
+          position: employee.position ?? undefined,
         } : undefined,
         departmentName,
       }
@@ -936,7 +944,7 @@ export function PayrollDetailPage() {
               id: employee.id,
               fullName: employee.fullName,
               department: departmentName,
-              position: employee.positionName,
+              position: employee.position ?? undefined,
             } : undefined,
             departmentName,
           }

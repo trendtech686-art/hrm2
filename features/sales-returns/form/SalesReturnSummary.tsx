@@ -16,8 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 
-import { useOrderFinder } from '@/features/orders/hooks/use-all-orders';
-import { useAllSalesReturns } from '../hooks/use-all-sales-returns';
+import { useOrderFinder } from '@/features/orders/hooks/use-orders';
+import { useSalesReturnsByOrder } from '../hooks/use-sales-returns';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllPaymentMethods } from '@/features/settings/payments/hooks/use-all-payment-methods';
 
@@ -47,7 +47,6 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
   // Stores
   const { findById: findOrder } = useOrderFinder();
   const order = findOrder(systemId!);
-  const { data: allSalesReturns } = useAllSalesReturns();
   const { accounts } = useAllCashAccounts();
   const { data: paymentMethodsData } = useAllPaymentMethods();
 
@@ -121,10 +120,15 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
     return order.payments.reduce((sum, p) => sum + p.amount, 0);
   }, [order]);
 
+  const { order } = useOrderFinder();
+  
+  // Fetch sales returns for this order only (server-side filter)
+  const { data: salesReturnsForOrder } = useSalesReturnsByOrder(order?.systemId);
+  
   const previousReturnsForOrder = React.useMemo(() => {
     if (!order) return [];
-    return allSalesReturns.filter((sr) => sr.orderSystemId === order.systemId);
-  }, [order, allSalesReturns]);
+    return salesReturnsForOrder.filter((sr) => sr.orderSystemId === order.systemId);
+  }, [order, salesReturnsForOrder]);
 
   const totalReturnedValuePreviously = React.useMemo(() => {
     return previousReturnsForOrder.reduce((sum, sr) => sum + sr.totalReturnValue, 0);

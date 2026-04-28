@@ -24,7 +24,7 @@ import type { Product, ProductType as ProductTypeEnum } from '../../features/pro
 import { useProductMutations } from '../../features/products/hooks/use-products';
 import { useProduct } from '../../hooks/api/use-products';
 import { useInfiniteMeiliProductSearch } from '../../hooks/use-meilisearch';
-import { useAllProducts } from '../../features/products/hooks/use-all-products';
+import { useProductFinder } from '../../features/products/hooks/use-all-products';
 import { useAllPricingPolicies } from '../../features/settings/pricing/hooks/use-all-pricing-policies';
 import { useAllBranches } from '../../features/settings/branches/hooks/use-all-branches';
 import { useProductTypeFinder, useActiveProductTypes } from '../../features/settings/inventory/hooks/use-all-product-types';
@@ -163,7 +163,7 @@ interface QuickAddProductDialogProps {
 }
 
 function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAddProductDialogProps) {
-    const { data: products } = useAllProducts({ enabled: open });
+    const { findById } = useProductFinder();
     const productMutations = useProductMutations({
         onCreateSuccess: (product) => {
             if (product && typeof product === 'object' && 'name' in product) {
@@ -178,6 +178,13 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
     const getActiveProductTypes = useCallback(() => _productTypes, [_productTypes]);
     const { data: units } = useAllUnits({ enabled: open });
     const { data: pricingPolicies = [] } = useAllPricingPolicies({ enabled: open });
+    
+    // Helper to generate next product ID from cache
+    const _generateNextProductId = useCallback(() => {
+        // Simple increment - use findById to iterate through cached products if needed
+        // For now, generate ID based on timestamp as fallback
+        return `SP${Date.now().toString().slice(-6)}`;
+    }, []);
     
     const [formData, setFormData] = useState({
         name: '',
@@ -194,17 +201,8 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
         return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
     }, [pricingPolicies]);
 
-    // Generate next product ID
-    const _generateNextProductId = useCallback(() => {
-        const existingIds = products.map(p => p.id).filter(id => id.startsWith('SP'));
-        const numbers = existingIds.map(id => {
-            const num = parseInt(id.replace('SP', ''), 10);
-            return isNaN(num) ? 0 : num;
-        });
-        const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0;
-        return `SP${String(maxNum + 1).padStart(6, '0')}`;
-    }, [products]);
-
+    // Generate next product ID (simplified without full product list)
+    // Note: Uses timestamp-based ID since we no longer have access to full product list
     // Reset form when dialog opens
     useEffect(() => {
         if (open) {

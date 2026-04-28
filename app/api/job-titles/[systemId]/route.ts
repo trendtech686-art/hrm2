@@ -18,7 +18,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const jobTitle = await prisma.jobTitle.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        isDeleted: true,
+        createdAt: true,
+        updatedAt: true,
         employees: {
           where: { isDeleted: false },
           take: 10,
@@ -27,7 +35,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
             id: true,
             fullName: true,
             avatar: true,
-            department: true,
+            department: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         _count: { select: { employees: true } },

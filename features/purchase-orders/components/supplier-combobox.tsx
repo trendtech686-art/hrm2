@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
-import { useActiveSuppliers } from "../../suppliers/hooks/use-all-suppliers";
+import { useMeiliSupplierSearch } from "../../../hooks/use-meilisearch";
+import type { SupplierSearchResult } from "../../../hooks/use-meilisearch";
 import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { QuickAddSupplierDialog } from "../../suppliers/components/quick-add-supplier-dialog";
@@ -24,8 +25,17 @@ export function SupplierCombobox({
   // Lazy load: only fetch when combobox opens OR when we have a value to display
   const [hasOpened, setHasOpened] = React.useState(false);
   const shouldLoad = hasOpened || !!value;
-  
-  const { data: activeSuppliers, isLoading } = useActiveSuppliers({ enabled: shouldLoad });
+
+  // Use Meilisearch for supplier search
+  // Pass 'a' as query to get all active suppliers (Meilisearch needs non-empty query)
+  const { data: searchResult, isLoading } = useMeiliSupplierSearch({
+    query: 'a',
+    limit: 100,
+    enabled: shouldLoad,
+    filters: { isActive: true },
+  });
+  const activeSuppliers: SupplierSearchResult[] = searchResult?.data || [];
+
   const [showAddDialog, setShowAddDialog] = React.useState(false);
 
   const handleOpenChange = React.useCallback((open: boolean) => {
@@ -34,7 +44,7 @@ export function SupplierCombobox({
     }
   }, [hasOpened]);
 
-  // Find selected supplier
+  // Find selected supplier by systemId
   const selectedSupplier = React.useMemo(
     () => activeSuppliers.find((s) => (value ? s.systemId === value : false)),
     [activeSuppliers, value]
@@ -49,7 +59,7 @@ export function SupplierCombobox({
     };
 
     const supplierOptions: ComboboxOption[] = activeSuppliers.map((s) => ({
-      value: s.systemId,
+      value: s.systemId, // Use systemId as value
       label: s.name,
       subtitle: `${s.id}${s.phone ? ' • ' + s.phone : ''}`,
     }));

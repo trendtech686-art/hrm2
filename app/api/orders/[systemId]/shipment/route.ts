@@ -1,13 +1,21 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { z } from 'zod'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
 }
+
+// Validation schema for creating shipment
+const createShipmentSchema = z.object({
+  provider: z.string().optional(),
+  serviceType: z.string().optional(),
+  packagingId: z.string().optional(),
+})
 
 // GET /api/orders/[systemId]/shipment - Get shipment for order
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -21,8 +29,60 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: {
         orderId: systemId,
       },
-      include: {
-        packaging: true,
+      select: {
+        systemId: true,
+        id: true,
+        trackingCode: true,
+        orderId: true,
+        warrantyId: true,
+        carrier: true,
+        status: true,
+        recipientName: true,
+        recipientPhone: true,
+        recipientAddress: true,
+        shippingFee: true,
+        codAmount: true,
+        insuranceFee: true,
+        weight: true,
+        createdAt: true,
+        pickedAt: true,
+        deliveredAt: true,
+        returnedAt: true,
+        notes: true,
+        failReason: true,
+        updatedAt: true,
+        createdBy: true,
+        trackingNumber: true,
+        packagingSystemId: true,
+        orderSystemId: true,
+        orderBusinessId: true,
+        packaging: {
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            warrantyId: true,
+            sourceType: true,
+            branchId: true,
+            employeeId: true,
+            packDate: true,
+            status: true,
+            totalItems: true,
+            packedItems: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true,
+            createdBy: true,
+            requestDate: true,
+            confirmDate: true,
+            cancelDate: true,
+            deliveredDate: true,
+            requestingEmployeeId: true,
+            requestingEmployeeName: true,
+            confirmingEmployeeId: true,
+            confirmingEmployeeName: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -41,18 +101,68 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     const { systemId } = await params;
-    const body = await request.json();
+    
+    // Validate request body with Zod schema
+    const validation = await validateBody(request, createShipmentSchema)
+    if (!validation.success) {
+      return apiError(validation.error, 400)
+    }
+    const body = validation.data
     const { provider, serviceType: _serviceType, packagingId } = body;
     
 
     // Get the order with packaging - look for non-cancelled packagings
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        paymentStatus: true,
+        deliveryStatus: true,
+        salespersonId: true,
+        customerId: true,
+        customerName: true,
+        grandTotal: true,
+        paidAmount: true,
+        customer: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
         packagings: {
-          where: { cancelDate: null },  // Only exclude cancelled packagings
+          where: { cancelDate: null },
           orderBy: { createdAt: 'desc' },
           take: 1,
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            requestDate: true,
+            confirmDate: true,
+            cancelDate: true,
+            deliveredDate: true,
+            status: true,
+            deliveryStatus: true,
+            deliveryMethod: true,
+            printStatus: true,
+            carrier: true,
+            service: true,
+            trackingCode: true,
+            shippingFeeToPartner: true,
+            codAmount: true,
+            payer: true,
+            noteToShipper: true,
+            weight: true,
+            dimensions: true,
+            assignedEmployeeId: true,
+            assignedEmployeeName: true,
+            createdBy: true,
+            createdAt: true,
+          },
         },
       },
     });
@@ -112,17 +222,82 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const updated = await tx.order.update({
         where: { systemId },
         data: { status: 'SHIPPING' },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
-          },
-          payments: true,
-          packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          salespersonId: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
             },
+          },
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              tax: true,
+              total: true,
+              note: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              date: true,
+              method: true,
+              amount: true,
+              description: true,
+              createdBy: true,
+            },
+          },
+          packagings: {
+            select: {
+              systemId: true,
+              id: true,
+              orderId: true,
+              status: true,
+              packDate: true,
+              totalItems: true,
+              packedItems: true,
+              cancelDate: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
+            },
+            where: { cancelDate: null },
+            orderBy: { createdAt: 'desc' },
           },
         },
       });

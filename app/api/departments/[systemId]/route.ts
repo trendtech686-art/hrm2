@@ -18,9 +18,33 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const department = await prisma.department.findUnique({
       where: { systemId },
-      include: {
-        parent: true,
-        children: true,
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        parentId: true,
+        isActive: true,
+        isDeleted: true,
+        createdAt: true,
+        updatedAt: true,
+        parent: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
+        children: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            description: true,
+            parentId: true,
+            isActive: true,
+          },
+        },
         employees: {
           where: { isDeleted: false },
           take: 10,
@@ -72,8 +96,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
         ...(body.parentId !== undefined && { parentId: body.parentId }),
         ...(body.isActive !== undefined && { isActive: body.isActive }),
       },
-      include: {
-        parent: true,
+      select: {
+        parent: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 

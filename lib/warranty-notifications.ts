@@ -47,8 +47,7 @@ function warrantyStatusLabel(status: string): string {
   const map: Record<string, string> = {
     RECEIVED: 'Đã tiếp nhận',
     PROCESSING: 'Đang xử lý',
-    WAITING_PARTS: 'Chờ linh kiện',
-    COMPLETED: 'Hoàn thành',
+    COMPLETED: 'Đã xử lý',
     RETURNED: 'Đã trả hàng',
     CANCELLED: 'Đã hủy',
   };

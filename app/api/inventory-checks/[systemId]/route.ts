@@ -3,7 +3,8 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils'
+import { updateInventoryCheckSchema, deleteInventoryCheckSchema } from '../validation'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
@@ -22,8 +23,42 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const inventoryCheck = await prisma.inventoryCheck.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        checkDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        branchSystemId: true,
+        branchName: true,
+        balancedAt: true,
+        balancedBy: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        cancelledReason: true,
+        linkedComplaintSystemId: true,
+        items: {
+          select: {
+            systemId: true,
+            checkId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productSku: true,
+            unit: true,
+            systemQty: true,
+            actualQty: true,
+            difference: true,
+            reason: true,
+            notes: true,
+          },
+        },
       },
     });
 
@@ -213,15 +248,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, updateInventoryCheckSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const body = validation.data;
+
   try {
     const { systemId } = await params;
-    const body = await request.json();
-
-    const {
-      status,
-      notes,
-      updatedBy,
-    } = body;
+    const { status, notes, updatedBy } = body;
 
     const inventoryCheck = await prisma.inventoryCheck.update({
       where: { systemId },
@@ -231,8 +266,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         ...(updatedBy !== undefined && { updatedBy }),
         updatedAt: new Date(),
       },
-      include: {
-        items: true,
+      select: {
+        systemId: true, id: true, status: true, notes: true, updatedAt: true,
+        createdBy: true, updatedBy: true, employeeId: true, branchId: true, branchSystemId: true,
+        createdAt: true, checkDate: true,
+        items: {
+          select: {
+            systemId: true, productId: true, productName: true, productSku: true,
+            systemQty: true, actualQty: true, difference: true, notes: true,
+          },
+        },
       },
     });
 
@@ -276,29 +319,22 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, deleteInventoryCheckSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const { hard } = validation.data;
+
   try {
     const { systemId } = await params;
-    const body = await request.json().catch(() => ({}));
-    const hard = body.hard === true;
 
-    if (hard) {
-      await prisma.inventoryCheckItem.deleteMany({
-        where: { checkId: systemId },
-      });
-      
-      await prisma.inventoryCheck.delete({
-        where: { systemId },
-      });
-    } else {
-      // InventoryCheck has no soft delete fields, use hard delete
-      await prisma.inventoryCheckItem.deleteMany({
-        where: { checkId: systemId },
-      });
-      
-      await prisma.inventoryCheck.delete({
-        where: { systemId },
-      });
-    }
+    await prisma.inventoryCheckItem.deleteMany({
+      where: { checkId: systemId },
+    });
+    
+    await prisma.inventoryCheck.delete({
+      where: { systemId },
+    });
 
     // Log activity
     getUserNameFromDb(session.user?.id).then(userName =>

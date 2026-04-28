@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: {
+        select: {
           order: {
             select: {
               systemId: true,

@@ -6,31 +6,30 @@ import { Badge } from '../../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Search, Unlink, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAllProducts } from '../../../products/hooks/use-all-products';
+import { useMeiliProductSearch } from '@/hooks/use-meilisearch';
 import { useTrendtechSettings, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 
 export function ProductMappingTab() {
-  const { data: allProducts } = useAllProducts();
-  const { data: settings } = useTrendtechSettings();
-  const { addLog } = useTrendtechLogMutations();
-  
+  // ✅ Use Meilisearch for product search with infinite scroll support
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   
+  const { data: productsData, isLoading: isLoadingProducts } = useMeiliProductSearch(searchTerm, {
+    debounceMs: 300,
+    enabled: true,
+  });
+  
+  const { data: settings } = useTrendtechSettings();
+  const { addLog } = useTrendtechLogMutations();
+  
+  // Flatten Meilisearch results
+  const allProducts = React.useMemo(() => (productsData?.data ?? []) as Array<(typeof productsData.data)[number] & { isDeleted?: boolean; trendtechId?: number | null; seoTrendtech?: { slug?: string } | null }>, [productsData]);
+
   // Get HRM products with/without Trendtech link
   const hrmProducts = React.useMemo(() => {
-    const products = (allProducts ?? []).filter(p => !p.isDeleted);
-    
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      return products.filter(
-        p => p.name.toLowerCase().includes(term) ||
-             p.id.toLowerCase().includes(term)
-      );
-    }
-    
+    const products = allProducts.filter(p => !p.isDeleted);
     return products;
-  }, [allProducts, searchTerm]);
+  }, [allProducts]);
 
   const linkedProducts = React.useMemo(
     () => hrmProducts.filter(p => p.trendtechId),
@@ -100,15 +99,15 @@ export function ProductMappingTab() {
         <CardContent>
           <div className="flex items-center gap-6">
             <div>
-              <p className="text-2xl font-bold text-green-600">{linkedProducts.length}</p>
+              <p className="text-2xl font-bold text-green-600">{isLoadingProducts ? '-' : linkedProducts.length}</p>
               <p className="text-sm text-muted-foreground">Đã liên kết</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-muted-foreground">{unlinkedProducts.length}</p>
+              <p className="text-2xl font-bold text-muted-foreground">{isLoadingProducts ? '-' : unlinkedProducts.length}</p>
               <p className="text-sm text-muted-foreground">Chưa liên kết</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">{hrmProducts.length}</p>
+              <p className="text-2xl font-bold">{isLoadingProducts ? '-' : hrmProducts.length}</p>
               <p className="text-sm text-muted-foreground">Tổng SP HRM</p>
             </div>
             
@@ -142,7 +141,12 @@ export function ProductMappingTab() {
             />
           </div>
 
-          {linkedProducts.length === 0 ? (
+          {isLoadingProducts ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+              <span className="text-muted-foreground">Đang tải sản phẩm...</span>
+            </div>
+          ) : linkedProducts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {searchTerm ? 'Không tìm thấy sản phẩm nào' : 'Chưa có sản phẩm nào được liên kết với Trendtech'}
             </div>

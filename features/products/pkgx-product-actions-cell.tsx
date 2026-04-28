@@ -8,7 +8,7 @@
  */
 
 import * as React from 'react';
-import { MoreHorizontal, RefreshCw, FileText, DollarSign, Package, Search, AlignLeft, Tag, Image, ExternalLink, Upload, Link2, Unlink } from 'lucide-react';
+import { MoreHorizontal, RefreshCw, FileText, DollarSign, Package, Search, AlignLeft, Tag, ImageIcon, ExternalLink, Upload, Link2, Unlink } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import type { Product } from '@/lib/types/prisma-extended';
@@ -219,7 +219,7 @@ function PkgxProductActionsCellInner({
                     )}
                     title="Hình ảnh đại diện (original_img) + Album ảnh (goods_gallery)"
                   >
-                    <Image className="mr-2 h-4 w-4" />
+                    <ImageIcon className="mr-2 h-4 w-4" />
                     Hình ảnh
                   </DropdownMenuItem>
                 )}

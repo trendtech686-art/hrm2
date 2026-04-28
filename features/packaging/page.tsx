@@ -40,7 +40,7 @@ import { usePrint } from '../../lib/use-print';
 import { convertToPackingForPrint, mapPackingToPrintData, mapPackingLineItems, createStoreSettings } from '../../lib/print/order-print-helper';
 import { asSystemId } from '../../lib/id-types';
 import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '../../hooks/use-column-visibility';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { bulkAssignPackagingAction } from '@/app/actions/order-actions';
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
 import { useFilterPresets } from '@/hooks/use-filter-presets';
@@ -106,7 +106,12 @@ export function PackagingPage() {
     const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
     const [assignRows, setAssignRows] = React.useState<PackagingSlip[]>([]);
     const [selectedEmployeeId, setSelectedEmployeeId] = React.useState('');
-    const { data: allEmployees } = useAllEmployees({ enabled: assignDialogOpen });
+    const { data: employeesData } = useMeiliEmployeeSearch({
+      query: '',
+      limit: 100,
+      debounceMs: 0,
+    });
+    const allEmployees = employeesData?.data || [];
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
     const defaultColumnVisibility = React.useMemo(() => {

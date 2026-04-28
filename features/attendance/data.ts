@@ -1,9 +1,16 @@
-import type { Employee } from '../employees/types';
 import type { DailyRecord, AttendanceDataRow, AnyAttendanceDataRow } from './types';
 import { getCurrentDate, getDayOfWeek } from '../../lib/date-utils';
 import type { EmployeeSettings } from '../settings/employees/types';
 import { recalculateSummary } from './utils';
-import { asSystemId } from '../../lib/id-types';
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
+
+// Minimal type for employee data needed by attendance
+type MinimalEmployeeData = {
+  systemId: string;
+  id: string;
+  fullName: string;
+  department?: string | null;
+};
 
 const DEFAULT_AUDIT_TIMESTAMP = '2025-01-01T08:00:00Z';
 const DEFAULT_AUDIT_AUTHOR = asSystemId('EMP000001');
@@ -26,14 +33,14 @@ const buildDefaultRecord = (day: Date, settings: EmployeeSettings): DailyRecord 
  * KHÔNG phải mock data - chỉ là cấu trúc khung với status 'absent' / 'weekend' / 'future'
  * Dữ liệu thực sẽ được import từ file Excel
  */
-export const generateEmptyAttendance = (employees: Employee[], year: number, month: number, settings: EmployeeSettings): AttendanceDataRow[] => {
+export const generateEmptyAttendance = (employees: MinimalEmployeeData[], year: number, month: number, settings: EmployeeSettings): AttendanceDataRow[] => {
   const daysInMonth = new Date(year, month, 0).getDate();
 
   return employees.map(emp => {
     const row: AnyAttendanceDataRow = {
-      systemId: emp.systemId,
-      employeeSystemId: emp.systemId,
-      employeeId: emp.id,
+      systemId: asSystemId(emp.systemId),
+      employeeSystemId: asSystemId(emp.systemId),
+      employeeId: asBusinessId(emp.id),
       fullName: emp.fullName,
       department: emp.department as AnyAttendanceDataRow['department'],
       createdAt: DEFAULT_AUDIT_TIMESTAMP,

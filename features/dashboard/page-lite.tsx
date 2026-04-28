@@ -139,22 +139,21 @@ interface DateRange {
 const fmt = (d: Date) => format(d, 'yyyy-MM-dd')
 const fmtDisplay = (d: Date) => format(d, 'dd/MM/yyyy')
 
-function getPresets(): Array<{ label: string; range: () => DateRange }> {
+function getPresets(today: Date): Array<{ label: string; range: () => DateRange }> {
   return [
-    { label: 'Hôm nay', range: () => { const today = new Date(); return { from: fmt(today), to: fmt(today), label: 'Hôm nay' } } },
-    { label: 'Hôm qua', range: () => { const today = new Date(); const d = subDays(today, 1); return { from: fmt(d), to: fmt(d), label: 'Hôm qua' } } },
-    { label: '7 ngày qua', range: () => { const today = new Date(); return { from: fmt(subDays(today, 6)), to: fmt(today), label: '7 ngày qua' } } },
-    { label: '30 ngày qua', range: () => { const today = new Date(); return { from: fmt(subDays(today, 29)), to: fmt(today), label: '30 ngày qua' } } },
-    { label: 'Tháng trước', range: () => { const today = new Date(); const m = subMonths(today, 1); return { from: fmt(startOfMonth(m)), to: fmt(endOfMonth(m)), label: 'Tháng trước' } } },
-    { label: 'Tháng này', range: () => { const today = new Date(); return { from: fmt(startOfMonth(today)), to: fmt(today), label: 'Tháng này' } } },
-    { label: 'Năm trước', range: () => { const today = new Date(); const y = subYears(today, 1); return { from: fmt(startOfYear(y)), to: fmt(endOfYear(y)), label: 'Năm trước' } } },
-    { label: 'Năm nay', range: () => { const today = new Date(); return { from: fmt(startOfYear(today)), to: fmt(today), label: 'Năm nay' } } },
+    { label: 'Hôm nay', range: () => ({ from: fmt(today), to: fmt(today), label: 'Hôm nay' }) },
+    { label: 'Hôm qua', range: () => { const d = subDays(today, 1); return { from: fmt(d), to: fmt(d), label: 'Hôm qua' } } },
+    { label: '7 ngày qua', range: () => ({ from: fmt(subDays(today, 6)), to: fmt(today), label: '7 ngày qua' }) },
+    { label: '30 ngày qua', range: () => ({ from: fmt(subDays(today, 29)), to: fmt(today), label: '30 ngày qua' }) },
+    { label: 'Tháng trước', range: () => { const m = subMonths(today, 1); return { from: fmt(startOfMonth(m)), to: fmt(endOfMonth(m)), label: 'Tháng trước' } } },
+    { label: 'Tháng này', range: () => ({ from: fmt(startOfMonth(today)), to: fmt(today), label: 'Tháng này' }) },
+    { label: 'Năm trước', range: () => { const y = subYears(today, 1); return { from: fmt(startOfYear(y)), to: fmt(endOfYear(y)), label: 'Năm trước' } } },
+    { label: 'Năm nay', range: () => ({ from: fmt(startOfYear(today)), to: fmt(today), label: 'Năm nay' }) },
   ]
 }
 
 // Helper to get default chart range - computed lazily inside component
-function getDefaultChartRange(): DateRange {
-  const today = new Date()
+function getDefaultChartRange(today: Date): DateRange {
   return {
     from: fmt(subDays(today, 6)),
     to: fmt(today),
@@ -163,8 +162,7 @@ function getDefaultChartRange(): DateRange {
 }
 
 // Helper to get default top product range - computed lazily inside component
-function getDefaultTopProductRange(): DateRange {
-  const today = new Date()
+function getDefaultTopProductRange(today: Date): DateRange {
   return {
     from: fmt(subDays(today, 6)),
     to: fmt(today),
@@ -234,9 +232,24 @@ export function DashboardPageLite(_props: DashboardPageLiteProps) {
 function AdminDashboard() {
   const router = useRouter()
   const [branchId, setBranchId] = React.useState<string | null>(null)
-  const [chartRange, setChartRange] = React.useState<DateRange>(getDefaultChartRange)
-  const [topProductRange, setTopProductRange] = React.useState<DateRange>(getDefaultTopProductRange)
+
+  // Client-only date for hydration safety
+  const [today, setToday] = React.useState<Date | null>(null)
+  React.useEffect(() => {
+    setToday(new Date())
+  }, [])
+
+  const [chartRange, setChartRange] = React.useState<DateRange>(() => getDefaultChartRange(today ?? new Date()))
+  const [topProductRange, setTopProductRange] = React.useState<DateRange>(() => getDefaultTopProductRange(today ?? new Date()))
   const [chartType, setChartType] = React.useState<ChartType>('bar')
+
+  // Update chart ranges when today is available
+  React.useEffect(() => {
+    if (today) {
+      setChartRange(getDefaultChartRange(today))
+      setTopProductRange(getDefaultTopProductRange(today))
+    }
+  }, [today])
 
   // KPI & main data query - không auto refetch
   const { data: branches = [] } = useAllBranches()
@@ -339,7 +352,7 @@ function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <BranchSelect branches={branches} value={branchId} onChange={setBranchId} />
-            <DateRangeSelect value={chartRange} onChange={setChartRange} />
+            <DateRangeSelect value={chartRange} onChange={setChartRange} today={today} />
             <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
               <SelectTrigger className="w-40 h-8">
                 <SelectValue />
@@ -403,7 +416,7 @@ function AdminDashboard() {
               Top sản phẩm
             </CardTitle>
             <div className="flex items-center gap-2">
-              <DateRangeSelect value={topProductRange} onChange={setTopProductRange} />
+              <DateRangeSelect value={topProductRange} onChange={setTopProductRange} today={today} />
               <Button
                 variant="ghost"
                 size="sm"
@@ -906,15 +919,20 @@ function BranchSelect({
 function DateRangeSelect({
   value,
   onChange,
+  today,
 }: {
   value: DateRange
   onChange: (v: DateRange) => void
+  today: Date | null
 }) {
   const [open, setOpen] = React.useState(false)
   const [showCustom, setShowCustom] = React.useState(false)
   const [customFrom, setCustomFrom] = React.useState(value.from)
   const [customTo, setCustomTo] = React.useState(value.to)
-  const presets = React.useMemo(() => getPresets(), [])
+  const presets = React.useMemo(
+    () => today ? getPresets(today) : [],
+    [today]
+  )
 
   const handlePreset = (preset: ReturnType<typeof getPresets>[number]) => {
     const range = preset.range()

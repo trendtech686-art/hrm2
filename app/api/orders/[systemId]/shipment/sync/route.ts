@@ -1,14 +1,20 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { loadGHTKConfig, fetchGHTKOrderStatus, updatePackagingFromGHTK } from '@/lib/ghtk-sync';
 import { getGHTKStatusInfo } from '@/lib/ghtk-constants';
 import { fetchWithTimeout } from '@/lib/fetch-utils';
+import { z } from 'zod';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
 }
+
+// Validation schema for syncing shipment
+const syncShipmentSchema = z.object({
+  token: z.string().optional(),
+})
 
 // POST /api/orders/[systemId]/shipment/sync - Sync shipment status from provider
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -21,9 +27,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Get order with shipment
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
         packagings: {
-          include: { shipment: true },
+          select: {
+            systemId: true,
+            cancelDate: true,
+            shipment: {
+              select: {
+                systemId: true,
+                carrier: true,
+                trackingCode: true,
+                status: true,
+              },
+            },
+          },
+          where: { cancelDate: null },
           orderBy: { createdAt: 'desc' },
         },
       },
@@ -42,11 +62,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Validate request body for token if needed
     let requestToken: string | undefined;
-    try {
-      const body = await request.json();
-      requestToken = body.token;
-    } catch {
-      // No body provided, that's ok
+    const validation = await validateBody(request, syncShipmentSchema)
+    if (validation.success) {
+      requestToken = validation.data.token;
     }
 
     // Sync shipment status from provider based on carrier type
@@ -72,17 +90,84 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Fetch updated order after sync attempt
     const updatedOrder = await prisma.order.findUnique({
       where: { systemId },
-      include: {
-        customer: true,
-        lineItems: {
-          include: { product: true },
-        },
-        payments: true,
-        packagings: {
-          include: {
-            assignedEmployee: true,
-            shipment: true,
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        paymentStatus: true,
+        deliveryStatus: true,
+        salespersonId: true,
+        customer: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            phone: true,
           },
+        },
+        lineItems: {
+          select: {
+            systemId: true,
+            productId: true,
+            productSku: true,
+            productName: true,
+            quantity: true,
+            unitPrice: true,
+            discount: true,
+            tax: true,
+            total: true,
+            note: true,
+            product: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+                thumbnailImage: true,
+              },
+            },
+          },
+        },
+        payments: {
+          select: {
+            systemId: true,
+            id: true,
+            date: true,
+            method: true,
+            amount: true,
+            description: true,
+            createdBy: true,
+          },
+        },
+        packagings: {
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            status: true,
+            packDate: true,
+            totalItems: true,
+            packedItems: true,
+            cancelDate: true,
+            assignedEmployee: {
+              select: {
+                systemId: true,
+                id: true,
+                fullName: true,
+              },
+            },
+            shipment: {
+              select: {
+                systemId: true,
+                id: true,
+                carrier: true,
+                status: true,
+                trackingCode: true,
+                updatedAt: true,
+              },
+            },
+          },
+          where: { cancelDate: null },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });

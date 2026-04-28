@@ -136,16 +136,28 @@ export const GET = apiHandler(async (request) => {
         skip,
         take: limit,
         orderBy: orderByField as Prisma.EmployeeOrderByWithRelationInput,
-        include: {
-          department: true,
-          branch: true,
-          jobTitle: true,
-          manager: {
-            select: {
-              systemId: true,
-              fullName: true,
-            }
-          },
+        select: {
+          systemId: true, id: true, fullName: true, phone: true, personalEmail: true,
+          workEmail: true, gender: true, avatarUrl: true, role: true,
+          employmentStatus: true, employeeType: true, hireDate: true, startDate: true,
+          endDate: true, terminationDate: true, reasonForLeaving: true,
+          contractNumber: true, contractType: true, contractStartDate: true,
+          contractEndDate: true, probationEndDate: true,
+          personalTaxId: true, socialInsuranceNumber: true,
+          socialInsuranceSalary: true, baseSalary: true, positionAllowance: true,
+          mealAllowance: true, otherAllowances: true, numberOfDependents: true,
+          annualLeaveBalance: true,
+          nationalId: true, nationalIdIssueDate: true, nationalIdIssuePlace: true,
+          maritalStatus: true, emergencyContactName: true, emergencyContactPhone: true,
+          permanentAddress: true, temporaryAddress: true,
+          bankAccountNumber: true, bankName: true, bankBranch: true,
+          notes: true, isDeleted: true, deletedAt: true, permanentlyDeletedAt: true,
+          createdAt: true, updatedAt: true, createdBy: true, updatedBy: true,
+          departmentId: true, branchId: true, jobTitleId: true, managerId: true,
+          department: { select: { systemId: true, name: true } },
+          branch: { select: { systemId: true, name: true } },
+          jobTitle: { select: { systemId: true, name: true } },
+          manager: { select: { systemId: true, fullName: true } },
         },
       }),
       prisma.employee.count({ where }),
@@ -154,7 +166,7 @@ export const GET = apiHandler(async (request) => {
     const serializedEmployees = employees.map(emp => serializeEmployee(emp))
 
     return apiPaginated(serializedEmployees, { page, limit, total })
-})
+}, { auth: true })
 
 // POST /api/employees - Create new employee
 export const POST = apiHandler(async (request, { session }) => {
@@ -232,12 +244,29 @@ export const POST = apiHandler(async (request, { session }) => {
         notes: body.notes,
         createdBy: body.createdBy,
       },
-      include: {
-        department: true,
-        branch: true,
-        jobTitle: true,
-        user: true,
-      },
+        select: {
+          systemId: true, id: true, fullName: true, phone: true, personalEmail: true,
+          workEmail: true, gender: true, avatarUrl: true, role: true,
+          employmentStatus: true, employeeType: true, hireDate: true, startDate: true,
+          endDate: true, terminationDate: true, reasonForLeaving: true,
+          contractNumber: true, contractType: true, contractStartDate: true,
+          contractEndDate: true, probationEndDate: true,
+          personalTaxId: true, socialInsuranceNumber: true,
+          socialInsuranceSalary: true, baseSalary: true, positionAllowance: true,
+          mealAllowance: true, otherAllowances: true, numberOfDependents: true,
+          annualLeaveBalance: true,
+          nationalId: true, nationalIdIssueDate: true, nationalIdIssuePlace: true,
+          maritalStatus: true, emergencyContactName: true, emergencyContactPhone: true,
+          permanentAddress: true, temporaryAddress: true,
+          bankAccountNumber: true, bankName: true, bankBranch: true,
+          notes: true, isDeleted: true, deletedAt: true, permanentlyDeletedAt: true,
+          createdAt: true, updatedAt: true, createdBy: true, updatedBy: true,
+          departmentId: true, branchId: true, jobTitleId: true, managerId: true,
+          department: { select: { systemId: true, name: true } },
+          branch: { select: { systemId: true, name: true } },
+          jobTitle: { select: { systemId: true, name: true } },
+          user: { select: { systemId: true, email: true, isActive: true, role: true } },
+        },
       });
     });
 
@@ -317,4 +346,4 @@ export const POST = apiHandler(async (request, { session }) => {
     }
     throw error
   }
-}, { permission: 'edit_employees' })
+}, { permission: 'edit_employees', rateLimit: { max: 30, windowMs: 60_000 } })

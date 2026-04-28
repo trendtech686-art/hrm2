@@ -67,7 +67,8 @@ import {
 } from '../../lib/print-mappers/types';
 import { PurchaseOrderPaymentItem } from './components/payment-item';
 import { usePaymentMutations } from '../payments/hooks/use-payments';
-import { useEmployeeFinder, useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import type { PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
 import type { ReceiptForPrint } from '../../lib/print-mappers/receipt.mapper';
 // ✅ Supplier return print helper - lazy loaded
@@ -225,7 +226,12 @@ export function PurchaseOrderDetailPage() {
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findBranchById } = useBranchFinder();
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
     const productType = findProductTypeById(asSystemId(productTypeSystemId));

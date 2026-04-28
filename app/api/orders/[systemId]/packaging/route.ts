@@ -1,8 +1,13 @@
+import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+
+const createPackagingBodySchema = z.object({
+  assignedEmployeeId: z.string().optional(),
+})
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -13,16 +18,65 @@ export async function GET(request: Request, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
+  const { systemId } = await params
+
   try {
-    const { systemId } = await params;
 
     const packagings = await prisma.packaging.findMany({
       where: { orderId: systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        orderId: true,
+        branchId: true,
+        status: true,
+        requestDate: true,
+        confirmDate: true,
+        cancelDate: true,
+        deliveredDate: true,
+        confirmingEmployeeId: true,
+        confirmingEmployeeName: true,
+        requestingEmployeeId: true,
+        requestingEmployeeName: true,
+        cancelingEmployeeId: true,
+        cancelingEmployeeName: true,
+        cancelReason: true,
+        assignedEmployeeId: true,
+        assignedEmployeeName: true,
+        printStatus: true,
+        notes: true,
+        deliveryMethod: true,
+        deliveryStatus: true,
+        carrier: true,
+        service: true,
+        trackingCode: true,
+        partnerStatus: true,
+        ghtkStatusId: true,
+        shippingFeeToPartner: true,
+        codAmount: true,
+        weight: true,
+        dimensions: true,
+        requestorName: true,
+        requestorPhone: true,
+        requestorId: true,
+        ghtkTrackingId: true,
+        estimatedPickTime: true,
+        estimatedDeliverTime: true,
+        lastSyncedAt: true,
         assignedEmployee: {
           select: { systemId: true, fullName: true },
         },
-        shipment: true,
+        shipment: {
+          select: {
+            systemId: true,
+            id: true,
+            trackingCode: true,
+            status: true,
+            carrier: true,
+            shippingFee: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -39,17 +93,33 @@ export async function POST(request: Request, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const { systemId } = await params
+
+  const bodyValidation = await validateBody(request, createPackagingBodySchema)
+  if (!bodyValidation.success) return apiError(bodyValidation.error, 400)
+  const { assignedEmployeeId } = bodyValidation.data
+
   try {
-    const { systemId } = await params;
-    const body = await request.json();
-    const { assignedEmployeeId } = body;
 
     // Get the order with packagings and their shipments
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: { 
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
         packagings: {
-          include: { shipment: true },
+          select: {
+            systemId: true,
+            cancelDate: true,
+            confirmDate: true,
+            shipment: {
+              select: {
+                systemId: true,
+                status: true,
+              },
+            },
+          },
         },
       },
     });
@@ -140,16 +210,88 @@ export async function POST(request: Request, { params }: RouteParams) {
           deliveryStatus: 'PENDING_PACK', // ✅ Reset to pending pack for new packaging
           stockOutStatus: 'NOT_STOCKED_OUT', // ✅ Reset stock out status
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          deliveryStatus: true,
+          stockOutStatus: true,
+          branchId: true,
+          customerId: true,
+          customerName: true,
+          salespersonId: true,
+          salespersonName: true,
+          grandTotal: true,
+          paidAmount: true,
+          paymentStatus: true,
+          deliveryMethod: true,
+          shippingCarrier: true,
+          trackingCode: true,
+          notes: true,
+          shippingFee: true,
+          createdAt: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+              address: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              product: {
+                select: {
+                  systemId: true,
+                  barcode: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              amount: true,
+              method: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              confirmDate: true,
+              cancelDate: true,
+              deliveryStatus: true,
+              trackingCode: true,
+              carrier: true,
+              assignedEmployeeId: true,
+              assignedEmployeeName: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  trackingCode: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
             },
           },
         },

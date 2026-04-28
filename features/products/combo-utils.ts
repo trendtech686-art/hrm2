@@ -12,6 +12,8 @@
 import type { Product, ComboItem, ComboPricingType } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
+export type ProductFinder = (systemId: SystemId | string | undefined) => Product | undefined;
+
 // Constants
 export const MAX_COMBO_ITEMS = 20;
 export const MIN_COMBO_ITEMS = 2;
@@ -41,7 +43,7 @@ export function canAddToCombo(product: Product): boolean {
  */
 export function validateComboItems(
   comboItems: ComboItem[],
-  allProducts: Product[]
+  findProduct: ProductFinder
 ): string | null {
   // Check minimum items
   if (comboItems.length < MIN_COMBO_ITEMS) {
@@ -72,7 +74,7 @@ export function validateComboItems(
     }
     
     // Check product exists and is valid
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product) {
       return 'Sản phẩm trong combo không tồn tại';
     }
@@ -96,7 +98,7 @@ export function validateComboItems(
  */
 export function calculateComboStock(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   branchSystemId: SystemId
 ): number {
   if (!comboItems || comboItems.length === 0) return 0;
@@ -104,7 +106,7 @@ export function calculateComboStock(
   let minComboQuantity = Infinity;
   
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product) return 0; // If any product not found, combo unavailable
     
     // Available = On-hand - Committed
@@ -127,14 +129,14 @@ export function calculateComboStock(
  */
 export function calculateComboStockAllBranches(
   comboItems: ComboItem[],
-  allProducts: Product[]
+  findProduct: ProductFinder
 ): Record<SystemId, number> {
   if (!comboItems || comboItems.length === 0) return {};
   
   // Collect all branch IDs from child products
   const allBranchIds = new Set<SystemId>();
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (product?.inventoryByBranch) {
       Object.keys(product.inventoryByBranch).forEach(branchId => {
         allBranchIds.add(branchId as SystemId);
@@ -145,7 +147,7 @@ export function calculateComboStockAllBranches(
   // Calculate stock for each branch
   const result: Record<SystemId, number> = {};
   for (const branchId of allBranchIds) {
-    result[branchId] = calculateComboStock(comboItems, allProducts, branchId);
+    result[branchId] = calculateComboStock(comboItems, findProduct, branchId);
   }
   
   return result;
@@ -163,7 +165,7 @@ export function calculateComboStockAllBranches(
  */
 export function calculateComboPrice(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   pricingPolicySystemId: SystemId,
   comboPricingType: ComboPricingType,
   comboDiscount: number = 0
@@ -176,7 +178,7 @@ export function calculateComboPrice(
   // Calculate sum of child products' prices
   let sumPrice = 0;
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product) continue;
     
     const unitPrice = product.prices?.[pricingPolicySystemId] || 0;
@@ -216,14 +218,14 @@ const isNumber = (value: unknown): value is number => typeof value === 'number' 
 
 export function calculateComboCostPrice(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   options: ComboCostOptions = {}
 ): number {
   const { fallbackPricingPolicyId, allowPriceFallback = true } = options;
   let totalCost = 0;
   
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product) continue;
 
     let unitCost = product.costPrice;
@@ -256,12 +258,12 @@ export function calculateComboCostPrice(
  */
 export function calculateComboLastPurchasePrice(
   comboItems: ComboItem[],
-  allProducts: Product[]
+  findProduct: ProductFinder
 ): number {
   let total = 0;
   
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product) continue;
     
     total += (product.lastPurchasePrice || 0) * item.quantity;
@@ -276,12 +278,12 @@ export function calculateComboLastPurchasePrice(
  */
 export function calculateComboPricesByPolicy(
   comboItems: ComboItem[],
-  allProducts: Product[]
+  findProduct: ProductFinder
 ): Record<string, number> {
   const pricesByPolicy: Record<string, number> = {};
   
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product || !product.prices) continue;
     
     for (const [policyId, price] of Object.entries(product.prices)) {
@@ -308,13 +310,13 @@ export function calculateComboPricesByPolicy(
  */
 export function calculateFinalComboPricesByPolicy(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   comboPricingType: ComboPricingType,
   comboDiscount: number = 0,
   _defaultPolicyId?: string
 ): Record<string, number> {
   // Get raw sum prices first
-  const rawPricesByPolicy = calculateComboPricesByPolicy(comboItems, allProducts);
+  const rawPricesByPolicy = calculateComboPricesByPolicy(comboItems, findProduct);
   const finalPricesByPolicy: Record<string, number> = {};
   
   if (comboPricingType === 'fixed') {
@@ -346,7 +348,7 @@ export function calculateFinalComboPricesByPolicy(
  */
 export function getComboSummary(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   branchSystemId?: SystemId
 ): string {
   const itemCount = comboItems?.length || 0;
@@ -355,7 +357,7 @@ export function getComboSummary(
     return `${itemCount} sản phẩm`;
   }
   
-  const stock = calculateComboStock(comboItems, allProducts, branchSystemId);
+  const stock = calculateComboStock(comboItems, findProduct, branchSystemId);
   return `${itemCount} sản phẩm, tồn kho: ${stock}`;
 }
 
@@ -364,11 +366,11 @@ export function getComboSummary(
  */
 export function hasComboStock(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   branchSystemId: SystemId,
   requiredQuantity: number
 ): boolean {
-  const available = calculateComboStock(comboItems, allProducts, branchSystemId);
+  const available = calculateComboStock(comboItems, findProduct, branchSystemId);
   return available >= requiredQuantity;
 }
 
@@ -378,16 +380,16 @@ export function hasComboStock(
  */
 export function getComboBottleneckProducts(
   comboItems: ComboItem[],
-  allProducts: Product[],
+  findProduct: ProductFinder,
   branchSystemId: SystemId
 ): Array<{ product: Product; availableForCombo: number; itemQuantity: number }> {
   if (!comboItems || comboItems.length === 0) return [];
   
-  const comboStock = calculateComboStock(comboItems, allProducts, branchSystemId);
+  const comboStock = calculateComboStock(comboItems, findProduct, branchSystemId);
   const bottlenecks: Array<{ product: Product; availableForCombo: number; itemQuantity: number }> = [];
   
   for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
+    const product = findProduct(item.productSystemId);
     if (!product) continue;
     
     const onHand = product.inventoryByBranch?.[branchSystemId] || 0;

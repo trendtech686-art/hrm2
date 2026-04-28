@@ -270,10 +270,9 @@ export async function updateWarrantyStatusAction(
   // Valid transitions map
   const validTransitions: Record<WarrantyStatus, WarrantyStatus[]> = {
     RECEIVED: ['PROCESSING', 'CANCELLED'],
-    PROCESSING: ['WAITING_PARTS', 'COMPLETED', 'RETURNED', 'CANCELLED'],
-    WAITING_PARTS: ['PROCESSING', 'COMPLETED', 'CANCELLED'],
+    PROCESSING: ['COMPLETED', 'CANCELLED'],
     COMPLETED: ['RETURNED', 'CANCELLED'],
-    RETURNED: [], // Final state
+    RETURNED: ['COMPLETED'], // Có thể mở lại về COMPLETED
     CANCELLED: ['RECEIVED'], // Can reopen
   }
 
@@ -302,8 +301,7 @@ export async function updateWarrantyStatusAction(
       const statusLabels: Record<WarrantyStatus, string> = {
         RECEIVED: 'Đã tiếp nhận',
         PROCESSING: 'Đang xử lý',
-        WAITING_PARTS: 'Chờ linh kiện',
-        COMPLETED: 'Hoàn tất',
+        COMPLETED: 'Đã xử lý',
         RETURNED: 'Đã trả',
         CANCELLED: 'Đã hủy',
       }
@@ -332,6 +330,10 @@ export async function updateWarrantyStatusAction(
       if (newStatus === 'PROCESSING' && !warranty.processingStartedAt) {
         updateData.processingStartedAt = now
       }
+      // Clear completedAt when reopening from COMPLETED
+      if (newStatus === 'PROCESSING' && warranty.status === 'COMPLETED' && warranty.completedAt) {
+        updateData.completedAt = null
+      }
       if (newStatus === 'COMPLETED') {
         updateData.processedAt = now
       }
@@ -358,8 +360,7 @@ export async function updateWarrantyStatusAction(
     const statusLabelsForLog: Record<string, string> = {
       RECEIVED: 'Đã tiếp nhận',
       PROCESSING: 'Đang xử lý',
-      WAITING_PARTS: 'Chờ linh kiện',
-      COMPLETED: 'Hoàn tất',
+      COMPLETED: 'Đã xử lý',
       RETURNED: 'Đã trả hàng',
       CANCELLED: 'Đã hủy',
     }

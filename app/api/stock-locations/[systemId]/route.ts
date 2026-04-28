@@ -18,10 +18,22 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const location = await prisma.stockLocation.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        code: true,
+        description: true,
+        branchId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         inventoryRecords: {
           take: 20,
-          include: {
+          select: {
+            systemId: true,
+            productId: true,
+            quantity: true,
             product: {
               select: {
                 systemId: true,

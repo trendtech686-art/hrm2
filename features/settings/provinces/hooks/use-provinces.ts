@@ -14,7 +14,6 @@ import {
   fetchWards,
   fetchWardsByDistrict,
   fetchWardsByProvince,
-  fetchAllWards,
   createProvince,
   updateProvince,
   deleteProvince,
@@ -46,7 +45,6 @@ export const locationKeys = {
   wardList: (filters: WardFilters) => [...locationKeys.wards(), 'list', filters] as const,
   wardsByDistrict: (districtId: number) => [...locationKeys.wards(), 'district', districtId] as const,
   wardsByProvince: (provinceId: string) => [...locationKeys.wards(), 'province', provinceId] as const,
-  allWards: () => [...locationKeys.wards(), 'all'] as const,
 };
 
 // ============== Province Hooks ==============
@@ -133,16 +131,6 @@ export function useWardsByProvince(provinceId: string | undefined) {
     queryFn: () => fetchWardsByProvince(provinceId!),
     enabled: !!provinceId,
     staleTime: 1000 * 60 * 60,
-    gcTime: 10 * 60 * 1000,
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function useAllWards() {
-  return useQuery({
-    queryKey: locationKeys.allWards(),
-    queryFn: fetchAllWards,
-    staleTime: 1000 * 60 * 60 * 24, // 24 hours - wards rarely change
     gcTime: 10 * 60 * 1000,
     placeholderData: keepPreviousData,
   });

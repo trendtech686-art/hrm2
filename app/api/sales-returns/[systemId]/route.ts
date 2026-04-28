@@ -10,11 +10,12 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
 import { SalesReturnStatus } from '@/generated/prisma/enums';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, validateBody, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { updateSalesReturnSchema } from '../validation'
 
 // Normalizes empty-ish values to a canonical form for comparison
 function normalizeValue(val: unknown): unknown {
@@ -145,8 +146,72 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           { id: systemId },
         ],
       },
-      include: {
-        items: true, // SalesReturnItem doesn't have product relation
+      select: {
+        systemId: true,
+        id: true,
+        orderId: true,
+        customerId: true,
+        employeeId: true,
+        branchId: true,
+        returnDate: true,
+        status: true,
+        reason: true,
+        subtotal: true,
+        total: true,
+        refunded: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        orderSystemId: true,
+        orderBusinessId: true,
+        customerSystemId: true,
+        customerName: true,
+        branchSystemId: true,
+        branchName: true,
+        note: true,
+        notes: true,
+        reference: true,
+        returnItems: true,
+        totalReturnValue: true,
+        isReceived: true,
+        exchangeItems: true,
+        exchangeOrderSystemId: true,
+        subtotalNew: true,
+        shippingFeeNew: true,
+        discountNew: true,
+        discountNewType: true,
+        grandTotalNew: true,
+        deliveryMethod: true,
+        shippingPartnerId: true,
+        shippingServiceId: true,
+        shippingAddress: true,
+        packageInfo: true,
+        configuration: true,
+        finalAmount: true,
+        refundMethod: true,
+        refundAmount: true,
+        accountSystemId: true,
+        refunds: true,
+        payments: true,
+        paymentVoucherSystemId: true,
+        paymentVoucherSystemIds: true,
+        receiptVoucherSystemIds: true,
+        creatorSystemId: true,
+        creatorName: true,
+        items: {
+          select: {
+            systemId: true,
+            returnId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            total: true,
+            reason: true,
+          },
+        },
       },
     });
 
@@ -219,9 +284,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, updateSalesReturnSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const body = validation.data;
+
   try {
     const { systemId } = await params;
-    const body = await request.json();
 
     const {
       status,
@@ -230,7 +300,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       reason,
       notes,
       approvalNotes,
-      updatedBy,
       ..._otherFields
     } = body;
 
@@ -243,7 +312,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           { id: systemId },
         ],
       },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        customerSystemId: true,
+        employeeId: true,
+        reason: true,
+        note: true,
+        notes: true,
+        refundMethod: true,
+        refundAmount: true,
+        refunded: true,
+        total: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+          },
+        },
+      },
     });
 
     if (!existingReturn) {
@@ -266,7 +354,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       notes?: string;
     } = {
       updatedAt: new Date(),
-      updatedBy: updatedBy || session.user?.id || null,
+      updatedBy: session!.user?.id || null,
     };
 
     if (status !== undefined) {
@@ -309,8 +397,72 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const salesReturn = await prisma.salesReturn.update({
       where: { systemId: actualSystemId },
       data: updateData,
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        orderId: true,
+        customerId: true,
+        employeeId: true,
+        branchId: true,
+        returnDate: true,
+        status: true,
+        reason: true,
+        subtotal: true,
+        total: true,
+        refunded: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        orderSystemId: true,
+        orderBusinessId: true,
+        customerSystemId: true,
+        customerName: true,
+        branchSystemId: true,
+        branchName: true,
+        note: true,
+        notes: true,
+        reference: true,
+        returnItems: true,
+        totalReturnValue: true,
+        isReceived: true,
+        exchangeItems: true,
+        exchangeOrderSystemId: true,
+        subtotalNew: true,
+        shippingFeeNew: true,
+        discountNew: true,
+        discountNewType: true,
+        grandTotalNew: true,
+        deliveryMethod: true,
+        shippingPartnerId: true,
+        shippingServiceId: true,
+        shippingAddress: true,
+        packageInfo: true,
+        configuration: true,
+        finalAmount: true,
+        refundMethod: true,
+        refundAmount: true,
+        accountSystemId: true,
+        refunds: true,
+        payments: true,
+        paymentVoucherSystemId: true,
+        paymentVoucherSystemIds: true,
+        receiptVoucherSystemIds: true,
+        creatorSystemId: true,
+        creatorName: true,
+        items: {
+          select: {
+            systemId: true,
+            returnId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            total: true,
+            reason: true,
+          },
+        },
       },
     });
 
@@ -322,7 +474,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Notify employee about sales return status change
-    if (status && salesReturn.employeeId && salesReturn.employeeId !== session.user?.employeeId) {
+    if (status && salesReturn.employeeId && salesReturn.employeeId !== session!.user?.employeeId) {
       const statusText = status === 'APPROVED' ? 'duyệt' : status === 'REJECTED' ? 'từ chối' : 'cập nhật';
       createNotification({
         type: 'sales_return',
@@ -331,8 +483,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         message: `Phếu trả hàng ${existingReturn.id || systemId} đã được ${statusText}`,
         link: `/sales-returns/${systemId}`,
         recipientId: salesReturn.employeeId,
-        senderId: session.user?.employeeId,
-        senderName: session.user?.name,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
       }).catch(e => logError('[Sales Return PATCH] notification failed', e));
     }
 
@@ -362,7 +514,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const changedFields = Object.keys(changes).join(', ');
-    getUserNameFromDb(session.user?.id).then(userName =>
+    getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'sales_return',
@@ -446,7 +598,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
+    getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'sales_return',

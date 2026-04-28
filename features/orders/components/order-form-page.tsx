@@ -15,10 +15,10 @@ import type { ProductFormValues } from '@/features/products/validation';
 import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress, Customer, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, OrderInvoiceInfo } from '@/lib/types/prisma-extended';
 
 // stores
-import { useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useProductsByIds } from '@/features/products/hooks/use-products';
 import { useProductMutations } from '@/features/products/hooks/use-products';
 import type { CreateProductInput } from '@/features/products/hooks/use-products';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useOrder } from '../hooks/use-orders';
 import { useOrderFormSettingsData } from '../hooks/use-order-form-settings';
 import { useOrderMutations } from '../hooks/use-order-mutations';
@@ -297,7 +297,7 @@ export function OrderFormPage() {
     // React Query for copy source order - fetch with full data
     const { data: copySourceOrderFromQuery } = useOrder(copyOrderSystemId || undefined);
     
-    const { data: employees } = useAllEmployees({ enabled: false });
+    const { data: employeesData } = useMeiliEmployeeSearch({ query: '', enabled: false, limit: 100 });
     const { data: orderFormBundle, getDefaultSale } = useOrderFormSettingsData();
     const branches = useMemo(
       () => (orderFormBundle?.branches ?? []) as import('@/lib/types/prisma-extended').Branch[],
@@ -307,7 +307,16 @@ export function OrderFormPage() {
       () => (orderFormBundle?.pricingPolicies ?? []) as import('@/lib/types/prisma-extended').PricingPolicy[],
       [orderFormBundle?.pricingPolicies],
     );
-    const { findById: findProductById } = useProductFinder();
+    
+    // ✅ Use useProductsByIds to fetch products for order line items lookup
+    // Extract product IDs from order for edit mode
+    // NOTE: Use orderFromQuery directly instead of order to avoid circular dependency
+    const orderProductIds = useMemo(() => {
+      if (!orderFromQuery?.lineItems) return [];
+      return orderFromQuery.lineItems.map(li => li.productSystemId).filter(Boolean);
+    }, [orderFromQuery?.lineItems]);
+    const { productsMap: productLookupMap } = useProductsByIds(orderProductIds);
+    
     const { create: createStockHistoryEntry } = useStockHistoryMutations();
     const { create: createProduct } = useProductMutations();
     const partners = useMemo(
@@ -552,6 +561,8 @@ export function OrderFormPage() {
     // ✅ Track if edit form has been initialized to prevent re-running reset
     const editFormInitializedRef = useRef<string | null>(null);
     
+    const employees = employeesData?.data || [];
+    
     // ✅ Check if all required data is loaded
     const isDataReady = branches.length > 0 && employees.length > 0;
     
@@ -614,8 +625,8 @@ export function OrderFormPage() {
             referenceUrl: (order as { referenceUrl?: string }).referenceUrl || '',
             externalReference: (order as { externalReference?: string }).externalReference || '',
             lineItems: order.lineItems.map(li => {
-                // ✅ Lookup product to get correct SKU and thumbnailImage
-                const prod = findProductById(asSystemId(li.productSystemId));
+                // ✅ Lookup product from productsMap to get correct SKU and thumbnailImage
+                const prod = productLookupMap.get(asSystemId(li.productSystemId));
                 return {
                     id: generateTempId('li'),
                     systemId: '',

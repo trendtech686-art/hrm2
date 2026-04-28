@@ -48,8 +48,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Find warranty
       const warranty = await tx.warranty.findUnique({
         where: { systemId },
-        include: {
-          product: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          notes: true,
+          employeeSystemId: true,
+          branchSystemId: true,
+          replacementProductSystemId: true,
+          replacementQuantity: true,
+          stockDeducted: true,
+          createdBySystemId: true,
         },
       })
 
@@ -85,7 +94,13 @@ export async function POST(request: Request, { params }: RouteParams) {
           updatedBy: session.user?.email || 'system',
           updatedBySystemId: session.user?.id,
         },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          title: true,
+          status: true,
+          employeeSystemId: true,
+          createdBySystemId: true,
           product: {
             select: {
               systemId: true,

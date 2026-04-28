@@ -30,9 +30,11 @@ export const warrantyKeys = {
 };
 
 export function useWarranties(params: WarrantiesParams = {}) {
+  const { enabled = true, ...rest } = params;
   return useQuery({
-    queryKey: warrantyKeys.list(params),
-    queryFn: () => fetchWarranties(params),
+    queryKey: warrantyKeys.list(rest),
+    queryFn: () => fetchWarranties(rest),
+    enabled,
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
@@ -155,5 +157,10 @@ export function usePendingWarranties() {
 }
 
 export function useWarrantiesByCustomer(customerId: string | null | undefined, options?: { status?: string }) {
-  return useWarranties({ customerId: customerId || undefined, status: options?.status });
+  return useWarranties({ 
+    customerId: customerId || undefined, 
+    status: options?.status,
+    // ⚡ PERFORMANCE: Skip API call when no customer selected (e.g., create form without customer)
+    enabled: !!customerId || false, // Must have customerId to fetch
+  });
 }

@@ -130,4 +130,4 @@ export const POST = apiHandler(async () => {
       total: suppliers.length,
       details: results,
     })
-})
+}, { permission: 'edit_suppliers' })

@@ -29,6 +29,9 @@ export const INDEXES = {
   ORDERS: 'orders',
   EMPLOYEES: 'employees',
   PKGX_PRODUCTS: 'pkgx_products',
+  SUPPLIERS: 'suppliers',
+  SHIPMENTS: 'shipments',
+  WARRANTIES: 'warranties',
 } as const
 
 // ===========================================
@@ -111,6 +114,70 @@ export interface MeiliPkgxProduct {
   shopPrice: number
   hrmProductId: string | null // mapped HRM product systemId
   syncedAt: number
+}
+
+export interface MeiliSupplier {
+  id: string // systemId
+  supplierId: string // Display supplier ID
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  taxCode: string | null
+  contactPerson: string | null
+  totalOrders: number
+  totalPurchased: number
+  totalDebt: number
+  isActive: boolean
+  status: string
+  bankName: string | null
+  bankAccount: string | null
+  createdAt: number
+}
+
+export interface MeiliShipment {
+  id: string // systemId
+  trackingCode: string | null
+  trackingNumber: string | null
+  carrier: string
+  status: string
+  service: string | null
+  orderId: string | null
+  orderBusinessId: string | null
+  recipientName: string | null
+  recipientPhone: string | null
+  recipientAddress: string | null
+  shippingFee: number
+  weight: number | null
+  createdAt: number
+  pickedAt: number | null
+  deliveredAt: number | null
+  returnedAt: number | null
+  printStatus: string
+  deliveryStatus: string | null
+}
+
+export interface MeiliWarranty {
+  id: string // systemId
+  warrantyId: string // Display warranty ID (e.g., WRT-001)
+  warrantyCode: string // Alternative code
+  title: string
+  customerName: string
+  customerPhone: string
+  customerEmail: string | null
+  customerAddress: string | null
+  productName: string
+  serialNumber: string | null
+  status: string
+  priority: string
+  branchName: string | null
+  assigneeName: string | null
+  orderId: string | null
+  isUnderWarranty: boolean
+  totalCost: number
+  createdAt: number
+  receivedAt: number
+  completedAt: number | null
 }
 
 // ===========================================
@@ -272,6 +339,109 @@ export async function configureIndexes() {
     },
     pagination: {
       maxTotalHits: 10000,
+    },
+  })
+
+  // Suppliers index
+  const suppliersIndex = client.index(INDEXES.SUPPLIERS)
+  await suppliersIndex.updateSettings({
+    searchableAttributes: [
+      'name',
+      'phone',
+      'email',
+      'supplierId',
+      'address',
+      'taxCode',
+      'contactPerson',
+      'bankName',
+      'bankAccount',
+    ],
+    filterableAttributes: [
+      'isActive',
+      'status',
+      'totalOrders',
+      'createdAt',
+    ],
+    sortableAttributes: [
+      'name',
+      'totalOrders',
+      'totalPurchased',
+      'totalDebt',
+      'createdAt',
+    ],
+    typoTolerance: {
+      enabled: true,
+      minWordSizeForTypos: {
+        oneTypo: 3,
+        twoTypos: 6,
+      },
+    },
+  })
+
+  // Shipments index
+  const shipmentsIndex = client.index(INDEXES.SHIPMENTS)
+  await shipmentsIndex.updateSettings({
+    searchableAttributes: [
+      'trackingCode',
+      'trackingNumber',
+      'orderId',
+      'orderBusinessId',
+      'recipientName',
+      'recipientPhone',
+      'carrier',
+    ],
+    filterableAttributes: [
+      'status',
+      'carrier',
+      'printStatus',
+      'deliveryStatus',
+      'createdAt',
+    ],
+    sortableAttributes: [
+      'createdAt',
+      'pickedAt',
+      'deliveredAt',
+      'shippingFee',
+    ],
+    typoTolerance: {
+      enabled: true,
+    },
+  })
+
+  // Warranties index
+  const warrantiesIndex = client.index(INDEXES.WARRANTIES)
+  await warrantiesIndex.updateSettings({
+    searchableAttributes: [
+      'warrantyId',
+      'warrantyCode',
+      'title',
+      'customerName',
+      'customerPhone',
+      'customerEmail',
+      'productName',
+      'serialNumber',
+      'orderId',
+    ],
+    filterableAttributes: [
+      'status',
+      'priority',
+      'isUnderWarranty',
+      'branchName',
+      'assigneeName',
+      'createdAt',
+    ],
+    sortableAttributes: [
+      'createdAt',
+      'receivedAt',
+      'completedAt',
+      'totalCost',
+    ],
+    typoTolerance: {
+      enabled: true,
+      minWordSizeForTypos: {
+        oneTypo: 3,
+        twoTypos: 6,
+      },
     },
   })
 

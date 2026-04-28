@@ -50,8 +50,19 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Find warranty
       const warranty = await tx.warranty.findUnique({
         where: { systemId },
-        include: {
-          product: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          totalCost: true,
+          notes: true,
+          assigneeId: true,
+          employeeSystemId: true,
+          branchSystemId: true,
+          replacementProductSystemId: true,
+          replacementQuantity: true,
+          stockDeducted: true,
+          createdBySystemId: true,
         },
       })
 
@@ -66,26 +77,27 @@ export async function POST(request: Request, { params }: RouteParams) {
         throw new Error('ALREADY_COMPLETED')
       }
 
-      if (warranty.status !== 'PROCESSING' && warranty.status !== 'WAITING_PARTS') {
+      if (warranty.status !== 'PROCESSING') {
         throw new Error('INVALID_STATUS_TRANSITION')
       }
 
       const now = new Date()
 
-      // Fetch warranty with replacement product info
-      const warrantyWithReplacement = await tx.warranty.findUnique({
-        where: { systemId },
-        include: {
-          product: {
+      // Get replacement product info for stock deduction
+      const replacementProduct = warranty.replacementProductSystemId
+        ? await tx.product.findUnique({
+            where: { systemId: warranty.replacementProductSystemId },
             select: {
               systemId: true,
               id: true,
               name: true,
-              imageUrl: true,
+              inventoryByBranch: true,
+              totalInventory: true,
+              totalCommitted: true,
+              totalAvailable: true,
             },
-          },
-        },
-      })
+          })
+        : null;
 
       // Update warranty status
       const updatedWarranty = await tx.warranty.update({
@@ -103,7 +115,13 @@ export async function POST(request: Request, { params }: RouteParams) {
           updatedBy: session.user?.email || 'system',
           updatedBySystemId: session.user?.id,
         },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          title: true,
+          status: true,
+          employeeSystemId: true,
+          createdBySystemId: true,
           product: {
             select: {
               systemId: true,
@@ -121,50 +139,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       // 1. Decrement onHand for the replacement product (deduct from available)
       // 2. Decrement committedQuantity (remove from reserved)
       // ============================================================
-      if (warrantyWithReplacement?.replacementProductSystemId && warrantyWithReplacement?.replacementQuantity) {
-        const replacementProductId = warrantyWithReplacement.replacementProductSystemId;
-        const replacementQty = warrantyWithReplacement.replacementQuantity;
+      if (replacementProduct && warranty.replacementQuantity && warranty.replacementQuantity > 0) {
         const branchSystemId = warranty.branchSystemId || '';
 
-        if (branchSystemId && replacementQty > 0) {
-          // Get replacement product with current inventory
-          const replacementProduct = await tx.product.findUnique({
-            where: { systemId: replacementProductId },
-            select: {
-              systemId: true,
-              id: true,
-              name: true,
-              inventoryByBranch: true,
-              totalInventory: true,
-              totalCommitted: true,
-              totalAvailable: true,
+        if (branchSystemId) {
+          const branchInventory = (replacementProduct.inventoryByBranch as Record<string, number>) || {};
+          const currentOnHand = branchInventory[branchSystemId] || 0;
+
+          // Deduct from inventory
+          const newOnHand = Math.max(0, currentOnHand - warranty.replacementQuantity);
+          const newTotalInventory = (replacementProduct.totalInventory ?? 0) - warranty.replacementQuantity;
+          const newTotalCommitted = Math.max(0, (replacementProduct.totalCommitted ?? 0) - warranty.replacementQuantity);
+          const newTotalAvailable = newTotalInventory - newTotalCommitted;
+
+          // Update product inventory
+          await tx.product.update({
+            where: { systemId: replacementProduct.systemId },
+            data: {
+              inventoryByBranch: {
+                ...branchInventory,
+                [branchSystemId]: newOnHand,
+              },
+              totalInventory: newTotalInventory,
+              totalCommitted: newTotalCommitted,
+              totalAvailable: newTotalAvailable,
             },
           });
-
-          if (replacementProduct) {
-            const branchInventory = (replacementProduct.inventoryByBranch as Record<string, number>) || {};
-            const currentOnHand = branchInventory[branchSystemId] || 0;
-
-            // Deduct from inventory
-            const newOnHand = Math.max(0, currentOnHand - replacementQty);
-            const newTotalInventory = (replacementProduct.totalInventory ?? 0) - replacementQty;
-            const newTotalCommitted = Math.max(0, (replacementProduct.totalCommitted ?? 0) - replacementQty);
-            const newTotalAvailable = newTotalInventory - newTotalCommitted;
-
-            // Update product inventory
-            await tx.product.update({
-              where: { systemId: replacementProductId },
-              data: {
-                inventoryByBranch: {
-                  ...branchInventory,
-                  [branchSystemId]: newOnHand,
-                },
-                totalInventory: newTotalInventory,
-                totalCommitted: newTotalCommitted,
-                totalAvailable: newTotalAvailable,
-              },
-            });
-          }
         }
       }
 

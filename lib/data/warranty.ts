@@ -171,7 +171,7 @@ export async function getWarrantiesDueForFollowUp(daysThreshold = 2) {
   return prisma.warranty.findMany({
     where: {
       isDeleted: false,
-      status: { in: ['RECEIVED', 'PROCESSING', 'WAITING_PARTS'] },
+      status: { in: ['RECEIVED', 'PROCESSING'] },
       completedAt: null,
     },
     select: {

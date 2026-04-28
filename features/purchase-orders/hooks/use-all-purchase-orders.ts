@@ -2,21 +2,21 @@
  * useAllPurchaseOrders - Convenience hook for components needing all purchase orders as flat array
  * 
  * Replaces legacy usePurchaseOrderStore().data pattern
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng startDate/endDate để filter theo ngày
+ * - Dùng branchId/supplierId để filter cụ thể
  */
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { fetchPurchaseOrders } from '../api/purchase-orders-api';
+import { fetchPurchaseOrders, type PurchaseOrdersParams } from '../api/purchase-orders-api';
 import { purchaseOrderKeys } from './use-purchase-orders';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
-/**
- * Options for useAllPurchaseOrders hook
- * @property enabled - Whether to fetch data (default: true). Set to false for lazy loading
- */
-export interface UseAllPurchaseOrdersOptions {
+export interface UseAllPurchaseOrdersOptions extends Pick<PurchaseOrdersParams, 'startDate' | 'endDate' | 'branchId' | 'supplierId' | 'status' | 'paymentStatus' | 'search'> {
   enabled?: boolean;
 }
 
@@ -25,10 +25,10 @@ export interface UseAllPurchaseOrdersOptions {
  * Compatible with legacy store pattern: { data: orders }
  */
 export function useAllPurchaseOrders(options: UseAllPurchaseOrdersOptions = {}) {
-  const { enabled = true } = options;
+  const { enabled = true, startDate, endDate, branchId, supplierId, status, paymentStatus, search } = options;
   const query = useQuery({
-    queryKey: [...purchaseOrderKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchPurchaseOrders(p)),
+    queryKey: [...purchaseOrderKeys.all, 'all', { startDate, endDate, branchId, supplierId, status, paymentStatus, search }],
+    queryFn: () => fetchAllPages((p) => fetchPurchaseOrders({ ...p, startDate, endDate, branchId, supplierId, status, paymentStatus, search })),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     enabled,

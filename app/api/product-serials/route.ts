@@ -47,6 +47,20 @@ export const GET = apiHandler(async (req) => {
   const [serials, total] = await Promise.all([
     prisma.productSerial.findMany({
       where,
+      select: {
+        systemId: true,
+        productId: true,
+        branchId: true,
+        serialNumber: true,
+        orderId: true,
+        purchaseOrderId: true,
+        supplierName: true,
+        costPrice: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
@@ -59,22 +73,25 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/product-serials
 export const POST = apiHandler(async (req) => {
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
 
   // Support both single and bulk creation
   if (body.serialNumbers) {
-    const validated = bulkCreateSchema.parse(body)
+    const validated = bulkCreateSchema.safeParse(body)
+    if (!validated.success) {
+      return apiError(validated.error.issues[0]?.message || 'Validation failed', 400)
+    }
 
     // Verify product exists
     const product = await prisma.product.findUnique({
-      where: { systemId: validated.productId },
+      where: { systemId: validated.data.productId },
       select: { systemId: true },
     })
     if (!product) return apiError('Sản phẩm không tồn tại', 404)
 
     // Check duplicates
     const existing = await prisma.productSerial.findMany({
-      where: { serialNumber: { in: validated.serialNumbers } },
+      where: { serialNumber: { in: validated.data.serialNumbers } },
       select: { serialNumber: true },
     })
     if (existing.length > 0) {
@@ -85,40 +102,43 @@ export const POST = apiHandler(async (req) => {
     }
 
     const created = await prisma.productSerial.createMany({
-      data: validated.serialNumbers.map(sn => ({
-        productId: validated.productId,
-        branchId: validated.branchId,
+      data: validated.data.serialNumbers.map(sn => ({
+        productId: validated.data.productId,
+        branchId: validated.data.branchId,
         serialNumber: sn,
-        purchaseOrderId: validated.purchaseOrderId,
-        supplierName: validated.supplierName,
-        costPrice: validated.costPrice,
+        purchaseOrderId: validated.data.purchaseOrderId,
+        supplierName: validated.data.supplierName,
+        costPrice: validated.data.costPrice,
       })),
     })
 
     createActivityLog({
       entityType: 'product' as ActivityLogEntityType,
-      entityId: validated.productId,
-      action: `Thêm ${validated.serialNumbers.length} serial numbers`,
+      entityId: validated.data.productId,
+      action: `Thêm ${validated.data.serialNumbers.length} serial numbers`,
       actionType: 'create',
       metadata: {
-        productId: validated.productId,
-        branchId: validated.branchId,
-        count: validated.serialNumbers.length,
+        productId: validated.data.productId,
+        branchId: validated.data.branchId,
+        count: validated.data.serialNumbers.length,
       },
       createdBy: 'System',
     }).catch(e => logError('[product-serials] activity log failed', e))
 
     return apiSuccess({ count: created.count })
   } else {
-    const validated = serialSchema.parse(body)
+    const validated = serialSchema.safeParse(body)
+    if (!validated.success) {
+      return apiError(validated.error.issues[0]?.message || 'Validation failed', 400)
+    }
 
     // Check duplicate
     const existing = await prisma.productSerial.findUnique({
-      where: { serialNumber: validated.serialNumber },
+      where: { serialNumber: validated.data.serialNumber },
     })
     if (existing) return apiError('Serial number đã tồn tại', 400)
 
-    const serial = await prisma.productSerial.create({ data: validated })
+    const serial = await prisma.productSerial.create({ data: validated.data })
 
     createActivityLog({
       entityType: 'product' as ActivityLogEntityType,

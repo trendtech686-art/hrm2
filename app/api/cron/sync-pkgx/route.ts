@@ -6,8 +6,9 @@
  * Auth: CRON_SECRET header (Vercel Cron)
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { logError } from '@/lib/logger'
+import { apiSuccess, apiError } from '@/lib/api-utils'
 import { runPkgxSync } from '@/lib/pkgx/sync-service'
 
 export const dynamic = 'force-dynamic'
@@ -26,37 +27,27 @@ function verifyCronSecret(request: NextRequest): boolean {
 
 export async function POST(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401);
   }
 
   try {
-    const result = await runPkgxSync('cron')
+    const result = await runPkgxSync('cron');
 
-    return NextResponse.json({
-      ...result,
-      success: true,
-    })
+    return apiSuccess(result);
   } catch (error) {
     logError('[Cron sync-pkgx] Error', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 },
-    )
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401);
   }
 
-  return NextResponse.json({
-    success: true,
+  return apiSuccess({
     status: 'healthy',
     endpoint: 'sync-pkgx',
     description: 'PKGX auto sync cron (HRM → PKGX)',
-  })
+  });
 }

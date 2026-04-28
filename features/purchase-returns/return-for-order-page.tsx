@@ -20,8 +20,7 @@ import { cn } from '@/lib/utils';
 import { usePurchaseOrder } from '../purchase-orders/hooks/use-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { usePurchaseReturnMutations } from './hooks/use-purchase-returns';
-import { useAllPurchaseReturns } from './hooks/use-all-purchase-returns';
+import { usePurchaseReturnMutations, usePurchaseReturnsByPOSystemId } from './hooks/use-purchase-returns';
 import type { PurchaseReturnLineItem } from '@/lib/types/prisma-extended';
 import { useAuth } from '../../contexts/auth-context';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
@@ -84,7 +83,8 @@ export function PurchaseReturnForOrderPage() {
   const supplier = purchaseOrder ? findSupplier(asSystemId(purchaseOrder.supplierSystemId)) : null;
   const branch = purchaseOrder ? findBranch(asSystemId(purchaseOrder.branchSystemId)) : null;
   
-  const { data: allPurchaseReturns = [] } = useAllPurchaseReturns();
+  // Fetch purchase returns for this PO only (server-side filter)
+  const { data: purchaseReturnsForPO } = usePurchaseReturnsByPOSystemId(purchaseOrder?.systemId);
   
   // Ref to store pending receipt data for creation after purchase return succeeds
   const pendingReceiptRef = React.useRef<{
@@ -197,7 +197,7 @@ export function PurchaseReturnForOrderPage() {
   const returnableQuantities = React.useMemo(() => {
     if (!purchaseOrder) return {};
 
-    const returns = allPurchaseReturns.filter(pr => pr.purchaseOrderSystemId === purchaseOrder.systemId);
+    const returns = purchaseReturnsForPO.filter(pr => pr.purchaseOrderSystemId === purchaseOrder.systemId);
     const quantities: Record<string, number> = {};
 
     purchaseOrder.lineItems.forEach(item => {
@@ -220,7 +220,7 @@ export function PurchaseReturnForOrderPage() {
     });
 
     return quantities;
-  }, [purchaseOrder, receipts, allPurchaseReturns]);
+  }, [purchaseOrder, receipts, purchaseReturnsForPO]);
 
   // Initialize form when PO loads
   React.useEffect(() => {

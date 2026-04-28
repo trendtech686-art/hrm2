@@ -76,11 +76,41 @@ export const GET = apiHandler(async (request) => {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          type: true,
+          branchId: true,
+          employeeId: true,
+          referenceType: true,
+          referenceId: true,
+          receiptDate: true,
+          receivedDate: true,
+          status: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          purchaseOrderId: true,
+          purchaseOrderSystemId: true,
+          supplierSystemId: true,
+          supplierName: true,
+          receiverSystemId: true,
+          receiverName: true,
+          branchSystemId: true,
+          branchName: true,
+          warehouseName: true,
           items: {
-            include: {
-              // ⚡ Include product for image URL
-              inventoryReceipt: false, // Don't include back-reference
+            select: {
+              systemId: true,
+              receiptId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitCost: true,
+              totalCost: true,
             },
           },
         },
@@ -88,56 +118,52 @@ export const GET = apiHandler(async (request) => {
       prisma.inventoryReceipt.count({ where }),
     ]);
 
-    // Lookup products to get imageUrl for items
+    // Collect all IDs for batch lookups
     const productIds = data.flatMap(r => r.items.map(i => i.productId)).filter((id): id is string => !!id);
     const uniqueProductIds = [...new Set(productIds)];
     
-    const products = uniqueProductIds.length > 0
-      ? await prisma.product.findMany({
-          where: { systemId: { in: uniqueProductIds } },
-          select: { systemId: true, imageUrl: true },
-        })
-      : [];
-    
-    const productMap = new Map(products.map(p => [p.systemId, p]));
-
-    // Lookup purchase orders to get supplier info
     const poSystemIds = data
       .map(r => r.purchaseOrderSystemId)
       .filter((id): id is string => !!id);
     
-    const purchaseOrders = poSystemIds.length > 0 
-      ? await prisma.purchaseOrder.findMany({
-          where: { systemId: { in: poSystemIds } },
-          select: { 
-            systemId: true, 
-            id: true,
-            supplier: { select: { name: true } },
-          },
-        })
-      : [];
-    
-    const poMap = new Map(purchaseOrders.map(po => [po.systemId, po]));
-    
-    // Lookup employees for receiver info
     const employeeIds = data
       .map(r => r.employeeId)
       .filter((id): id is string => !!id);
     
-    // Also lookup createdBy for createdByName
     const creatorIds = data
       .map(r => r.createdBy)
       .filter((id): id is string => !!id);
     
     const allEmployeeIds = [...new Set([...employeeIds, ...creatorIds])];
+
+    // Execute all lookups in parallel
+    const [products, purchaseOrders, employees] = await Promise.all([
+      uniqueProductIds.length > 0
+        ? prisma.product.findMany({
+            where: { systemId: { in: uniqueProductIds } },
+            select: { systemId: true, imageUrl: true },
+          })
+        : [],
+      poSystemIds.length > 0
+        ? prisma.purchaseOrder.findMany({
+            where: { systemId: { in: poSystemIds } },
+            select: { 
+              systemId: true, 
+              id: true,
+              supplier: { select: { name: true } },
+            },
+          })
+        : [],
+      allEmployeeIds.length > 0
+        ? prisma.employee.findMany({
+            where: { systemId: { in: allEmployeeIds } },
+            select: { systemId: true, fullName: true },
+          })
+        : [],
+    ]);
     
-    const employees = allEmployeeIds.length > 0
-      ? await prisma.employee.findMany({
-          where: { systemId: { in: allEmployeeIds } },
-          select: { systemId: true, fullName: true },
-        })
-      : [];
-    
+    const productMap = new Map(products.map(p => [p.systemId, p]));
+    const poMap = new Map(purchaseOrders.map(po => [po.systemId, po]));
     const employeeMap = new Map(employees.map(e => [e.systemId, e]));
 
     // ✅ Transform data to match frontend expected format
@@ -255,8 +281,43 @@ export const POST = apiHandler(async (request, { session }) => {
             })),
           } : undefined,
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          type: true,
+          branchId: true,
+          employeeId: true,
+          referenceType: true,
+          referenceId: true,
+          receiptDate: true,
+          receivedDate: true,
+          status: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          purchaseOrderId: true,
+          purchaseOrderSystemId: true,
+          supplierSystemId: true,
+          supplierName: true,
+          receiverSystemId: true,
+          receiverName: true,
+          branchSystemId: true,
+          branchName: true,
+          warehouseName: true,
+          items: {
+            select: {
+              systemId: true,
+              receiptId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitCost: true,
+              totalCost: true,
+            },
+          },
         },
       });
 

@@ -7,6 +7,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchInventoryReceipts,
   fetchInventoryReceipt,
@@ -21,7 +23,7 @@ import {
 } from '@/app/actions/inventory-receipts';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { InventoryReceipt as _InventoryReceipt } from '@/lib/types/prisma-extended';
-import { asSystemId } from '@/lib/id-types';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 
 // Type for Server Action responses
 type InventoryReceiptData = NonNullable<Awaited<ReturnType<typeof createInventoryReceiptAction>>['data']>;
@@ -127,3 +129,74 @@ export function useInventoryReceiptsByPO(purchaseOrderId: string | null | undefi
     purchaseOrderId: purchaseOrderId || undefined,
   });
 }
+
+/**
+ * Fetch inventory receipts for a specific product.
+ * Use for price history in product detail page.
+ * API already filters server-side via productSystemId parameter.
+ * Returns flat array for compatibility with existing code.
+ */
+export function useInventoryReceiptsByProduct(productSystemId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: [...inventoryReceiptKeys.lists(), 'by-product', productSystemId],
+    queryFn: async () => {
+      const response = await fetchInventoryReceipts({ productSystemId: productSystemId!, limit: 1000 });
+      return response.data; // Return flat array
+    },
+    enabled: !!productSystemId,
+    staleTime: 60_000, // Price history changes infrequently
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+/**
+ * Returns all inventory receipts as a flat array via auto-pagination.
+ * Use when you need to iterate over ALL receipts (e.g., print all, export all).
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng startDate/endDate để filter theo ngày
+ * - Dùng branchId để filter theo chi nhánh
+ * - Dùng supplierId/search để filter cụ thể
+ */
+export interface UseAllInventoryReceiptsOptions extends Pick<InventoryReceiptsParams, 'startDate' | 'endDate' | 'branchId' | 'supplierId' | 'search'> {
+  enabled?: boolean;
+}
+
+export function useAllInventoryReceipts(options: UseAllInventoryReceiptsOptions = {}) {
+  const { enabled = true, startDate, endDate, branchId, supplierId, search } = options;
+  const query = useQuery({
+    queryKey: [...inventoryReceiptKeys.all, 'all', { startDate, endDate, branchId, supplierId, search }],
+    queryFn: () => fetchAllPages((p) => fetchInventoryReceipts({ ...p, startDate, endDate, branchId, supplierId, search })),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    enabled,
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+/**
+ * Cache-only finder for inventory receipts by systemId.
+ * Subscribe to cache without triggering a fetch.
+ */
+export function useInventoryReceiptFinder() {
+  const { data, isLoading } = useAllInventoryReceipts();
+
+  const findById = useCallback((systemId: SystemId): _InventoryReceipt | undefined => {
+    return data.find(r => r.systemId === systemId);
+  }, [data]);
+
+  return { findById, isLoading };
+}
+

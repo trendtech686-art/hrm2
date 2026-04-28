@@ -4,7 +4,7 @@ import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/router';
-import { useActiveEmployees } from "./hooks/use-all-employees";
+import { useMeiliEmployeeSearch } from "@/hooks/use-meilisearch"
 import { useEmployeeFilterOptions } from "./hooks/use-employee-filter-options";
 import { useEmployees, useEmployeeMutations, useTrashMutations, useBulkEmployeeMutations, useEmployeeStats, usePrefetchEmployee, type EmployeeStats, type UpdateEmployeeInput } from "./hooks/use-employees";
 import { useAllBranches } from "@/hooks/use-branches";
@@ -148,7 +148,8 @@ export function EmployeesPage({ initialStats }: EmployeesPageProps = {}) {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
 
   // ✅ Lazy-load all employees ONLY when import/export dialog is open (not for filters!)
-  const { data: allEmployeesForFilters } = useActiveEmployees({ enabled: isImportV2Open || isExportV2Open });
+  const { data: allEmployeesData } = useMeiliEmployeeSearch({ query: '', enabled: isImportV2Open || isExportV2Open, limit: 1000, debounceMs: 0 });
+  const allEmployeesForFilters = allEmployeesData?.data || [];
 
   const columnLayoutDefaults = React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []);
   const [columnLayout, columnLayoutSetters, isColumnLayoutLoading] = useColumnLayout('employees', columnLayoutDefaults);

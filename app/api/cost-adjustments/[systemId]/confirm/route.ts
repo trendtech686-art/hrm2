@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/api-utils'
 import { CostAdjustmentStatus } from '@/generated/prisma/client'
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
@@ -40,8 +41,9 @@ type RouteParams = {
 
 // POST - Confirm cost adjustment and update product cost prices
 export async function POST(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  const result = await requirePermission('approve_cost_adjustment')
+  if (result instanceof Response) return result
+  const session = result
 
   try {
     const { systemId } = await params;
@@ -49,8 +51,47 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get cost adjustment with items
     const costAdjustment = await prisma.costAdjustment.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        adjustmentDate: true,
+        status: true,
+        type: true,
+        reason: true,
+        note: true,
+        referenceCode: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        confirmedDate: true,
+        confirmedBySystemId: true,
+        confirmedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        items: {
+          select: {
+            systemId: true,
+            adjustmentId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productImage: true,
+            oldCost: true,
+            newCost: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+            quantity: true,
+            reason: true,
+          },
+        },
       },
     });
 
@@ -66,31 +107,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Không thể xác nhận phiếu đã bị hủy', 400);
     }
 
-    // Update product cost prices
-    const updatePromises = costAdjustment.items
-      .filter(item => item.productSystemId || item.productId) // Only update items with product reference
-      .map(item => {
-        const newCost = Number(item.newCost);
-        const productSystemId = item.productSystemId || item.productId;
-        
-        return prisma.product.update({
-          where: { systemId: productSystemId! },
-          data: {
-            costPrice: newCost,
-            updatedAt: new Date(),
-          },
-        });
-      });
-
-    // Execute all product updates
-    await Promise.all(updatePromises);
-
     // Get current user info for confirmedBy fields
     const body = await request.json().catch(() => ({}));
     const confirmedBySystemId = body.confirmedBy || session.user?.id || null;
     let confirmedByName = body.confirmedByName || null;
     
-    // Lookup confirmer name if not provided
+    // Lookup confirmer name if not provided (outside transaction - read only)
     if (!confirmedByName && confirmedBySystemId) {
       const confirmer = await prisma.employee.findUnique({
         where: { systemId: confirmedBySystemId },
@@ -99,19 +121,81 @@ export async function POST(request: Request, { params }: RouteParams) {
       confirmedByName = confirmer?.fullName || null;
     }
 
-    // Update cost adjustment status
-    const updatedAdjustment = await prisma.costAdjustment.update({
-      where: { systemId },
-      data: {
-        status: CostAdjustmentStatus.CONFIRMED,
-        confirmedDate: new Date(),
-        confirmedBySystemId,
-        confirmedByName,
-        updatedAt: new Date(),
-      },
-      include: {
-        items: true,
-      },
+    // Update product cost prices AND adjustment status in a single transaction
+    const updatedAdjustment = await prisma.$transaction(async (tx) => {
+      // 1. Update all product cost prices in batch
+      const productUpdates = costAdjustment.items
+        .filter(item => item.productSystemId || item.productId)
+        .map(item => {
+          const newCost = Number(item.newCost);
+          const productSystemId = item.productSystemId || item.productId;
+          return tx.product.update({
+            where: { systemId: productSystemId! },
+            data: {
+              costPrice: newCost,
+              updatedAt: new Date(),
+            },
+          });
+        });
+
+      // Execute all product updates in parallel within transaction
+      await Promise.all(productUpdates);
+
+      // 2. Update cost adjustment status
+      const adjusted = await tx.costAdjustment.update({
+        where: { systemId },
+        data: {
+          status: CostAdjustmentStatus.CONFIRMED,
+          confirmedDate: new Date(),
+          confirmedBySystemId,
+          confirmedByName,
+          updatedAt: new Date(),
+        },
+        select: {
+          systemId: true,
+          id: true,
+          branchId: true,
+          employeeId: true,
+          adjustmentDate: true,
+          status: true,
+          type: true,
+          reason: true,
+          note: true,
+          referenceCode: true,
+          createdDate: true,
+          createdBySystemId: true,
+          createdByName: true,
+          confirmedDate: true,
+          confirmedBySystemId: true,
+          confirmedByName: true,
+          cancelledDate: true,
+          cancelledBySystemId: true,
+          cancelledByName: true,
+          cancelReason: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          items: {
+            select: {
+              systemId: true,
+              adjustmentId: true,
+              productId: true,
+              productSystemId: true,
+              productName: true,
+              productImage: true,
+              oldCost: true,
+              newCost: true,
+              adjustmentAmount: true,
+              adjustmentPercent: true,
+              quantity: true,
+              reason: true,
+            },
+          },
+        },
+      });
+
+      return adjusted;
     });
 
     // ✅ Notify creator about cost adjustment confirmation

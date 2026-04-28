@@ -19,6 +19,7 @@ export interface OrderSearchParams {
   page?: number | undefined;             // Page number for pagination (1-indexed)
   branchSystemId?: string | undefined;  // Filter by branch
   status?: string | undefined;          // Filter by status
+  statusNotIn?: string | undefined;    // Comma-separated statuses to exclude
   customerSystemId?: string | undefined; // Filter by customer
   stockOutStatusNot?: string | undefined; // Exclude stock out status
   stockOutStatus?: string | undefined;   // Exact match stock out status
@@ -32,7 +33,7 @@ export interface OrderSearchParams {
 export async function searchOrders(
   params: OrderSearchParams
 ): Promise<OrderSearchResult[]> {
-  const { query, limit = 50, page, branchSystemId, status, customerSystemId, stockOutStatusNot, stockOutStatus, paymentStatusNot } = params;
+  const { query, limit = 50, page, branchSystemId, status, statusNotIn, customerSystemId, stockOutStatusNot, stockOutStatus, paymentStatusNot } = params;
   
   const searchParams = new URLSearchParams();
   if (query) searchParams.set('search', query);
@@ -40,6 +41,7 @@ export async function searchOrders(
   if (page && page > 1) searchParams.set('page', String(page));
   if (branchSystemId) searchParams.set('branchSystemId', branchSystemId);
   if (status) searchParams.set('status', status);
+  if (statusNotIn) searchParams.set('statusNotIn', statusNotIn);
   if (customerSystemId) searchParams.set('customerSystemId', customerSystemId);
   if (stockOutStatusNot) searchParams.set('stockOutStatusNot', stockOutStatusNot);
   if (stockOutStatus) searchParams.set('stockOutStatus', stockOutStatus);
@@ -156,7 +158,7 @@ export interface PaginatedOrderSearchResult {
 export async function searchOrdersPaginated(
   params: OrderSearchParams & { page?: number }
 ): Promise<PaginatedOrderSearchResult> {
-  const { query, limit = 30, branchSystemId, status, customerSystemId, stockOutStatusNot, stockOutStatus, page = 1 } = params;
+  const { query, limit = 30, branchSystemId, status, statusNotIn, customerSystemId, stockOutStatusNot, stockOutStatus, page = 1 } = params;
   
   const searchParams = new URLSearchParams();
   if (query) searchParams.set('search', query);
@@ -164,6 +166,7 @@ export async function searchOrdersPaginated(
   searchParams.set('page', String(page));
   if (branchSystemId) searchParams.set('branchSystemId', branchSystemId);
   if (status) searchParams.set('status', status);
+  if (statusNotIn) searchParams.set('statusNotIn', statusNotIn);
   if (customerSystemId) searchParams.set('customerSystemId', customerSystemId);
   if (stockOutStatusNot) searchParams.set('stockOutStatusNot', stockOutStatusNot);
   if (stockOutStatus) searchParams.set('stockOutStatus', stockOutStatus);

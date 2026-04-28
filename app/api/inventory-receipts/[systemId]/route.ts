@@ -3,12 +3,14 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { logError } from '@/lib/logger'
 import { syncProductsInventory } from '@/lib/meilisearch-sync'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { updateInventoryReceiptSchema } from '../validation'
+import { InventoryReceiptStatus } from '@/generated/prisma/client'
 
 // GET - Get single inventory receipt
 export const GET = apiHandler(async (request, { session: _session, params }) => {
@@ -17,8 +19,38 @@ export const GET = apiHandler(async (request, { session: _session, params }) => 
 
     const inventoryReceipt = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        type: true,
+        branchId: true,
+        branchSystemId: true,
+        branchName: true,
+        employeeId: true,
+        receiverSystemId: true,
+        receiverName: true,
+        purchaseOrderSystemId: true,
+        purchaseOrderId: true,
+        supplierSystemId: true,
+        supplierName: true,
+        receiptDate: true,
+        receivedDate: true,
+        status: true,
+        notes: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            systemId: true,
+            productId: true,
+            productSku: true,
+            productName: true,
+            quantity: true,
+            unitCost: true,
+            totalCost: true,
+          },
+        },
       },
     });
 
@@ -26,56 +58,47 @@ export const GET = apiHandler(async (request, { session: _session, params }) => 
       return apiNotFound('Inventory receipt');
     }
 
-
-    // Lookup purchase order to get supplier info if not stored
-    let purchaseOrder: { id: string; systemId: string; supplier: { name: string } | null } | null = null;
-    if (inventoryReceipt.purchaseOrderSystemId) {
-      purchaseOrder = await prisma.purchaseOrder.findUnique({
-        where: { systemId: inventoryReceipt.purchaseOrderSystemId },
-        select: { 
-          systemId: true, 
-          id: true,
-          supplier: { select: { name: true } },
-        },
-      });
-    }
-    
-    // Lookup employee for receiver info
-    let employee: { systemId: string; fullName: string } | null = null;
-    if (inventoryReceipt.employeeId) {
-      employee = await prisma.employee.findUnique({
-        where: { systemId: inventoryReceipt.employeeId },
-        select: { systemId: true, fullName: true },
-      });
-    }
-
-    // Lookup branch for branch name
-    let branch: { systemId: string; name: string } | null = null;
-    if (inventoryReceipt.branchId) {
-      branch = await prisma.branch.findUnique({
-        where: { systemId: inventoryReceipt.branchId },
-        select: { systemId: true, name: true },
-      });
-    }
-
-    // Lookup products for SKU and images
+    // Lookup related data in parallel
     const productIds = inventoryReceipt.items.map(item => item.productId).filter((id): id is string => id !== null);
-    const products = productIds.length > 0 
-      ? await prisma.product.findMany({
-          where: { systemId: { in: productIds } },
-          select: { systemId: true, id: true, name: true, thumbnailImage: true, galleryImages: true, costPrice: true },
-        })
-      : [];
+    
+    const [purchaseOrder, employee, branch, products, supplier] = await Promise.all([
+      inventoryReceipt.purchaseOrderSystemId
+        ? prisma.purchaseOrder.findUnique({
+            where: { systemId: inventoryReceipt.purchaseOrderSystemId },
+            select: { 
+              systemId: true, 
+              id: true,
+              supplier: { select: { name: true } },
+            },
+          })
+        : null,
+      inventoryReceipt.employeeId
+        ? prisma.employee.findUnique({
+            where: { systemId: inventoryReceipt.employeeId },
+            select: { systemId: true, fullName: true },
+          })
+        : null,
+      inventoryReceipt.branchId
+        ? prisma.branch.findUnique({
+            where: { systemId: inventoryReceipt.branchId },
+            select: { systemId: true, name: true },
+          })
+        : null,
+      productIds.length > 0 
+        ? prisma.product.findMany({
+            where: { systemId: { in: productIds } },
+            select: { systemId: true, id: true, name: true, thumbnailImage: true, galleryImages: true, costPrice: true },
+          })
+        : [],
+      inventoryReceipt.supplierSystemId
+        ? prisma.supplier.findUnique({
+            where: { systemId: inventoryReceipt.supplierSystemId },
+            select: { systemId: true, id: true, name: true, phone: true, email: true },
+          })
+        : null,
+    ]);
+    
     const productMap = new Map(products.map(p => [p.systemId, p]));
-
-    // Lookup supplier for print (id, phone, email)
-    let supplier: { systemId: string; id: string; name: string; phone: string | null; email: string | null } | null = null;
-    if (inventoryReceipt.supplierSystemId) {
-      supplier = await prisma.supplier.findUnique({
-        where: { systemId: inventoryReceipt.supplierSystemId },
-        select: { systemId: true, id: true, name: true, phone: true, email: true },
-      });
-    }
 
     // ✅ Transform data to match frontend expected format
     const transformedData = {
@@ -121,9 +144,15 @@ export const GET = apiHandler(async (request, { session: _session, params }) => 
 export const PATCH = apiHandler(async (request, { session, params }) => {
   try {
     const { systemId } = params;
-    const body = await request.json();
+    
+    // Validate request body with Zod schema
+    const validation = await validateBody(request, updateInventoryReceiptSchema)
+    if (!validation.success) {
+      return apiError(validation.error, 400)
+    }
+    const body = validation.data;
 
-    const { status, notes, updatedBy } = body;
+    const { status, notes } = body;
 
     // Fetch existing data before update for change detection
     const existing = await prisma.inventoryReceipt.findUnique({
@@ -136,16 +165,51 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
     })
     if (!existing) return apiNotFound('Inventory receipt');
 
+    const updateData: { status?: InventoryReceiptStatus; notes?: string; updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+    if (status !== undefined) {
+      updateData.status = status as InventoryReceiptStatus;
+    }
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+
     const inventoryReceipt = await prisma.inventoryReceipt.update({
       where: { systemId },
-      data: {
-        ...(status !== undefined && { status }),
-        ...(notes !== undefined && { notes }),
-        ...(updatedBy !== undefined && { updatedBy }),
-        updatedAt: new Date(),
-      },
-      include: {
-        items: true,
+      data: updateData,
+      select: {
+        systemId: true,
+        id: true,
+        type: true,
+        branchId: true,
+        branchSystemId: true,
+        branchName: true,
+        employeeId: true,
+        receiverSystemId: true,
+        receiverName: true,
+        purchaseOrderSystemId: true,
+        purchaseOrderId: true,
+        supplierSystemId: true,
+        supplierName: true,
+        receiptDate: true,
+        receivedDate: true,
+        status: true,
+        notes: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            systemId: true,
+            productId: true,
+            productSku: true,
+            productName: true,
+            quantity: true,
+            unitCost: true,
+            totalCost: true,
+          },
+        },
       },
     });
 
@@ -199,7 +263,20 @@ export const DELETE = apiHandler(async (request, { session, params }) => {
     // Get the receipt with items first to revert stock and supplier debt
     const receipt = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        branchId: true,
+        supplierSystemId: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+            totalCost: true,
+          },
+        },
+      },
     });
 
     if (!receipt) {

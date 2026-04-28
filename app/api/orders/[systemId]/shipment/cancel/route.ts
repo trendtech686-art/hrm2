@@ -20,9 +20,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Get order with shipment
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
         packagings: {
-          include: { shipment: true },
+          select: {
+            systemId: true,
+            cancelDate: true,
+            shipment: {
+              select: {
+                systemId: true,
+                status: true,
+              },
+            },
+          },
+          where: { cancelDate: null },
           orderBy: { createdAt: 'desc' },
         },
       },
@@ -54,17 +66,82 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const updated = await tx.order.update({
         where: { systemId },
         data: { status: 'PACKED' },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
-          },
-          payments: true,
-          packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          salespersonId: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
             },
+          },
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              tax: true,
+              total: true,
+              note: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              date: true,
+              method: true,
+              amount: true,
+              description: true,
+              createdBy: true,
+            },
+          },
+          packagings: {
+            select: {
+              systemId: true,
+              id: true,
+              orderId: true,
+              status: true,
+              packDate: true,
+              totalItems: true,
+              packedItems: true,
+              cancelDate: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
+            },
+            where: { cancelDate: null },
+            orderBy: { createdAt: 'desc' },
           },
         },
       });

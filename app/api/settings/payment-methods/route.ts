@@ -1,9 +1,10 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
-import { createPaymentMethodSchema } from './validation'
-import { generateNextIds } from '@/lib/id-system'
+import { requireAuth, validateBody, apiSuccess, apiError, parsePagination, apiPaginated } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { generateNextIds } from '@/lib/id-system'
+import { createPaymentMethodSchema } from './validation'
 
 // GET /api/settings/payment-methods - Get all payment methods
 export async function GET(request: Request) {
@@ -12,12 +13,17 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const { limit } = parsePagination(searchParams)
+    const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
 
-    const methods = await prisma.paymentMethod.findMany({
-      take: limit,
-      orderBy: { createdAt: 'asc' },
-    })
+    const [methods, total] = await Promise.all([
+      prisma.paymentMethod.findMany({
+        skip,
+        take: safeLimit,
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.paymentMethod.count({}),
+    ])
 
     // Map to frontend format
     const data = methods.map((m) => ({
@@ -31,7 +37,7 @@ export async function GET(request: Request) {
       isDefault: m.isDefault ?? false,
     }))
 
-    return apiSuccess({ data })
+    return apiPaginated(data, { page, limit, total })
   } catch (error) {
     logError('Error fetching payment methods', error)
     return apiError('Không thể tải danh sách phương thức thanh toán', 500)

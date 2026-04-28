@@ -22,7 +22,25 @@ export const GET = apiHandler(async (_req, { params }) => {
   const { systemId } = params
   const conversion = await prisma.productConversion.findUnique({
     where: { systemId },
-    include: { baseProduct: { select: { systemId: true, id: true, name: true, unit: true } } },
+    select: {
+      systemId: true,
+      baseProductId: true,
+      conversionUnit: true,
+      conversionRate: true,
+      sku: true,
+      barcode: true,
+      name: true,
+      sellingPrice: true,
+      costPrice: true,
+      weight: true,
+      weightUnit: true,
+      thumbnailImage: true,
+      isActive: true,
+      sortOrder: true,
+      createdAt: true,
+      updatedAt: true,
+      baseProduct: { select: { systemId: true, id: true, name: true, unit: true } },
+    },
   })
   if (!conversion) return apiNotFound('Sản phẩm quy đổi')
   return apiSuccess(conversion)
@@ -47,7 +65,25 @@ export const PATCH = apiHandler(async (req, { params }) => {
   const updated = await prisma.productConversion.update({
     where: { systemId },
     data: body as Record<string, unknown>,
-    include: { baseProduct: { select: { systemId: true, id: true, name: true, unit: true } } },
+    select: {
+      systemId: true,
+      baseProductId: true,
+      conversionUnit: true,
+      conversionRate: true,
+      sku: true,
+      barcode: true,
+      name: true,
+      sellingPrice: true,
+      costPrice: true,
+      weight: true,
+      weightUnit: true,
+      thumbnailImage: true,
+      isActive: true,
+      sortOrder: true,
+      createdAt: true,
+      updatedAt: true,
+      baseProduct: { select: { systemId: true, id: true, name: true, unit: true } },
+    },
   })
 
   return apiSuccess(updated)

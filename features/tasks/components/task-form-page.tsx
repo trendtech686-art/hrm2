@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTaskById, useTaskMutations } from '../hooks/use-tasks';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import type { TaskPriority, TaskStatus } from '../types';
@@ -39,7 +39,15 @@ export function TaskFormPage() {
     }
   });
   
-  const { data: employees } = useAllEmployees({ enabled: false });
+  // Employee search for assignee dropdown
+  const [assigneeSearch, setAssigneeSearch] = React.useState('');
+  const [debouncedAssigneeSearch, setDebouncedAssigneeSearch] = React.useState('');
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedAssigneeSearch(assigneeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [assigneeSearch]);
+  const { data: employeesResult } = useMeiliEmployeeSearch({ query: debouncedAssigneeSearch, limit: 100 });
+  const employees = React.useMemo(() => employeesResult?.data ?? [], [employeesResult?.data]);
   const { isAdmin, employee: authEmployee } = useAuth();
   
   // Redirect non-admin users

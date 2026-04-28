@@ -157,3 +157,26 @@ export function usePurchaseReturnsByPO(purchaseOrderId: string | null | undefine
   });
 }
 
+/**
+ * Fetch purchase returns for a specific purchase order by systemId.
+ * Returns flat array for compatibility with existing code.
+ */
+export function usePurchaseReturnsByPOSystemId(purchaseOrderSystemId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: [...purchaseReturnKeys.lists(), 'by-po-system-id', purchaseOrderSystemId],
+    queryFn: async () => {
+      const response = await fetchPurchaseReturns({ purchaseOrderId: purchaseOrderSystemId!, limit: 1000 });
+      return response.data;
+    },
+    enabled: !!purchaseOrderSystemId,
+    staleTime: 60_000,
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+

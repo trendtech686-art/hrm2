@@ -88,7 +88,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updated = await prisma.payroll.update({
       where: { systemId },
       data: updateData,
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        year: true,
+        month: true,
+        totalGross: true,
+        totalDeductions: true,
+        totalNet: true,
+        totalEmployees: true,
+        processedAt: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
         items: {
           select: { systemId: true }
         }

@@ -5,7 +5,7 @@ import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useWikiById, useWikiMutations, useWikiCategories } from './hooks/use-wiki';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent } from '../../components/ui/card';
 import { mobileBleedCardClass } from '@/components/layout/page-section';
@@ -42,7 +42,12 @@ export function WikiFormPage() {
     }
   });
 
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
   
   const article = articleFromQuery;
   const isEdit = Boolean(article);

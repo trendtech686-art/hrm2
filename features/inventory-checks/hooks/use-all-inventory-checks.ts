@@ -2,22 +2,32 @@
  * useAllInventoryChecks - Convenience hook for flat array of inventory checks
  * Returns all inventory checks (equivalent to old store's data array)
  * Uses fetchAllPages auto-pagination to load ALL records
+ * 
+ * ⚠️ WARNING: Sử dụng filter để giới hạn data!
+ * - Dùng startDate/endDate để filter theo ngày
+ * - Dùng branchId để filter theo chi nhánh
+ * - Dùng status/search để filter cụ thể
  */
 
 import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { fetchInventoryChecks } from '../api/inventory-checks-api';
+import { fetchInventoryChecks, type InventoryChecksParams } from '../api/inventory-checks-api';
 import { inventoryCheckKeys } from './use-inventory-checks';
-import type { InventoryCheck } from '../types';
+import type { InventoryCheck, InventoryCheckStatus } from '../types';
 
-export function useAllInventoryChecks(options?: { enabled?: boolean }) {
+export interface UseAllInventoryChecksOptions extends Pick<InventoryChecksParams, 'startDate' | 'endDate' | 'branchId' | 'status' | 'search'> {
+  enabled?: boolean;
+}
+
+export function useAllInventoryChecks(options: UseAllInventoryChecksOptions = {}) {
+  const { enabled = true, startDate, endDate, branchId, status, search } = options;
   const query = useQuery({
-    queryKey: [...inventoryCheckKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchInventoryChecks(p)),
+    queryKey: [...inventoryCheckKeys.all, 'all', { startDate, endDate, branchId, status, search }],
+    queryFn: () => fetchAllPages((p) => fetchInventoryChecks({ ...p, startDate, endDate, branchId, status, search })),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
-    enabled: options?.enabled ?? true,
+    enabled,
   });
   return {
     data: query.data || [],

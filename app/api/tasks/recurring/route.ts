@@ -1,22 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, apiPaginated, parsePagination, apiError, apiSuccess } from '@/lib/api-utils';
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import { logError } from '@/lib/logger';
 import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // GET - List all recurring tasks
-export async function GET() {
+export async function GET(request: NextRequest) {
   const result = await requirePermission('view_tasks');
   if (result instanceof NextResponse) return result;
 
-  try {
-    const tasks = await prisma.recurringTask.findMany({
-      where: { isDeleted: false },
-      orderBy: { createdAt: 'desc' },
-    });
+  const { searchParams } = new URL(request.url);
+  const { page, limit, skip } = parsePagination(searchParams);
 
-    return apiSuccess(tasks);
+  try {
+    const [tasks, total] = await Promise.all([
+      prisma.recurringTask.findMany({
+        where: { isDeleted: false },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.recurringTask.count({ where: { isDeleted: false } }),
+    ]);
+
+    return apiPaginated(tasks, { page, limit, total });
   } catch (error) {
     logError('Failed to fetch recurring tasks', error);
     return apiError('Không thể tải công việc lặp lại', 500);

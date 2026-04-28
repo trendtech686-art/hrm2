@@ -12,7 +12,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { requireAuth, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiError } from '@/lib/api-utils';
 import { loadGHTKConfig, GHTK_API_BASE } from '@/lib/ghtk-sync';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
@@ -21,18 +22,12 @@ type Props = {
   params: Promise<{ trackingCode: string }>;
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: Props
-) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async (req, { params }) => {
   const requestId = randomUUID();
   const { trackingCode } = await params;
 
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const original = searchParams.get('original') || 'portrait'; // portrait | landscape
     const pageSize = searchParams.get('page_size') || 'A6'; // A5 | A6
 
@@ -85,4 +80,6 @@ export async function GET(
     logError(`[GHTK-LABEL-${requestId}] Print label error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
-}
+}, {
+  rateLimit: { max: 20, windowMs: 60_000 }
+});

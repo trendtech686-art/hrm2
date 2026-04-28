@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { toISODate } from '../../../lib/date-utils';
 import type { Penalty, PenaltyType } from './types';
 import { penaltyCategoryLabels } from './types';
-import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useAllPenaltyTypes } from './hooks/use-all-penalties';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
@@ -26,7 +26,12 @@ interface PenaltyFormProps {
 }
 
 export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDelete: _onDelete }: PenaltyFormProps) {
-  const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees();
+  const { data: employeesData, isLoading: isLoadingEmployees } = useMeiliEmployeeSearch({ 
+    query: '', 
+    limit: 1000, 
+    debounceMs: 0 
+  });
+  const employees = employeesData?.data || [];
   const { data: penaltyTypes, isLoading: isLoadingPenaltyTypes } = useAllPenaltyTypes();
   
   // Filter active penalty types

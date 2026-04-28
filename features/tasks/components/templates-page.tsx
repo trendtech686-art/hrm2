@@ -1,11 +1,10 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { generateSubEntityId } from '@/lib/id-utils';
-import { useAllTaskTemplates } from '../hooks/use-all-task-templates';
-import { useTaskTemplateMutations } from '../hooks/use-task-templates';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useTaskTemplates, useTaskTemplateMutations } from '../hooks/use-task-templates';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Pagination } from '@/components/shared/pagination';
 import { AssigneeMultiSelect } from './AssigneeMultiSelect';
 import { 
   Plus, 
@@ -67,9 +67,38 @@ function FileText(props: React.HTMLAttributes<HTMLDivElement>) { return <div {..
 
 export function TaskTemplatesPage() {
   const router = useRouter();
-  const { data: templates, getMostUsed, search } = useAllTaskTemplates();
+  const searchParams = useSearchParams();
+  
+  // Pagination state from URL
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '20');
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = React.useState(searchParams.get('search') || '');
+  const [categoryFilter, setCategoryFilter] = React.useState<string>(searchParams.get('category') || 'all');
+  
+  // ✅ Use API Filter with server-side pagination
+  const { data: templatesResult, isLoading } = useTaskTemplates({
+    search: searchQuery || undefined,
+    category: categoryFilter !== 'all' ? categoryFilter : undefined,
+    page,
+    limit,
+  });
+  
+  const templates = React.useMemo(() => templatesResult?.data || [], [templatesResult?.data]);
+  const pagination = templatesResult?.pagination;
+
   const { incrementUsage } = useTaskTemplateMutations();
-  const { data: employees } = useAllEmployees({ enabled: false });
+  
+  // Employee search for assignee selection
+  const [employeeSearch, setEmployeeSearch] = React.useState('');
+  const [debouncedEmployeeSearch, setDebouncedEmployeeSearch] = React.useState('');
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEmployeeSearch(employeeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
+  const { data: employeesResult } = useMeiliEmployeeSearch({ query: debouncedEmployeeSearch, limit: 100 });
+  const employees = React.useMemo(() => employeesResult?.data ?? [], [employeesResult?.data]);
   const { data: tasksData } = useTasks();
   const _tasks = tasksData?.data ?? [];
   const { create: createTaskMutation } = useTaskMutations({
@@ -82,8 +111,6 @@ export function TaskTemplatesPage() {
     }
   });
 
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [categoryFilter, setCategoryFilter] = React.useState<string>('all');
   const [showUseDialog, setShowUseDialog] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<TaskTemplate | null>(null);
   
@@ -103,20 +130,10 @@ export function TaskTemplatesPage() {
     ],
   });
 
-  // Filter templates
+  // Filter templates - server-side handles search, client-side handles isActive
   const filteredTemplates = React.useMemo(() => {
-    let result = templates;
-
-    if (categoryFilter !== 'all') {
-      result = result.filter(t => t.category === categoryFilter);
-    }
-
-    if (searchQuery.trim()) {
-      result = search(searchQuery);
-    }
-
-    return result.filter(t => t.isActive);
-  }, [templates, searchQuery, categoryFilter, search]);
+    return templates.filter(t => t.isActive);
+  }, [templates]);
 
   // Group by category
   const groupedTemplates = React.useMemo(() => {
@@ -129,6 +146,14 @@ export function TaskTemplatesPage() {
     });
     return groups;
   }, [filteredTemplates]);
+
+  // Calculate most used for stats
+  const mostUsedTemplates = React.useMemo(() => {
+    return [...templates]
+      .filter(t => t.isActive)
+      .sort((a, b) => b.usageCount - a.usageCount)
+      .slice(0, 3);
+  }, [templates]);
 
   const handleUseTemplate = (template: TaskTemplate) => {
     setSelectedTemplate(template);
@@ -202,7 +227,32 @@ export function TaskTemplatesPage() {
     }
   };
 
-  const mostUsedTemplates = getMostUsed(3);
+  // Handle search with debounce
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    // Update URL params for shareable links
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    if (value) {
+      params.set('search', value);
+    } else {
+      params.delete('search');
+    }
+    params.set('page', '1');
+    router.replace(`?${params.toString()}`);
+  };
+
+  // Handle category filter
+  const handleCategoryChange = (value: string) => {
+    setCategoryFilter(value);
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    if (value && value !== 'all') {
+      params.set('category', value);
+    } else {
+      params.delete('category');
+    }
+    params.set('page', '1');
+    router.replace(`?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -214,7 +264,7 @@ export function TaskTemplatesPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{templates.filter(t => t.isActive).length}</div>
+            <div className="text-2xl font-bold">{pagination?.total || templates.filter(t => t.isActive).length}</div>
           </CardContent>
         </Card>
 
@@ -266,12 +316,12 @@ export function TaskTemplatesPage() {
                 <Input
                   placeholder="Tìm mẫu công việc..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-9"
                 />
               </div>
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select value={categoryFilter} onValueChange={handleCategoryChange}>
               <SelectTrigger className="w-full md:w-50">
                 <SelectValue placeholder="Tất cả danh mục" />
               </SelectTrigger>
@@ -293,18 +343,32 @@ export function TaskTemplatesPage() {
       </Card>
 
       {/* Templates Grid by Category */}
-      {Object.keys(groupedTemplates).length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-6 bg-muted rounded w-3/4"></div>
+                <div className="h-4 bg-muted rounded w-full mt-2"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-4 bg-muted rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : Object.keys(groupedTemplates).length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Không tìm thấy mẫu công việc nào
           </CardContent>
         </Card>
       ) : (
-        Object.entries(groupedTemplates).map(([category, templates]) => (
+        Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
           <div key={category} className="space-y-4">
             <h2 className="text-xl font-semibold">{category}</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {templates.map(template => (
+              {categoryTemplates.map(template => (
                 <Card key={template.systemId} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -372,6 +436,29 @@ export function TaskTemplatesPage() {
             </div>
           </div>
         ))
+      )}
+
+      {/* Pagination */}
+      {pagination && (
+        <Pagination
+          page={pagination.page}
+          limit={pagination.limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          hasNext={pagination.page < pagination.totalPages}
+          hasPrev={pagination.page > 1}
+          onPageChange={(newPage) => {
+            const params = new URLSearchParams(searchParams?.toString() || '');
+            params.set('page', String(newPage));
+            router.replace(`?${params.toString()}`);
+          }}
+          onPageSizeChange={(newSize) => {
+            const params = new URLSearchParams(searchParams?.toString() || '');
+            params.set('limit', String(newSize));
+            params.set('page', '1');
+            router.replace(`?${params.toString()}`);
+          }}
+        />
       )}
 
       {/* Use Template Dialog */}

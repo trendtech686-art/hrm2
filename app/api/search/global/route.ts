@@ -15,7 +15,7 @@ import { requireAuth } from '@/lib/api-utils'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { NextResponse } from 'next/server'
+import { apiSuccess, apiError } from '@/lib/api-utils'
 import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliProduct } from '@/lib/meilisearch'
 import { prismaProductSearchAsMeiliHits } from '@/lib/search/products-meilisearch-fallback-prisma'
@@ -170,7 +170,7 @@ async function searchEmployees(q: string, limit: number, offset: number): Promis
 export async function GET(request: Request) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401)
   }
 
   const { searchParams } = new URL(request.url)
@@ -180,7 +180,7 @@ export async function GET(request: Request) {
   const offset = parseInt(searchParams.get('offset') || '0', 10)
 
   if (!q) {
-    return NextResponse.json({ data: [], meta: { total: 0, limit, offset, query: '', searchTimeMs: 0 } })
+    return apiSuccess({ data: [], meta: { total: 0, limit, offset, query: '', searchTimeMs: 0 } })
   }
 
   const startTime = Date.now()
@@ -220,7 +220,7 @@ export async function GET(request: Request) {
 
   await Promise.all(promises)
 
-  return NextResponse.json({
+  return apiSuccess({
     data: allHits,
     meta: {
       total: totalHits,

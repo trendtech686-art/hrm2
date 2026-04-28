@@ -6,7 +6,8 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 /**
  * Map GHTK error codes to Vietnamese messages
@@ -33,12 +34,9 @@ function getGHTKErrorMessage(errorCode: string): string {
   return errorMessages[errorCode] || 'Lỗi không xác định từ GHTK';
 }
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (req) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { error } = body;
     
     if (!error) {
@@ -56,4 +54,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
-}
+}, {
+  rateLimit: { max: 20, windowMs: 60_000 }
+});

@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
 import { SalesReturnStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { createSalesReturnSchema } from './validation';
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import type { EntityType } from '@/lib/id-config-constants';
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const customerId = searchParams.get('customerId');
     const orderId = searchParams.get('orderId');
+    const orderSystemId = searchParams.get('orderSystemId');
     const branchId = searchParams.get('branchId');
     const isReceived = searchParams.get('isReceived');
     const startDate = searchParams.get('startDate');
@@ -71,6 +73,10 @@ export async function GET(request: NextRequest) {
 
     if (orderId) {
       where.orderId = orderId;
+    }
+
+    if (orderSystemId) {
+      where.orderSystemId = orderSystemId;
     }
 
     if (branchId) {
@@ -103,16 +109,80 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy,
-        include: {
-          items: true,
-          // ✅ Include original order to get orderId (business ID)
+        select: {
+          systemId: true,
+          id: true,
+          orderId: true,
+          customerId: true,
+          employeeId: true,
+          branchId: true,
+          returnDate: true,
+          status: true,
+          reason: true,
+          subtotal: true,
+          total: true,
+          refunded: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          orderSystemId: true,
+          orderBusinessId: true,
+          customerSystemId: true,
+          customerName: true,
+          branchSystemId: true,
+          branchName: true,
+          note: true,
+          notes: true,
+          reference: true,
+          returnItems: true,
+          totalReturnValue: true,
+          isReceived: true,
+          exchangeItems: true,
+          exchangeOrderSystemId: true,
+          subtotalNew: true,
+          shippingFeeNew: true,
+          discountNew: true,
+          discountNewType: true,
+          grandTotalNew: true,
+          deliveryMethod: true,
+          shippingPartnerId: true,
+          shippingServiceId: true,
+          shippingAddress: true,
+          packageInfo: true,
+          configuration: true,
+          finalAmount: true,
+          refundMethod: true,
+          refundAmount: true,
+          accountSystemId: true,
+          refunds: true,
+          payments: true,
+          paymentVoucherSystemId: true,
+          paymentVoucherSystemIds: true,
+          receiptVoucherSystemIds: true,
+          creatorSystemId: true,
+          creatorName: true,
+          items: {
+            select: {
+              systemId: true,
+              returnId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
+          // Include original order to get orderId (business ID)
           orders: {
             select: {
               systemId: true,
               id: true,
             },
           },
-          // ✅ Include exchange order with packaging to get tracking code
+          // Include exchange order with packaging to get tracking code
           exchangeOrder: {
             select: {
               systemId: true,
@@ -257,10 +327,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create new sales return with inventory and order updates
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (request: NextRequest, { session }) => {
   const result = await validateBody(request, createSalesReturnSchema);
   if (!result.success) return apiError(result.error, 400);
 
@@ -295,7 +362,33 @@ export async function POST(request: NextRequest) {
     // Validate that order exists
     const order = await prisma.order.findUnique({
       where: { systemId: orderId },
-      include: { lineItems: true, customer: true },
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        branchName: true,
+        customerId: true,
+        customerName: true,
+        salespersonId: true,
+        salespersonName: true,
+        status: true,
+        stockOutStatus: true,
+        deliveryStatus: true,
+        lineItems: {
+          select: {
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+          },
+        },
+        customer: {
+          select: {
+            phone: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -349,7 +442,15 @@ export async function POST(request: NextRequest) {
     // ✅ Fetch all previous returns for this order to calculate returnable quantities
     const previousReturns = await prisma.salesReturn.findMany({
       where: { orderId: order.systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+          },
+        },
+      },
     });
 
     // Calculate total already returned for each product
@@ -410,7 +511,7 @@ export async function POST(request: NextRequest) {
           customerId: order.customerId,
           customerName: order.customerName,
           customerSystemId: order.customerId,
-          employeeId: session.user?.id || null,
+          employeeId: session!.user?.id || null,
           branchId: branchId,
           branchSystemId: branchId,
           branchName: order.branchName,
@@ -428,9 +529,9 @@ export async function POST(request: NextRequest) {
           grandTotalNew: exchangeSubtotal,
           refunded: 0,
           isReceived: isReceived || false,
-          createdBy: createdBy || session.user?.id || null,
-          creatorSystemId: session.user?.id || null,
-          creatorName: session.user?.name || null,
+          createdBy: createdBy || session!.user?.id || null,
+          creatorSystemId: session!.user?.id || null,
+          creatorName: session!.user?.name || null,
           // Store return items as JSON for flexible structure
           returnItems: (items || []).map(item => ({
             systemId: item.systemId || uuidv4(),
@@ -474,8 +575,27 @@ export async function POST(request: NextRequest) {
             }),
           },
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          orderId: true,
+          customerId: true,
+          customerSystemId: true,
+          status: true,
+          totalReturnValue: true,
+          items: {
+            select: {
+              systemId: true,
+              returnId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
         },
       });
 
@@ -549,8 +669,8 @@ export async function POST(request: NextRequest) {
               newStockLevel: newStock,
               documentId: newReturn.id,
               documentType: 'sales_return',
-              employeeId: createdBy || session.user?.id,
-              employeeName: session.user?.name || undefined,
+              employeeId: createdBy || session!.user?.id,
+              employeeName: session!.user?.name || undefined,
               note: `Xuất kho cho hàng đổi - ${item.productName || productId}`,
             },
           });
@@ -613,8 +733,8 @@ export async function POST(request: NextRequest) {
               newStockLevel: newStock,
               documentId: newReturn.id,
               documentType: 'sales_return',
-              employeeId: createdBy || session.user?.id,
-              employeeName: session.user?.name || undefined,
+              employeeId: createdBy || session!.user?.id,
+              employeeName: session!.user?.name || undefined,
               note: `Nhập kho hàng trả - ${item.productId || productSysId}`,
             },
           });
@@ -714,7 +834,7 @@ export async function POST(request: NextRequest) {
               approvedDate: new Date(),
               source: 'DOIHANG', // ✅ Use business ID from sales channels settings
               notes: `Đơn đổi hàng từ phiếu trả ${salesReturn.id} (Đơn gốc: ${order.id})`,
-              createdBy: session.user?.id || createdBy,
+              createdBy: session!.user?.id || createdBy,
               linkedSalesReturnSystemId: salesReturn.systemId,
               // ✅ Store return value for display in order detail
               linkedSalesReturnValue: salesReturn.totalReturnValue,
@@ -744,16 +864,16 @@ export async function POST(request: NextRequest) {
                   branchId: branchId,
                   requestDate: new Date(),
                   confirmDate: isPickup ? new Date() : null,
-                  requestingEmployeeId: session.user?.id || createdBy,
-                  requestingEmployeeName: session.user?.name || 'System',
-                  confirmingEmployeeId: isPickup ? (session.user?.id || createdBy) : null,
-                  confirmingEmployeeName: isPickup ? (session.user?.name || 'System') : null,
+              requestingEmployeeId: session!.user?.id || createdBy,
+              requestingEmployeeName: session!.user?.name || 'System',
+              confirmingEmployeeId: isPickup ? (session!.user?.id || createdBy) : null,
+              confirmingEmployeeName: isPickup ? (session!.user?.name || 'System') : null,
                   status: packagingStatus,
                   deliveryStatus: deliveryStatus,
                   deliveryMethod: deliveryMethod,
                   trackingCode: trackingCode,
                   printStatus: 'NOT_PRINTED',
-                  createdBy: session.user?.name || 'System',
+                  createdBy: session!.user?.name || 'System',
                   notes: `Đổi hàng từ phiếu trả ${salesReturn.id}`,
                   // ✅ Add requestor info for pickup (người nhận hàng)
                   requestorName: isPickup ? (order.customerName || 'Khách lẻ') : null,
@@ -769,8 +889,15 @@ export async function POST(request: NextRequest) {
                 },
               },
             },
-            include: {
-              packagings: true,
+            select: {
+              systemId: true,
+              id: true,
+              packagings: {
+                select: {
+                  trackingCode: true,
+                },
+                take: 1,
+              },
             },
           });
           
@@ -860,7 +987,7 @@ export async function POST(request: NextRequest) {
                 affectsDebt: true,
                 linkedSalesReturnSystemId: salesReturn.systemId,
                 linkedOrderSystemId: order.systemId,
-                createdBy: createdBy || session.user?.id,
+                createdBy: createdBy || session!.user?.id,
                 status: 'completed',
               },
             });
@@ -917,7 +1044,7 @@ export async function POST(request: NextRequest) {
                 linkedSalesReturnSystemId: salesReturn.systemId,
                 // ✅ Link to exchange order if exists
                 linkedOrderSystemId: paymentLinkedOrderId,
-                createdBy: createdBy || session.user?.id,
+                createdBy: createdBy || session!.user?.id,
                 status: 'completed',
               },
             });
@@ -931,7 +1058,7 @@ export async function POST(request: NextRequest) {
                   amount: payment.amount,
                   method: payment.method || 'Tiền mặt',
                   description: `Thu tiền chênh lệch đổi hàng (${salesReturn.id})`,
-                  createdBy: createdBy || session.user?.id || 'system',
+                  createdBy: createdBy || session!.user?.id || 'system',
                   linkedReceiptSystemId: systemId,
                 },
               });
@@ -992,7 +1119,73 @@ export async function POST(request: NextRequest) {
     // ✅ Fetch updated salesReturn with all fields including exchangeOrderSystemId
     const updatedSalesReturn = await prisma.salesReturn.findUnique({
       where: { systemId: salesReturn.systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        orderId: true,
+        customerId: true,
+        employeeId: true,
+        branchId: true,
+        returnDate: true,
+        status: true,
+        reason: true,
+        subtotal: true,
+        total: true,
+        refunded: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        orderSystemId: true,
+        orderBusinessId: true,
+        customerSystemId: true,
+        customerName: true,
+        branchSystemId: true,
+        branchName: true,
+        note: true,
+        notes: true,
+        reference: true,
+        returnItems: true,
+        totalReturnValue: true,
+        isReceived: true,
+        exchangeItems: true,
+        exchangeOrderSystemId: true,
+        subtotalNew: true,
+        shippingFeeNew: true,
+        discountNew: true,
+        discountNewType: true,
+        grandTotalNew: true,
+        deliveryMethod: true,
+        shippingPartnerId: true,
+        shippingServiceId: true,
+        shippingAddress: true,
+        packageInfo: true,
+        configuration: true,
+        finalAmount: true,
+        refundMethod: true,
+        refundAmount: true,
+        accountSystemId: true,
+        refunds: true,
+        payments: true,
+        paymentVoucherSystemId: true,
+        paymentVoucherSystemIds: true,
+        receiptVoucherSystemIds: true,
+        creatorSystemId: true,
+        creatorName: true,
+        items: {
+          select: {
+            systemId: true,
+            returnId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            total: true,
+            reason: true,
+          },
+        },
+      },
     });
 
     // Return with debug info
@@ -1008,7 +1201,7 @@ export async function POST(request: NextRequest) {
     };
 
     // ✅ Notify order salesperson about sales return
-    if (order.salespersonId && order.salespersonId !== session.user?.employeeId) {
+    if (order.salespersonId && order.salespersonId !== session!.user?.employeeId) {
       createNotification({
         type: 'sales_return',
         settingsKey: 'sales-return:updated',
@@ -1016,8 +1209,8 @@ export async function POST(request: NextRequest) {
         message: `Phiếu trả hàng cho đơn ${order.id || orderId} - Lý do: ${reason || 'Không rõ'}`,
         link: `/sales-returns/${(updatedSalesReturn || salesReturn).systemId}`,
         recipientId: order.salespersonId,
-        senderId: session.user?.employeeId,
-        senderName: session.user?.name,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
       }).catch(e => logError('[Sales Returns POST] notification failed', e))
     }
 
@@ -1025,7 +1218,7 @@ export async function POST(request: NextRequest) {
     const returnId = (updatedSalesReturn || salesReturn).id || (updatedSalesReturn || salesReturn).systemId;
     const orderIdStr = order.id || orderId || '';
     const totalReturnValue = Number((updatedSalesReturn || salesReturn).totalReturnValue) || 0;
-    getUserNameFromDb(session.user?.id).then(userName =>
+    getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'sales_return',
@@ -1046,4 +1239,4 @@ export async function POST(request: NextRequest) {
     }
     return apiError('Không thể tạo phiếu trả hàng', 500);
   }
-}
+}, { auth: true, rateLimit: { max: 30, windowMs: 60_000 } })

@@ -15,7 +15,7 @@ import { MonthPicker } from '../../components/ui/month-picker';
 import { DatePicker } from '../../components/ui/date-picker';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
-import { useAllEmployees, useActiveEmployees } from '../employees/hooks/use-all-employees';
+import { useActiveEmployees, useEmployees } from '../employees/hooks/use-employees';
 import { useLeavesByDateRange } from '../leaves/hooks/use-leaves';
 import { useAttendanceLocks } from '../attendance/hooks/use-attendance-locks';
 import { useAttendanceByMonth } from '../attendance/hooks/use-attendance';
@@ -414,8 +414,8 @@ function getEmployeeSelectionColumns(
 
 export function PayrollRunPage() {
   const router = useRouter();
-  const { data: employeeData = [] } = useAllEmployees({ enabled: false });
-  const { data: activeEmployees = [] } = useActiveEmployees({ enabled: false });
+  const { data: employeesData } = useEmployees({ enabled: false });
+  const { data: activeEmployeesData } = useActiveEmployees({ enabled: false });
   const { lockedMonths, getLatestLockedMonth } = useAttendanceLocks();
   const templates = useAllPayrollTemplates();
   const { getDefault } = usePayrollTemplateFinder();
@@ -497,7 +497,7 @@ export function PayrollRunPage() {
   }, [templates, defaultTemplateSystemId]);
 
   // Use activeEmployees from hook
-  const employees = activeEmployees;
+  const employees = activeEmployeesData?.data ?? [];
   const employeeLookup = useMemo(() => {
     return employees.reduce<Record<SystemId, (typeof employees)[number]>>(
       (acc, employee) => {
@@ -691,7 +691,7 @@ export function PayrollRunPage() {
     
     // Build employee inputs for the new engine
     const employeeInputs = formState.selectedEmployeeSystemIds.map((systemId) => {
-      const emp = employeeData.find(e => e.systemId === systemId);
+      const emp = employeesData?.data?.find(e => e.systemId === systemId);
       return {
         employeeSystemId: systemId,
         employeeId: emp?.id ?? ('' as typeof emp extends { id: infer T } ? T : never),
@@ -728,7 +728,7 @@ export function PayrollRunPage() {
     });
     setPreview(result);
     setIsPreviewLoading(false);
-  }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeeData, penalties, attendanceSnapshots]);
+  }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeesData?.data, penalties, attendanceSnapshots]);
 
   const handleSelectEmployee = useCallback((systemId: SystemId, checked: boolean) => {
     setFormState((prev) => ({

@@ -12,7 +12,6 @@ import { useReceiptMutations, useReceiptStats, useReceipts, type ReceiptStats } 
 import { useAllReceipts } from '../hooks/use-all-receipts';
 import { useAllReceiptTypes } from "../../settings/receipt-types/hooks/use-all-receipt-types";
 import { useAllBranches } from "../../settings/branches/hooks/use-all-branches";
-import { useAllCustomers } from "../../customers/hooks/use-all-customers";
 import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useAllCashAccounts } from "../../cashbook/hooks/use-all-cash-accounts";
 import type { Receipt } from '@/lib/types/prisma-extended';
@@ -113,7 +112,6 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
   const receiptTypesData = useAllReceiptTypes().data;
-  const _customers = useAllCustomers({ enabled: dialogsOpen });
   // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
   const { employee } = useAuth();

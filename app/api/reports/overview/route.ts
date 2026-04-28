@@ -361,4 +361,4 @@ export const GET = apiHandler(async () => {
     logError('[reports/overview]', e)
     return apiError('Không tải được tổng quan báo cáo', 500)
   }
-})
+}, { auth: true })

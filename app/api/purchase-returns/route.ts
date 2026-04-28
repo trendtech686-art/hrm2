@@ -110,9 +110,47 @@ export const GET = apiHandler(async (request) => {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
-        include: {
-          items: true,
-          suppliers: true,
+        select: {
+          systemId: true,
+          id: true,
+          supplierId: true,
+          purchaseOrderId: true,
+          branchId: true,
+          employeeId: true,
+          status: true,
+          reason: true,
+          purchaseOrderSystemId: true,
+          purchaseOrderBusinessId: true,
+          supplierSystemId: true,
+          supplierName: true,
+          branchSystemId: true,
+          branchName: true,
+          refundMethod: true,
+          accountSystemId: true,
+          creatorName: true,
+          createdBy: true,
+          updatedBy: true,
+          subtotal: true,
+          total: true,
+          totalReturnValue: true,
+          refundAmount: true,
+          returnDate: true,
+          returnItems: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              systemId: true,
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
+          suppliers: {
+            select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+          },
         },
       }),
       prisma.purchaseReturn.count({ where }),
@@ -213,17 +251,34 @@ export const POST = apiHandler(async (request, { session }) => {
     // Validate purchase order exists
     const purchaseOrder = await prisma.purchaseOrder.findUnique({
       where: { systemId: purchaseOrderSystemId },
-      include: {
-        supplier: true,
+      select: {
+        systemId: true,
+        id: true,
+        supplierId: true,
+        supplierSystemId: true,
+        supplierName: true,
+        status: true,
+        buyerSystemId: true,
+        supplier: {
+          select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+        },
         items: {
-          include: {
+          select: {
+            systemId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            discount: true,
+            total: true,
             product: {
               select: {
                 systemId: true,
                 id: true,
                 name: true,
                 unit: true,
-                imageUrl: true, // ✅ Include imageUrl for return items display
+                imageUrl: true,
               },
             },
           },
@@ -247,7 +302,10 @@ export const POST = apiHandler(async (request, { session }) => {
           purchaseOrderSystemId: purchaseOrder.systemId,
           status: { not: 'CANCELLED' },
         },
-        include: { items: true },
+        select: {
+          systemId: true,
+          receiptItems: true,
+        },
       }),
       prisma.purchaseReturn.findMany({
         where: {
@@ -257,17 +315,25 @@ export const POST = apiHandler(async (request, { session }) => {
         select: {
           systemId: true,
           returnItems: true,
-          items: true,
+          items: {
+            select: {
+              systemId: true,
+              productId: true,
+              quantity: true,
+            },
+          },
         },
       }),
     ]);
 
     // Calculate received quantities per product
+    interface ReceiptLineItem { productId?: string; quantity?: number }
     const receivedQuantities: Record<string, number> = {};
     for (const receipt of inventoryReceipts) {
-      for (const item of receipt.items) {
+      const receiptItems = (receipt.receiptItems as ReceiptLineItem[] | null) || [];
+      for (const item of receiptItems) {
         if (item.productId) {
-          receivedQuantities[item.productId] = (receivedQuantities[item.productId] || 0) + item.quantity;
+          receivedQuantities[item.productId] = (receivedQuantities[item.productId] || 0) + (item.quantity || 0);
         }
       }
     }
@@ -424,9 +490,47 @@ export const POST = apiHandler(async (request, { session }) => {
             }),
           },
         },
-        include: {
-          items: true,
-          suppliers: true,
+        select: {
+          systemId: true,
+          id: true,
+          supplierId: true,
+          purchaseOrderId: true,
+          branchId: true,
+          employeeId: true,
+          status: true,
+          reason: true,
+          purchaseOrderSystemId: true,
+          purchaseOrderBusinessId: true,
+          supplierSystemId: true,
+          supplierName: true,
+          branchSystemId: true,
+          branchName: true,
+          refundMethod: true,
+          accountSystemId: true,
+          creatorName: true,
+          createdBy: true,
+          updatedBy: true,
+          subtotal: true,
+          total: true,
+          totalReturnValue: true,
+          refundAmount: true,
+          returnDate: true,
+          returnItems: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              systemId: true,
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
+          suppliers: {
+            select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+          },
         },
       });
 

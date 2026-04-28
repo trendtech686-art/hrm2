@@ -91,10 +91,33 @@ export function InventoryChecksPage({ initialStats }: InventoryChecksPageProps) 
   const totalRows = queryData?.total ?? 0;
   const pageCount = Math.ceil(totalRows / pagination.pageSize);
 
-  // Lazy-load all data only for import/export dialogs
+  // Lazy-load all data only for import/export dialogs (with current filters)
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const { data: allData } = useAllInventoryChecks({ enabled: showImportDialog || showExportDialog });
+  const [importExportFilters, setImportExportFilters] = useState<{
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+    status?: string;
+    search?: string;
+  }>({});
+
+  // Update filters when advanced filters change
+  useEffect(() => {
+    const dateRange = panelValues.createdAt as { from?: string; to?: string } | null;
+    setImportExportFilters({
+      startDate: dateRange?.from,
+      endDate: dateRange?.to,
+      branchId: (panelValues.branch as string[])?.join(','),
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+      search: debouncedSearch || undefined,
+    });
+  }, [panelValues, statusFilter, debouncedSearch]);
+
+  const { data: allData } = useAllInventoryChecks({
+    enabled: showImportDialog || showExportDialog,
+    ...importExportFilters,
+  });
 
   const { balance: balanceMutation, cancel: cancelMutation } = useInventoryCheckMutations({
     onBalanceSuccess: () => toast.success('Đã cập nhật phiếu kiểm kê'),

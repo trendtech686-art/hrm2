@@ -7,10 +7,13 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { apiSuccess } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { normalizePhone, buildPhoneLookupVariants } from '@/lib/phone-normalize'
 
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   const { searchParams } = new URL(request.url)
   const raw = searchParams.get('phone')
   const exclude = searchParams.get('exclude')

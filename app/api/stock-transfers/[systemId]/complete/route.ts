@@ -12,36 +12,75 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, validateBody } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { syncProductsInventory } from '@/lib/meilisearch-sync'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { completeStockTransferSchema } from '../../validation';
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
-interface CompleteTransferBody {
-  receivedItems?: Array<{
-    productSystemId: string;
-    receivedQuantity: number;
-  }>;
-}
-
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, completeStockTransferSchema);
+  if (!validation.success) return apiError(validation.error, 400);
+
   try {
     const { systemId } = await params;
-    const body: CompleteTransferBody = await request.json().catch(() => ({}));
+    const { receivedItems } = validation.data;
     const now = new Date();
 
     // Fetch transfer with items
     const transfer = await prisma.stockTransfer.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        fromBranchId: true,
+        toBranchId: true,
+        employeeId: true,
+        transferDate: true,
+        receivedDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        referenceCode: true,
+        fromBranchSystemId: true,
+        fromBranchName: true,
+        toBranchSystemId: true,
+        toBranchName: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        transferredDate: true,
+        transferredBySystemId: true,
+        transferredByName: true,
+        receivedBySystemId: true,
+        receivedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        items: {
+          select: {
+            systemId: true,
+            transferId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            receivedQty: true,
+          },
+        },
+      },
     });
 
     if (!transfer) {
@@ -54,12 +93,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Get employee info
     const employee = await prisma.employee.findUnique({
-      where: { systemId: session.user.id },
+      where: { systemId: session!.user.id },
     });
 
     // Map received quantities
     const receivedMap = new Map(
-      body.receivedItems?.map(item => [item.productSystemId, item.receivedQuantity]) || []
+      receivedItems?.map(item => [item.productSystemId, item.receivedQuantity]) || []
     );
 
     // Atomic transaction: Update transfer, inventory, and stock history
@@ -82,12 +121,54 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         data: {
           status: 'COMPLETED',
           receivedDate: now,
-          receivedBySystemId: session.user.id,
-          receivedByName: employee?.fullName || session.user.name || 'System',
+          receivedBySystemId: session!.user.id,
+          receivedByName: employee?.fullName || session!.user.name || 'System',
           updatedAt: new Date(),
-          updatedBy: session.user.id,
+          updatedBy: session!.user.id,
         },
-        include: { items: true },
+        select: {
+          systemId: true,
+          id: true,
+          fromBranchId: true,
+          toBranchId: true,
+          employeeId: true,
+          transferDate: true,
+          receivedDate: true,
+          status: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          referenceCode: true,
+          fromBranchSystemId: true,
+          fromBranchName: true,
+          toBranchSystemId: true,
+          toBranchName: true,
+          createdDate: true,
+          createdBySystemId: true,
+          createdByName: true,
+          transferredDate: true,
+          transferredBySystemId: true,
+          transferredByName: true,
+          receivedBySystemId: true,
+          receivedByName: true,
+          cancelledDate: true,
+          cancelledBySystemId: true,
+          cancelledByName: true,
+          cancelReason: true,
+          items: {
+            select: {
+              systemId: true,
+              transferId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              receivedQty: true,
+            },
+          },
+        },
       });
 
       // 2. Complete delivery for each item
@@ -139,8 +220,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             newStockLevel: updatedDestInventory.onHand, // ✅ Use actual DB value
             documentId: transfer.id,
             documentType: 'stock_transfer',
-            employeeId: session.user.id,
-            employeeName: employee?.fullName || session.user.name || 'System',
+            employeeId: session!.user.id,
+            employeeName: employee?.fullName || session!.user.name || 'System',
             note: `Nhận hàng từ ${transfer.fromBranchName || transfer.fromBranchId}`,
           },
         });
@@ -164,7 +245,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     };
 
     // ✅ Notify: transfer completed (to assigned employee if different)
-    if (transfer.employeeId && transfer.employeeId !== session.user?.employeeId) {
+    if (transfer.employeeId && transfer.employeeId !== session!.user?.employeeId) {
       createNotification({
         type: 'stock_transfer',
         settingsKey: 'stock-transfer:updated',
@@ -172,13 +253,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         message: `Phiếu chuyển kho ${transfer.id || systemId} đã hoàn thành nhận hàng`,
         link: `/stock-transfers/${systemId}`,
         recipientId: transfer.employeeId,
-        senderId: session.user?.employeeId,
-        senderName: session.user?.name,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
       }).catch(e => logError('[Stock Transfer Complete] notification failed', e))
     }
 
     // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
+    getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'stock_transfer',

@@ -7,7 +7,7 @@ import { useForm, useFieldArray, Controller, useWatch, FormProvider } from 'reac
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { toISODateTime } from '../../lib/date-utils';
-import { CheckCircle2, AlertTriangle, PackageOpen, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, PackageOpen, Loader2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
@@ -34,8 +34,7 @@ import { generateSubEntityId } from '@/lib/id-utils';
 import { useOrder } from '../orders/hooks/use-orders';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useSalesReturnMutations } from './hooks/use-sales-returns';
-import { useAllSalesReturns } from './hooks/use-all-sales-returns';
+import { useSalesReturnMutations, useSalesReturnsByOrder } from './hooks/use-sales-returns';
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
@@ -67,6 +66,7 @@ import { useAuth } from '../../contexts/auth-context';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
+import { WarrantyOrderSelectionDialog } from '../warranty/components/dialogs/warranty-order-selection-dialog';
 
 
 // Component to handle complex calculations
@@ -89,8 +89,8 @@ export function SalesReturnFormPage() {
   const customer = order ? findCustomer(order.customerSystemId) : null;
   const { data: branches } = useAllBranches();
   
-  // ✅ Optimized: use dedicated hook that only fetches needed data
-  const { data: allSalesReturns } = useAllSalesReturns();
+  // Fetch sales returns for this order only (server-side filter)
+  const { data: salesReturnsForOrder } = useSalesReturnsByOrder(order?.systemId);
   
   const { create: _create } = useSalesReturnMutations({
     onCreateSuccess: () => {
@@ -133,6 +133,9 @@ export function SalesReturnFormPage() {
   
   // Combo expand state for return items
   const [expandedCombos, setExpandedCombos] = useState<Record<string, boolean>>({});
+  
+  // Order selection dialog state
+  const [showOrderSelectionDialog, setShowOrderSelectionDialog] = useState(false);
   
   const getProductTypeLabel = useCallback((product: Product | null) => {
     if (!product) return 'Hàng hóa';
@@ -267,9 +270,20 @@ export function SalesReturnFormPage() {
     }
   }, [editingExchangeNoteIndex, tempExchangeNote, setValue]);
   
+  // Handler for order selection change from WarrantyOrderSelectionDialog
+  const handleOrderLinked = useCallback(async (newOrderSystemId: string | null) => {
+    if (!newOrderSystemId) {
+      toast.error('Vui lòng chọn đơn hàng');
+      return;
+    }
+    
+    // Navigate to the new order's return page
+    router.push(`/sales-returns/new/${newOrderSystemId}`);
+  }, [router]);
+  
    const returnableQuantities = useMemo(() => {
     if (!order) return {};
-    const returnsForThisOrder = allSalesReturns.filter(pr => pr.orderSystemId === order.systemId);
+    const returnsForThisOrder = salesReturnsForOrder.filter(pr => pr.orderSystemId === order.systemId);
     
     const quantities: Record<string, number> = {};
     order.lineItems.forEach(item => {
@@ -282,7 +296,7 @@ export function SalesReturnFormPage() {
         quantities[productKey] = item.quantity - totalReturned;
     });
     return quantities;
-  }, [order, allSalesReturns]);
+  }, [order, salesReturnsForOrder]);
 
   // ✅ Stable ref for returnableQuantities to use in useEffect
   const returnableQuantitiesRef = useRef(returnableQuantities);
@@ -293,7 +307,7 @@ export function SalesReturnFormPage() {
   
   useEffect(() => {
       // ✅ Wait for all data to be loaded before initializing
-      if (!order || !branches.length || allSalesReturns === undefined) return;
+      if (!order || !branches.length || salesReturnsForOrder === undefined) return;
       
       // ✅ Only initialize once to prevent infinite loops
       if (isInitializedRef.current) return;
@@ -344,7 +358,7 @@ export function SalesReturnFormPage() {
           subtasks: [],
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order, branches, allSalesReturns]);
+  }, [order, branches, salesReturnsForOrder]);
   
   // ✅ NOTE: Removed auto-update shipping address from customer
   // - Shipping address should come from ORDER first, not customer
@@ -372,7 +386,7 @@ export function SalesReturnFormPage() {
       
       // Max refundable - ✅ Convert Decimal string to Number
       const totalPaidOnOriginalOrder = order ? order.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) : 0;
-      const previousReturnsForOrder = order ? allSalesReturns.filter(sr => sr.orderSystemId === order.systemId) : [];
+      const previousReturnsForOrder = order ? salesReturnsForOrder.filter(sr => sr.orderSystemId === order.systemId) : [];
       const totalReturnedValuePreviously = previousReturnsForOrder.reduce((sum, sr) => sum + (Number(sr.totalReturnValue) || 0), 0);
       const totalRefundedPreviously = previousReturnsForOrder.reduce((sum, sr) => sum + (Number(sr.refundAmount) || 0), 0);
       
@@ -956,7 +970,22 @@ export function SalesReturnFormPage() {
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <p>Khách hàng: <span className="font-semibold text-primary">{customer?.name || order.customerName || 'Khách lẻ'}</span></p>
-                            <p>Mã đơn hàng gốc: <Link href={`/orders/${order.systemId}`} className="font-semibold text-primary hover:underline">{order.id}</Link></p>
+                            <div className="flex items-center gap-2">
+                                <span>Đơn hàng gốc:</span>
+                                <Link href={`/orders/${order.systemId}`} className="font-semibold text-primary hover:underline">{order.id}</Link>
+                                {!isFullyReadOnly && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowOrderSelectionDialog(true)}
+                                        className="h-6 px-2 text-xs"
+                                    >
+                                        <Link2 className="h-3 w-3 mr-1" />
+                                        Thay đổi
+                                    </Button>
+                                )}
+                            </div>
                             <FormField 
                                 control={control} 
                                 name="branchSystemId" 
@@ -1315,6 +1344,15 @@ export function SalesReturnFormPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        
+        {/* Order Selection Dialog - dùng chung từ warranty */}
+        <WarrantyOrderSelectionDialog
+          open={showOrderSelectionDialog}
+          onOpenChange={setShowOrderSelectionDialog}
+          ticket={null}
+          currentOrderId={order?.systemId}
+          onOrderLinked={handleOrderLinked}
+        />
       </form>
     </FormProvider>
   );

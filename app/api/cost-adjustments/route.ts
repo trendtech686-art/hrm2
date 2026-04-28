@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
 import { CostAdjustmentStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/api-utils'
 import { createCostAdjustmentSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
@@ -58,8 +59,47 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          branchId: true,
+          employeeId: true,
+          adjustmentDate: true,
+          status: true,
+          type: true,
+          reason: true,
+          note: true,
+          referenceCode: true,
+          createdDate: true,
+          createdBySystemId: true,
+          createdByName: true,
+          confirmedDate: true,
+          confirmedBySystemId: true,
+          confirmedByName: true,
+          cancelledDate: true,
+          cancelledBySystemId: true,
+          cancelledByName: true,
+          cancelReason: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          items: {
+            select: {
+              systemId: true,
+              adjustmentId: true,
+              productId: true,
+              productSystemId: true,
+              productName: true,
+              productImage: true,
+              oldCost: true,
+              newCost: true,
+              adjustmentAmount: true,
+              adjustmentPercent: true,
+              quantity: true,
+              reason: true,
+            },
+          },
         },
       }),
       prisma.costAdjustment.count({ where }),
@@ -115,8 +155,9 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new cost adjustment
 export async function POST(request: NextRequest) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  const result = await requirePermission('create_cost_adjustment')
+  if (result instanceof Response) return result
+  const session = result
 
   const validation = await validateBody(request, createCostAdjustmentSchema)
   if (!validation.success) {
@@ -194,8 +235,47 @@ export async function POST(request: NextRequest) {
           })),
         } : undefined,
       },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        adjustmentDate: true,
+        status: true,
+        type: true,
+        reason: true,
+        note: true,
+        referenceCode: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        confirmedDate: true,
+        confirmedBySystemId: true,
+        confirmedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        items: {
+          select: {
+            systemId: true,
+            adjustmentId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productImage: true,
+            oldCost: true,
+            newCost: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+            quantity: true,
+            reason: true,
+          },
+        },
       },
     });
 

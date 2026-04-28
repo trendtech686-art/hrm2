@@ -13,8 +13,9 @@
  * Protected by CRON_SECRET (Vercel cron header).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { logError } from '@/lib/logger'
+import { apiSuccess, apiError } from '@/lib/api-utils'
 import {
   loadGHTKConfig,
   getActiveGHTKShipments,
@@ -70,14 +71,13 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    return apiError('Unauthorized', 401);
   }
   
   try {
     const ghtkConfig = await loadGHTKConfig();
     if (!ghtkConfig) {
-      return NextResponse.json({
-        success: true,
+      return apiSuccess({
         message: 'GHTK is not configured',
         synced: 0, failed: 0,
       });
@@ -136,8 +136,7 @@ export async function POST(request: NextRequest) {
       return { latePickup: 0, lateDelivery: 0 };
     });
     
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Synced ${results.synced}/${results.total}, failed ${results.failed} (${results.batches} batches)`,
       ...results,
       warnings,
@@ -146,26 +145,21 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     logError('[GHTK Cron] Error', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      duration: Date.now() - startTime,
-    }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }
 
 // GET endpoint for health check
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    return apiError('Unauthorized', 401);
   }
-  
+
   try {
     const ghtkConfig = await loadGHTKConfig();
     const shipments = await getActiveGHTKShipments({ maxAge: 10, limit: 1000 });
-    
-    return NextResponse.json({
-      success: true,
+
+    return apiSuccess({
       status: 'healthy',
       ghtkConfigured: !!ghtkConfig,
       pendingShipments: shipments.length,
@@ -177,9 +171,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    logError('GET /api/cron/sync-ghtk failed', error)
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

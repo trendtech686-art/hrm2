@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { ComboProductSearchV2 } from '@/components/shared/unified-product-search';
 import { ComboItemsEditTable } from '@/components/shared/combo-items-edit-table';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
-import { useAllProducts } from '../hooks/use-all-products';
+import { useProductFinder } from '../hooks/use-all-products';
 import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
@@ -116,7 +116,7 @@ function QuantityInput({
 }
 
 export function ComboSection() {
-  const { data: allProducts, isLoading: isLoadingProducts } = useAllProducts();
+  const { findById: findProductById } = useProductFinder();
   const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: branches } = useAllBranches();
   const { findById: findProductTypeById } = useProductTypeFinder();
@@ -135,24 +135,10 @@ export function ComboSection() {
   const comboPricingType = useWatch({ control: form.control, name: 'comboPricingType' });
   const comboDiscount = useWatch({ control: form.control, name: 'comboDiscount' }) || 0;
   
-  // Filter products that can be added to combo (exclude combos and discontinued)
-  const availableProducts = useMemo(() => {
-    return allProducts.filter(p => canAddToCombo(p));
-  }, [allProducts]);
-  
   // Product options for combobox (exclude already selected)
   const selectedProductIds = useMemo(() => {
     return new Set(comboItems.map(item => item.productSystemId));
   }, [comboItems]);
-  
-  const _productOptions = useMemo(() => {
-    return availableProducts
-      .filter(p => !selectedProductIds.has(p.systemId))
-      .map(p => ({
-        value: p.systemId,
-        label: `${p.name} (${p.id})`,
-      }));
-  }, [availableProducts, selectedProductIds]);
   
   // Get default pricing policy
   const defaultPricingPolicy = useMemo(() => {
@@ -192,7 +178,7 @@ export function ComboSection() {
     // Calculate total original price
     let totalOriginalPrice = 0;
     for (const item of comboItems) {
-      const product = allProducts.find(p => p.systemId === item.productSystemId);
+      const product = findProductById(item.productSystemId);
       const unitPrice = resolveUnitPrice(product);
       totalOriginalPrice += unitPrice * item.quantity;
     }
@@ -213,14 +199,14 @@ export function ComboSection() {
         productSystemId: item.productSystemId as SystemId,
         quantity: item.quantity,
       })),
-      allProducts,
+      findProductById,
       defaultPricingPolicy ? { fallbackPricingPolicyId: defaultPricingPolicy.systemId } : undefined
     );
     
     const savings = totalOriginalPrice - comboPrice;
     
     return { totalOriginalPrice, comboPrice, costPrice, savings };
-  }, [comboItems, comboPricingType, comboDiscount, allProducts, resolveUnitPrice, defaultPricingPolicy]);
+  }, [comboItems, comboPricingType, comboDiscount, findProductById, resolveUnitPrice, defaultPricingPolicy]);
   
   // Calculate stock for all branches (Sapo: tổng tồn tại tất cả chi nhánh)
   const _comboStockInfo = useMemo(() => {
@@ -237,7 +223,7 @@ export function ComboSection() {
           productSystemId: item.productSystemId as SystemId,
           quantity: item.quantity,
         })),
-        allProducts,
+        findProductById,
         branch.systemId
       );
       stockByBranch[branch.systemId] = branchStock;
@@ -245,7 +231,7 @@ export function ComboSection() {
     }
     
     return { totalStock, stockByBranch };
-  }, [comboItems, allProducts, branches]);
+  }, [comboItems, findProductById, branches]);
 
   // Realtime validation for combo items (debounced)
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -268,7 +254,7 @@ export function ComboSection() {
       
       // Check each item
       comboItems.forEach((item, index) => {
-        const product = allProducts.find(p => p.systemId === item.productSystemId);
+        const product = findProductById(item.productSystemId);
         
         // Check if product exists
         if (!product) {
@@ -302,11 +288,11 @@ export function ComboSection() {
     }, 300); // 300ms debounce
     
     return () => clearTimeout(timer);
-  }, [comboItems, allProducts]);
+  }, [comboItems, findProductById]);
   
   // Get product info by systemId
   const getProduct = (systemId: string): Product | undefined => {
-    return allProducts.find(p => p.systemId === systemId);
+    return findProductById(systemId);
   };
 
   // Check if any product has stock issues
@@ -457,13 +443,11 @@ export function ComboSection() {
                         <ProductThumbnail product={selectedProduct} size="sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {selectedProduct?.name || (isLoadingProducts ? 'Đang tải...' : 'Chưa chọn')}
+                            {selectedProduct?.name || 'Chưa chọn'}
                           </p>
-                          {selectedProduct ? (
+                          {selectedProduct && (
                             <p className="text-xs text-muted-foreground">{selectedProduct.id} | {getProductTypeName(selectedProduct)}</p>
-                          ) : isLoadingProducts ? (
-                            <div className="h-3 w-24 bg-muted animate-pulse rounded mt-0.5" />
-                          ) : null}
+                          )}
                         </div>
                       </div>
                       <Button
@@ -543,7 +527,6 @@ export function ComboSection() {
                 control={form.control as unknown as Control<Record<string, unknown>>}
                 fieldName="comboItems"
                 disabled={false}
-                isLoadingProducts={isLoadingProducts}
               />
             </div>
           </>

@@ -22,6 +22,9 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
   const [contentWidth, setContentWidth] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const isScrollingRef = useRef(false);
+  const t1Ref = useRef<NodeJS.Timeout | null>(null);
+  const t2Ref = useRef<NodeJS.Timeout | null>(null);
+  const t3Ref = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const targetElement = targetRef.current;
@@ -73,9 +76,9 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
 
     // Initial + delayed updates
     updateScrollbar();
-    const t1 = setTimeout(updateScrollbar, 100);
-    const t2 = setTimeout(updateScrollbar, 300);
-    const t3 = setTimeout(updateScrollbar, 1000);
+    t1Ref.current = setTimeout(updateScrollbar, 100);
+    t2Ref.current = setTimeout(updateScrollbar, 300);
+    t3Ref.current = setTimeout(updateScrollbar, 1000);
 
     // Event listeners
     scrollbarElement.addEventListener('scroll', handleScrollbarScroll, { passive: true });
@@ -91,9 +94,9 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
     mutationObserver.observe(targetElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
+      if (t1Ref.current) clearTimeout(t1Ref.current);
+      if (t2Ref.current) clearTimeout(t2Ref.current);
+      if (t3Ref.current) clearTimeout(t3Ref.current);
       scrollbarElement.removeEventListener('scroll', handleScrollbarScroll);
       targetElement.removeEventListener('scroll', handleTableScroll);
       window.removeEventListener('resize', updateScrollbar);

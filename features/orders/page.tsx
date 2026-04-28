@@ -20,11 +20,11 @@ import { useAuth } from "@/contexts/auth-context"
 import { asSystemId, type SystemId } from "@/lib/id-types"
 import { useColumnVisibility, useColumnOrder, usePinnedColumns } from "@/hooks/use-column-visibility"
 import { fetchCustomers } from "../customers/api/customers-api"
-import { useAllCustomers } from "../customers/hooks/use-all-customers"
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches"
+import { useMeiliProductSearch, useMeiliCustomerSearch } from "@/hooks/use-meilisearch"
 import { fetchProducts } from "../products/api/products-api"
-import { useAllProducts } from "../products/hooks/use-all-products"
-import { useAllEmployees } from "../employees/hooks/use-all-employees"
+import { useProductFinder } from "../products/hooks/use-all-products"
+import { useMeiliEmployeeSearch } from "@/hooks/use-meilisearch"
 import { useOrderPrintHandlers } from "./hooks/use-order-print-handlers"
 import type { Order } from '@/lib/types/prisma-extended'
 import type { OrderStatsResponse } from './api/orders-api'
@@ -212,9 +212,16 @@ useEffect(() => {
   const dialogsOpen = isImportOpen || isExportOpen || isSapoImportOpen;
 
   // ✅ Lazy-load ALL records chỉ khi Import/Export dialogs mở
-  const { data: allCustomers } = useAllCustomers({ enabled: dialogsOpen });
-  const { data: allProducts } = useAllProducts({ enabled: dialogsOpen });
-  const productStore = useMemo(() => ({ data: allProducts, findById: (id: SystemId) => allProducts.find(p => p.systemId === id) }), [allProducts]);
+  // ✅ Use Meilisearch for customer search (high limit for export/import)
+  const { data: customersData } = useMeiliCustomerSearch({ query: '', enabled: dialogsOpen, limit: 1000, debounceMs: 0 });
+  const allCustomers = useMemo(() => customersData?.data ?? [], [customersData]);
+  
+  // ✅ Use Meilisearch for product search (lazy load when dialog opens)
+  const { data: productsData } = useMeiliProductSearch({ query: '', enabled: dialogsOpen, debounceMs: 0 });
+  const { findById } = useProductFinder();
+  // Flatten Meilisearch results and extract products array
+  const allProducts = useMemo(() => productsData?.data ?? [], [productsData]);
+  const productStore = useMemo(() => ({ data: allProducts, findById }), [allProducts, findById]);
 
   // ✅ Paginated combobox: load 20 records, search server-side, infinite scroll
   const COMBOBOX_PAGE_SIZE = 20;
@@ -248,7 +255,8 @@ useEffect(() => {
   );
 
   // Employees for filter dropdown + dialogs - lazy load only when filter panel opens
-  const { data: employees } = useAllEmployees({ enabled: filterPanelOpen });
+  const { data: employeesData } = useMeiliEmployeeSearch({ query: '', enabled: filterPanelOpen, limit: 100, debounceMs: 0 });
+  const employees = employeesData?.data || [];
 
   const { data: branches } = useAllBranches();
   const { printActions, handleBulkPrintConfirm } = useOrderPrintHandlers();

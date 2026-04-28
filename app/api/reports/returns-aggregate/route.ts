@@ -237,4 +237,4 @@ export const GET = apiHandler(async (request) => {
     logError('[reports/returns-aggregate]', e)
     return apiError('Không thể tạo báo cáo trả hàng', 500)
   }
-})
+}, { auth: true })

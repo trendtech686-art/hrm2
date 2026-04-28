@@ -1,6 +1,6 @@
 ﻿import { prisma } from '@/lib/prisma'
 import { getMeiliClient, INDEXES, configureIndexes } from './meilisearch'
-import type { MeiliProduct, MeiliCustomer, MeiliOrder, MeiliEmployee, MeiliPkgxProduct } from './meilisearch'
+import type { MeiliProduct, MeiliCustomer, MeiliOrder, MeiliEmployee, MeiliPkgxProduct, MeiliSupplier, MeiliShipment, MeiliWarranty } from './meilisearch'
 
 // ===========================================
 // Sync Service: PostgreSQL → Meilisearch
@@ -322,10 +322,10 @@ export async function syncPkgxProducts() {
  * Full sync all indexes
  */
 export async function fullSync() {
-  
+
   // Configure indexes first
   await configureIndexes()
-  
+
   // Sync all
   const results = {
     products: await syncProducts({ fullSync: true }),
@@ -333,9 +333,12 @@ export async function fullSync() {
     orders: await syncOrders(),
     employees: await syncEmployees(),
     pkgxProducts: await syncPkgxProducts(),
+    suppliers: await syncSuppliers(),
+    shipments: await syncShipments(),
+    warranties: await syncWarranties(),
   }
-  
-  
+
+
   return results
 }
 
@@ -555,9 +558,319 @@ export async function syncSingleOrder(systemId: string) {
   return document
 }
 
+export async function syncSingleEmployee(systemId: string) {
+  const client = getMeiliClient()
+  const index = client.index<MeiliEmployee>(INDEXES.EMPLOYEES)
+
+  const employee = await prisma.employee.findUnique({
+    where: { systemId },
+    include: {
+      department: { select: { name: true } },
+      jobTitle: { select: { name: true } },
+    },
+  })
+
+  if (!employee || employee.isDeleted) {
+    await index.deleteDocument(systemId)
+    return null
+  }
+
+  const document: MeiliEmployee = {
+    id: employee.systemId,
+    employeeId: employee.id,
+    fullName: employee.fullName,
+    email: employee.workEmail,
+    phone: employee.phone,
+    department: employee.department?.name || null,
+    position: employee.jobTitle?.name || null,
+    status: employee.employmentStatus,
+    createdAt: employee.createdAt?.getTime() || 0,
+  }
+
+  await index.addDocuments([document])
+  return document
+}
+
 export async function deleteFromIndex(indexName: string, documentId: string) {
   const client = getMeiliClient()
   const index = client.index(indexName)
   await index.deleteDocument(documentId)
+}
+
+// ===========================================
+// Supplier Sync
+// ===========================================
+
+export async function syncSuppliers() {
+  const client = getMeiliClient()
+  const index = client.index<MeiliSupplier>(INDEXES.SUPPLIERS)
+
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
+
+  let synced = 0
+  let cursor: string | undefined
+
+  while (true) {
+    const suppliers = await prisma.supplier.findMany({
+      where: { isDeleted: false },
+      take: BATCH_SIZE,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { systemId: cursor } : undefined,
+      orderBy: { systemId: 'asc' },
+    })
+
+    if (suppliers.length === 0) break
+
+    const documents: MeiliSupplier[] = suppliers.map(s => ({
+      id: s.systemId,
+      supplierId: s.id,
+      name: s.name,
+      phone: s.phone,
+      email: s.email,
+      address: s.address,
+      taxCode: s.taxCode,
+      contactPerson: s.contactPerson,
+      totalOrders: s.totalOrders,
+      totalPurchased: Number(s.totalPurchased) || 0,
+      totalDebt: Number(s.totalDebt) || 0,
+      isActive: s.isActive,
+      status: s.status,
+      bankName: s.bankName,
+      bankAccount: s.bankAccount,
+      createdAt: s.createdAt?.getTime() || 0,
+    }))
+
+    await index.addDocuments(documents, { primaryKey: 'id' })
+    synced += suppliers.length
+    cursor = suppliers[suppliers.length - 1].systemId
+  }
+
+  return synced
+}
+
+export async function syncSingleSupplier(systemId: string) {
+  const client = getMeiliClient()
+  const index = client.index<MeiliSupplier>(INDEXES.SUPPLIERS)
+
+  const supplier = await prisma.supplier.findUnique({
+    where: { systemId },
+  })
+
+  if (!supplier || supplier.isDeleted) {
+    await index.deleteDocument(systemId)
+    return null
+  }
+
+  const document: MeiliSupplier = {
+    id: supplier.systemId,
+    supplierId: supplier.id,
+    name: supplier.name,
+    phone: supplier.phone,
+    email: supplier.email,
+    address: supplier.address,
+    taxCode: supplier.taxCode,
+    contactPerson: supplier.contactPerson,
+    totalOrders: supplier.totalOrders,
+    totalPurchased: Number(supplier.totalPurchased) || 0,
+    totalDebt: Number(supplier.totalDebt) || 0,
+    isActive: supplier.isActive,
+    status: supplier.status,
+    bankName: supplier.bankName,
+    bankAccount: supplier.bankAccount,
+    createdAt: supplier.createdAt?.getTime() || 0,
+  }
+
+  await index.addDocuments([document])
+  return document
+}
+
+// ===========================================
+// Shipment Sync
+// ===========================================
+
+export async function syncShipments() {
+  const client = getMeiliClient()
+  const index = client.index<MeiliShipment>(INDEXES.SHIPMENTS)
+
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
+
+  let synced = 0
+  let cursor: string | undefined
+
+  while (true) {
+    const shipments = await prisma.shipment.findMany({
+      take: BATCH_SIZE,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { systemId: cursor } : undefined,
+      orderBy: { systemId: 'asc' },
+    })
+
+    if (shipments.length === 0) break
+
+    const documents: MeiliShipment[] = shipments.map(s => ({
+      id: s.systemId,
+      trackingCode: s.trackingCode,
+      trackingNumber: s.trackingNumber,
+      carrier: s.carrier,
+      status: s.status,
+      service: s.service,
+      orderId: s.orderId,
+      orderBusinessId: s.orderBusinessId,
+      recipientName: s.recipientName,
+      recipientPhone: s.recipientPhone,
+      recipientAddress: s.recipientAddress,
+      shippingFee: Number(s.shippingFee) || 0,
+      weight: s.weight ? Number(s.weight) : null,
+      createdAt: s.createdAt?.getTime() || 0,
+      pickedAt: s.pickedAt?.getTime() || null,
+      deliveredAt: s.deliveredAt?.getTime() || null,
+      returnedAt: s.returnedAt?.getTime() || null,
+      printStatus: s.printStatus,
+      deliveryStatus: s.deliveryStatus,
+    }))
+
+    await index.addDocuments(documents, { primaryKey: 'id' })
+    synced += shipments.length
+    cursor = shipments[shipments.length - 1].systemId
+  }
+
+  return synced
+}
+
+export async function syncSingleShipment(systemId: string) {
+  const client = getMeiliClient()
+  const index = client.index<MeiliShipment>(INDEXES.SHIPMENTS)
+
+  const shipment = await prisma.shipment.findUnique({
+    where: { systemId },
+  })
+
+  if (!shipment) {
+    await index.deleteDocument(systemId)
+    return null
+  }
+
+  const document: MeiliShipment = {
+    id: shipment.systemId,
+    trackingCode: shipment.trackingCode,
+    trackingNumber: shipment.trackingNumber,
+    carrier: shipment.carrier,
+    status: shipment.status,
+    service: shipment.service,
+    orderId: shipment.orderId,
+    orderBusinessId: shipment.orderBusinessId,
+    recipientName: shipment.recipientName,
+    recipientPhone: shipment.recipientPhone,
+    recipientAddress: shipment.recipientAddress,
+    shippingFee: Number(shipment.shippingFee) || 0,
+    weight: shipment.weight ? Number(shipment.weight) : null,
+    createdAt: shipment.createdAt?.getTime() || 0,
+    pickedAt: shipment.pickedAt?.getTime() || null,
+    deliveredAt: shipment.deliveredAt?.getTime() || null,
+    returnedAt: shipment.returnedAt?.getTime() || null,
+    printStatus: shipment.printStatus,
+    deliveryStatus: shipment.deliveryStatus,
+  }
+
+  await index.addDocuments([document])
+  return document
+}
+
+// ===========================================
+// Warranty Sync
+// ===========================================
+
+export async function syncWarranties() {
+  const client = getMeiliClient()
+  const index = client.index<MeiliWarranty>(INDEXES.WARRANTIES)
+
+  const deleteTask = await index.deleteAllDocuments()
+  await client.tasks.waitForTask(deleteTask.taskUid)
+
+  let synced = 0
+  let cursor: string | undefined
+
+  while (true) {
+    const warranties = await prisma.warranty.findMany({
+      where: { isDeleted: false },
+      take: BATCH_SIZE,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { systemId: cursor } : undefined,
+      orderBy: { systemId: 'asc' },
+    })
+
+    if (warranties.length === 0) break
+
+    const documents: MeiliWarranty[] = warranties.map(w => ({
+      id: w.systemId,
+      warrantyId: w.id,
+      warrantyCode: w.id,
+      title: w.title,
+      customerName: w.customerName,
+      customerPhone: w.customerPhone,
+      customerEmail: w.customerEmail,
+      customerAddress: w.customerAddress,
+      productName: w.productName,
+      serialNumber: w.serialNumber,
+      status: w.status,
+      priority: w.priority,
+      branchName: w.branchName,
+      assigneeName: w.employeeName,
+      orderId: w.orderId,
+      isUnderWarranty: w.isUnderWarranty,
+      totalCost: Number(w.totalCost) || 0,
+      createdAt: w.createdAt?.getTime() || 0,
+      receivedAt: w.receivedAt?.getTime() || 0,
+      completedAt: w.completedAt?.getTime() || null,
+    }))
+
+    await index.addDocuments(documents, { primaryKey: 'id' })
+    synced += warranties.length
+    cursor = warranties[warranties.length - 1].systemId
+  }
+
+  return synced
+}
+
+export async function syncSingleWarranty(systemId: string) {
+  const client = getMeiliClient()
+  const index = client.index<MeiliWarranty>(INDEXES.WARRANTIES)
+
+  const warranty = await prisma.warranty.findUnique({
+    where: { systemId },
+  })
+
+  if (!warranty || warranty.isDeleted) {
+    await index.deleteDocument(systemId)
+    return null
+  }
+
+  const document: MeiliWarranty = {
+    id: warranty.systemId,
+    warrantyId: warranty.id,
+    warrantyCode: warranty.id,
+    title: warranty.title,
+    customerName: warranty.customerName,
+    customerPhone: warranty.customerPhone,
+    customerEmail: warranty.customerEmail,
+    customerAddress: warranty.customerAddress,
+    productName: warranty.productName,
+    serialNumber: warranty.serialNumber,
+    status: warranty.status,
+    priority: warranty.priority,
+    branchName: warranty.branchName,
+    assigneeName: warranty.employeeName,
+    orderId: warranty.orderId,
+    isUnderWarranty: warranty.isUnderWarranty,
+    totalCost: Number(warranty.totalCost) || 0,
+    createdAt: warranty.createdAt?.getTime() || 0,
+    receivedAt: warranty.receivedAt?.getTime() || 0,
+    completedAt: warranty.completedAt?.getTime() || null,
+  }
+
+  await index.addDocuments([document])
+  return document
 }
 

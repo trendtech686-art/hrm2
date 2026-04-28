@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseDate, getCurrentDate, getStartOfDay, addDays, isDateBefore, isDateSame, toISODate } from '@/lib/date-utils';
 import type { LeaveRequest } from "@/lib/types/prisma-extended";
-import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
+import { useMeiliEmployeeSearch } from "@/hooks/use-meilisearch"
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Button } from "@/components/ui/button";
 import { Loader2 } from 'lucide-react';
@@ -54,10 +54,11 @@ const calculateBusinessDays = (start?: Date, end?: Date): number => {
 
 
 export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: LeaveFormProps) {
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch('', { enabled: false, limit: 100 });
+  const employees = employeesData?.data || [];
   const { data: settings } = useEmployeeSettings();
   
-  const employeeOptions: ComboboxOption[] = React.useMemo(() => 
+  const employeeOptions: ComboboxOption[] = React.useMemo(() =>
     employees.map(e => ({ 
       value: e.systemId, 
       label: e.fullName,
@@ -172,7 +173,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: Lea
     const finalData: Omit<LeaveRequest, 'systemId'> = {
       id: asBusinessId(trimmedId || employee.id),
       employeeSystemId: employee.systemId,
-      employeeId: employee.id, // ✅ Display ID
+      employeeId: asBusinessId(employee.id), // ✅ Display ID - cast to BusinessId
       employeeName: employee.fullName,
       leaveTypeName: resolvedLeaveTypeName,
       startDate: toISODate(values.startDate),

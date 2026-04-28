@@ -7,29 +7,27 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (req, { session }) => {
   const startTime = Date.now();
 
+  const body = await req.json();
+  const { token, shopId, environment } = body;
+
+  if (!token) {
+    return apiError('Token là bắt buộc', 400);
+  }
+
+  // Determine API base URL based on environment
+  const baseUrl = environment === 'staging'
+    ? 'https://dev-online-gateway.ghn.vn/shiip/public-api'
+    : 'https://online-gateway.ghn.vn/shiip/public-api';
+
   try {
-    const body = await request.json();
-    const { token, shopId, environment } = body;
-
-    if (!token) {
-      return apiError('Token là bắt buộc', 400);
-    }
-
-    // Determine API base URL based on environment
-    const baseUrl = environment === 'staging'
-      ? 'https://dev-online-gateway.ghn.vn/shiip/public-api'
-      : 'https://online-gateway.ghn.vn/shiip/public-api';
-
     // Step 1: Test Token bằng Province API
     const provinceResponse = await fetchWithTimeout(`${baseUrl}/master-data/province`, {
       method: 'GET',
@@ -81,11 +79,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
-    logError(`[GHN-TEST] ❌ Connection test error (${duration}ms)`, error);
-    return apiError(
-      'Lỗi kết nối: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      500
-    );
+    logError('GHN test connection failed', error)
+    return apiError('Kết nối GHN thất bại. Vui lòng thử lại sau.', 500)
   }
-}
+}, {
+  auth: true,
+  rateLimit: { max: 10, windowMs: 60_000 }
+});

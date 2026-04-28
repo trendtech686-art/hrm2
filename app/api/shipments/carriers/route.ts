@@ -4,13 +4,11 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 
-export async function GET() {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async () => {
   try {
     const results = await prisma.shipment.findMany({
       select: { carrier: true },
@@ -25,4 +23,6 @@ export async function GET() {
     logError('Error fetching carriers', error);
     return apiError('Không thể tải danh sách hãng vận chuyển', 500);
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+})

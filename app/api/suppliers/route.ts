@@ -65,7 +65,7 @@ export const GET = apiHandler(async (request) => {
         skip,
         take: limit,
         orderBy,
-        include: {
+        select: {
           _count: { select: { purchaseOrders: true } },
         },
       }),

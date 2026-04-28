@@ -18,8 +18,23 @@ export const POST = apiHandler(async (_request, { session, params }) => {
     // Fetch purchase order with items
     const po = await prisma.purchaseOrder.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        deliveryStatus: true,
+        paymentStatus: true,
+        grandTotal: true,
+        deliveryDate: true,
+        receivedDate: true,
+        buyerSystemId: true,
+        items: {
+          select: {
+            systemId: true,
+            productId: true,
+            quantity: true,
+          },
+        },
       },
     })
 
@@ -30,7 +45,25 @@ export const POST = apiHandler(async (_request, { session, params }) => {
     // Get all inventory receipts for this PO
     const receipts = await prisma.inventoryReceipt.findMany({
       where: { purchaseOrderSystemId: systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        receivedDate: true,
+        receiptDate: true,
+        receiverSystemId: true,
+        receiverName: true,
+        items: {
+          select: {
+            systemId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitCost: true,
+            totalCost: true,
+          },
+        },
+      },
     })
 
     // Calculate total received by product using the quantity field
@@ -141,9 +174,26 @@ export const POST = apiHandler(async (_request, { session, params }) => {
             receivedDate: latestReceiptDate, // Also set receivedDate for display
           } : {}),
         },
-        include: {
-          items: true,
-          supplier: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          deliveryStatus: true,
+          paymentStatus: true,
+          grandTotal: true,
+          deliveryDate: true,
+          receivedDate: true,
+          buyerSystemId: true,
+          items: {
+            select: {
+              systemId: true,
+              productId: true,
+              quantity: true,
+            },
+          },
+          supplier: {
+            select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+          },
         },
       })
 

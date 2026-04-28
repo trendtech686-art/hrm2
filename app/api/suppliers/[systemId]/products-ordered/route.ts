@@ -74,7 +74,7 @@ export const GET = apiHandler(async (
         },
         ...searchCondition,
       },
-      include: {
+      select: {
         purchaseOrder: {
           select: {
             id: true,

@@ -109,7 +109,21 @@ export async function POST(request: NextRequest) {
           systemId: { in: data.systemIds },
           status: 'PENDING' as LeaveStatus,
         },
-        include: { employee: true },
+        select: {
+          systemId: true,
+          employeeId: true,
+          leaveType: true,
+          totalDays: true,
+          numberOfDays: true,
+          employee: {
+            select: {
+              systemId: true,
+              id: true,
+              fullName: true,
+              annualLeaveBalance: true,
+            },
+          },
+        },
       });
 
       if (leaves.length === 0) {

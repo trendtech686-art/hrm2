@@ -121,8 +121,14 @@ const debouncedSearch = useDebounce(search, 300);
     const totalCount = response?.pagination?.total ?? 0;
     const pageCount = response?.pagination?.totalPages ?? 0;
 
-    // ✅ Lazy-load: only fetch ALL data when export dialog opens
-    const { data: allReturnsForExport } = useAllSalesReturns({ enabled: exportDialogOpen });
+    // ✅ Lazy-load: only fetch ALL data when export dialog opens (with current filters)
+    const { data: allReturnsForExport } = useAllSalesReturns({
+      enabled: exportDialogOpen,
+      startDate: queryParams.startDate,
+      endDate: queryParams.endDate,
+      branchId: queryParams.branchId,
+      status: queryParams.status,
+    });
     const activeExportReturns = useMemo(() => allReturnsForExport.filter(r => (r as unknown as Record<string, unknown>).status !== 'Đã hủy'), [allReturnsForExport]);
 
     const defaultColumnVisibility = useMemo(() => {

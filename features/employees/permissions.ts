@@ -146,6 +146,15 @@ export type Permission =
   | 'view_shipments'
   | 'create_shipments'
   | 'edit_shipments'
+
+  // Cash Transactions (Sổ quỹ)
+  | 'create_cash_transaction'
+  | 'delete_cash_transaction'
+
+  // Cost Adjustments (Điều chỉnh giá vốn)
+  | 'create_cost_adjustment'
+  | 'edit_cost_adjustment'
+  | 'approve_cost_adjustment'
   | 'delete_shipments'
 
   // Sales Returns (Trả hàng bán)

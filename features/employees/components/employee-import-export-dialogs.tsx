@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import type { Employee } from "@/lib/types/prisma-extended"
+import type { EmployeeSearchResult } from "@/hooks/use-meilisearch"
 import type { SystemId } from "../../../lib/id-types"
 
 // ✅ These imports are only loaded when this wrapper component is dynamically imported
@@ -21,10 +22,19 @@ interface ImportResultData {
   errors: Array<{ row: number; message: string }>;
 }
 
+// Minimal employee data needed for import dialog
+type MinimalEmployeeForImport = {
+  systemId: string;
+  id: string;
+  fullName: string;
+  workEmail?: string | null;
+  phone?: string | null;
+};
+
 interface EmployeeImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  existingData: Employee[];
+  existingData: MinimalEmployeeForImport[];
   branches: Array<{ systemId: SystemId; name: string }>;
   requireBranch?: boolean;
   defaultBranchId?: SystemId;
@@ -43,7 +53,7 @@ export function EmployeeImportDialog({
   currentUser,
 }: EmployeeImportDialogProps) {
   return (
-    <GenericImportDialogV2<Employee>
+    <GenericImportDialogV2<MinimalEmployeeForImport>
       open={open}
       onOpenChange={onOpenChange}
       config={employeeImportExportConfig}
@@ -68,10 +78,10 @@ interface AppliedFilters extends Record<string, unknown> {
 interface EmployeeExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  allData: Employee[];
-  filteredData: Employee[];
-  currentPageData: Employee[];
-  selectedData: Employee[];
+  allData: MinimalEmployeeForImport[];
+  filteredData: MinimalEmployeeForImport[];
+  currentPageData: MinimalEmployeeForImport[];
+  selectedData: MinimalEmployeeForImport[];
   appliedFilters?: AppliedFilters;
   currentUser: { systemId: SystemId; name: string };
 }
@@ -87,7 +97,7 @@ export function EmployeeExportDialog({
   currentUser,
 }: EmployeeExportDialogProps) {
   return (
-    <GenericExportDialogV2<Employee>
+    <GenericExportDialogV2<MinimalEmployeeForImport>
       open={open}
       onOpenChange={onOpenChange}
       config={employeeImportExportConfig}

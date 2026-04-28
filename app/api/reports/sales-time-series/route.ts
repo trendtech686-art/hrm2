@@ -292,4 +292,4 @@ export const GET = apiHandler(async (request) => {
     logError('[reports/sales-time-series]', e)
     return apiError('Không thể tạo báo cáo bán hàng theo thời gian', 500)
   }
-})
+}, { auth: true })

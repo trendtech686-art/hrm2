@@ -80,11 +80,37 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: {
-        customer: true,
-        branch: true,
+      select: {
+        // Order scalar fields
+        systemId: true, id: true, customerId: true, customerName: true,
+        branchId: true, branchName: true,
+        salespersonId: true, salespersonName: true,
+        orderDate: true, expectedDeliveryDate: true,
+        approvedDate: true, completedDate: true, cancelledDate: true, dispatchedDate: true,
+        shippingAddress: true, billingAddress: true, invoiceInfo: true,
+        status: true, paymentStatus: true, deliveryStatus: true, deliveryMethod: true,
+        subtotal: true, shippingFee: true, tax: true, discount: true, discountType: true,
+        grandTotal: true, paidAmount: true, codAmount: true,
+        shippingCarrier: true, trackingCode: true, notes: true, cancellationReason: true,
+        tags: true, source: true, externalReference: true,
+        createdBy: true, updatedBy: true,
+        assignedPackerId: true, assignedPackerName: true,
+        sourceSalesReturnId: true, linkedSalesReturnSystemId: true, linkedSalesReturnValue: true,
+        expectedPaymentMethod: true, referenceUrl: true, serviceFees: true,
+        printStatus: true, stockOutStatus: true, returnStatus: true,
+        cancellationMetadata: true, dispatchedByEmployeeId: true, dispatchedByEmployeeName: true,
+        orderDiscount: true, orderDiscountType: true, orderDiscountReason: true,
+        voucherCode: true, voucherAmount: true, shippingInfo: true, subtasks: true,
+        createdAt: true, updatedAt: true,
+        // Relations
+        customer: {
+          select: { systemId: true },
+        },
         lineItems: {
-          include: {
+          select: {
+            systemId: true, productId: true, productSku: true, productName: true,
+            quantity: true, unitPrice: true, discount: true, discountType: true,
+            tax: true, taxId: true, total: true, note: true,
             product: {
               select: {
                 systemId: true,
@@ -101,12 +127,17 @@ export async function GET(request: Request, { params }: RouteParams) {
         },
         payments: true,
         packagings: {
-          include: {
+          select: {
+            systemId: true, orderId: true,
+            status: true, deliveryStatus: true, deliveryMethod: true,
+            assignedEmployeeId: true, assignedEmployeeName: true,
+            shippingFeeToPartner: true, codAmount: true, weight: true,
+            requestDate: true, confirmDate: true, cancelDate: true, deliveredDate: true,
+            requestorName: true, requestorPhone: true, requestorId: true,
+            trackingCode: true,
+            createdAt: true,
             assignedEmployee: {
-              select: {
-                systemId: true,
-                fullName: true,
-              },
+              select: { systemId: true, fullName: true },
             },
             shipment: true,
           },
@@ -285,19 +316,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   if (!session) return apiError('Unauthorized', 401);
 
   let step = 'init';
-  let debugInfo = '';
   
-  const appendDebug = (msg: string) => { debugInfo += msg + '\n'; };
-
   try {
     step = 'parse-params';
     const { systemId } = await params;
-    appendDebug(`${new Date().toISOString()}\nsystemId: ${systemId}`);
 
     step = 'parse-body';
     const body = await request.json();
     const bodyKeys = Object.keys(body);
-    appendDebug(`bodyKeys(${bodyKeys.length}): ${bodyKeys.join(', ')}`);
 
     step = 'extract-relations';
     // Extract relation fields from body
@@ -375,7 +401,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // Post-packaging: block line item replacements
     if (isPostPackaging && Array.isArray(newLineItems) && newLineItems.length > 0) {
-      appendDebug('BLOCKED: lineItems update in post-packaging status');
+      // Silently skip - no need to log
     }
 
     // Map frontend field names to Prisma schema field names
@@ -410,10 +436,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         updateData[field] = new Date(updateData[field] as string);
       }
     }
-
-    appendDebug(`updateData keys(${Object.keys(updateData).length}): ${Object.keys(updateData).join(', ')}`);
-    appendDebug(`updateData types: ${Object.entries(updateData).map(([k, v]) => `${k}:${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`).join(', ')}`);
-    appendDebug(`lineItems: ${Array.isArray(newLineItems) ? newLineItems.length : 'none'}, payments: ${Array.isArray(newPayments) ? newPayments.length : 'none'}`);
 
     // Fetch existing order to detect changes for notifications + activity log
     const existingOrder = await prisma.order.findUnique({
@@ -488,7 +510,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             note: (li.note as string) || undefined,
           })),
         });
-        appendDebug(`lineItems: deleted + created ${newLineItems.length}`);
       }
 
       // Update paidAmount and paymentStatus
@@ -510,10 +531,38 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return tx.order.update({
         where: { systemId },
         data: updateData,
-        include: {
-          customer: true,
+        select: {
+          // Order scalar fields
+          systemId: true, id: true, customerId: true, customerName: true,
+          branchId: true, branchName: true,
+          salespersonId: true, salespersonName: true,
+          orderDate: true, expectedDeliveryDate: true,
+          approvedDate: true, completedDate: true, cancelledDate: true, dispatchedDate: true,
+          shippingAddress: true, billingAddress: true, invoiceInfo: true,
+          status: true, paymentStatus: true, deliveryStatus: true, deliveryMethod: true,
+          subtotal: true, shippingFee: true, tax: true, discount: true, discountType: true,
+          grandTotal: true, paidAmount: true, codAmount: true,
+          shippingCarrier: true, trackingCode: true, notes: true, cancellationReason: true,
+          tags: true, source: true, externalReference: true,
+          assignedPackerId: true, assignedPackerName: true,
+          sourceSalesReturnId: true, linkedSalesReturnSystemId: true, linkedSalesReturnValue: true,
+          expectedPaymentMethod: true, referenceUrl: true, serviceFees: true,
+          printStatus: true, stockOutStatus: true, returnStatus: true,
+          cancellationMetadata: true, dispatchedByEmployeeId: true, dispatchedByEmployeeName: true,
+          orderDiscount: true, orderDiscountType: true, orderDiscountReason: true,
+          voucherCode: true, voucherAmount: true, shippingInfo: true, subtasks: true,
+          createdAt: true, updatedAt: true,
+          // Relations
+          customer: { select: { systemId: true } },
           lineItems: {
-            include: { product: true },
+            select: {
+              systemId: true, productId: true, productSku: true, productName: true,
+              quantity: true, unitPrice: true, discount: true, discountType: true,
+              tax: true, taxId: true, total: true, note: true,
+              product: {
+                select: { systemId: true, id: true, name: true, imageUrl: true, costPrice: true },
+              },
+            },
           },
           payments: true,
         },
@@ -522,13 +571,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     step = 'serialize';
     const result = serializeOrder(order as unknown as Parameters<typeof serializeOrder>[0]);
-    
-    // Write success debug
-    try {
-      const fs = await import('fs');
-      appendDebug(`SUCCESS at step: ${step}`);
-      fs.writeFileSync('d:/hrm2/order-update-debug.txt', debugInfo);
-    } catch { /* ignore */ }
     
     // ✅ Notify salesperson/packer on assignment changes
     if (existingOrder) {
@@ -667,14 +709,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return apiSuccess(result);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : '';
     logError(`Error updating order at step [${step}]`, error);
-    // Write error debug
-    try {
-      const fs = await import('fs');
-      appendDebug(`\nFAILED at step: ${step}\nERROR: ${detail}\nSTACK: ${stack}`);
-      fs.writeFileSync('d:/hrm2/order-update-debug.txt', debugInfo);
-    } catch { /* ignore */ }
     return apiError(`Failed to update order [${step}]: ${detail}`, 500);
   }
 }

@@ -5,7 +5,7 @@ import * as z from "zod"
 import { toast } from "sonner"
 import type { Supplier } from '@/lib/types/prisma-extended'
 import type { CustomerAddress } from '@/lib/types/prisma-extended'
-import { useAllEmployees } from "../employees/hooks/use-all-employees"
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { AddressFormDialog } from '@/features/customers/components/address-form-dialog'
 import { Button } from "../../components/ui/button"
 import {
@@ -88,7 +88,12 @@ const formatAddress = (parts: AddressParts): string =>
     .join(', ');
 
 export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel, formRef }: SupplierFormProps) {
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({
+    query: '',
+    limit: 100,
+    debounceMs: 0,
+  });
+  const employees = employeesData?.data || [];
 
   // Address dialog state — fallback: khi addressData null nhưng có text address, dùng text làm street
   const [addressParts, setAddressParts] = React.useState<AddressParts>(() => {

@@ -19,7 +19,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
     // Try to find by systemId first, then by slug
     let wiki = await prisma.wiki.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        title: true,
+        slug: true,
+        content: true,
+        category: true,
+        tags: true,
+        isPublished: true,
+        isDeleted: true,
+        createdAt: true,
+        updatedAt: true,
         author: {
           select: { systemId: true, fullName: true },
         },
@@ -29,7 +40,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (!wiki) {
       wiki = await prisma.wiki.findUnique({
         where: { slug: systemId },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          title: true,
+          slug: true,
+          content: true,
+          category: true,
+          tags: true,
+          isPublished: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
           author: {
             select: { systemId: true, fullName: true },
           },

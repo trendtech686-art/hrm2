@@ -256,4 +256,4 @@ export const POST = apiHandler(async (request, { session }) => {
     syncSingleCustomer(customer.systemId).catch(e => logError('[Meilisearch] Customer sync failed', e))
 
     return apiSuccess(serializeCustomer(customer), 201)
-}, { permission: 'create_customers' })
+}, { permission: 'create_customers', rateLimit: { max: 30, windowMs: 60_000 } })

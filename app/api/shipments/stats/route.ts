@@ -3,27 +3,23 @@
  * Returns shipment statistics
  */
 
-import { NextResponse } from 'next/server';
 import { getShipmentStats } from '@/lib/data/shipments';
-import { requireAuth, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get('branchId') || undefined;
     
     const stats = await getShipmentStats(branchId);
     
-    return NextResponse.json(stats);
+    return apiSuccess(stats);
   } catch (error) {
     logError('Error fetching shipment stats', error);
-    return NextResponse.json(
-      { error: 'Không thể tải thống kê vận đơn' },
-      { status: 500 }
-    );
+    return apiError('Không thể tải thống kê vận đơn', 500);
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+})

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils';
+import { requirePermission } from '@/lib/api-utils';
 import { generateNextIds } from '@/lib/id-system';
 import { logError } from '@/lib/logger'
 
@@ -9,8 +10,8 @@ import { logError } from '@/lib/logger'
 // ✅ IMPORTANT: newStockLevel is read directly from database
 // Each StockHistory entry stores the actual stock level at that point in time
 export async function GET(request: Request) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  const result = await requirePermission('view_products')
+  if (result instanceof Response) return result
 
   try {
     const { searchParams } = new URL(request.url);
@@ -35,10 +36,23 @@ export async function GET(request: Request) {
     const [entries, total] = await Promise.all([
       prisma.stockHistory.findMany({
         where,
-        include: {
-          branch: { select: { name: true } },
-          product: { select: { name: true, id: true } },
-        },
+      select: {
+        systemId: true,
+        productId: true,
+        branchId: true,
+        action: true,
+        source: true,
+        quantityChange: true,
+        newStockLevel: true,
+        documentId: true,
+        documentType: true,
+        employeeId: true,
+        employeeName: true,
+        note: true,
+        createdAt: true,
+        branch: { select: { name: true } },
+        product: { select: { name: true, id: true } },
+      },
         orderBy: { createdAt: 'desc' }, // Newest first
         skip,
         take: limit,
@@ -145,8 +159,8 @@ export async function GET(request: Request) {
 // The GET endpoint calculates running totals from quantityChange instead.
 // ProductInventory.onHand is the single source of truth for current stock.
 export async function POST(request: Request) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  const result = await requirePermission('view_products')
+  if (result instanceof Response) return result
 
   try {
     const body = await request.json();
@@ -196,7 +210,20 @@ export async function POST(request: Request) {
         employeeName: employeeName || session.user?.name || '-',
         note: note || null,
       },
-      include: {
+      select: {
+        systemId: true,
+        productId: true,
+        branchId: true,
+        action: true,
+        source: true,
+        quantityChange: true,
+        newStockLevel: true,
+        documentId: true,
+        documentType: true,
+        employeeId: true,
+        employeeName: true,
+        note: true,
+        createdAt: true,
         branch: { select: { name: true } },
         product: { select: { name: true, id: true } },
       },

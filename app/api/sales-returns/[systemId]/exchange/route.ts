@@ -6,22 +6,24 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { z } from 'zod';
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
-interface ExchangeRequestBody {
-  newProductSystemId: string;
-  newQuantity: number;
-  additionalPayment?: number;
-  notes?: string;
-}
+// Validation schema for exchange request
+const exchangeRequestSchema = z.object({
+  newProductSystemId: z.string().min(1, 'New product ID is required'),
+  newQuantity: z.number().min(1, 'New quantity must be greater than 0'),
+  additionalPayment: z.number().optional(),
+  notes: z.string().optional(),
+})
 
 // POST - Exchange returned product for new product
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -30,23 +32,37 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     const { systemId } = await params;
-    const body: ExchangeRequestBody = await request.json();
 
-    const { newProductSystemId, newQuantity, additionalPayment, notes } = body;
-
-    // Validate input
-    if (!newProductSystemId) {
-      return apiError('New product ID is required', 400);
-    }
-
-    if (!newQuantity || newQuantity <= 0) {
-      return apiError('New quantity must be greater than 0', 400);
-    }
+    const validation = await validateBody(request, exchangeRequestSchema);
+    if (!validation.success) return apiError(validation.error, 400);
+    const { newProductSystemId, newQuantity, additionalPayment, notes } = validation.data;
 
     // Fetch sales return
     const salesReturn = await prisma.salesReturn.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        branchId: true,
+        branchSystemId: true,
+        total: true,
+        notes: true,
+        employeeId: true,
+        items: {
+          select: {
+            systemId: true,
+            returnId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            total: true,
+            reason: true,
+          },
+        },
+      },
     });
 
     if (!salesReturn) {
@@ -118,8 +134,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           updatedAt: new Date(),
           updatedBy: session.user?.id || null,
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          exchangeItems: true,
+          exchangeOrderSystemId: true,
+          grandTotalNew: true,
+          subtotalNew: true,
+          finalAmount: true,
+          notes: true,
+          updatedAt: true,
+          employeeId: true,
+          items: {
+            select: {
+              systemId: true,
+              returnId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
         },
       });
 

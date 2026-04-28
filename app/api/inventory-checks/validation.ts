@@ -42,6 +42,22 @@ export const createInventoryCheckSchema = z.object({
 // Update inventory check schema
 export const updateInventoryCheckSchema = createInventoryCheckSchema.partial()
 
+// Delete inventory check schema
+export const deleteInventoryCheckSchema = z.object({
+  hard: z.boolean().optional().default(false),
+})
+
+// Cancel inventory check schema
+export const cancelInventoryCheckSchema = z.object({
+  reason: z.string().optional(),
+  cancelledBy: z.string().optional(),
+})
+
+// Balance inventory check schema
+export const balanceInventoryCheckSchema = z.object({
+  balancedBy: z.string().optional(),
+})
+
 export type ListInventoryChecksInput = z.infer<typeof listInventoryChecksSchema>
 export type CreateInventoryCheckInput = z.infer<typeof createInventoryCheckSchema>
 export type UpdateInventoryCheckInput = z.infer<typeof updateInventoryCheckSchema>

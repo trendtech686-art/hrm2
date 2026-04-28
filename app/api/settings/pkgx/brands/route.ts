@@ -16,7 +16,22 @@ export async function GET(_request: NextRequest) {
         { sortOrder: 'asc' },
         { name: 'asc' },
       ],
-      include: {
+      select: {
+        id: true,
+        name: true,
+        logo: true,
+        description: true,
+        siteUrl: true,
+        sortOrder: true,
+        isShow: true,
+        keywords: true,
+        metaTitle: true,
+        metaDesc: true,
+        shortDescription: true,
+        longDescription: true,
+        syncedAt: true,
+        createdAt: true,
+        updatedAt: true,
         mappings: true,
       },
     })

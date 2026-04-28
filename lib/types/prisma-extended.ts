@@ -2101,8 +2101,7 @@ export type WikiArticle = {
 export type WarrantyStatus = 
   | 'RECEIVED'       // Đã tiếp nhận
   | 'PROCESSING'     // Đang xử lý
-  | 'WAITING_PARTS'  // Chờ linh kiện
-  | 'COMPLETED'      // Hoàn tất
+  | 'COMPLETED'      // Đã xử lý
   | 'RETURNED'       // Đã trả
   | 'CANCELLED';     // Đã hủy
 

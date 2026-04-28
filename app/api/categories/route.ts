@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { generateNextIds } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-system'
 import { cache, CACHE_TTL } from '@/lib/cache'
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
     const search = searchParams.get('search') || ''
     const all = searchParams.get('all') === 'true'
     const tree = searchParams.get('tree') === 'true'
@@ -62,14 +64,88 @@ export async function GET(request: Request) {
       const categories = await prisma.category.findMany({
         where,
         orderBy: { sortOrder: 'asc' },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          thumbnail: true,
+          parentId: true,
+          sortOrder: true,
+          slug: true,
+          seoTitle: true,
+          metaDescription: true,
+          seoKeywords: true,
+          shortDescription: true,
+          longDescription: true,
+          ogImage: true,
+          websiteSeo: true,
+          isActive: true,
+          isDeleted: true,
+          level: true,
+          path: true,
+          color: true,
+          icon: true,
+          createdAt: true,
+          updatedAt: true,
           children: {
             where: { isDeleted: false },
             orderBy: { sortOrder: 'asc' },
-            include: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              description: true,
+              imageUrl: true,
+              thumbnail: true,
+              parentId: true,
+              sortOrder: true,
+              slug: true,
+              seoTitle: true,
+              metaDescription: true,
+              seoKeywords: true,
+              shortDescription: true,
+              longDescription: true,
+              ogImage: true,
+              websiteSeo: true,
+              isActive: true,
+              isDeleted: true,
+              level: true,
+              path: true,
+              color: true,
+              icon: true,
+              createdAt: true,
+              updatedAt: true,
               children: {
                 where: { isDeleted: false },
                 orderBy: { sortOrder: 'asc' },
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  description: true,
+                  imageUrl: true,
+                  thumbnail: true,
+                  parentId: true,
+                  sortOrder: true,
+                  slug: true,
+                  seoTitle: true,
+                  metaDescription: true,
+                  seoKeywords: true,
+                  shortDescription: true,
+                  longDescription: true,
+                  ogImage: true,
+                  websiteSeo: true,
+                  isActive: true,
+                  isDeleted: true,
+                  level: true,
+                  path: true,
+                  color: true,
+                  icon: true,
+                  createdAt: true,
+                  updatedAt: true,
+                },
               },
             },
           },
@@ -89,8 +165,38 @@ export async function GET(request: Request) {
       const categories = await prisma.category.findMany({
         where,
         orderBy: { name: 'asc' },
-        include: {
-          parent: true,
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          thumbnail: true,
+          parentId: true,
+          sortOrder: true,
+          slug: true,
+          seoTitle: true,
+          metaDescription: true,
+          seoKeywords: true,
+          shortDescription: true,
+          longDescription: true,
+          ogImage: true,
+          websiteSeo: true,
+          isActive: true,
+          isDeleted: true,
+          level: true,
+          path: true,
+          color: true,
+          icon: true,
+          createdAt: true,
+          updatedAt: true,
+          parent: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
           _count: { select: { productCategories: true, children: true } },
         },
       })
@@ -103,10 +209,40 @@ export async function GET(request: Request) {
       prisma.category.findMany({
         where,
         skip,
-        take: limit,
+        take: safeLimit,
         orderBy: { [sortBy]: sortOrder },
-        include: {
-          parent: true,
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          thumbnail: true,
+          parentId: true,
+          sortOrder: true,
+          slug: true,
+          seoTitle: true,
+          metaDescription: true,
+          seoKeywords: true,
+          shortDescription: true,
+          longDescription: true,
+          ogImage: true,
+          websiteSeo: true,
+          isActive: true,
+          isDeleted: true,
+          level: true,
+          path: true,
+          color: true,
+          icon: true,
+          createdAt: true,
+          updatedAt: true,
+          parent: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
           _count: { select: { productCategories: true, children: true } },
         },
       }),
@@ -178,8 +314,14 @@ export async function POST(request: Request) {
         // Status
         isActive: (body.isActive as boolean | undefined) ?? true,
       },
-      include: {
-        parent: true,
+      select: {
+        parent: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 

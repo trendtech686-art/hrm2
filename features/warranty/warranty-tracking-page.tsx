@@ -144,7 +144,6 @@ function getStatusTimestamp(ticket: PublicWarrantyTicket, status: WarrantyStatus
   const directTimestampByStatus: Partial<Record<WarrantyStatus, string | undefined>> = {
     RECEIVED: ticket.createdAt,
     PROCESSING: ticket.processingStartedAt,
-    WAITING_PARTS: undefined,
     RETURNED: ticket.returnedAt,
     COMPLETED: ticket.completedAt,
     CANCELLED: ticket.cancelledAt,

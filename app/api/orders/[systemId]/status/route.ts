@@ -71,12 +71,64 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         status: status as OrderStatus,
         ...statusTimestamps[status as OrderStatus],
       },
-      include: {
-        customer: true,
-        lineItems: {
-          include: { product: true },
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        paymentStatus: true,
+        deliveryStatus: true,
+        completedDate: true,
+        approvedDate: true,
+        cancelledDate: true,
+        customerId: true,
+        customerName: true,
+        branchId: true,
+        salespersonId: true,
+        salespersonName: true,
+        grandTotal: true,
+        paidAmount: true,
+        customer: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            phone: true,
+          },
         },
-        payments: true,
+        lineItems: {
+          select: {
+            systemId: true,
+            productId: true,
+            productSku: true,
+            productName: true,
+            quantity: true,
+            unitPrice: true,
+            discount: true,
+            tax: true,
+            total: true,
+            note: true,
+            product: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+                thumbnailImage: true,
+              },
+            },
+          },
+        },
+        payments: {
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            amount: true,
+            method: true,
+            description: true,
+            createdBy: true,
+            createdAt: true,
+          },
+        },
       },
     });
 

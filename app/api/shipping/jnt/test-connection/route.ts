@@ -7,19 +7,17 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 import crypto from 'crypto';
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (req) => {
   const startTime = Date.now();
 
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { username, api_key, key, apiUrl } = body;
 
     if (!username || !api_key || !key) {
@@ -88,4 +86,6 @@ export async function POST(request: NextRequest) {
       500
     );
   }
-}
+}, {
+  rateLimit: { max: 10, windowMs: 60_000 }
+});

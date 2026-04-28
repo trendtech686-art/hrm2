@@ -7,17 +7,15 @@
 
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { calculateFeeSchema } from './validation';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
-  const validation = await validateBody(request, calculateFeeSchema);
+export const POST = apiHandler(async (req) => {
+  const validation = await validateBody(req, calculateFeeSchema);
   if (!validation.success) {
     return apiError(validation.error, 400);
   }
@@ -107,4 +105,6 @@ export async function POST(request: NextRequest) {
     logError(`[GHTK-${requestId}] ❌ Calculate fee error (${duration}ms)`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+});

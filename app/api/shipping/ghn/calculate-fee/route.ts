@@ -8,16 +8,14 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (req) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { token, shopId, environment, feeData } = body;
 
     if (!token || !shopId) {
@@ -42,6 +40,16 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(feeData),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      logError('[GHN-FEE] API error', null, {
+        status: response.status,
+        body: errorText,
+        environment,
+      });
+      return apiError(`GHN API error: ${response.status}`, response.status);
+    }
+
     const data = await response.json();
 
     if (data.code === 200) {
@@ -50,16 +58,22 @@ export async function POST(request: NextRequest) {
         data: data.data,
       });
     } else {
+      logError('[GHN-FEE] API returned error', null, {
+        code: data.code,
+        message: data.message,
+      });
       return apiError(
         data.message || 'Tính phí GHN thất bại',
         400
       );
     }
   } catch (error) {
-    logError('[GHN-FEE] ❌ Error', error);
+    logError('[GHN-FEE] ❌ Calculate fee failed', error);
     return apiError(
-      'Lỗi tính phí: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      error instanceof Error ? error.message : 'Failed to calculate GHN fee',
       500
     );
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+});

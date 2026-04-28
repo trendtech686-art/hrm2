@@ -48,7 +48,14 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { updatedAt: 'desc' },
-        include: {
+        select: {
+          systemId: true,
+          productId: true,
+          locationId: true,
+          quantity: true,
+          reservedQty: true,
+          updatedAt: true,
+          createdAt: true,
           product: {
             select: {
               systemId: true,
@@ -58,7 +65,13 @@ export async function GET(request: Request) {
               unit: true,
             },
           },
-          location: true,
+          location: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
         },
       }),
       prisma.inventory.count({ where }),
@@ -96,9 +109,30 @@ export async function POST(request: Request) {
         reservedQty: 0,
         updatedAt: new Date(),
       },
-      include: {
-        product: true,
-        location: true,
+      select: {
+        systemId: true,
+        productId: true,
+        locationId: true,
+        quantity: true,
+        reservedQty: true,
+        updatedAt: true,
+        createdAt: true,
+        product: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            imageUrl: true,
+            unit: true,
+          },
+        },
+        location: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 

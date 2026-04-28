@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Edit2, MessageSquare, XCircle, Clock, AlertCircle, Copy, MoreHorizontal } from 'lucide-react';
+import { Edit2, MessageSquare, XCircle, Clock, AlertCircle, Copy, MoreHorizontal, RotateCcw } from 'lucide-react';
 // formatDate import removed - not used
 import { cn } from '../../lib/utils';
 import type { WarrantyTicket, WarrantyHistory } from './types';
@@ -42,11 +42,8 @@ import { CustomerInfoCard } from './components/detail/customer-info-card';
 import { WarrantyWorkflowCard } from './components/detail/workflow-card';
 import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card';
 import { WarrantyCancelDialog } from './components/dialogs/warranty-cancel-dialog';
-import { WarrantyReopenFromCancelledDialog } from './components/dialogs/warranty-reopen-from-cancelled-dialog';
-import { WarrantyReopenFromReturnedDialog } from './components/dialogs/warranty-reopen-from-returned-dialog';
 import { WarrantyReturnMethodDialog } from './components/dialogs/warranty-return-method-dialog';
 import { WarrantyUploadProcessedImagesDialog } from './components/dialogs/warranty-upload-processed-images-dialog';
-import { WarrantyOrderSelectionDialog } from './components/dialogs/warranty-order-selection-dialog';
 
 import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking';
 import { useWarrantySLATargets } from './hooks/use-warranty-sla-targets';
@@ -133,17 +130,6 @@ export function WarrantyDetailPage() {
     return null;
   }, [systemId, ticketFromQuery]);
 
-  // Handler to link/unlink order from warranty
-  const handleOrderLinked = useCallback((orderSystemId: string | null) => {
-    if (!ticket) return;
-    updateMutation.mutate({
-      systemId: ticket.systemId,
-      data: { 
-        linkedOrderSystemId: orderSystemId ? asSystemId(orderSystemId) : undefined 
-      },
-    });
-  }, [ticket, updateMutation]);
-
   const addHistory = useCallback((systemId: string, entry: unknown) => {
     // This would need the current ticket's history array
     if (!ticket?.history) return;
@@ -162,14 +148,11 @@ export function WarrantyDetailPage() {
 
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [showReopenDialog, setShowReopenDialog] = useState(false);
-  const [showReopenReturnedDialog, setShowReopenReturnedDialog] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [showUploadProcessedImagesDialog, setShowUploadProcessedImagesDialog] = useState(false);
-  const [showOrderSelectionDialog, setShowOrderSelectionDialog] = useState(false);
 
   const {
     isOpen: isReturnDialogOpen,
@@ -180,6 +163,7 @@ export function WarrantyDetailPage() {
     handleOrderSearchChange,
     handleConfirmDirect,
     handleConfirmWithOrder,
+    handleLoadMoreOrders,
     resetDialog: resetReturnDialog,
     returnMethod,
     selectedOrderValue,
@@ -188,6 +172,8 @@ export function WarrantyDetailPage() {
     isSearchingOrders,
     totalOrderCount,
     currentMethodLabel: currentReturnMethodLabel,
+    hasMoreOrders,
+    isLoadingMoreOrders,
   } = useReturnMethodDialog({
     ticket,
     linkedOrder,
@@ -261,11 +247,23 @@ export function WarrantyDetailPage() {
   }, [handleStatusChange, queryClient]);
 
   // Page header actions - Calculate directly for reactivity
+  // Unified cancelled check: phiếu bị hủy khi có cancelledAt HOẶC status === 'CANCELLED'
+  const isTicketCancelled = Boolean(ticket?.cancelledAt) || ticket?.status === 'CANCELLED';
+
+  // isCompleted: phiếu đã hoàn tất (COMPLETED + completedAt tồn tại, hoặc RETURNED)
+  const isCompleted = (ticket?.status === 'COMPLETED' && ticket?.completedAt) || ticket?.status === 'RETURNED';
+
+  // isFinished: phiếu đã kết thúc hoàn toàn (COMPLETED có completedAt)
+  const isFinished = ticket?.status === 'COMPLETED' && ticket?.completedAt;
+
+  // isReopenState: trạng thái có nút "Mở lại" (COMPLETED có completedAt)
+  const isReopenState = ticket?.status === 'COMPLETED' && ticket?.completedAt;
+
   const actions = useMemo(() => {
     const actionButtons: React.ReactElement[] = [];
 
-    // Template button (LEFT SIDE) - available when ticket exists and not cancelled
-    if (ticket && !ticket.cancelledAt) {
+    // Mẫu phản hồi - chỉ khi chưa kết thúc
+    if (ticket && !isCompleted) {
       actionButtons.push(
         <Button
           key="templates"
@@ -280,43 +278,24 @@ export function WarrantyDetailPage() {
       );
     }
 
-    // Status change buttons (RIGHT SIDE)
-    // Show different buttons based on ticket status and cancelledAt flag
-    
-    if (ticket?.cancelledAt) {
-      // If cancelled, only show "Mở lại" button (admin only)
-      if (isAdmin) {
-        actionButtons.push(
-          <Button 
-            key="reopen" 
-            size="sm" 
-            variant="outline"
-            className="text-success hover:text-success/80"
-            onClick={() => setShowReopenDialog(true)}
-          >
-            Mở lại
-          </Button>
-        );
-      }
-    } else if (isAdmin) {
-      // Normal status flow buttons - ADMIN ONLY
+    // ADMIN ONLY - các nút thao tác trạng thái
+    if (isAdmin) {
+      // RECEIVED: Sửa thông tin phiếu
       if (ticket?.status === 'RECEIVED') {
-        // Show primary "Bắt đầu xử lý" button for RECEIVED status
         actionButtons.push(
-          <Button 
-            key="complete-info"
+          <Button
+            key="edit-received"
             size="sm"
             variant="default"
-            onClick={() => {
-              // Navigate to update page (history will be logged on actual save)
-              router.push(`/warranty/${systemId}/update`);
-            }}
+            onClick={() => router.push(`/warranty/${systemId}/edit`)}
           >
             <Edit2 className="h-4 w-4 mr-2" />
-            Cập nhật thông tin
+            Sửa
           </Button>
         );
       }
+
+      // PROCESSING: Đánh dấu Hoàn tất
       if (ticket?.status === 'PROCESSING') {
         actionButtons.push(
           <Button key="to-completed" size="sm" variant="outline" onClick={async () => {
@@ -329,24 +308,27 @@ export function WarrantyDetailPage() {
           </Button>
         );
       }
-      if (ticket?.status === 'COMPLETED' && !ticket?.completedAt || ticket?.status === 'RETURNED') {
+
+      // COMPLETED (chưa completedAt) hoặc RETURNED: Cập nhật trả hàng
+      if ((ticket?.status === 'COMPLETED' && !ticket?.completedAt) || ticket?.status === 'RETURNED') {
         actionButtons.push(
-          <Button 
-            key="to-returned" 
-            size="sm" 
-            variant="outline" 
+          <Button
+            key="to-returned"
+            size="sm"
+            variant="outline"
             onClick={openReturnDialog}
           >
             {ticket?.status === 'RETURNED' ? 'Cập nhật trả hàng' : 'Đã trả hàng cho khách'}
           </Button>
         );
       }
+
+      // RETURNED: Kết thúc phiếu
       if (ticket?.status === 'RETURNED') {
-        // Show "Kết thúc" button - ticket already returned to customer
         actionButtons.push(
-          <Button 
-            key="complete" 
-            size="sm" 
+          <Button
+            key="complete"
+            size="sm"
             variant="default"
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleCompleteTicket}
@@ -356,45 +338,41 @@ export function WarrantyDetailPage() {
           </Button>
         );
       }
-      
-      if (ticket?.status === 'CANCELLED') {
-        // If cancelled via completion, show "Mở lại"
+
+      // COMPLETED hoàn tất (có completedAt): Mở lại phiếu → quay về RETURNED
+      if (ticket?.status === 'COMPLETED' && ticket?.completedAt) {
         actionButtons.push(
-          <Button 
-            key="reopen-from-completed" 
-            size="sm" 
-            variant="outline"
-            className="text-info hover:text-info/80"
-            onClick={() => setShowReopenReturnedDialog(true)}
+          <Button
+            key="reopen"
+            size="sm"
+            variant="default"
+            onClick={() => handleStatusChange('RETURNED')}
           >
+            <RotateCcw className="h-4 w-4 mr-2" />
             Mở lại
           </Button>
         );
       }
     }
 
-    // Edit button - ADMIN ONLY (RIGHT SIDE)
-    if (!isReturned && !ticket?.cancelledAt && isAdmin) {
+    // Chỉnh sửa & Hủy - CHỈ ẩn khi CANCELLED hoặc trạng thái có nút "Mở lại" (COMPLETED có completedAt)
+    // KHÔNG ẩn khi RETURNED vì có thể cần hủy sau khi trả hàng
+    if (isAdmin && !isTicketCancelled && !isReopenState) {
+      // Chỉnh sửa
       actionButtons.push(
         <Button
           key="edit"
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => {
-            // Navigate directly to edit page without logging history
-            // (history logging will happen when user saves changes)
-            router.push(`/warranty/${systemId}/edit`);
-          }}
+          onClick={() => router.push(`/warranty/${systemId}/edit`)}
         >
           <Edit2 className="h-4 w-4 mr-2" />
           Chỉnh sửa
         </Button>
       );
-    }
 
-    // Cancel button - ADMIN ONLY (RIGHT SIDE)
-    if (isAdmin && !ticket?.cancelledAt && ticket?.status !== 'CANCELLED') {
+      // Hủy
       actionButtons.push(
         <Button
           key="cancel"
@@ -411,15 +389,15 @@ export function WarrantyDetailPage() {
     }
 
     return actionButtons;
-  }, [ticket, systemId, isReturned, router, handleStatusChange, handleCompleteTicket, isCompletingTicket, openReturnDialog, isAdmin]);
+  }, [ticket, systemId, router, handleStatusChange, handleCompleteTicket, isCompletingTicket, openReturnDialog, isAdmin, isTicketCancelled, isCompleted, isReopenState]);
 
-  // Page header - title auto-generated from breadcrumb, Badge below title
+  // Status badge with Sao chép button
   const statusBadge = ticket ? (
     <div className="flex items-center gap-2">
       <Badge className={WARRANTY_STATUS_COLORS[ticket.status]}>
         {WARRANTY_STATUS_LABELS[ticket.status]}
       </Badge>
-      {!ticket.cancelledAt && isAdmin && (
+      {isAdmin && (
         <Button
           size="sm"
           variant="outline"
@@ -472,50 +450,59 @@ export function WarrantyDetailPage() {
   const mobileHeaderActions = useMemo(() => {
     if (!ticket || !isMobile) return null;
 
+    // isCompleted: phiếu đã hoàn tất
+    const isCompleted = (ticket?.status === 'COMPLETED' && ticket?.completedAt) || ticket?.status === 'RETURNED';
+
     const menuItems: { label: string; onClick: () => void; destructive?: boolean }[] = [];
 
-    // Template response
-    if (!ticket.cancelledAt) {
+    // Mẫu phản hồi - chỉ khi chưa hoàn tất
+    if (!isCompleted) {
       menuItems.push({
         label: 'Mẫu phản hồi',
         onClick: () => setTemplateDialogOpen(true),
       });
     }
 
-    // Status change actions
-    if (ticket.cancelledAt) {
-      if (isAdmin) {
-        menuItems.push({ label: 'Mở lại', onClick: () => setShowReopenDialog(true) });
-      }
-    } else if (isAdmin) {
+    // ADMIN ONLY - các nút thao tác trạng thái
+    if (isAdmin) {
+      // RECEIVED: Sửa
       if (ticket.status === 'RECEIVED') {
-        menuItems.push({ label: 'Cập nhật thông tin', onClick: () => router.push(`/warranty/${systemId}/update`) });
+        menuItems.push({ label: 'Sửa', onClick: () => router.push(`/warranty/${systemId}/edit`) });
       }
+
+      // PROCESSING: Đánh dấu Hoàn tất
       if (ticket.status === 'PROCESSING') {
         menuItems.push({ label: 'Đánh dấu Hoàn tất', onClick: async () => {
           const result = await handleStatusChange('COMPLETED');
           if (result === 'needs-images') setShowUploadProcessedImagesDialog(true);
         }});
       }
+
+      // COMPLETED (chưa completedAt) hoặc RETURNED: Cập nhật trả hàng
       if ((ticket.status === 'COMPLETED' && !ticket.completedAt) || ticket.status === 'RETURNED') {
         menuItems.push({ label: ticket.status === 'RETURNED' ? 'Cập nhật trả hàng' : 'Đã trả hàng cho khách', onClick: openReturnDialog });
       }
+
+      // RETURNED: Kết thúc
       if (ticket.status === 'RETURNED') {
         menuItems.push({ label: 'Kết thúc', onClick: handleCompleteTicket });
       }
-      if (ticket.status === 'CANCELLED') {
-        menuItems.push({ label: 'Mở lại', onClick: () => setShowReopenReturnedDialog(true) });
+
+      // COMPLETED hoàn tất (có completedAt): Mở lại (không áp dụng cho RETURNED)
+      if (ticket?.status === 'COMPLETED' && ticket?.completedAt) {
+        menuItems.push({ label: 'Mở lại', onClick: () => handleStatusChange('RETURNED') });
       }
     }
 
-    // Edit
-    if (!isReturned && !ticket.cancelledAt && isAdmin) {
+    // Chỉnh sửa & Hủy - CHỈ ẩn khi CANCELLED hoặc trạng thái có nút "Mở lại" (COMPLETED có completedAt)
+    if (isAdmin && !isTicketCancelled && !isReopenState) {
       menuItems.push({ label: 'Chỉnh sửa', onClick: () => router.push(`/warranty/${systemId}/edit`) });
+      menuItems.push({ label: 'Hủy phiếu', onClick: () => setShowCancelDialog(true), destructive: true });
     }
 
-    // Cancel
-    if (isAdmin && !ticket.cancelledAt && ticket.status !== 'CANCELLED') {
-      menuItems.push({ label: 'Hủy phiếu', onClick: () => setShowCancelDialog(true), destructive: true });
+    // Sao chép - available always
+    if (isAdmin) {
+      menuItems.push({ label: 'Sao chép phiếu', onClick: () => router.push(`/warranty/new?copy=${systemId}`) });
     }
 
     return (
@@ -534,7 +521,7 @@ export function WarrantyDetailPage() {
         </DropdownMenuContent>
       </DropdownMenu>
     );
-  }, [ticket, isMobile, isAdmin, router, systemId, handleStatusChange, openReturnDialog, handleCompleteTicket, isReturned, setTemplateDialogOpen, setShowReopenDialog, setShowReopenReturnedDialog, setShowCancelDialog, setShowUploadProcessedImagesDialog]);
+  }, [ticket, isAdmin, router, systemId, handleStatusChange, openReturnDialog, handleCompleteTicket, isTicketCancelled, isCompleted, isReopenState, setTemplateDialogOpen, setShowCancelDialog, setShowUploadProcessedImagesDialog]);
 
   // Desktop: Full buttons
   const allActions = useMemo(() => actions, [actions]);
@@ -645,7 +632,6 @@ export function WarrantyDetailPage() {
                 onGenerateTrackingCode={handleGenerateTrackingCode}
                 onNavigateEmployee={handleNavigateEmployee}
                 onNavigateOrder={linkedOrder ? handleNavigateOrder : undefined}
-                onEditLinkedOrder={() => setShowOrderSelectionDialog(true)}
               />
 
               {/* Right: Quy trình xử lý */}
@@ -657,13 +643,6 @@ export function WarrantyDetailPage() {
                 onAddHistory={addHistory}
               />
             </div>
-
-            {/* ===== ROW 3: Thanh toán ===== */}
-            <WarrantySummaryCard
-              products={ticket.products}
-              shippingFee={ticket.shippingFee || 0}
-              settlement={settlement}
-            />
 
             {/* ===== ROW 2: Images - 2 columns side by side (50-50) ===== */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -683,7 +662,7 @@ export function WarrantyDetailPage() {
               />
             </div>
 
-            {/* ===== ROW 3: Products Table (with integrated summary) ===== */}
+            {/* ===== ROW 3: Products Table ===== */}
             <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Danh sách sản phẩm bảo hành</CardTitle>
@@ -693,7 +672,14 @@ export function WarrantyDetailPage() {
               </CardContent>
             </Card>
 
-            {/* ===== ROW 4: Notes ===== */}
+            {/* ===== ROW 4: Thanh toán ===== */}
+            <WarrantySummaryCard
+              products={ticket.products}
+              shippingFee={ticket.shippingFee || 0}
+              settlement={settlement}
+            />
+
+            {/* ===== ROW 5: Notes ===== */}
             <Card className={mobileBleedCardClass}>
               <CardHeader>
                 <CardTitle>Ghi chú</CardTitle>
@@ -737,6 +723,9 @@ export function WarrantyDetailPage() {
           onConfirmWithOrder={handleConfirmWithOrder}
           onOpenChange={handleReturnDialogOpenChange}
           onReset={resetReturnDialog}
+          hasMoreOrders={hasMoreOrders}
+          isLoadingMoreOrders={isLoadingMoreOrders}
+          onLoadMoreOrders={handleLoadMoreOrders}
         />
 
       {/* Cancel Dialog */}
@@ -745,22 +734,6 @@ export function WarrantyDetailPage() {
         onOpenChange={setShowCancelDialog}
         ticket={ticket}
       />
-
-      {/* Reopen Dialog (from cancelled) */}
-      <WarrantyReopenFromCancelledDialog
-        open={showReopenDialog}
-        onOpenChange={setShowReopenDialog}
-        ticket={ticket}
-      />
-
-      {/* Reopen Dialog (from returned/completed) */}
-      <WarrantyReopenFromReturnedDialog
-        open={showReopenReturnedDialog}
-        onOpenChange={setShowReopenReturnedDialog}
-        ticket={ticket}
-      />
-
-      {/* XÓA: Không cần Remaining Amount Dialog nữa - xử lý qua phiếu thu/chi */}
 
       {/* Template Dialog */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
@@ -818,15 +791,6 @@ export function WarrantyDetailPage() {
         open={showImagePreview}
         onOpenChange={setShowImagePreview}
         title="Hình ảnh bảo hành"
-      />
-
-      {/* Order Selection Dialog */}
-      <WarrantyOrderSelectionDialog
-        open={showOrderSelectionDialog}
-        onOpenChange={setShowOrderSelectionDialog}
-        ticket={ticket}
-        currentOrderId={ticket?.linkedOrderSystemId}
-        onOrderLinked={handleOrderLinked}
       />
 
       {/* Upload Processed Images Dialog */}

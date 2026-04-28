@@ -9,7 +9,7 @@ import { usePageHeader } from '@/contexts/page-header-context'
 import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings'
 import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel'
 import { useFilterPresets } from '@/hooks/use-filter-presets'
-import { useAllSuppliers } from '@/features/suppliers/hooks/use-all-suppliers'
+import { useMeiliSupplierSearch } from '@/hooks/use-meilisearch'
 
 const PO_STATUSES = [
   { value: 'all', label: 'Tất cả trạng thái' },
@@ -22,7 +22,8 @@ const PO_STATUSES = [
 ]
 
 export function OrderedProductsPage() {
-  const { data: suppliers = [] } = useAllSuppliers()
+  const { data: supplierData } = useMeiliSupplierSearch({ query: '', limit: 100 });
+  const suppliers = React.useMemo(() => supplierData?.data || [], [supplierData]);
 
   // Filter state
   const [searchQuery, setSearchQuery] = React.useState('')

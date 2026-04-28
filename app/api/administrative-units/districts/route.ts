@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logError } from '@/lib/logger'
-import { requireAuth } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { nanoid } from 'nanoid'
 
@@ -41,8 +41,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const response = NextResponse.json({
-      success: true,
+    const response = apiSuccess({
       data: districts,
       count: districts.length,
     });
@@ -50,10 +49,7 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     logError('Failed to fetch districts', error);
-    return NextResponse.json(
-      { success: false, error: 'Không thể tải danh sách quận/huyện' },
-      { status: 500 }
-    );
+    return apiError('Không thể tải danh sách quận/huyện', 500);
   }
 }
 
@@ -64,7 +60,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return apiError('Unauthorized', 401)
   }
 
   try {
@@ -72,7 +68,7 @@ export async function POST(request: NextRequest) {
     const { id, name, provinceId, level = '3-level' } = body
 
     if (!id || !name || !provinceId) {
-      return NextResponse.json({ success: false, error: 'Mã, tên và tỉnh thành là bắt buộc' }, { status: 400 })
+      return apiError('Mã, tên và tỉnh thành là bắt buộc', 400)
     }
 
     const district = await prisma.district.create({
@@ -95,9 +91,9 @@ export async function POST(request: NextRequest) {
       createdBy: session.user?.id,
     })
 
-    return NextResponse.json({ success: true, data: district })
+    return apiSuccess(district, 201)
   } catch (error) {
     logError('Failed to create district', error)
-    return NextResponse.json({ success: false, error: 'Không thể tạo quận/huyện' }, { status: 500 })
+    return apiError('Không thể tạo quận/huyện', 500)
   }
 }

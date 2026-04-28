@@ -25,8 +25,48 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     const stockTransfer = await prisma.stockTransfer.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        fromBranchId: true,
+        toBranchId: true,
+        employeeId: true,
+        transferDate: true,
+        receivedDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        referenceCode: true,
+        fromBranchSystemId: true,
+        fromBranchName: true,
+        toBranchSystemId: true,
+        toBranchName: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        transferredDate: true,
+        transferredBySystemId: true,
+        transferredByName: true,
+        receivedBySystemId: true,
+        receivedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        items: {
+          select: {
+            systemId: true,
+            transferId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            receivedQty: true,
+          },
+        },
       },
     });
 
@@ -139,8 +179,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(updatedBy !== undefined && { updatedBy }),
         updatedAt: new Date(),
       },
-      include: {
-        items: true,
+      select: {
+        systemId: true, id: true, status: true, notes: true, updatedAt: true,
+        fromBranchId: true, fromBranchName: true, fromBranchSystemId: true,
+        toBranchId: true, toBranchName: true, toBranchSystemId: true,
+        employeeId: true, createdBy: true, createdByName: true,
+        transferDate: true, transferredDate: true, receivedDate: true,
+        cancelledDate: true, cancelReason: true,
+        items: {
+          select: {
+            systemId: true, productId: true, productName: true, productSku: true,
+            quantity: true, receivedQty: true,
+          },
+        },
       },
     });
 

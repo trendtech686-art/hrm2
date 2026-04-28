@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for task templates
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/templates-api';
 import type { TaskTemplate } from '../template-types';
@@ -12,18 +12,21 @@ import type { TaskTemplate } from '../template-types';
 export const templateKeys = {
   all: ['task-templates'] as const,
   lists: () => [...templateKeys.all, 'list'] as const,
+  list: (filters: api.TaskTemplatesParams) => [...templateKeys.lists(), filters] as const,
   details: () => [...templateKeys.all, 'detail'] as const,
   detail: (id: string) => [...templateKeys.details(), id] as const,
 };
 
 /**
- * Hook to fetch all task templates
+ * Hook to fetch task templates with filters and pagination
+ * ✅ API Filter pattern - server-side search and pagination
  */
-export function useTaskTemplates() {
+export function useTaskTemplates(filters: api.TaskTemplatesParams = {}) {
   return useQuery({
-    queryKey: templateKeys.lists(),
-    queryFn: api.fetchTaskTemplates,
+    queryKey: templateKeys.list(filters),
+    queryFn: () => api.fetchTaskTemplates(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes
+    placeholderData: keepPreviousData,
   });
 }
 

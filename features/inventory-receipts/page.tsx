@@ -9,10 +9,10 @@ import { Printer, Download, Settings } from "lucide-react";
 import { ROUTES } from '@/lib/router';
 import { formatDate, formatDateCustom, parseDate } from '@/lib/date-utils';
 import { useInventoryReceipts } from "./hooks/use-inventory-receipts";
-import { useAllInventoryReceipts } from "./hooks/use-all-inventory-receipts";
-import { useAllSuppliers, useSupplierFinder } from "../suppliers/hooks/use-all-suppliers";
-import { usePageHeader } from "@/contexts/page-header-context";
+import { useAllInventoryReceipts } from "./hooks/use-inventory-receipts";
 import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches";
+import { useMeiliSupplierSearch } from '@/hooks/use-meilisearch';
+import { usePageHeader } from "@/contexts/page-header-context";
 import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from "@/lib/use-print";
 import { convertStockInForPrint, mapStockInToPrintData, mapStockInLineItems, createStoreSettings } from "@/lib/print/stock-in-print-helper";
@@ -91,13 +91,24 @@ export function InventoryReceiptsPage() {
   const totalRows = queryData?.pagination?.total ?? 0;
   const pageCount = queryData?.pagination?.totalPages ?? 1;
 
-  // Lazy-load all data only for export
+  // Lazy-load all data only for export (with current filters)
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
-  const { data: allReceipts } = useAllInventoryReceipts({ enabled: exportDialogOpen });
+  const { data: allReceipts } = useAllInventoryReceipts({
+    enabled: exportDialogOpen,
+    startDate: dateRange?.[0],
+    endDate: dateRange?.[1],
+    branchId: branchFilter !== 'all' ? branchFilter : undefined,
+    supplierId: supplierFilter !== 'all' ? supplierFilter : undefined,
+    search: debouncedSearch || undefined,
+  });
 
-  // Lazy-load suppliers only when filter dropdown is interacted with
-  const { data: suppliers } = useAllSuppliers({ enabled: true });
-  const { findById: findSupplierById } = useSupplierFinder();
+  // Lazy-load suppliers from Meilisearch
+  const { data: supplierData } = useMeiliSupplierSearch({ query: '', limit: 100 });
+  const suppliers = React.useMemo(() => supplierData?.data || [], [supplierData]);
+  const findSupplierById = React.useCallback(
+    (systemId: string | undefined) => suppliers.find(s => s.systemId === systemId),
+    [suppliers]
+  );
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
   // ⚡ OPTIMIZED: Defer print template loading until print is clicked
@@ -155,7 +166,7 @@ export function InventoryReceiptsPage() {
 
   // Branch options from useAllBranches (always small dataset)
   const branchOptions = React.useMemo(() => branches.map(b => ({ value: b.systemId, label: b.name })).sort((a, b) => a.label.localeCompare(b.label)), [branches]);
-  // Supplier options from useAllSuppliers
+  // Supplier options from Meilisearch
   const supplierOptions = React.useMemo(() => suppliers.map(s => ({ value: s.systemId, label: s.name })).sort((a, b) => a.label.localeCompare(b.label)), [suppliers]);
 
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);

@@ -1,9 +1,22 @@
 import { prisma } from '@/lib/prisma'
-import { apiError, apiSuccess, requireAuth, parsePagination } from '@/lib/api-utils'
+import { apiError, apiSuccess, apiPaginated, requireAuth, parsePagination, validateBody } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { generateNextIds } from '@/lib/id-system'
+import { z } from 'zod'
 
 const TYPE = 'receipt-type'
+
+const createReceiptTypeSchema = z.object({
+  id: z.string().min(1, 'id là bắt buộc'),
+  name: z.string().min(1, 'name là bắt buộc'),
+  description: z.string().optional(),
+  isBusinessResult: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+  color: z.string().optional(),
+})
 
 interface SettingsDataRecord {
   systemId: string;
@@ -29,6 +42,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
     const isActiveParam = searchParams.get('isActive')
     const isBusinessResultParam = searchParams.get('isBusinessResult')
 
@@ -43,13 +57,13 @@ export async function GET(request: Request) {
         where,
         orderBy: [{ id: 'asc' }],
         skip,
-        take: limit,
+        take: safeLimit,
       }),
       prisma.settingsData.count({ where }),
     ])
 
     const data = rows.map(r => mapRecord(r as unknown as SettingsDataRecord))
-    return apiSuccess({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
+    return apiPaginated(data, { page, limit, total })
   } catch (error) {
     logError('[receipt-types] GET error', error)
     return apiError('Failed to fetch receipt types', 500)
@@ -60,14 +74,20 @@ export async function POST(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createReceiptTypeSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-    const { id, name, description, isBusinessResult = false, isActive = true, isDefault = false, color } = body || {}
-    if (!id || !name) return apiError('id and name are required', 400)
+    const { id, name, description, isBusinessResult = false, isActive = true, isDefault = false, color } = body
+    const { systemId, businessId } = await generateNextIds('receipt-types')
+    const finalId = id || businessId
 
     const created = await prisma.settingsData.create({
       data: {
-        id,
+        id: finalId,
         name,
         description,
         type: TYPE,

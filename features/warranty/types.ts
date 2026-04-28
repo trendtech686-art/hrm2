@@ -40,13 +40,12 @@ import type {
 
 // ====================================
 // WARRANTY STATUS - Labels & Colors
-// Match Prisma enum: RECEIVED, PROCESSING, WAITING_PARTS, COMPLETED, RETURNED, CANCELLED
+// Match Prisma enum: RECEIVED, PROCESSING, COMPLETED, RETURNED, CANCELLED
 // ====================================
 export const WARRANTY_STATUS_LABELS: Record<WarrantyStatus, string> = {
   RECEIVED: 'Đã tiếp nhận',
   PROCESSING: 'Đang xử lý',
-  WAITING_PARTS: 'Chờ linh kiện',
-  COMPLETED: 'Hoàn tất',
+  COMPLETED: 'Đã xử lý',
   RETURNED: 'Đã trả',
   CANCELLED: 'Đã hủy',
 };
@@ -55,7 +54,6 @@ export const WARRANTY_STATUS_LABELS: Record<WarrantyStatus, string> = {
 export const WARRANTY_STATUS_COLORS: Record<WarrantyStatus, string> = {
   RECEIVED: 'bg-warning/15 text-warning-foreground',
   PROCESSING: 'bg-info/15 text-info-foreground',
-  WAITING_PARTS: 'bg-warning/25 text-warning-foreground',
   COMPLETED: 'bg-success/15 text-success-foreground',
   RETURNED: 'bg-muted text-muted-foreground',
   CANCELLED: 'bg-destructive/15 text-destructive line-through',
@@ -110,14 +108,13 @@ export const SETTLEMENT_STATUS_LABELS: Record<SettlementStatus, string> = {
 
 // ====================================
 // STATUS WORKFLOW RULES
-// Match Prisma enum: RECEIVED, PROCESSING, WAITING_PARTS, COMPLETED, RETURNED, CANCELLED
+// Match Prisma enum: RECEIVED, PROCESSING, COMPLETED, RETURNED, CANCELLED
 // ====================================
 export const WARRANTY_STATUS_TRANSITIONS: Record<WarrantyStatus, WarrantyStatus[]> = {
   RECEIVED: ['PROCESSING'],      // Đã tiếp nhận → Đang xử lý
-  PROCESSING: ['WAITING_PARTS', 'COMPLETED'],  // Đang xử lý → Chờ linh kiện hoặc Hoàn tất
-  WAITING_PARTS: ['PROCESSING', 'COMPLETED'],  // Chờ linh kiện → Đang xử lý hoặc Hoàn tất
-  COMPLETED: ['RETURNED'],       // Hoàn tất → Đã trả
-  RETURNED: [],                  // Đã trả → Final state
+  PROCESSING: ['COMPLETED'],     // Đang xử lý → Đã xử lý
+  COMPLETED: ['RETURNED'],       // Đã xử lý → Đã trả
+  RETURNED: [],                  // Đã trả → Final state (có thể quay lại COMPLETED)
   CANCELLED: [],                 // Đã hủy → Final state
 };
 
@@ -126,11 +123,6 @@ export const WARRANTY_STATUS_TRANSITION_LABELS: Partial<Record<WarrantyStatus, P
     PROCESSING: 'Bắt đầu xử lý',
   },
   PROCESSING: {
-    WAITING_PARTS: 'Chờ linh kiện',
-    COMPLETED: 'Hoàn thành xử lý',
-  },
-  WAITING_PARTS: {
-    PROCESSING: 'Tiếp tục xử lý',
     COMPLETED: 'Hoàn thành xử lý',
   },
   COMPLETED: {

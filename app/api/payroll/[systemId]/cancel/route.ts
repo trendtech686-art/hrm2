@@ -21,7 +21,19 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get payroll with items
     const payroll = await prisma.payroll.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        year: true,
+        month: true,
+        totalGross: true,
+        totalDeductions: true,
+        totalNet: true,
+        totalEmployees: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
         items: {
           select: { systemId: true }
         }

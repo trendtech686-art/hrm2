@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, Gender, EmployeeType, EmploymentStatus, ContractType, UserRole } from '@/generated/prisma/client'
-import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { serializeEmployee } from '../serialize'
+import { updateEmployeeSchema } from '../validation'
 import bcrypt from 'bcryptjs'
 import { generateNextIds } from '@/lib/id-system'
 import { logError } from '@/lib/logger'
@@ -75,18 +76,40 @@ export const GET = apiHandler(async (request, { params }) => {
 
     const employee = await prisma.employee.findUnique({
       where: { systemId },
-      include: {
-        department: true,
-        branch: true,
-        jobTitle: true,
+      select: {
+        // Scalar fields
+        systemId: true, id: true, fullName: true, dob: true, placeOfBirth: true,
+        gender: true, phone: true, personalEmail: true, workEmail: true,
+        nationalId: true, nationalIdIssueDate: true, nationalIdIssuePlace: true,
+        avatarUrl: true, avatar: true,
+        permanentAddress: true, temporaryAddress: true,
+        departmentId: true, jobTitleId: true, branchId: true, managerId: true,
+        hireDate: true, startDate: true, endDate: true, terminationDate: true,
+        reasonForLeaving: true,
+        employeeType: true, employmentStatus: true, role: true,
+        baseSalary: true, socialInsuranceSalary: true, positionAllowance: true,
+        mealAllowance: true, otherAllowances: true,
+        numberOfDependents: true,
+        contractNumber: true, contractStartDate: true, contractEndDate: true,
+        contractType: true, probationEndDate: true,
+        bankAccountNumber: true, bankName: true, bankBranch: true,
+        personalTaxId: true, socialInsuranceNumber: true,
+        annualLeaveBalance: true, notes: true,
+        maritalStatus: true, emergencyContactName: true, emergencyContactPhone: true,
+        workingHoursPerDay: true, workingDaysPerWeek: true, shiftType: true,
+        performanceRating: true, lastReviewDate: true, nextReviewDate: true,
+        skills: true, certifications: true,
+        isDeleted: true, createdAt: true, updatedAt: true, createdBy: true, updatedBy: true,
+        // Relations
+        department: { select: { systemId: true, name: true } },
+        branch: { select: { systemId: true, name: true } },
+        jobTitle: { select: { systemId: true, name: true } },
         user: {
           select: {
             systemId: true,
             email: true,
             role: true,
             isActive: true,
-            // Don't expose password hash to frontend for security
-            // Just check if exists via a computed field
           },
         },
         manager: {
@@ -122,10 +145,15 @@ export const GET = apiHandler(async (request, { params }) => {
 // PUT /api/employees/[systemId] - Update employee
 export const PUT = apiHandler(async (request, { session, params }) => {
     const { systemId } = params
-    const rawBody = await request.json()
+    
+    // Validate request body with Zod schema
+    const validation = await validateBody(request, updateEmployeeSchema)
+    if (!validation.success) {
+      return apiError(validation.error, 400)
+    }
     
     // Support both { data: {...} } and direct {...} body formats
-    const body = rawBody.data || rawBody
+    const body = validation.data
 
     // Check if employee exists
     const existing = await prisma.employee.findUnique({
@@ -198,11 +226,35 @@ export const PUT = apiHandler(async (request, { session, params }) => {
         emergencyContactPhone: normalizeString(body.emergencyContactPhone),
         updatedBy: session!.user.id,
       },
-      include: {
-        department: true,
-        branch: true,
-        jobTitle: true,
-        user: true,
+      select: {
+        // Scalar fields
+        systemId: true, id: true, fullName: true, dob: true, placeOfBirth: true,
+        gender: true, phone: true, personalEmail: true, workEmail: true,
+        nationalId: true, nationalIdIssueDate: true, nationalIdIssuePlace: true,
+        avatarUrl: true, avatar: true,
+        permanentAddress: true, temporaryAddress: true,
+        departmentId: true, jobTitleId: true, branchId: true, managerId: true,
+        hireDate: true, startDate: true, endDate: true, terminationDate: true,
+        reasonForLeaving: true,
+        employeeType: true, employmentStatus: true, role: true,
+        baseSalary: true, socialInsuranceSalary: true, positionAllowance: true,
+        mealAllowance: true, otherAllowances: true,
+        numberOfDependents: true,
+        contractNumber: true, contractStartDate: true, contractEndDate: true,
+        contractType: true, probationEndDate: true,
+        bankAccountNumber: true, bankName: true, bankBranch: true,
+        personalTaxId: true, socialInsuranceNumber: true,
+        annualLeaveBalance: true, notes: true,
+        maritalStatus: true, emergencyContactName: true, emergencyContactPhone: true,
+        workingHoursPerDay: true, workingDaysPerWeek: true, shiftType: true,
+        performanceRating: true, lastReviewDate: true, nextReviewDate: true,
+        skills: true, certifications: true,
+        isDeleted: true, createdAt: true, updatedAt: true, createdBy: true, updatedBy: true,
+        // Relations
+        department: { select: { systemId: true, name: true } },
+        branch: { select: { systemId: true, name: true } },
+        jobTitle: { select: { systemId: true, name: true } },
+        user: { select: { systemId: true, email: true, role: true, isActive: true } },
       },
     })
     } catch (error) {

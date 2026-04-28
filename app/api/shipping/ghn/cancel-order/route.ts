@@ -8,30 +8,28 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+export const POST = apiHandler(async (req, { session }) => {
+  const body = await req.json();
+  const { token, shopId, environment, orderCodes } = body;
+
+  if (!token || !shopId) {
+    return apiError('Token và Shop ID là bắt buộc', 400);
+  }
+
+  if (!orderCodes || !Array.isArray(orderCodes) || orderCodes.length === 0) {
+    return apiError('Danh sách mã đơn hàng là bắt buộc', 400);
+  }
+
+  const baseUrl = environment === 'staging'
+    ? 'https://dev-online-gateway.ghn.vn/shiip/public-api'
+    : 'https://online-gateway.ghn.vn/shiip/public-api';
 
   try {
-    const body = await request.json();
-    const { token, shopId, environment, orderCodes } = body;
-
-    if (!token || !shopId) {
-      return apiError('Token và Shop ID là bắt buộc', 400);
-    }
-
-    if (!orderCodes || !Array.isArray(orderCodes) || orderCodes.length === 0) {
-      return apiError('Danh sách mã đơn hàng là bắt buộc', 400);
-    }
-
-    const baseUrl = environment === 'staging'
-      ? 'https://dev-online-gateway.ghn.vn/shiip/public-api'
-      : 'https://online-gateway.ghn.vn/shiip/public-api';
-
     const response = await fetchWithTimeout(`${baseUrl}/v2/switch-status/cancel`, {
       method: 'POST',
       headers: {
@@ -56,10 +54,11 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    logError('[GHN-CANCEL] ❌ Error', error);
-    return apiError(
-      'Lỗi hủy đơn: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      500
-    );
+    logError('GHN cancel order failed', error)
+    return apiError('Không thể hủy đơn GHN. Vui lòng thử lại sau.', 500)
   }
-}
+}, {
+  auth: true,
+  permission: 'edit_orders',
+  rateLimit: { max: 20, windowMs: 60_000 }
+});

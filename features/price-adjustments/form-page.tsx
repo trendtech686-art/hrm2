@@ -7,7 +7,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { usePriceAdjustmentMutations, usePriceAdjustmentById } from './hooks/use-price-adjustments';
-import { useProductFinder, useAllProducts } from '../products/hooks/use-all-products';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { ProductImage } from '../products/components/product-image';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
@@ -115,7 +115,6 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductFinder();
-  const { data: allProducts } = useAllProducts();
   const { data: pricingPolicies } = useAllPricingPolicies();
   
   // Fetch existing adjustment for edit mode
@@ -232,7 +231,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
         productSystemId: product.systemId,
         productId: product.id,
         productName: product.name,
-        productImage: product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0] || '',
+        productImage: product.thumbnailImage || (product as any).imageUrl || product.galleryImages?.[0] || product.images?.[0] || '',
         oldPrice: currentPrice,
         newPrice: currentPrice, // Default to same as old
       });
@@ -255,7 +254,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
       // Batch updates for better performance
       const updates: { index: number; oldPrice: number }[] = [];
       fields.forEach((field, index) => {
-        const product = allProducts.find(p => p.systemId === field.productSystemId);
+        const product = findProductById(field.productSystemId);
         if (product) {
           updates.push({ index, oldPrice: getProductPrice(product) });
         }
@@ -267,7 +266,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
         form.setValue(`items.${index}.newPrice`, oldPrice, { shouldDirty: false });
       });
     }
-  }, [watchPricingPolicyId, allProducts, fields, form, getProductPrice, isEditMode, existingAdjustment]);
+  }, [watchPricingPolicyId, findProductById, fields, form, getProductPrice, isEditMode, existingAdjustment]);
   
   const onSubmit = React.useCallback(async (data: FormData) => {
     if (!currentEmployee) {

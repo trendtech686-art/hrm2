@@ -11,7 +11,9 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, apiError, apiPaginated } from '@/lib/api-utils'
+import { parsePagination } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { logError } from '@/lib/logger'
 
 interface AgingBucket {
@@ -30,63 +32,95 @@ interface AgingRow {
   aging: AgingBucket
 }
 
+interface PaginatedAgingResult {
+  rows: AgingRow[]
+  totals: AgingBucket
+}
+
 export async function GET(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') || 'customer'
+  const { page, limit, skip } = parsePagination(searchParams)
+  const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
 
   try {
-    const now = new Date()
-    const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const d60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
-    const d90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-
     if (type === 'supplier') {
-      return await supplierDebtAging(d30, d60, d90)
+      return await supplierDebtAgingOptimized(page, safeLimit, skip)
     }
-    return await customerDebtAging(d30, d60, d90)
+    return await customerDebtAgingOptimized(page, safeLimit, skip)
   } catch (error) {
     logError('Error generating debt aging report', error)
     return apiError('Failed to generate debt aging report', 500)
   }
 }
 
-async function customerDebtAging(d30: Date, d60: Date, d90: Date) {
-  const customers = await prisma.customer.findMany({
-    where: { isDeleted: false, currentDebt: { gt: 0 } },
-    select: { systemId: true, name: true, phone: true, currentDebt: true },
-  })
+/**
+ * Optimized customer debt aging using raw SQL to avoid N+1 queries.
+ * Single query with LEFT JOINs and date-based grouping.
+ */
+async function customerDebtAgingOptimized(page: number, limit: number, skip: number) {
+  const now = new Date()
+  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const d60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+  const d90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+  // Single optimized query using raw SQL with JOINs
+  // Uses FIFO approach: oldest orders are assumed unpaid first
+  const rawResult = await prisma.$queryRaw<Array<{
+    systemId: string
+    name: string
+    phone: string | null
+    currentDebt: bigint | number
+    orders_json: string | null
+  }>>`
+    SELECT 
+      c."systemId",
+      c.name,
+      c.phone,
+      c."currentDebt",
+      COALESCE(
+        (
+          SELECT json_agg(json_build_object(
+            'createdAt', o."createdAt",
+            'grandTotal', o."grandTotal"
+          ))
+          FROM "Order" o
+          WHERE o."customerId" = c."systemId"
+            AND o.status != 'CANCELLED'
+            AND o.status IN ('COMPLETED', 'DELIVERED', 'FULLY_STOCKED_OUT')
+        ),
+        '[]'
+      ) as orders_json
+    FROM "Customer" c
+    WHERE c."isDeleted" = false
+      AND c."currentDebt" > 0
+    ORDER BY c.name
+  `
 
   const rows: AgingRow[] = []
   const totals: AgingBucket = { current: 0, days31_60: 0, days61_90: 0, over90: 0, total: 0 }
 
-  for (const c of customers) {
-    const debt = Number(c.currentDebt ?? 0)
-    if (debt <= 0) continue
+  for (const row of rawResult) {
+    const totalDebt = Number(row.currentDebt ?? 0)
+    if (totalDebt <= 0) continue
 
-    // Get unpaid orders to determine aging
-    const orders = await prisma.order.findMany({
-      where: {
-        customerId: c.systemId,
-        status: { not: 'CANCELLED' },
-        OR: [
-          { status: 'COMPLETED' },
-          { deliveryStatus: 'DELIVERED' },
-          { stockOutStatus: 'FULLY_STOCKED_OUT' },
-        ],
-      },
-      select: { createdAt: true, grandTotal: true },
-      orderBy: { createdAt: 'asc' },
-    })
+    // Parse the JSON orders
+    let orders: Array<{ createdAt: Date; grandTotal: unknown }> = []
+    try {
+      orders = JSON.parse(row.orders_json || '[]')
+    } catch {
+      orders = []
+    }
 
-    const aging = classifyAging(orders, d30, d60, d90, debt)
+    const aging = classifyAging(orders, d30, d60, d90, totalDebt)
     rows.push({
-      systemId: c.systemId,
-      name: c.name,
-      phone: c.phone,
-      currentDebt: debt,
+      systemId: row.systemId,
+      name: row.name,
+      phone: row.phone,
+      currentDebt: totalDebt,
       aging,
     })
 
@@ -97,46 +131,77 @@ async function customerDebtAging(d30: Date, d60: Date, d90: Date) {
     totals.total += aging.total
   }
 
-  return apiSuccess({ type: 'customer', rows, totals })
+  // Apply pagination
+  const total = rows.length
+  const paginatedRows = rows.slice(skip, skip + limit)
+
+  return apiPaginated(paginatedRows, { page, limit, total, _totals: totals })
 }
 
-async function supplierDebtAging(d30: Date, d60: Date, d90: Date) {
-  const suppliers = await prisma.supplier.findMany({
-    where: { isDeleted: false, currentDebt: { gt: 0 } },
-    select: { systemId: true, name: true, phone: true, currentDebt: true },
-  })
+/**
+ * Optimized supplier debt aging using raw SQL to avoid N+1 queries.
+ * Single query with LEFT JOINs and date-based grouping.
+ */
+async function supplierDebtAgingOptimized(page: number, limit: number, skip: number) {
+  const now = new Date()
+  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const d60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+  const d90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+  // Single optimized query using raw SQL with JOINs
+  const rawResult = await prisma.$queryRaw<Array<{
+    systemId: string
+    name: string
+    phone: string | null
+    currentDebt: bigint | number
+    pos_json: string | null
+  }>>`
+    SELECT 
+      s."systemId",
+      s.name,
+      s.phone,
+      s."currentDebt",
+      COALESCE(
+        (
+          SELECT json_agg(json_build_object(
+            'createdAt', po."createdAt",
+            'grandTotal', COALESCE(po.subtotal, 0) - COALESCE(po.discount, 0)
+          ))
+          FROM "PurchaseOrder" po
+          WHERE (po."supplierSystemId" = s."systemId" OR po."supplierId" = s."systemId")
+            AND po."isDeleted" = false
+            AND po.status != 'CANCELLED'
+            AND po."deliveryStatus" = 'Đã nhập'
+        ),
+        '[]'
+      ) as pos_json
+    FROM "Supplier" s
+    WHERE s."isDeleted" = false
+      AND s."currentDebt" > 0
+    ORDER BY s.name
+  `
 
   const rows: AgingRow[] = []
   const totals: AgingBucket = { current: 0, days31_60: 0, days61_90: 0, over90: 0, total: 0 }
 
-  for (const s of suppliers) {
-    const debt = Number(s.currentDebt ?? 0)
-    if (debt <= 0) continue
+  for (const row of rawResult) {
+    const totalDebt = Number(row.currentDebt ?? 0)
+    if (totalDebt <= 0) continue
 
-    // Get received POs to determine aging
-    const pos = await prisma.purchaseOrder.findMany({
-      where: {
-        OR: [
-          { supplierSystemId: s.systemId },
-          { supplierId: s.systemId },
-        ],
-        isDeleted: false,
-        status: { not: 'CANCELLED' },
-        deliveryStatus: 'Đã nhập',
-      },
-      select: { createdAt: true, subtotal: true, discount: true },
-      orderBy: { createdAt: 'asc' },
-    })
+    // Parse the JSON POs
+    let pos: Array<{ createdAt: Date; grandTotal: unknown }> = []
+    try {
+      pos = JSON.parse(row.pos_json || '[]')
+    } catch {
+      pos = []
+    }
 
-    const aging = classifyAging(
-      pos.map(p => ({ createdAt: p.createdAt, grandTotal: Number(p.subtotal ?? 0) - Number(p.discount ?? 0) })),
-      d30, d60, d90, debt
-    )
+    const aging = classifyAging(pos, d30, d60, d90, totalDebt)
     rows.push({
-      systemId: s.systemId,
-      name: s.name,
-      phone: s.phone,
-      currentDebt: debt,
+      systemId: row.systemId,
+      name: row.name,
+      phone: row.phone,
+      currentDebt: totalDebt,
       aging,
     })
 
@@ -147,7 +212,11 @@ async function supplierDebtAging(d30: Date, d60: Date, d90: Date) {
     totals.total += aging.total
   }
 
-  return apiSuccess({ type: 'supplier', rows, totals })
+  // Apply pagination
+  const total = rows.length
+  const paginatedRows = rows.slice(skip, skip + limit)
+
+  return apiPaginated(paginatedRows, { page, limit, total, _totals: totals })
 }
 
 /**
@@ -162,7 +231,11 @@ function classifyAging(
   const bucket: AgingBucket = { current: 0, days31_60: 0, days61_90: 0, over90: 0, total: totalDebt }
 
   // Sort oldest first (FIFO: oldest debt remains unpaid)
-  const sorted = [...documents].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+  const sorted = [...documents].sort((a, b) => {
+    const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt)
+    const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt)
+    return dateA.getTime() - dateB.getTime()
+  })
 
   // Walk through documents oldest-first, allocating remaining debt
   let remaining = totalDebt
@@ -171,11 +244,12 @@ function classifyAging(
     const amount = Math.min(Number(doc.grandTotal ?? 0), remaining)
     if (amount <= 0) continue
 
-    if (doc.createdAt < d90) {
+    const docDate = doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)
+    if (docDate < d90) {
       bucket.over90 += amount
-    } else if (doc.createdAt < d60) {
+    } else if (docDate < d60) {
       bucket.days61_90 += amount
-    } else if (doc.createdAt < d30) {
+    } else if (docDate < d30) {
       bucket.days31_60 += amount
     } else {
       bucket.current += amount

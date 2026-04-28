@@ -18,9 +18,11 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
-import { checkRateLimit } from '@/lib/security-utils'
+import { requireAuth, apiSuccess, apiError, apiPaginated } from '@/lib/api-utils'
+import { parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { logError } from '@/lib/logger'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import {
   parseFormData,
   validateFileType,
@@ -44,16 +46,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // seconds
 
 // POST /api/upload
-export async function POST(request: NextRequest) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  // Rate limit: 30 uploads per minute per user
-  const rateLimit = checkRateLimit(`upload:${session.user?.email || 'anon'}`, 30, 60_000)
-  if (!rateLimit.allowed) {
-    return apiError('Upload quá nhanh. Vui lòng đợi.', 429)
-  }
-
+export const POST = apiHandler(async (request: NextRequest, { session }) => {
   try {
     const { file, fields } = await parseFormData(request)
     
@@ -153,7 +146,7 @@ export async function POST(request: NextRequest) {
     logError('Upload error', error)
     return apiError('Lỗi khi upload file', 500)
   }
-}
+}, { auth: true, rateLimit: { max: 5, windowMs: 60_000 } })
 
 // GET /api/upload - Get upload info (only permanent files by default)
 // Supports batch fetching with comma-separated entityIds
@@ -167,6 +160,9 @@ export async function GET(request: NextRequest) {
   const entityIds = searchParams.get('entityIds') // Batch support: comma-separated IDs
   const includeStaging = searchParams.get('includeStaging') === 'true'
   const sessionId = searchParams.get('sessionId')
+  
+  const { page, limit, skip } = parsePagination(searchParams)
+  const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
   
   try {
     const where: Record<string, unknown> = {}
@@ -194,38 +190,41 @@ export async function GET(request: NextRequest) {
       where.status = { in: ['staging', 'permanent'] }
     }
     
-    const files = await prisma.file.findMany({
-      where,
-      orderBy: { uploadedAt: 'desc' },
-      take: 500, // Increased for batch requests
+    const [files, total] = await Promise.all([
+      prisma.file.findMany({
+        where,
+        orderBy: { uploadedAt: 'desc' },
+        skip,
+        take: safeLimit,
+      }),
+      prisma.file.count({ where }),
+    ])
+    
+    const data = files.map(f => {
+      // documentType field now stores the document name directly (thumbnail, gallery, etc.)
+      // Legacy format "type::name" is also supported for backward compatibility
+      const docTypeParts = f.documentType?.split('::') || []
+      const documentName = docTypeParts.length > 1 ? docTypeParts[1] : f.documentType || ''
+      const documentType = docTypeParts.length > 1 ? docTypeParts[0] : ''
+      
+      return {
+        id: f.systemId,
+        fileName: f.filename,
+        originalName: f.originalName,
+        mimeType: f.mimetype,
+        fileSize: f.filesize,
+        url: `/api/files/${f.filepath}`,
+        entityType: f.entityType,
+        entityId: f.entityId,
+        documentType: documentType,
+        documentName: documentName,
+        status: f.status,
+        sessionId: f.sessionId,
+        createdAt: f.uploadedAt,
+      }
     })
     
-    return apiSuccess({
-      success: true,
-      data: files.map(f => {
-        // documentType field now stores the document name directly (thumbnail, gallery, etc.)
-        // Legacy format "type::name" is also supported for backward compatibility
-        const docTypeParts = f.documentType?.split('::') || []
-        const documentName = docTypeParts.length > 1 ? docTypeParts[1] : f.documentType || ''
-        const documentType = docTypeParts.length > 1 ? docTypeParts[0] : ''
-        
-        return {
-          id: f.systemId,
-          fileName: f.filename,
-          originalName: f.originalName,
-          mimeType: f.mimetype,
-          fileSize: f.filesize,
-          url: `/api/files/${f.filepath}`,
-          entityType: f.entityType,
-          entityId: f.entityId,
-          documentType: documentType,
-          documentName: documentName,
-          status: f.status,
-          sessionId: f.sessionId,
-          createdAt: f.uploadedAt,
-        }
-      })
-    })
+    return apiPaginated(data, { page, limit, total })
     
   } catch (error) {
     logError('Get files error', error)

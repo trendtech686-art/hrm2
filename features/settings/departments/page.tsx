@@ -17,7 +17,7 @@ import { formatDate } from '@/lib/date-utils';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useAllDepartments } from './hooks/use-all-departments';
 import { useDepartmentMutations } from './hooks/use-departments';
-import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch'
 import { useEmployeeMutations } from '../../employees/hooks/use-employees';
 import { asSystemId } from '@/lib/id-types';
 import type { Department } from '@/lib/types/prisma-extended';
@@ -59,7 +59,8 @@ export function DepartmentsPage() {
   const updateDepartment = React.useCallback((systemId: string, data: Partial<Department>) => {
     updateDepartmentMutation.mutate({ systemId, data });
   }, [updateDepartmentMutation]);
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({ query: '', enabled: false, limit: 100 });
+  const employees = employeesData?.data || [];
   const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const router = useRouter();
 
@@ -83,7 +84,7 @@ export function DepartmentsPage() {
   // DND-Kit state
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [overId, setOverId] = React.useState<string | null>(null);
-  const [activeEmployee, setActiveEmployee] = React.useState<Employee | null>(null);
+  const [activeEmployee, setActiveEmployee] = React.useState<typeof employees[number] | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -102,8 +103,8 @@ export function DepartmentsPage() {
   }), [departments.length, employees.length, unassignedEmployees.length]);
   
   // Memoized callbacks to prevent re-renders
-  const handleViewEmployee = React.useCallback((employee: Employee) => {
-    setSelectedEmployee(employee);
+  const handleViewEmployee = React.useCallback((employee: typeof employees[number]) => {
+    setSelectedEmployee(employee as unknown as Employee);
     setIsDetailDialogOpen(true);
   }, []);
 
@@ -143,22 +144,22 @@ export function DepartmentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- performActualDrop is defined after but stable since it uses same deps
   }, [employees, departments, updateEmployee, updateDepartment]);
 
-  const performActualDrop = (employee: Employee, department: Department, isManager: boolean, employeeId: string, departmentId: string) => {
+  const performActualDrop = (employee: typeof employees[number], department: Department, isManager: boolean, employeeId: string, departmentId: string) => {
     // Update employee's department
-    updateEmployee(employee.systemId, { ...employee, department: department.name as Employee['department'] });
+    updateEmployee(employee.systemId, { ...employee, department: department.name as Employee['department'] } as Partial<Employee>);
 
     // Update manager status
     if (isManager) {
         // If there was an old manager, demote them
         const oldManager = employees.find(e => e.systemId === department.managerId);
         if(oldManager && oldManager.systemId !== employeeId) {
-            updateEmployee(oldManager.systemId, {...oldManager, jobTitle: 'Nhân viên'});
+            updateEmployee(oldManager.systemId, { jobTitle: 'Nhân viên' });
             toast.info("Đã hạ chức trưởng phòng cũ", {
               description: `${oldManager.fullName} không còn là trưởng phòng ${department.name}`
             });
         }
-        updateDepartment(asSystemId(departmentId), { ...department, managerId: employee.systemId });
-        updateEmployee(asSystemId(employeeId), { ...employee, department: department.name as Employee['department'], jobTitle: 'Trưởng phòng' });
+        updateDepartment(asSystemId(departmentId), { ...department, managerId: employee.systemId as SystemId });
+        updateEmployee(asSystemId(employeeId), { department: department.name as Employee['department'], jobTitle: 'Trưởng phòng' });
         toast.success("Đã bổ nhiệm trưởng phòng", {
           description: `${employee.fullName} là trưởng phòng ${department.name}`
         });
@@ -186,7 +187,7 @@ export function DepartmentsPage() {
         });
     }
 
-    updateEmployee(employee.systemId, { ...employee, department: undefined });
+    updateEmployee(employee.systemId, { department: undefined } as Partial<Employee>);
     toast.success("Đã gỡ phòng ban", {
       description: `${employee.fullName} chuyển về chưa có phòng ban`
     });

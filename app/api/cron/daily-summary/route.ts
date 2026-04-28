@@ -6,11 +6,12 @@
  * Protected by CRON_SECRET (Vercel cron header).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { logError } from '@/lib/logger';
 import { getSystemNotificationSettings, areEmailNotificationsEnabled } from '@/lib/notifications';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 export const maxDuration = 60;
 
@@ -42,18 +43,18 @@ function statRow(label: string, count: number, color: string, link?: string): st
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('Unauthorized', 401);
   }
 
   try {
     // Respect master email switch (Cài đặt → Thông báo → Chung)
     if (!(await areEmailNotificationsEnabled())) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'master email switch off' });
+      return apiSuccess({ skipped: true, reason: 'master email switch off' });
     }
 
     const settings = await getSystemNotificationSettings();
     if (!settings.dailySummaryEmail) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'dailySummaryEmail disabled' });
+      return apiSuccess({ skipped: true, reason: 'dailySummaryEmail disabled' });
     }
 
     // Gather daily stats
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
         where: { createdAt: { gte: today, lt: tomorrow } },
       }),
       prisma.warranty.count({
-        where: { status: { in: ['RECEIVED', 'PROCESSING', 'WAITING_PARTS'] } },
+        where: { status: { in: ['RECEIVED', 'PROCESSING'] } },
       }),
       prisma.complaint.count({
         where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
       .filter((email): email is string => !!email);
 
     if (recipientEmails.length === 0) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'No admin emails' });
+      return apiSuccess({ skipped: true, reason: 'No admin emails' });
     }
 
     const formattedRevenue = new Intl.NumberFormat('vi-VN').format(todayRevenue);
@@ -160,9 +161,9 @@ export async function GET(request: NextRequest) {
       if (ok) sent++;
     }
 
-    return NextResponse.json({ success: true, sent, total: recipientEmails.length });
+    return apiSuccess({ sent, total: recipientEmails.length });
   } catch (error) {
     logError('[Cron] Daily summary failed', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return apiError('Internal error', 500);
   }
 }

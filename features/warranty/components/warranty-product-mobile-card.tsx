@@ -49,7 +49,10 @@ interface WarrantyProductMobileCardProps {
   field: WarrantyProductField;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   control: Control<any>;
+  /** @deprecated Use getProductInfo instead */
   availableProducts: ProductForSelection[];
+  /** Function to get product info - uses cache, no extra API calls */
+  getProductInfo: (systemId?: string) => { systemId: string; id: string; name: string; costPrice?: number; warrantyPeriodMonths?: number } | null;
   disabled?: boolean;
   permanentFiles: SimpleImageFile[];
   stagingFiles: StagingFile[];
@@ -118,6 +121,7 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
   field,
   control,
   availableProducts,
+  getProductInfo,
   disabled,
   permanentFiles,
   stagingFiles,
@@ -135,15 +139,23 @@ export const WarrantyProductMobileCard = React.memo(function WarrantyProductMobi
   // ✅ Watch resolution to trigger re-render when setValue is called from parent
   const watchedResolution = useWatch({ control, name: `products.${index}.resolution`, defaultValue: field.resolution });
 
+  // Find product info using cache lookup (no extra API calls)
+  const productInfo = React.useMemo(() => {
+    return getProductInfo(field.productSystemId);
+  }, [field.productSystemId, getProductInfo]);
+  
+  // Build compatible product object for existing code
   const product = React.useMemo(() => {
-    if (field.productSystemId) {
-      return availableProducts.find((p) => p.systemId === field.productSystemId);
-    }
-    if (field.sku) {
-      return availableProducts.find((p) => p.id === field.sku);
-    }
-    return availableProducts.find((p) => p.name === field.productName);
-  }, [field.productSystemId, field.sku, field.productName, availableProducts]);
+    if (!productInfo) return null;
+    return {
+      ...productInfo,
+      costPrice: productInfo.costPrice ?? 0,
+      price: productInfo.costPrice ?? 0,
+      unit: field.unit || 'Chiếc',
+      thumbnailImage: field.thumbnailImage,
+      status: 'physical',
+    };
+  }, [productInfo, field.unit, field.thumbnailImage]);
 
   const fetchedImageUrl = useProductImage(
     field.productSystemId || '',

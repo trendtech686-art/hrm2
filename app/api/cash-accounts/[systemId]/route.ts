@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
+import { updateCashAccountSchema } from '../validation'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { getUserNameFromDb } from '@/lib/get-user-name'
@@ -14,8 +15,36 @@ export const GET = apiHandler(async (request, { params }) => {
 
     const account = await prisma.cashAccount.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        type: true,
+        balance: true,
+        isActive: true,
+        isDefault: true,
+        bankName: true,
+        bankAccountNumber: true,
+        bankBranch: true,
+        bankCode: true,
+        accountHolder: true,
+        initialBalance: true,
+        minBalance: true,
+        maxBalance: true,
+        branchId: true,
         cash_transactions: {
+          select: {
+            systemId: true,
+            id: true,
+            accountId: true,
+            type: true,
+            amount: true,
+            referenceType: true,
+            referenceId: true,
+            description: true,
+            transactionDate: true,
+            createdAt: true,
+          },
           take: transactionsLimit,
           orderBy: { createdAt: 'desc' },
         },
@@ -44,9 +73,14 @@ export const GET = apiHandler(async (request, { params }) => {
 
 // PUT /api/cash-accounts/[systemId]
 export const PUT = apiHandler(async (request, { session, params }) => {
+  const validation = await validateBody(request, updateCashAccountSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const body = validation.data;
+
   try {
     const { systemId } = params
-    const body = await request.json()
 
     const existing = await prisma.cashAccount.findUnique({ where: { systemId } })
     if (!existing) return apiNotFound('Quỹ tiền')

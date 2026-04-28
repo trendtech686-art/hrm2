@@ -3,7 +3,6 @@ import { formatDateCustom, getCurrentDate, toISODate, addMonths, subtractMonths,
 import { excelSerialToTime } from '../utils';
 // XLSX is lazy loaded in handlers to reduce bundle size (~500KB)
 import type { Range as XLSXRange } from 'xlsx';
-import type { Employee } from '../../employees/types';
 import type { DailyRecord, ImportPreviewRow } from '../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
@@ -18,8 +17,15 @@ import { AttendanceEditDialog } from './attendance-edit-dialog';
 import { MobileCard, MobileCardBody, MobileCardHeader } from '../../../components/mobile/mobile-card';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import type { SystemId } from '../../../lib/id-types';
+import type { SystemId, BusinessId } from '../../../lib/id-types';
 import { logError } from '@/lib/logger'
+
+// Minimal type for employee data needed by import dialog
+type MinimalEmployeeData = {
+  systemId: string;
+  id: string;
+  fullName: string;
+};
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Date) => void }) => {
@@ -41,7 +47,7 @@ const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Da
 interface AttendanceImportDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    employees: Employee[];
+    employees: MinimalEmployeeData[];
     onConfirmImport: (
         importedData: Record<SystemId, { day: number; checkIn?: string; morningCheckOut?: string; afternoonCheckIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>,
         date: Date
@@ -107,7 +113,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
         const startDate = toISODate(getStartOfMonth(selectedMonth));
         const endDate = toISODate(getEndOfMonth(selectedMonth));
     
-        const employeeChunks: Employee[][] = [];
+        const employeeChunks: MinimalEmployeeData[][] = [];
         for (let i = 0; i < employees.length; i += 3) {
             employeeChunks.push(employees.slice(i, i + 3));
         }
@@ -311,7 +317,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
 
                         // Find employee: Match by EXACT ID only (primary key)
                         // Không tự động convert "7" → "NV000007", phải khớp chính xác
-                        let employee: Employee | undefined;
+                        let employee: MinimalEmployeeData | undefined;
                         
                         // 1. Try matching by exact ID only
                         if (employeeIdRaw) {
@@ -343,7 +349,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                              continue;
                         }
 
-                        foundEmployeeSystemIds.add(employee.systemId);
+                        foundEmployeeSystemIds.add(employee.systemId as SystemId);
                         let hasDataForEmployee = false;
                         
                         // Data starts from row 12 for both formats now
@@ -398,8 +404,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                 hasDataForEmployee = true;
                                 newPreviewData.push({
                                     excelRow: rowIdx + 1, sheetName,
-                                    employeeSystemId: employee.systemId,
-                                    employeeId: employee.id,
+                                    employeeSystemId: employee.systemId as SystemId,
+                                    employeeId: employee.id as BusinessId,
                                     employeeName: employee.fullName,
                                     day, checkIn, morningCheckOut, afternoonCheckIn, checkOut, overtimeCheckIn, overtimeCheckOut,
                                     status: 'ok', message: 'Hợp lệ', rawData: dataRow,
@@ -407,7 +413,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                             }
                         }
                         if(hasDataForEmployee) {
-                            employeeSystemIdsWithData.add(employee.systemId);
+                            employeeSystemIdsWithData.add(employee.systemId as SystemId);
                         }
                     }
                 }

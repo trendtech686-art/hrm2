@@ -1,7 +1,6 @@
 import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliProduct } from '@/lib/meilisearch'
-import { requireAuth, apiError } from '@/lib/api-utils'
-import { NextResponse } from 'next/server'
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { prismaProductSearchAsMeiliHits } from '@/lib/search/products-meilisearch-fallback-prisma'
 
@@ -95,7 +94,7 @@ export async function GET(request: Request) {
         branchStocks: h.branchStocks,
         _highlight: undefined as undefined,
       }))
-      return NextResponse.json({
+      return apiSuccess({
         data: products,
         meta: {
           total: fb.estimatedTotal,
@@ -104,7 +103,7 @@ export async function GET(request: Request) {
           query,
           searchTimeMs: Date.now() - startTime,
           processingTimeMs: 0,
-          fallback: 'prisma' as const,
+          fallback: 'prisma',
         },
       })
     }
@@ -196,7 +195,7 @@ export async function GET(request: Request) {
 
     const products = hits.map((hit) => mapMeiliHitToDto(hit))
 
-    return NextResponse.json({
+    return apiSuccess({
       data: products,
       meta: {
         total: totalHits,

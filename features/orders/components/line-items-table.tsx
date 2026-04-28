@@ -212,7 +212,7 @@ const LineItemRow = memo(({
         if (storeGallery) return storeGallery;
         // 2. Ảnh từ product data (mock/seed)
         if (product) {
-            const productImage = product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0];
+            const productImage = product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
             if (productImage) return productImage;
         }
         // 3. ✅ Fallback to item.thumbnailImage (từ copy hoặc API)
@@ -235,10 +235,8 @@ const LineItemRow = memo(({
         }
 
         if (isComboProduct(product) && product.comboItems?.length) {
-            const comboChildProducts = product.comboItems
-                .map(ci => productsMap.get(ci.productSystemId))
-                .filter((p): p is Product => !!p);
-            const available = calculateComboStock(product.comboItems, comboChildProducts, branchSystemId as SystemId);
+            const findById = (systemId: SystemId | string | undefined) => systemId ? productsMap.get(systemId) : undefined;
+            const available = calculateComboStock(product.comboItems, findById, branchSystemId as SystemId);
             return { stock: available, isValid: true };
         }
         
@@ -620,7 +618,7 @@ const LineItemMobileCard = memo(({
         if (storeThumbnail) return storeThumbnail;
         if (storeGallery) return storeGallery;
         if (product) {
-            const productImage = product.thumbnailImage || product.imageUrl || product.galleryImages?.[0] || product.images?.[0];
+            const productImage = product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
             if (productImage) return productImage;
         }
         return item.thumbnailImage;
@@ -637,10 +635,8 @@ const LineItemMobileCard = memo(({
     const stockInfo = useMemo(() => {
         if (!branchSystemId || !product) return { stock: 0, isValid: false };
         if (isComboProduct(product) && product.comboItems?.length) {
-            const comboChildProducts = product.comboItems
-                .map(ci => productsMap.get(ci.productSystemId))
-                .filter((p): p is Product => !!p);
-            const available = calculateComboStock(product.comboItems, comboChildProducts, branchSystemId as SystemId);
+            const findById = (systemId: SystemId | string | undefined) => systemId ? productsMap.get(systemId) : undefined;
+            const available = calculateComboStock(product.comboItems, findById, branchSystemId as SystemId);
             return { stock: available, isValid: true };
         }
         if (!product.inventoryByBranch) return { stock: 0, isValid: true };

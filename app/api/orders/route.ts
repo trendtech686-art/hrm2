@@ -1,9 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, OrderStatus, PaymentStatus, DeliveryMethod, DiscountType, PackagingStatus, DeliveryStatus as PrismaDeliveryStatus, PrintStatus, StockOutStatus, ReturnStatus } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiPaginated, apiError, parsePagination, validateBody } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
 import { resolveStockItems } from '@/lib/inventory/combo-stock-helper'
+import { createOrderSchema } from './validation'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -305,7 +307,56 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { orderDate: 'desc' },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          customerId: true,
+          customerName: true,
+          branchId: true,
+          branchName: true,
+          salespersonId: true,
+          salespersonName: true,
+          orderDate: true,
+          expectedDeliveryDate: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          deliveryMethod: true,
+          printStatus: true,
+          stockOutStatus: true,
+          returnStatus: true,
+          shippingFee: true,
+          tax: true,
+          discount: true,
+          subtotal: true,
+          grandTotal: true,
+          paidAmount: true,
+          codAmount: true,
+          notes: true,
+          source: true,
+          tags: true,
+          shippingAddress: true,
+          billingAddress: true,
+          invoiceInfo: true,
+          trackingCode: true,
+          shippingCarrier: true,
+          shippingInfo: true,
+          approvedDate: true,
+          completedDate: true,
+          cancelledDate: true,
+          cancellationReason: true,
+          dispatchedDate: true,
+          expectedPaymentMethod: true,
+          orderDiscount: true,
+          orderDiscountType: true,
+          orderDiscountReason: true,
+          voucherCode: true,
+          voucherAmount: true,
+          referenceUrl: true,
+          externalReference: true,
+          linkedSalesReturnValue: true,
+          createdAt: true,
+          createdBy: true,
           customer: {
             select: {
               systemId: true,
@@ -322,7 +373,18 @@ export async function GET(request: Request) {
             },
           },
           lineItems: {
-            include: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              discountType: true,
+              tax: true,
+              total: true,
+              note: true,
               product: {
                 select: {
                   systemId: true,
@@ -335,10 +397,47 @@ export async function GET(request: Request) {
               },
             },
           },
-          payments: true,
-          packagings: true,
-          // Note: createdBy is just a string field, not a relation
-          // NV tạo đơn sẽ được lấy từ salespersonName (thường là người tạo)
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              orderId: true,
+              amount: true,
+              method: true,
+              description: true,
+              createdBy: true,
+              createdAt: true,
+              linkedReceiptSystemId: true,
+            },
+          },
+          packagings: {
+            select: {
+              systemId: true,
+              id: true,
+              orderId: true,
+              requestDate: true,
+              confirmDate: true,
+              cancelDate: true,
+              deliveredDate: true,
+              status: true,
+              deliveryStatus: true,
+              deliveryMethod: true,
+              printStatus: true,
+              carrier: true,
+              service: true,
+              trackingCode: true,
+              shippingFeeToPartner: true,
+              codAmount: true,
+              payer: true,
+              noteToShipper: true,
+              weight: true,
+              dimensions: true,
+              assignedEmployeeId: true,
+              assignedEmployeeName: true,
+              createdBy: true,
+              createdAt: true,
+            },
+          },
         },
       }),
       prisma.order.count({ where }),
@@ -355,7 +454,7 @@ export async function GET(request: Request) {
     const creatorNameMap = new Map(creators.map(e => [e.systemId, e.fullName]))
 
     // ✅ Transform using shared status label utilities
-    const transformedOrders = orders.map(order => ({
+    const transformedOrders = orders.map((order: typeof orders[number]) => ({
       ...order,
       // ✅ Transform order-level status fields to Vietnamese (use ORDER_STATUS_LABELS for consistency)
       status: ORDER_STATUS_LABELS[order.status] || order.status,
@@ -398,7 +497,7 @@ export async function GET(request: Request) {
       // ✅ Transform linkedSalesReturnValue from Decimal to number
       linkedSalesReturnValue: order.linkedSalesReturnValue ? Number(order.linkedSalesReturnValue) : undefined,
       // ✅ Transform lineItems Decimal fields
-      lineItems: order.lineItems.map(item => ({
+      lineItems: order.lineItems.map((item: typeof order.lineItems[number]) => ({
         ...item,
         productSystemId: item.productId, // DB productId = Product.systemId
         productId: item.productSku || item.product?.id || item.productId, // Business SKU for display
@@ -408,11 +507,11 @@ export async function GET(request: Request) {
         total: Number(item.total),
       })),
       // ✅ Transform payments Decimal fields and include linkedReceiptSystemId
-      payments: order.payments.map(p => ({
+      payments: order.payments.map((p: typeof order.payments[number]) => ({
         ...p,
         amount: Number(p.amount),
       })),
-      packagings: order.packagings.map(pkg => ({
+      packagings: order.packagings.map((pkg: typeof order.packagings[number]) => ({
         ...pkg,
         requestDate: pkg.requestDate?.toISOString() || undefined,
         confirmDate: pkg.confirmDate?.toISOString() || undefined,
@@ -463,41 +562,22 @@ async function generateNextEntityId(
 }
 
 // POST /api/orders - Create new order
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const POST = apiHandler(async (request: Request, { session }) => {
+  // Validate request body with Zod schema
+  const validation = await validateBody(request, createOrderSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  let body: CreateOrderInput = validation.data
 
-  // Parse body once
-  let body: CreateOrderInput
-  try {
-    body = await request.json() as CreateOrderInput
-  } catch {
-    return apiError('Invalid JSON body', 400)
+  // Support both { data: {...} } and direct {...} body formats
+  if ('data' in body && typeof body.data === 'object' && body.data !== null) {
+    body = { ...body, ...(body.data as Record<string, unknown>) } as CreateOrderInput
   }
 
-  // ✅ Simple validation for required fields
+  // Extract IDs from validated body
   const customerId = body.customerId || body.customerSystemId
   const branchId = body.branchId || body.branchSystemId
-  
-  
-  if (!customerId) {
-    return apiError('Customer is required', 400)
-  }
-  if (!branchId) {
-    return apiError('Branch is required', 400)
-  }
-  if (!body.lineItems || body.lineItems.length === 0) {
-    return apiError('At least one line item is required', 400)
-  }
-  
-  // Validate all line items have product reference
-  for (let i = 0; i < body.lineItems.length; i++) {
-    const item = body.lineItems[i];
-    if (!item.productSystemId && !item.productId) {
-      return apiError(`Line item #${i + 1} is missing product reference (productSystemId or productId)`, 400)
-    }
-  }
-  
   const salespersonId = body.salespersonId || body.salespersonSystemId
   const salespersonName = body.salespersonName || body.salesperson || 'N/A'
 
@@ -787,7 +867,7 @@ export async function POST(request: Request) {
             source: body.source,
             tags: body.tags || [],
             createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
-            createdBy: body.createdBy || session.user?.employee?.fullName || session.user?.name || 'System',
+            createdBy: body.createdBy || session!.user?.employee?.fullName || session!.user?.name || 'System',
             lineItems: {
               create: lineItemsData,
             },
@@ -854,7 +934,7 @@ export async function POST(request: Request) {
               return {
                 systemId: pkgIds.systemId,
                 id: pkgIds.businessId,
-                branchId: branchId,
+                branchId: branchId as string,
                 requestDate: pkg.requestDate ? new Date(pkg.requestDate) : new Date(),
                 confirmDate: pkg.confirmDate ? new Date(pkg.confirmDate) : null,
                 requestingEmployeeId: pkg.requestingEmployeeId,
@@ -876,21 +956,97 @@ export async function POST(request: Request) {
                 noteToShipper: pkg.noteToShipper,
                 weight: pkg.weight,
                 dimensions: pkg.dimensions,
-                createdBy: session.user?.employee?.fullName || session.user?.name || 'System',
+                createdBy: session!.user?.employee?.fullName || session!.user?.name || 'System',
               };
             }),
           },
         } : {}),
-      },
-      include: {
-        customer: true,
-        branch: true,
-        lineItems: {
-          include: {
-            product: true,
+      } as unknown as Prisma.OrderCreateInput,
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        paymentStatus: true,
+        deliveryStatus: true,
+        customerId: true,
+        customerName: true,
+        branchId: true,
+        branchName: true,
+        salespersonId: true,
+        salespersonName: true,
+        orderDate: true,
+        grandTotal: true,
+        paidAmount: true,
+        codAmount: true,
+        createdAt: true,
+        createdBy: true,
+        customer: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            phone: true,
           },
         },
-        packagings: true, // ✅ Include packagings in response
+        branch: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
+        lineItems: {
+          select: {
+            systemId: true,
+            productId: true,
+            productSku: true,
+            productName: true,
+            quantity: true,
+            unitPrice: true,
+            discount: true,
+            discountType: true,
+            tax: true,
+            total: true,
+            note: true,
+            product: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+                imageUrl: true,
+                thumbnailImage: true,
+              },
+            },
+          },
+        },
+        packagings: {
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            requestDate: true,
+            confirmDate: true,
+            cancelDate: true,
+            deliveredDate: true,
+            status: true,
+            deliveryStatus: true,
+            deliveryMethod: true,
+            printStatus: true,
+            carrier: true,
+            service: true,
+            trackingCode: true,
+            shippingFeeToPartner: true,
+            codAmount: true,
+            payer: true,
+            noteToShipper: true,
+            weight: true,
+            dimensions: true,
+            assignedEmployeeId: true,
+            assignedEmployeeName: true,
+            createdBy: true,
+            createdAt: true,
+          },
+        },
       },
     })
 
@@ -903,7 +1059,7 @@ export async function POST(request: Request) {
             where: {
               productId_branchId: {
                 productId: stockItem.productId,
-                branchId: branchId,
+                branchId: branchId as string,
               },
             },
             update: {
@@ -912,7 +1068,7 @@ export async function POST(request: Request) {
             },
             create: {
               productId: stockItem.productId,
-              branchId: branchId,
+              branchId: branchId as string,
               onHand: 0,
               committed: stockItem.quantity,
               inTransit: 0,
@@ -925,21 +1081,21 @@ export async function POST(request: Request) {
       }) // End of transaction
 
       // ✅ Notify salesperson about new order
-      if (order.salespersonId && session.user?.employeeId !== order.salespersonId) {
+      if (order.salespersonId && session!.user?.employeeId !== order.salespersonId) {
         createNotification({
           type: 'order',
-          title: 'Đơn hàng mới',
+          title: '�ơn hàng mới',
           message: `Bạn được giao đơn hàng ${order.id || order.systemId}`,
           link: `/orders/${order.systemId}`,
           recipientId: order.salespersonId,
-          senderId: session.user?.employeeId,
-          senderName: session.user?.name,
+          senderId: session!.user?.employeeId,
+          senderName: session!.user?.name,
           settingsKey: 'order:created',
         }).catch(e => logError('[Orders POST] notification failed', e))
       }
 
       // ✅ Log activity
-      const userName = await getUserNameFromDb(session.user?.id);
+      const userName = await getUserNameFromDb(session!.user?.id);
       await prisma.activityLog.create({
         data: {
           entityType: 'order',
@@ -963,7 +1119,7 @@ export async function POST(request: Request) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = error.meta?.target as string[] | undefined
         const conflictField = target?.join(', ') || 'unknown'
-        console.warn(`[Orders API] Attempt ${attempt}/${MAX_RETRIES} - ID conflict on ${conflictField}, retrying...`)
+        logError(`[Orders API] Attempt ${attempt}/${MAX_RETRIES} - ID conflict on ${conflictField}, retrying...`, error)
         lastError = error as Error
         
         // Wait a bit before retry (exponential backoff)
@@ -985,4 +1141,5 @@ export async function POST(request: Request) {
   if (lastError instanceof Prisma.PrismaClientKnownRequestError && lastError.code === 'P2002') {
     return apiError('Không thể tạo mã đơn hàng duy nhất. Vui lòng thử lại.', 400)
   }
-  return apiError('Không thể tạo đơn hàng sau nhiều lần thử', 500)}
+  return apiError('Không thể tạo đơn hàng sau nhiều lần thử', 500)
+}, { auth: true, rateLimit: { max: 30, windowMs: 60_000 } })

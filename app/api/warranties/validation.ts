@@ -8,8 +8,7 @@ import { z } from 'zod'
  */
 export const VALID_WARRANTY_STATUSES = [
   'RECEIVED',
-  'PROCESSING', 
-  'WAITING_PARTS',
+  'PROCESSING',
   'COMPLETED',
   'RETURNED',
   'CANCELLED',

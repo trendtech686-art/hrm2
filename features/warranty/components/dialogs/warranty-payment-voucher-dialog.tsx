@@ -278,7 +278,15 @@ export function WarrantyPaymentVoucherDialog({
     const performSearch = async () => {
       setIsSearchingOrders(true);
       try {
-        const results = await searchOrders({ query: orderSearchQuery, limit: 50, paymentStatusNot: 'PAID', customerSystemId: customer.systemId });
+        const results = await searchOrders({ 
+          query: orderSearchQuery, 
+          limit: 50, 
+          paymentStatusNot: 'PAID', 
+          customerSystemId: customer.systemId,
+          // Chỉ hiện đơn hàng chưa xuất kho và không bị hủy/completed
+          stockOutStatus: 'NOT_STOCKED_OUT',
+          statusNotIn: 'COMPLETED,CANCELLED',
+        });
         
         // Enrich results with deductible amount from local orders data
         const enrichedResults = results

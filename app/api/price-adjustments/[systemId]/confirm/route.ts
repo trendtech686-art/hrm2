@@ -25,8 +25,32 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get price adjustment with items
     const priceAdjustment = await prisma.priceAdjustment.findUnique({
       where: { systemId },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        pricingPolicyId: true,
+        status: true,
+        confirmedDate: true,
+        confirmedBySystemId: true,
+        confirmedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        createdBySystemId: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            systemId: true,
+            id: true,
+            productSystemId: true,
+            oldPrice: true,
+            newPrice: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+          },
+        },
       },
     });
 
@@ -97,8 +121,32 @@ export async function POST(request: Request, { params }: RouteParams) {
         confirmedByName,
         updatedAt: new Date(),
       },
-      include: {
-        items: true,
+      select: {
+        systemId: true,
+        id: true,
+        pricingPolicyId: true,
+        status: true,
+        confirmedDate: true,
+        confirmedBySystemId: true,
+        confirmedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        createdBySystemId: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            systemId: true,
+            id: true,
+            productSystemId: true,
+            oldPrice: true,
+            newPrice: true,
+            adjustmentAmount: true,
+            adjustmentPercent: true,
+          },
+        },
       },
     });
 

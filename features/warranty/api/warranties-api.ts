@@ -19,6 +19,8 @@ export interface WarrantiesParams {
   endDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  /** ⚡ PERFORMANCE: Skip API call when false */
+  enabled?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -95,6 +97,37 @@ export async function fetchWarrantyStats(): Promise<{
 }> {
   const res = await fetch(`${API_BASE}/stats`, { credentials: 'include' });
   if (!res.ok) throw new Error(`Failed to fetch warranty stats`);
+  return res.json();
+}
+
+/**
+ * Response type for claimed quantities API
+ */
+export interface ClaimedQuantitiesResponse {
+  customerId: string;
+  totalClaimed: number;
+  claimedQuantities: Record<string, number>; // { "product name": totalQty }
+  claimedProducts: Array<{
+    productName: string;
+    claimedQuantity: number;
+    warrantyIds: string[];
+    warrantyCount: number;
+  }>;
+  warrantiesCount: number;
+}
+
+/**
+ * Fetch claimed quantities for a customer (optimized API)
+ * Returns aggregated warranty claims directly - no pagination needed
+ */
+export async function fetchClaimedQuantities(customerId: string): Promise<ClaimedQuantitiesResponse> {
+  const res = await fetch(`${API_BASE}/claimed-quantities?customerId=${encodeURIComponent(customerId)}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(body?.message || `Lỗi ${res.status}: ${res.statusText}`);
+  }
   return res.json();
 }
 

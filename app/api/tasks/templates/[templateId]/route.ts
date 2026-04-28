@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
 import { createActivityLog } from '@/lib/services/activity-log-service';
+import { z } from 'zod';
+
+// Validation schema for PUT request
+const updateTemplateSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  title: z.string().optional(),
+  taskDescription: z.string().optional(),
+  priority: z.string().optional(),
+  estimatedHours: z.number().optional(),
+  assigneeRoles: z.array(z.string()).optional(),
+  subtasks: z.array(z.any()).optional(),
+  checklistItems: z.array(z.any()).optional(),
+  customFields: z.record(z.any()).optional(),
+  isActive: z.boolean().optional(),
+  usageCount: z.number().optional(),
+  updatedBy: z.string().optional(),
+})
 
 // GET - Single template
 export async function GET(
@@ -40,9 +59,13 @@ export async function PUT(
 
   const { templateId } = await params;
 
-  try {
-    const body = await request.json();
+  const validation = await validateBody(request, updateTemplateSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const body = validation.data;
 
+  try {
     const existing = await prisma.taskTemplate.findUnique({
       where: { systemId: templateId },
     });

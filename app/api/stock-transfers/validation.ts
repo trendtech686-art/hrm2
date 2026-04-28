@@ -66,3 +66,19 @@ export const updateStockTransferSchema = createStockTransferSchema.partial()
 export type ListStockTransfersInput = z.infer<typeof listStockTransfersSchema>
 export type CreateStockTransferInput = z.infer<typeof createStockTransferSchema>
 export type UpdateStockTransferInput = z.infer<typeof updateStockTransferSchema>
+
+// Complete transfer schema
+export const completeStockTransferSchema = z.object({
+  receivedItems: z.array(z.object({
+    productSystemId: z.string(),
+    receivedQuantity: z.number().min(0),
+  })).optional(),
+})
+
+// Cancel transfer schema
+export const cancelStockTransferSchema = z.object({
+  reason: z.string().optional(),
+})
+
+export type CompleteStockTransferInput = z.infer<typeof completeStockTransferSchema>
+export type CancelStockTransferInput = z.infer<typeof cancelStockTransferSchema>

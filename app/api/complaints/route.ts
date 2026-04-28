@@ -101,7 +101,7 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { [orderByField]: sortOrder },
-        include: {
+        select: {
           customer: {
             select: { systemId: true, id: true, name: true },
           },
@@ -209,7 +209,6 @@ export async function POST(request: Request) {
           priority: (body.priority || 'MEDIUM') as ComplaintPriority,
           status: (body.status || 'OPEN') as ComplaintStatus,
           assigneeId: body.assigneeId || body.assignedTo,
-          // Cast images array to JSON for Prisma
           images: processedImages as unknown as PrismaTypes.InputJsonValue,
           employeeImages: processedEmployeeImages as unknown as PrismaTypes.InputJsonValue,
           affectedProducts: body.affectedProducts as PrismaTypes.InputJsonValue | undefined,
@@ -218,8 +217,43 @@ export async function POST(request: Request) {
           timeline: (body.timeline || []) as unknown as PrismaTypes.InputJsonValue,
           createdBy: body.createdBy || session.user?.employeeId,
         },
-        include: {
-          customer: true,
+        select: {
+          systemId: true,
+          id: true,
+          customerId: true,
+          orderId: true,
+          orderCode: true,
+          orderValue: true,
+          branchSystemId: true,
+          branchName: true,
+          customerName: true,
+          customerPhone: true,
+          title: true,
+          description: true,
+          category: true,
+          type: true,
+          priority: true,
+          status: true,
+          assigneeId: true,
+          images: true,
+          employeeImages: true,
+          affectedProducts: true,
+          verification: true,
+          isVerifiedCorrect: true,
+          timeline: true,
+          resolvedAt: true,
+          endedAt: true,
+          cancelledAt: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
         },
       });
     });

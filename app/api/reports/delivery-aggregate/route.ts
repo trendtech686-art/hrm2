@@ -713,4 +713,4 @@ export const GET = apiHandler(async (request) => {
     logError('[reports/delivery-aggregate]', e)
     return apiError('Không thể tạo báo cáo giao hàng', 500)
   }
-})
+}, { auth: true })

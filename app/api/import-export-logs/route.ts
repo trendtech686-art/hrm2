@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   if (!session) return apiError('Unauthorized', 401);
 
   try {
-    const { limit } = parsePagination(request.nextUrl.searchParams);
+    const { page, limit, skip } = parsePagination(request.nextUrl.searchParams);
     const entityType = request.nextUrl.searchParams.get('entityType');
     const type = request.nextUrl.searchParams.get('type') as 'import' | 'export' | null;
 
@@ -27,11 +27,15 @@ export async function GET(request: NextRequest) {
     if (entityType) where.entityType = entityType;
     if (type) where.type = type;
 
-    const logs = await prisma.importExportLog.findMany({
-      where,
-      orderBy: { performedAt: 'desc' },
-      take: limit,
-    });
+    const [logs, total] = await Promise.all([
+      prisma.importExportLog.findMany({
+        where,
+        orderBy: { performedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.importExportLog.count({ where }),
+    ]);
 
     const importLogs: ImportLogEntry[] = [];
     const exportLogs: ExportLogEntry[] = [];
@@ -79,7 +83,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return apiSuccess({ importLogs, exportLogs });
+    return apiSuccess({ importLogs, exportLogs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (error) {
     logError('[API] Import/Export logs fetch error', error);
     return apiError('Failed to fetch logs', 500);

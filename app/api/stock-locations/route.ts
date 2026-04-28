@@ -39,7 +39,16 @@ export async function GET(request: Request) {
       const locations = await prisma.stockLocation.findMany({
         where,
         orderBy: { name: 'asc' },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          code: true,
+          description: true,
+          branchId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
           _count: { select: { inventoryRecords: true } },
         },
       })
@@ -53,7 +62,16 @@ export async function GET(request: Request) {
         orderBy: { name: 'asc' },
         skip,
         take: limit,
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          code: true,
+          description: true,
+          branchId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
           _count: { select: { inventoryRecords: true } },
         },
       }),

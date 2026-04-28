@@ -165,7 +165,39 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
           OR: [{ systemId }, { id: systemId }],
           isDeleted: false,
         },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          supplierId: true,
+          supplierName: true,
+          branchSystemId: true,
+          branchId: true,
+          branchName: true,
+          buyerSystemId: true,
+          buyer: true,
+          creatorSystemId: true,
+          creatorName: true,
+          status: true,
+          deliveryStatus: true,
+          paymentStatus: true,
+          returnStatus: true,
+          refundStatus: true,
+          orderDate: true,
+          expectedDate: true,
+          receivedDate: true,
+          deliveryDate: true,
+          subtotal: true,
+          discount: true,
+          discountType: true,
+          shippingFee: true,
+          tax: true,
+          total: true,
+          grandTotal: true,
+          notes: true,
+          reference: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
           supplier: {
             select: {
               systemId: true,
@@ -179,7 +211,16 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
             },
           },
           items: {
-            include: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              receivedQty: true,
               product: {
                 select: {
                   systemId: true,
@@ -222,8 +263,24 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
           purchaseOrderSystemId: systemId,
           status: { not: 'CANCELLED' },
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          supplierSystemId: true,
+          supplierName: true,
+          branchId: true,
+          branchSystemId: true,
+          branchName: true,
+          receiverSystemId: true,
+          receiverName: true,
+          createdBy: true,
+          status: true,
+          receivedDate: true,
+          receiptDate: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          receiptItems: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -233,8 +290,44 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
           purchaseOrderSystemId: systemId,
           status: { not: 'CANCELLED' },
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          supplierId: true,
+          purchaseOrderId: true,
+          branchId: true,
+          employeeId: true,
+          status: true,
+          reason: true,
+          purchaseOrderSystemId: true,
+          purchaseOrderBusinessId: true,
+          supplierSystemId: true,
+          supplierName: true,
+          branchSystemId: true,
+          branchName: true,
+          refundMethod: true,
+          accountSystemId: true,
+          creatorName: true,
+          createdBy: true,
+          updatedBy: true,
+          subtotal: true,
+          total: true,
+          totalReturnValue: true,
+          refundAmount: true,
+          returnDate: true,
+          returnItems: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              systemId: true,
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              total: true,
+              reason: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -245,7 +338,12 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
     }
 
     // ⚡ Lookup products for inventoryReceipts and purchaseReturns items
-    const irProductIds = inventoryReceipts.flatMap(ir => ir.items.map(item => item.productId)).filter(Boolean) as string[];
+    // inventoryReceipts use receiptItems JSON, purchaseReturns use items relation
+    interface ReceiptItem { productId?: string; productName?: string; quantity?: number }
+    const irProductIds = inventoryReceipts.flatMap(ir => {
+      const items = ir.receiptItems as ReceiptItem[] | null;
+      return items ? items.map(item => item.productId).filter(Boolean) as string[] : [];
+    });
     const prProductIds = purchaseReturns.flatMap(pr => pr.items.map(item => item.productId)).filter(Boolean) as string[];
     // Also include productSystemIds from returnItems JSON (for existing data)
     interface PrReturnItem { productSystemId?: string; productId?: string }
@@ -380,8 +478,18 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
         creatorSystemId: r.createdBy || null,
       })),
       inventoryReceipts: inventoryReceipts.map(ir => {
-        // Calculate totalValue from items since InventoryReceipt doesn't have it directly
-        const totalValue = ir.items.reduce((sum, item) => sum + Number(item.totalCost || 0), 0);
+        // Parse receiptItems JSON first
+        interface ReceiptLineItem {
+          productId?: string;
+          productName?: string;
+          productSku?: string;
+          quantity?: number;
+          unitCost?: number | string;
+          totalCost?: number | string;
+        }
+        const receiptItems = (ir.receiptItems as ReceiptLineItem[] | null) || [];
+        // Calculate totalValue from receiptItems JSON
+        const totalValue = receiptItems.reduce((sum, item) => sum + Number(item.totalCost || 0), 0);
         // Use receiverName or lookup from employee
         const receiverName = ir.receiverName || (ir.createdBy ? employeeNameMap.get(ir.createdBy) : null) || '';
         return {
@@ -392,7 +500,7 @@ export const GET = apiHandler(async (_request, { session: _session, params }) =>
           updatedAt: ir.updatedAt?.toISOString() || null,
           receivedDate: ir.receivedDate?.toISOString() || null,
           receiptDate: ir.receiptDate?.toISOString() || null, // ✅ Include receipt date for timeline
-          items: ir.items.map(item => {
+          items: receiptItems.map((item: ReceiptLineItem) => {
             // ✅ Try multiple lookups: productMap -> poProductMap for better coverage
             const product = (item.productId ? productMap.get(item.productId) : null)
               || (item.productId ? poProductMap.get(item.productId) : null);
@@ -548,7 +656,29 @@ export const PUT = apiHandler(async (request, { session, params }) => {
     const IN_TRANSIT_STATUSES = ['PENDING', 'CONFIRMED', 'RECEIVING'];
     const oldPO = await prisma.purchaseOrder.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        supplierId: true,
+        status: true,
+        deliveryStatus: true,
+        paymentStatus: true,
+        orderDate: true,
+        expectedDate: true,
+        subtotal: true,
+        tax: true,
+        discount: true,
+        shippingFee: true,
+        total: true,
+        grandTotal: true,
+        notes: true,
+        branchSystemId: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+          },
+        },
+      },
     });
     if (!oldPO) return apiError('Đơn mua hàng không tồn tại', 404);
 
@@ -605,10 +735,32 @@ export const PUT = apiHandler(async (request, { session, params }) => {
           })),
         } : undefined,
       },
-      include: {
-        supplier: true,
+      select: {
+        systemId: true,
+        id: true,
+        supplierId: true,
+        status: true,
+        deliveryStatus: true,
+        paymentStatus: true,
+        buyerSystemId: true,
+        supplier: {
+          select: { systemId: true, id: true, name: true, phone: true, email: true, address: true, bankAccount: true, bankName: true },
+        },
         items: {
-          include: { product: true },
+          select: {
+            systemId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            unitPrice: true,
+            discount: true,
+            total: true,
+            receivedQty: true,
+            product: {
+              select: { systemId: true, id: true, name: true, unit: true, imageUrl: true },
+            },
+          },
         },
       },
     })

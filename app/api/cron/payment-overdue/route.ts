@@ -7,10 +7,11 @@
  * Protected by CRON_SECRET (Vercel cron header).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logError } from '@/lib/logger';
 import { getSystemNotificationSettings, createNotification } from '@/lib/notifications';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 export const maxDuration = 60;
 
@@ -30,13 +31,13 @@ const OVERDUE_DAYS = 7;
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('Unauthorized', 401);
   }
 
   try {
     const settings = await getSystemNotificationSettings();
     if (!settings.paymentOverdue) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'paymentOverdue disabled' });
+      return apiSuccess({ skipped: true, reason: 'paymentOverdue disabled' });
     }
 
     const overdueDate = new Date();
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (overdueOrders.length === 0) {
-      return NextResponse.json({ success: true, count: 0, reason: 'No overdue payments' });
+      return apiSuccess({ count: 0, reason: 'No overdue payments' });
     }
 
     let notified = 0;
@@ -108,13 +109,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       overdueCount: overdueOrders.length,
       notified,
     });
   } catch (error) {
     logError('[Cron] Payment overdue failed', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return apiError('Internal error', 500);
   }
 }

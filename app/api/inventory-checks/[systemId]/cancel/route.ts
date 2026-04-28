@@ -5,7 +5,8 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody } from '@/lib/api-utils';
+import { cancelInventoryCheckSchema } from '../../validation';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
@@ -19,10 +20,15 @@ export async function POST(request: Request, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, cancelInventoryCheckSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
+  const { reason, cancelledBy } = validation.data;
+
   try {
     const { systemId } = await params;
-    const body = await request.json().catch(() => ({}));
-    const { reason, cancelledBy } = body;
 
     // Get the inventory check
     const inventoryCheck = await prisma.inventoryCheck.findUnique({
@@ -41,10 +47,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Use raw SQL to update status to avoid enum issues
     await prisma.$executeRaw`
-      UPDATE inventory_checks 
-      SET status = 'CANCELLED', 
-          "cancelledAt" = NOW(), 
-          "cancelledBy" = ${cancelledBy || session.user?.id || null},
+      UPDATE inventory_checks
+      SET status = 'CANCELLED',
+          "cancelledAt" = NOW(),
+          "cancelledBy" = ${cancelledBy || session!.user?.id || null},
           "cancelledReason" = ${reason || null},
           "updatedAt" = NOW()
       WHERE "systemId" = ${systemId}
@@ -53,11 +59,47 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Fetch the updated record
     const updatedCheck = await prisma.inventoryCheck.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        branchId: true,
+        employeeId: true,
+        checkDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        branchSystemId: true,
+        branchName: true,
+        balancedAt: true,
+        balancedBy: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        cancelledReason: true,
+        linkedComplaintSystemId: true,
+        items: {
+          select: {
+            systemId: true,
+            checkId: true,
+            productId: true,
+            productSystemId: true,
+            productName: true,
+            productSku: true,
+            unit: true,
+            systemQty: true,
+            actualQty: true,
+            difference: true,
+            reason: true,
+            notes: true,
+          },
+        },
+      },
     });
 
     // Notify the assigned employee about cancellation
-    if (inventoryCheck.employeeId && inventoryCheck.employeeId !== session.user?.employeeId) {
+    if (inventoryCheck.employeeId && inventoryCheck.employeeId !== session!.user?.employeeId) {
       createNotification({
         type: 'inventory_check',
         settingsKey: 'inventory-check:updated',
@@ -65,13 +107,13 @@ export async function POST(request: Request, { params }: RouteParams) {
         message: `Phiếu kiểm kho ${inventoryCheck.id || systemId} đã bị hủy${reason ? `: ${reason}` : ''}`,
         link: `/inventory-checks/${systemId}`,
         recipientId: inventoryCheck.employeeId,
-        senderId: session.user?.employeeId,
-        senderName: session.user?.name,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
       }).catch(e => logError('[Inventory Check Cancel] notification failed', e));
     }
 
     // Log activity
-    getUserNameFromDb(session.user?.id).then(userName =>
+    getUserNameFromDb(session!.user?.id).then(userName =>
       prisma.activityLog.create({
         data: {
           entityType: 'inventory_check',

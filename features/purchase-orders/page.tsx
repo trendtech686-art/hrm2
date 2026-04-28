@@ -26,7 +26,7 @@ import { SimplePrintOptionsDialog } from '@/components/shared/simple-print-optio
 // Feature-specific
 import { usePurchaseOrders } from './hooks/use-purchase-orders';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { useAllSuppliers } from '@/features/suppliers/hooks/use-all-suppliers';
+import { useMeiliSupplierSearch } from '@/hooks/use-meilisearch';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getColumns } from './columns';
 import { PurchaseOrderCard } from './purchase-order-card';
@@ -80,7 +80,8 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
   const _canEdit = can('edit_purchase_orders');
   const _canEditSettings = can('edit_settings');
   const { data: branches } = useAllBranches();
-  const { data: suppliers = [] } = useAllSuppliers();
+  const { data: supplierData } = useMeiliSupplierSearch({ query: '', limit: 100 });
+  const suppliers = React.useMemo(() => supplierData?.data || [], [supplierData]);
 
   // Page header with add button
   usePageHeader({ 

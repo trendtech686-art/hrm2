@@ -110,19 +110,23 @@ export async function GET(request: NextRequest) {
           { priority: 'desc' },
           { dueDate: 'asc' },
         ],
-        include: {
+        select: {
+          systemId: true, id: true, title: true, description: true, type: true,
+          assigneeId: true, creatorId: true, assignerId: true, assignerName: true,
+          status: true, priority: true, dueDate: true, startDate: true,
+          completedAt: true, completedDate: true,
+          tags: true, progress: true, assignees: true, subtasks: true, comments: true,
+          activities: true, completionEvidence: true, approvalStatus: true,
+          rejectionReason: true, requiresEvidence: true,
+          estimatedHours: true, actualHours: true,
+          timerRunning: true, timerStartedAt: true, totalTrackedSeconds: true,
+          boardId: true, createdBy: true, updatedBy: true,
+          createdAt: true, updatedAt: true,
           employees_tasks_assigneeIdToemployees: {
-            select: {
-              systemId: true,
-              fullName: true,
-              avatarUrl: true,
-            },
+            select: { systemId: true, fullName: true, avatarUrl: true },
           },
           employees_tasks_creatorIdToemployees: {
-            select: {
-              systemId: true,
-              fullName: true,
-            },
+            select: { systemId: true, fullName: true },
           },
         },
       }),
@@ -217,17 +221,16 @@ export async function POST(request: NextRequest) {
           dueDate: dueDate ? new Date(dueDate) : null,
           tags: tags || [],
         },
-        include: {
+        select: {
+          systemId: true, id: true, title: true, description: true,
+          assigneeId: true, creatorId: true,
+          status: true, priority: true, dueDate: true, tags: true,
+          createdAt: true, updatedAt: true,
           employees_tasks_assigneeIdToemployees: {
-            select: {
-              fullName: true,
-              avatarUrl: true,
-            },
+            select: { fullName: true, avatarUrl: true },
           },
           employees_tasks_creatorIdToemployees: {
-            select: {
-              fullName: true,
-            },
+            select: { fullName: true },
           },
         },
       });

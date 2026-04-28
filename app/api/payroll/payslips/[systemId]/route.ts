@@ -99,7 +99,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const item = await prisma.payrollItem.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        employeeId: true,
+        employeeName: true,
+        employeeCode: true,
+        workDays: true,
+        otHours: true,
+        leaveDays: true,
+        baseSalary: true,
+        otPay: true,
+        allowances: true,
+        bonus: true,
+        grossSalary: true,
+        socialInsurance: true,
+        healthInsurance: true,
+        unemploymentIns: true,
+        tax: true,
+        otherDeductions: true,
+        totalDeductions: true,
+        netSalary: true,
+        personalDeduction: true,
+        dependentDeduction: true,
+        numberOfDependents: true,
+        calculationSnapshot: true,
+        notes: true,
+        payrollId: true,
         employee: {
           select: {
             id: true,
@@ -195,6 +220,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         netSalary: true,
         notes: true,
         payroll: { select: { status: true, systemId: true, id: true } },
+        employee: {
+          select: { systemId: true },
+        },
       },
     })
     if (!existing) return apiError('Payslip not found', 404)

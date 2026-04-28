@@ -55,11 +55,36 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get the order with branch info and sales returns
     const orderWithRelations = await prisma.order.findUnique({
       where: { systemId },
-      include: { 
-        payments: true,
+      select: {
+        systemId: true,
+        id: true,
+        status: true,
+        paymentStatus: true,
+        deliveryStatus: true,
+        stockOutStatus: true,
+        branchId: true,
+        customerId: true,
+        customerName: true,
+        salespersonId: true,
+        grandTotal: true,
+        paidAmount: true,
+        linkedSalesReturnValue: true,
+        payments: {
+          select: {
+            systemId: true,
+            id: true,
+            orderId: true,
+            amount: true,
+            method: true,
+            description: true,
+            createdBy: true,
+            createdAt: true,
+            linkedReceiptSystemId: true,
+          },
+        },
         branch: { select: { systemId: true, name: true } },
         customer: { select: { systemId: true, name: true } },
-        sales_returns: { 
+        sales_returns: {
           select: { totalReturnValue: true },
           where: { status: { not: SalesReturnStatus.REJECTED } },
         },
@@ -201,12 +226,62 @@ export async function POST(request: Request, { params }: RouteParams) {
             completedDate: new Date(),
           }),
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          completedDate: true,
+          customerId: true,
+          customerName: true,
+          branchId: true,
+          salespersonId: true,
+          grandTotal: true,
+          paidAmount: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              tax: true,
+              total: true,
+              note: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              orderId: true,
+              amount: true,
+              method: true,
+              description: true,
+              createdBy: true,
+              createdAt: true,
+              linkedReceiptSystemId: true,
+            },
+          },
         },
       });
 

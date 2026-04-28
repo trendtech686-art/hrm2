@@ -1,9 +1,17 @@
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiError } from '@/lib/api-utils'
+import { apiSuccess, apiError, validateBody } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { logError } from '@/lib/logger'
+import { z } from 'zod'
 
 const MAX_BULK_SIZE = 100
+
+// Validation schema for bulk employee operations
+const bulkEmployeeSchema = z.object({
+  action: z.enum(['delete', 'restore']),
+  systemIds: z.array(z.string().min(1)).min(1).max(MAX_BULK_SIZE),
+})
 
 /**
  * POST /api/employees/bulk
@@ -12,25 +20,13 @@ const MAX_BULK_SIZE = 100
  * Body: { action: 'delete' | 'restore', systemIds: string[] }
  */
 export const POST = apiHandler(async (request, { session }) => {
-    const body = await request.json()
-    const { action, systemIds } = body
-
-    if (!action || !['delete', 'restore'].includes(action)) {
-      return apiError('Invalid action. Must be "delete" or "restore"', 400)
+    // Validate request body with Zod schema
+    const validation = await validateBody(request, bulkEmployeeSchema)
+    if (!validation.success) {
+      return apiError(validation.error, 400)
     }
-
-    if (!Array.isArray(systemIds) || systemIds.length === 0) {
-      return apiError('systemIds must be a non-empty array', 400)
-    }
-
-    if (systemIds.length > MAX_BULK_SIZE) {
-      return apiError(`Maximum ${MAX_BULK_SIZE} items per bulk operation`, 400)
-    }
-
-    // Validate all IDs are strings
-    if (!systemIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
-      return apiError('All systemIds must be non-empty strings', 400)
-    }
+    
+    const { action, systemIds } = validation.data
 
     if (action === 'delete') {
       // Lấy tên nhân viên trước khi xóa
@@ -70,7 +66,7 @@ export const POST = apiHandler(async (request, { session }) => {
           metadata: { userName, bulkOperation: true },
           createdBy: userName,
         },
-      }).catch(e => console.error('Activity log failed:', e))
+      }).catch(e => logError('Activity log failed', e))
 
       return apiSuccess({ affected: result.count })
     }
@@ -114,7 +110,7 @@ export const POST = apiHandler(async (request, { session }) => {
         metadata: { userName, bulkOperation: true },
         createdBy: userName,
       },
-    }).catch(e => console.error('Activity log failed:', e))
+    }).catch(e => logError('Activity log failed', e))
 
     return apiSuccess({ affected: result.count })
 }, { permission: 'delete_employees' })

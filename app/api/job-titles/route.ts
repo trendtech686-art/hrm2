@@ -29,7 +29,15 @@ export async function GET(request: Request) {
       const jobTitles = await prisma.jobTitle.findMany({
         where,
         orderBy: { name: 'asc' },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          isActive: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
           _count: { select: { employees: true } },
         },
       })
@@ -42,7 +50,15 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { name: 'asc' },
-        include: {
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          isActive: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
           _count: { select: { employees: true } },
         },
       }),

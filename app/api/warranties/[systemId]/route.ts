@@ -44,12 +44,32 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const warranty = await prisma.warranty.findUnique({
       where: { systemId },
-      include: {
-        product: true,
+      select: {
+        // Warranty scalar fields
+        systemId: true, id: true, trackingCode: true, publicTrackingCode: true,
+        productId: true, orderId: true, customerId: true,
+        productName: true, customerName: true, customerPhone: true, customerEmail: true, customerAddress: true,
+        serialNumber: true, title: true, description: true, issueDescription: true, notes: true,
+        status: true, priority: true, isUnderWarranty: true,
+        purchaseDate: true, startedAt: true, warrantyExpireDate: true,
+        receivedAt: true, completedAt: true, returnedAt: true,
+        branchSystemId: true, branchName: true,
+        employeeSystemId: true, employeeName: true,
+        assigneeId: true,
+        diagnosis: true, solution: true,
+        shippingFee: true, referenceUrl: true, externalReference: true,
+        receivedImages: true, processedImages: true,
+        products: true, settlement: true, settlementStatus: true,
+        summary: true, history: true, comments: true, subtasks: true,
+        linkedOrderSystemId: true, replacementProductSystemId: true, replacementQuantity: true,
+        isDeleted: true, createdAt: true, updatedAt: true,
+        // Relations
+        product: {
+          select: { systemId: true, id: true, name: true, imageUrl: true, costPrice: true },
+        },
         order: {
           select: { systemId: true, id: true, orderDate: true },
         },
-        // ✅ Include customer for CustomerSelector stats
         customers: {
           select: { systemId: true, id: true, name: true, phone: true },
         },
@@ -161,7 +181,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const warranty = await prisma.warranty.update({
       where: { systemId },
       data: updateData,
-      include: {
+      select: {
+        // Warranty scalar fields
+        systemId: true, id: true, trackingCode: true, publicTrackingCode: true,
+        productId: true, orderId: true, customerId: true,
+        productName: true, customerName: true, customerPhone: true, customerEmail: true, customerAddress: true,
+        serialNumber: true, title: true, description: true, issueDescription: true, notes: true,
+        status: true, priority: true, isUnderWarranty: true,
+        purchaseDate: true, startedAt: true, warrantyExpireDate: true,
+        receivedAt: true, completedAt: true, returnedAt: true,
+        branchSystemId: true, branchName: true,
+        employeeSystemId: true, employeeName: true,
+        assigneeId: true,
+        diagnosis: true, solution: true,
+        shippingFee: true, referenceUrl: true, externalReference: true,
+        receivedImages: true, processedImages: true,
+        products: true, settlement: true, settlementStatus: true,
+        summary: true, history: true, comments: true, subtasks: true,
+        linkedOrderSystemId: true, replacementProductSystemId: true, replacementQuantity: true,
+        isDeleted: true, createdAt: true, updatedAt: true,
+        // Relations
         product: {
           select: { systemId: true, id: true, name: true, imageUrl: true },
         },
@@ -255,8 +294,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // Notify on status or assignee changes (non-blocking)
     const warrantyStatusLabels: Record<string, string> = {
-      RECEIVED: 'Đã tiếp nhận', IN_PROGRESS: 'Đang xử lý', WAITING_PARTS: 'Chờ linh kiện',
-      COMPLETED: 'Hoàn thành', RETURNED: 'Đã trả khách', CANCELLED: 'Đã hủy',
+      RECEIVED: 'Đã tiếp nhận',
+      PROCESSING: 'Đang xử lý',
+      COMPLETED: 'Đã xử lý',
+      RETURNED: 'Đã trả khách',
+      CANCELLED: 'Đã hủy',
     };
     const currentUserEmployeeId = session.user?.employeeId;
     const warrantyLink = `/warranty/${systemId}`;

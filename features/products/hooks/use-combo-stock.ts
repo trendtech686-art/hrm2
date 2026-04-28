@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { useAllProducts } from './use-all-products';
+import { useProductFinder } from './use-all-products';
 import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { 
   calculateComboStock, 
@@ -25,14 +25,14 @@ export function useComboStock(
   product: Product | null | undefined,
   branchSystemId: SystemId | undefined
 ): number {
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     if (!product || !branchSystemId) return 0;
     if (!isComboProduct(product) || !product.comboItems) return 0;
     
-    return calculateComboStock(product.comboItems, allProducts, branchSystemId);
-  }, [product, branchSystemId, allProducts]);
+    return calculateComboStock(product.comboItems, findById, branchSystemId);
+  }, [product, branchSystemId, findById]);
 }
 
 /**
@@ -42,14 +42,14 @@ export function useComboStock(
 export function useComboStockAllBranches(
   product: Product | null | undefined
 ): Record<SystemId, number> {
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     if (!product) return {};
     if (!isComboProduct(product) || !product.comboItems) return {};
     
-    return calculateComboStockAllBranches(product.comboItems, allProducts);
-  }, [product, allProducts]);
+    return calculateComboStockAllBranches(product.comboItems, findById);
+  }, [product, findById]);
 }
 
 /**
@@ -58,7 +58,7 @@ export function useComboStockAllBranches(
 export function useComboStockWithBranches(
   product: Product | null | undefined
 ): Array<{ branchSystemId: SystemId; branchName: string; stock: number }> {
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   const { data: branches } = useAllBranches();
   
   return React.useMemo(() => {
@@ -68,9 +68,9 @@ export function useComboStockWithBranches(
     return branches.map(branch => ({
       branchSystemId: branch.systemId,
       branchName: branch.name,
-      stock: calculateComboStock(product.comboItems!, allProducts, branch.systemId),
+      stock: calculateComboStock(product.comboItems!, findById, branch.systemId),
     }));
-  }, [product, allProducts, branches]);
+  }, [product, findById, branches]);
 }
 
 /**
@@ -80,14 +80,14 @@ export function useComboBottlenecks(
   product: Product | null | undefined,
   branchSystemId: SystemId | undefined
 ): Array<{ product: Product; availableForCombo: number; itemQuantity: number }> {
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     if (!product || !branchSystemId) return [];
     if (!isComboProduct(product) || !product.comboItems) return [];
     
-    return getComboBottleneckProducts(product.comboItems, allProducts, branchSystemId);
-  }, [product, branchSystemId, allProducts]);
+    return getComboBottleneckProducts(product.comboItems, findById, branchSystemId);
+  }, [product, branchSystemId, findById]);
 }
 
 /**
@@ -129,13 +129,13 @@ export function useComboItemsWithStock(
   available: number;
   canMakeCombos: number;
 }> {
-  const { data: allProducts } = useAllProducts();
+  const { findById } = useProductFinder();
   
   return React.useMemo(() => {
     if (!comboItems || !branchSystemId) return [];
     
     return comboItems.map(item => {
-      const product = allProducts.find(p => p.systemId === item.productSystemId);
+      const product = findById(item.productSystemId);
       const onHand = product?.inventoryByBranch?.[branchSystemId] || 0;
       const committed = product?.committedByBranch?.[branchSystemId] || 0;
       const available = onHand - committed;
@@ -150,5 +150,5 @@ export function useComboItemsWithStock(
         canMakeCombos,
       };
     });
-  }, [comboItems, branchSystemId, allProducts]);
+  }, [comboItems, branchSystemId, findById]);
 }

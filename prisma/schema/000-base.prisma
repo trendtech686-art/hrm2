@@ -98,7 +98,6 @@ enum TaskPriority {
 enum WarrantyStatus {
   RECEIVED
   PROCESSING
-  WAITING_PARTS
   COMPLETED
   RETURNED
   CANCELLED

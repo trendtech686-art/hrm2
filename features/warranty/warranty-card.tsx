@@ -113,8 +113,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
     cardColorClass = cardColors.statusColors[ticket.status] || '';
     const statusBorderColors: Record<string, string> = {
       RECEIVED: 'border-l-warning',
-      PROCESSING: 'border-l-warning',
-      WAITING_PARTS: 'border-l-info',
+      PROCESSING: 'border-l-info',
       COMPLETED: 'border-l-success',
       RETURNED: 'border-l-muted-foreground',
       CANCELLED: 'border-l-destructive',

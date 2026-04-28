@@ -1,7 +1,7 @@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, MessageSquare, Image, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Calendar, MessageSquare, ImageIcon, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import type { Task, TaskPriorityVi } from '../types';
 import { normalizeTaskPriority } from '../types';
 import { cn } from '@/lib/utils';
@@ -120,7 +120,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
               {/* Evidence submitted */}
               {task.completionEvidence && (
                 <div className="flex items-center gap-1 text-success">
-                  <Image className="h-4 w-4" />
+                  <ImageIcon className="h-4 w-4" />
                   <span>{task.completionEvidence.images.length} ảnh</span>
                 </div>
               )}

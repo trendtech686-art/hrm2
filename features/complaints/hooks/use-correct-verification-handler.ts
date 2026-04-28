@@ -14,11 +14,12 @@ import { COMPLAINT_TOAST_MESSAGES as MSG } from '../constants/toast-messages';
 import { logError } from '@/lib/logger'
 import type { Order } from '@/features/orders/types';
 import type { Employee } from '@/features/employees/types';
+import type { EmployeeSearchResult } from '@/hooks/use-meilisearch';
 
 interface UseCorrectVerificationHandlerProps {
   complaint: Complaint | null;
   currentUser: { systemId: SystemId; name: string };
-  assignedEmployee: Employee | null | undefined;
+  assignedEmployee: EmployeeSearchResult | null | undefined;
   relatedOrder: Order | null | undefined;
   employee: Employee | null | undefined;
   updateComplaint: (systemId: string, data: Partial<Complaint>) => Promise<void> | void;

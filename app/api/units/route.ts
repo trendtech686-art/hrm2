@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiError, apiSuccess, parsePagination } from '@/lib/api-utils'
+import { requireAuth, apiError, apiSuccess, parsePagination, apiPaginated } from '@/lib/api-utils'
+import { API_MAX_PAGE_LIMIT } from '@/lib/pagination-constants'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
@@ -12,7 +13,8 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const { page, limit, skip: _skip } = parsePagination(searchParams)
+    const { page, limit, skip } = parsePagination(searchParams)
+    const safeLimit = Math.min(limit, API_MAX_PAGE_LIMIT)
     const search = searchParams.get('search') || undefined
     const isActiveParam = searchParams.get('isActive')
     const isActive = isActiveParam === null ? undefined : isActiveParam === 'true'
@@ -30,13 +32,13 @@ export async function GET(request: Request) {
       prisma.unit.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit,
+        skip,
+        take: safeLimit,
       }),
       prisma.unit.count({ where }),
     ])
 
-    return apiSuccess({ data, total, page, pageSize: limit })
+    return apiPaginated(data, { page, limit, total })
   } catch (error) {
     logError('Error fetching units', error)
     return apiError('Failed to fetch units', 500)

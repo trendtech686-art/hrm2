@@ -19,7 +19,7 @@ import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
 import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarranty } from '../../hooks/use-warranties';
-import { useAllProducts } from '../../../products/hooks/use-all-products';
+import { useProductFinder } from '../../../products/hooks/use-all-products';
 import { useProductMutations } from '../../../products/hooks/use-products';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
@@ -52,7 +52,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
   const { update: updateProduct } = useProductMutations();
   // ✅ Phase 14: useWarranty(id) single-item thay vì useWarrantyFinder (ALL warranties)
   const { data: latestTicketData } = useWarranty(open ? ticket?.systemId : null);
-  const { data: products } = useAllProducts({ enabled: open });
+  const { findById } = useProductFinder();
 
   const handleReopen = React.useCallback(() => {
     if (!ticket || !reopenReason.trim()) {
@@ -67,9 +67,9 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
       if (replacedProducts.length > 0) {
         replacedProducts.forEach(warrantyProduct => {
           const fallbackProduct = warrantyProduct.productSystemId
-            ? products.find(p => p.systemId === warrantyProduct.productSystemId)
+            ? findById(warrantyProduct.productSystemId)
             : warrantyProduct.sku
-              ? products.find(p => p.id === warrantyProduct.sku)
+              ? findById(warrantyProduct.sku)
               : undefined;
 
           const productSystemId = warrantyProduct.productSystemId ?? fallbackProduct?.systemId;
@@ -78,7 +78,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
             return;
           }
 
-          const product = products.find(p => p.systemId === productSystemId);
+          const product = findById(productSystemId);
           if (!product) return;
 
           const quantityToCommit = warrantyProduct.quantity || 1;
@@ -142,7 +142,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
       logError('Failed to reopen ticket', error);
       toast.error('Không thể mở lại phiếu');
     }
-  }, [ticket, reopenReason, update, performerName, performerSystemId, latestTicketData, onOpenChange, products, updateProduct]);
+  }, [ticket, reopenReason, update, performerName, performerSystemId, latestTicketData, onOpenChange, findById, updateProduct]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for leave requests
  */
 
-import { useQuery, useQueries, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchLeaves,
   fetchLeaveById,
@@ -76,66 +76,6 @@ export function useLeavesByDateRange(options: {
     total: query.data?.pagination?.total || 0,
     isLoading: query.isLoading,
     isError: query.isError,
-  };
-}
-
-/**
- * Auto-paginating hook that fetches ALL leaves matching a date range.
- * Used when computation requires the complete dataset (attendance sync, payroll).
- * Fetches in standard page sizes and merges all results automatically.
- */
-export function useAllLeavesByDateRange(options: {
-  status?: string;
-  fromDate?: string;
-  toDate?: string;
-  employeeId?: string;
-}) {
-  const PAGE_SIZE = 100;
-  const hasFilters = !!(options.fromDate && options.toDate);
-
-  const baseFilters: LeaveFilters = {
-    status: options.status,
-    fromDate: options.fromDate,
-    toDate: options.toDate,
-    employeeId: options.employeeId,
-    page: 1,
-    limit: PAGE_SIZE,
-  };
-
-  // Step 1: Fetch first page to discover totalPages
-  const firstPage = useQuery({
-    queryKey: leaveKeys.list(baseFilters),
-    queryFn: () => fetchLeaves(baseFilters),
-    staleTime: 1000 * 60 * 2,
-    enabled: hasFilters,
-  });
-
-  const totalPages = firstPage.data?.pagination?.totalPages || 1;
-
-  // Step 2: Fetch remaining pages in parallel (only when totalPages > 1)
-  const remainingPageQueries = useQueries({
-    queries: Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => ({
-      queryKey: leaveKeys.list({ ...baseFilters, page: i + 2 }),
-      queryFn: () => fetchLeaves({ ...baseFilters, page: i + 2 }),
-      staleTime: 1000 * 60 * 2,
-      enabled: hasFilters && totalPages > 1 && !!firstPage.data,
-    })),
-  });
-
-  // Step 3: Merge all pages
-  const isLoading = firstPage.isLoading || remainingPageQueries.some(q => q.isLoading);
-  const firstPageData = firstPage.data?.data || [];
-
-  // Only compute merged data when all pages are loaded
-  const data = isLoading || totalPages <= 1
-    ? firstPageData
-    : [...firstPageData, ...remainingPageQueries.flatMap(q => q.data?.data || [])];
-
-  return {
-    data,
-    total: firstPage.data?.pagination?.total || 0,
-    isLoading,
-    isError: firstPage.isError,
   };
 }
 

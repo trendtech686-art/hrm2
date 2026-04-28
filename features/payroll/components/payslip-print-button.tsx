@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { usePrint } from '../../../lib/use-print';
 import { fetchPrintData } from '../../../lib/lazy-print-data';
 import { usePayslipsByBatch, usePayrollById } from '../hooks/use-payroll';
-import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useMeiliEmployeeSearch } from '@/hooks/use-meilisearch';
 import { useAllDepartments } from '../../settings/departments/hooks/use-all-departments';
 import {
   convertPayrollBatchForPrint,
@@ -69,7 +69,8 @@ export function PayslipPrintButton({
   const payslip = payslipData || storePayslip;
   const batch = batchData || storeBatch;
   
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({ query: '', enabled: false, limit: 100 });
+  const employees = employeesData?.data || [];
   const { data: departments } = useAllDepartments();
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
 
@@ -120,8 +121,8 @@ export function PayslipPrintButton({
         employee: employee ? {
           fullName: employee.fullName,
           id: employee.id,
-          department: employee.department,
-          position: employee.positionName,
+          department: employee.department ?? undefined,
+          position: employee.position ?? undefined,
         } : undefined,
         departmentName,
       }
@@ -178,7 +179,8 @@ export function BatchPrintButton({
   // Stores
   const batch: PayrollBatch | undefined = undefined;
   const payslips = React.useMemo<Payslip[]>(() => [], []);
-  const { data: employees } = useAllEmployees({ enabled: false });
+  const { data: employeesData } = useMeiliEmployeeSearch({ query: '', enabled: false, limit: 100 });
+  const employees = employeesData?.data || [];
   const { data: departments } = useAllDepartments();
   // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
   

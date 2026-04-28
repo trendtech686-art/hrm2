@@ -47,8 +47,36 @@ export async function GET(request: Request) {
     const [data, total] = await Promise.all([
       prisma.priceAdjustment.findMany({
         where,
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          branchId: true,
+          pricingPolicyId: true,
+          pricingPolicyName: true,
+          type: true,
+          status: true,
+          reason: true,
+          note: true,
+          referenceCode: true,
+          createdBy: true,
+          createdByName: true,
+          createdBySystemId: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              systemId: true,
+              productSystemId: true,
+              productId: true,
+              productName: true,
+              productImage: true,
+              oldPrice: true,
+              newPrice: true,
+              adjustmentAmount: true,
+              adjustmentPercent: true,
+              note: true,
+            },
+          },
         },
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
@@ -160,10 +188,38 @@ export async function POST(request: Request) {
             })) as unknown as Prisma.PriceAdjustmentItemCreateWithoutPriceAdjustmentInput[],
           },
         },
-        include: {
-          items: true,
+        select: {
+          systemId: true,
+          id: true,
+          branchId: true,
+          pricingPolicyId: true,
+          pricingPolicyName: true,
+          type: true,
+          reason: true,
+          note: true,
+          referenceCode: true,
+          status: true,
+          createdBy: true,
+          createdByName: true,
+          createdBySystemId: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              systemId: true,
+              productSystemId: true,
+              productId: true,
+              productName: true,
+              productImage: true,
+              oldPrice: true,
+              newPrice: true,
+              adjustmentAmount: true,
+              adjustmentPercent: true,
+              note: true,
+            },
+          },
         },
-      }) as unknown as Prisma.PriceAdjustmentGetPayload<{ include: { items: true } }>;
+      }) as unknown as Prisma.PriceAdjustmentGetPayload<{ select: { systemId: true; id: true; branchId: true; pricingPolicyId: true; pricingPolicyName: true; type: true; reason: true; note: true; referenceCode: true; status: true; createdBy: true; createdByName: true; createdBySystemId: true; createdAt: true; updatedAt: true; items: { select: { systemId: true; productSystemId: true; productId: true; productName: true; productImage: true; oldPrice: true; newPrice: true; adjustmentAmount: true; adjustmentPercent: true; note: true } } } }>;
     });
 
     // Transform for response

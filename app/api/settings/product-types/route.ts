@@ -1,11 +1,21 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiError, apiSuccess, parsePagination } from '@/lib/api-utils'
+import { requireAuth, apiError, apiSuccess, parsePagination, validateBody } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 import { buildSearchWhere } from '@/lib/search/build-search-where'
+import { generateNextIds } from '@/lib/id-system'
+import { z } from 'zod'
 
 const TYPE = 'product-type'
+
+const createProductTypeSchema = z.object({
+  id: z.string().min(1, 'id là bắt buộc'),
+  name: z.string().min(1, 'name là bắt buộc'),
+  description: z.string().optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+})
 
 export async function GET(request: Request) {
   const session = await requireAuth()
@@ -41,14 +51,20 @@ export async function POST(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createProductTypeSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-    const { id, name, description, isDefault = false, isActive = true } = body || {}
-    if (!id || !name) return apiError('id and name are required', 400)
+    const { id, name, description, isDefault = false, isActive = true } = body
+    const { systemId, businessId } = await generateNextIds('product-types')
+    const finalId = id || businessId
 
     const created = await prisma.settingsData.create({
       data: {
-        id,
+        id: finalId,
         name,
         description,
         type: TYPE,

@@ -41,15 +41,50 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const category = await prisma.category.findUnique({
       where: { systemId },
-      include: {
-        parent: true,
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        imageUrl: true,
+        thumbnail: true,
+        parentId: true,
+        sortOrder: true,
+        slug: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        ogImage: true,
+        websiteSeo: true,
+        isActive: true,
+        isDeleted: true,
+        level: true,
+        path: true,
+        color: true,
+        icon: true,
+        createdAt: true,
+        updatedAt: true,
+        parent: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
         children: {
           where: { isDeleted: false },
           orderBy: { sortOrder: 'asc' },
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
         },
         productCategories: {
           take: 10,
-          include: {
+          select: {
             product: {
               select: {
                 systemId: true,
@@ -130,8 +165,38 @@ export async function PUT(request: Request, { params }: RouteParams) {
         path,
         level,
       },
-      include: {
-        parent: true,
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        imageUrl: true,
+        thumbnail: true,
+        parentId: true,
+        sortOrder: true,
+        slug: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        ogImage: true,
+        websiteSeo: true,
+        isActive: true,
+        isDeleted: true,
+        level: true,
+        path: true,
+        color: true,
+        icon: true,
+        createdAt: true,
+        updatedAt: true,
+        parent: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
@@ -203,8 +268,38 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         path,
         level,
       },
-      include: {
-        parent: true,
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        description: true,
+        imageUrl: true,
+        thumbnail: true,
+        parentId: true,
+        sortOrder: true,
+        slug: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        ogImage: true,
+        websiteSeo: true,
+        isActive: true,
+        isDeleted: true,
+        level: true,
+        path: true,
+        color: true,
+        icon: true,
+        createdAt: true,
+        updatedAt: true,
+        parent: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 

@@ -149,7 +149,13 @@ const EMPTY_SALES_SUMMARY: SalesReportSummary = {
 };
 
 export function ReportsOverviewPage() {
-  const overviewMonthKey = format(startOfMonth(new Date()), 'yyyy-MM');
+  // Client-only date for hydration safety
+  const [now, setNow] = React.useState<Date | null>(null);
+  React.useEffect(() => {
+    setNow(new Date());
+  }, []);
+
+  const overviewMonthKey = format(startOfMonth(now ?? new Date()), 'yyyy-MM');
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'overview', overviewMonthKey],
@@ -204,7 +210,7 @@ export function ReportsOverviewPage() {
     inventorySummary.outOfStockCount + inventorySummary.lowStockCount;
   const moreAlertsCount = totalAlertSkus > 8 ? totalAlertSkus - 8 : 0;
 
-  const currentMonthLabel = format(new Date(), 'MMMM yyyy', { locale: vi });
+  const currentMonthLabel = format(now ?? new Date(), 'MMMM yyyy', { locale: vi });
 
   usePageHeader({
     title: 'Tổng quan Báo cáo',

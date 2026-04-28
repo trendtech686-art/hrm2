@@ -78,9 +78,26 @@ export const GET = apiHandler(async () => {
       prisma.category.findMany({
         where: { isDeleted: false },
         orderBy: { sortOrder: 'asc' },
-        include: {
-          parent: true,
-          _count: { select: { productCategories: true, children: true } },
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          parentId: true,
+          sortOrder: true,
+          isActive: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
+          parent: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: { productCategories: true, children: true },
+          },
         },
       }),
       // 7. Pricing policies - all

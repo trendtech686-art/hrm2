@@ -11,33 +11,75 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, validateBody } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { syncProductsInventory } from '@/lib/meilisearch-sync'
 import { createNotification } from '@/lib/notifications'
 import { getUserNameFromDb } from '@/lib/get-user-name'
+import { cancelStockTransferSchema } from '../../validation';
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
-interface CancelTransferBody {
-  reason?: string;
-}
-
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
+  const validation = await validateBody(request, cancelStockTransferSchema);
+  if (!validation.success) return apiError(validation.error, 400);
+
   try {
     const { systemId } = await params;
-    const body: CancelTransferBody = await request.json().catch(() => ({}));
+    const { reason } = validation.data;
     const now = new Date();
 
     // Fetch transfer with items
     const transfer = await prisma.stockTransfer.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        fromBranchId: true,
+        toBranchId: true,
+        employeeId: true,
+        transferDate: true,
+        receivedDate: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        referenceCode: true,
+        fromBranchSystemId: true,
+        fromBranchName: true,
+        toBranchSystemId: true,
+        toBranchName: true,
+        createdDate: true,
+        createdBySystemId: true,
+        createdByName: true,
+        transferredDate: true,
+        transferredBySystemId: true,
+        transferredByName: true,
+        receivedBySystemId: true,
+        receivedByName: true,
+        cancelledDate: true,
+        cancelledBySystemId: true,
+        cancelledByName: true,
+        cancelReason: true,
+        items: {
+          select: {
+            systemId: true,
+            transferId: true,
+            productId: true,
+            productName: true,
+            productSku: true,
+            quantity: true,
+            receivedQty: true,
+          },
+        },
+      },
     });
 
     if (!transfer) {
@@ -63,11 +105,53 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           cancelledDate: now,
           cancelledBySystemId: session.user.id,
           cancelledByName: employee?.fullName || session.user.name || 'System',
-          cancelReason: body.reason?.trim() || undefined,
+          cancelReason: reason?.trim() || undefined,
           updatedAt: new Date(),
           updatedBy: session.user.id,
         },
-        include: { items: true },
+        select: {
+          systemId: true,
+          id: true,
+          fromBranchId: true,
+          toBranchId: true,
+          employeeId: true,
+          transferDate: true,
+          receivedDate: true,
+          status: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: true,
+          updatedBy: true,
+          referenceCode: true,
+          fromBranchSystemId: true,
+          fromBranchName: true,
+          toBranchSystemId: true,
+          toBranchName: true,
+          createdDate: true,
+          createdBySystemId: true,
+          createdByName: true,
+          transferredDate: true,
+          transferredBySystemId: true,
+          transferredByName: true,
+          receivedBySystemId: true,
+          receivedByName: true,
+          cancelledDate: true,
+          cancelledBySystemId: true,
+          cancelledByName: true,
+          cancelReason: true,
+          items: {
+            select: {
+              systemId: true,
+              transferId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              receivedQty: true,
+            },
+          },
+        },
       });
 
       // 2. If status was IN_TRANSIT, return stock from transit
@@ -132,7 +216,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               documentType: 'stock_transfer',
               employeeId: session.user.id,
               employeeName: employee?.fullName || session.user.name || 'System',
-              note: `Hủy chuyển kho đến ${transfer.toBranchName || transfer.toBranchId}${body.reason ? ` - Lý do: ${body.reason}` : ''}`,
+              note: `Hủy chuyển kho đến ${transfer.toBranchName || transfer.toBranchId}${reason ? ` - Lý do: ${reason}` : ''}`,
             },
           });
         }

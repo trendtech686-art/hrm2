@@ -66,16 +66,32 @@ export function SlaTimer({
   updateInterval = 60000, // 1 minute
 }: SlaTimerProps) {
   const [timeLeft, setTimeLeft] = React.useState(() => calculateTimeLeft(startTime, targetMinutes));
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Update timer at specified interval
   React.useEffect(() => {
-    if (isCompleted) return;
+    if (isCompleted) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
 
-    const timer = setInterval(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    intervalRef.current = setInterval(() => {
       setTimeLeft(calculateTimeLeft(startTime, targetMinutes));
     }, updateInterval);
 
-    return () => clearInterval(timer);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [startTime, targetMinutes, isCompleted, updateInterval]);
 
   // If completed, show completion message
@@ -194,15 +210,31 @@ export function useSlaStatus(
   isCompleted: boolean = false
 ) {
   const [timeLeft, setTimeLeft] = React.useState(() => calculateTimeLeft(startTime, targetMinutes));
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
-    if (isCompleted) return;
+    if (isCompleted) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
 
-    const timer = setInterval(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    intervalRef.current = setInterval(() => {
       setTimeLeft(calculateTimeLeft(startTime, targetMinutes));
     }, 60000); // Update every minute
 
-    return () => clearInterval(timer);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [startTime, targetMinutes, isCompleted]);
 
   return {

@@ -120,11 +120,17 @@ export function WarrantyFormPage() {
   const effectiveCustomerId = customerIdFromTicket || resolvedCustomerId;
   const { data: fullCustomerData } = useCustomer(effectiveCustomerId);
 
-  // Prevent editing if ticket is completed (hoàn tất)
+  // Prevent editing if ticket is CANCELLED (không sửa được gì)
   const isReadOnly = React.useMemo(() => {
     if (!ticket) return false;
-    return !!ticket.completedAt;
+    return ticket.status === 'CANCELLED';
   }, [ticket]);
+
+  // Notes-only mode: COMPLETED (có hoặc không completedAt) và RETURNED - chỉ sửa ghi chú
+  const isNotesOnlyMode = ticket?.status === 'COMPLETED' || ticket?.status === 'RETURNED';
+
+  // Ẩn hoàn toàn phần ghi chú khi CANCELLED
+  const isNotesHidden = ticket?.status === 'CANCELLED';
 
   // Form
   const form = useForm<WarrantyFormValues>({
@@ -485,12 +491,23 @@ export function WarrantyFormPage() {
       <form id="warranty-form" onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
         <div className="grow overflow-y-auto [scrollbar-width:thin] md:pr-4 pt-2 md:pt-0">
           <div className="space-y-4">
-            {/* Read-only warning */}
+            {/* Read-only warning (CANCELLED) */}
             {isReadOnly && (
               <Card className={cn(mobileBleedCardClass, 'border-amber-200 bg-amber-50')}>
                 <CardContent className="pt-6">
                   <p className="text-sm text-amber-800">
-                    <strong>Lưu ý:</strong> Phiếu đã xử lý/trả hàng. Không thể chỉnh sửa.
+                    <strong>Lưu ý:</strong> Phiếu đã hủy. Không thể chỉnh sửa.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Notes-only mode warning (COMPLETED, RETURNED) */}
+            {isNotesOnlyMode && (
+              <Card className={cn(mobileBleedCardClass, 'border-blue-200 bg-blue-50')}>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-blue-800">
+                    <strong>Chế độ cập nhật ghi chú:</strong> Phiếu đã xử lý. Chỉ có thể sửa ghi chú.
                   </p>
                 </CardContent>
               </Card>
@@ -510,11 +527,11 @@ export function WarrantyFormPage() {
             {/* Hàng 1: Thông tin khách hàng (70%) + Thông tin bổ sung (30%) */}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="w-full md:w-[70%]">
-                <CustomerSelector disabled={isReadOnly || isUpdateMode} />
+                <CustomerSelector disabled={isReadOnly || isUpdateMode || isNotesOnlyMode} />
               </div>
               <div className="w-full md:w-[30%]">
                 <WarrantyFormInfoCard
-                  disabled={isReadOnly || isUpdateMode}
+                  disabled={isReadOnly || isUpdateMode || isNotesOnlyMode}
                   employeeName={ticket?.employeeName || copySourceTicket?.employeeName}
                   onEmployeeChange={(name) => {
                     const systemId = form.getValues('employeeSystemId');
@@ -528,7 +545,7 @@ export function WarrantyFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <WarrantyReceivedImagesCard
                 isEditing={isEditing || !!copyFromId}
-                disabled={isReadOnly || isUpdateMode}
+                disabled={isReadOnly || isUpdateMode || isNotesOnlyMode}
                 permanentFiles={formState.receivedPermanentFiles}
                 setPermanentFiles={formState.setReceivedPermanentFiles}
                 stagingFiles={formState.receivedStagingFiles}
@@ -541,7 +558,7 @@ export function WarrantyFormPage() {
               
               <WarrantyProcessedImagesCard
                 isEditing={isEditing || !!copyFromId}
-                disabled={isReadOnly}
+                disabled={isReadOnly || isNotesOnlyMode}
                 permanentFiles={formState.processedPermanentFiles}
                 setPermanentFiles={formState.setProcessedPermanentFiles}
                 stagingFiles={formState.processedStagingFiles}
@@ -555,20 +572,23 @@ export function WarrantyFormPage() {
 
             {/* Hàng 3: Danh sách sản phẩm bảo hành */}
             <WarrantyProductsSection 
-              disabled={isReadOnly} 
+              disabled={isReadOnly || isNotesOnlyMode}
+              notesDisabled={isReadOnly}
               getImagesStateRef={getProductImagesStateRef}
               getWarrantyCheckResultsRef={getWarrantyCheckResultsRef}
             />
 
-            {/* Hàng 4: Ghi chú (30%) + Thanh toán (70%) */}
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="w-full md:w-[30%]">
-                <OrderNotes disabled={isReadOnly} />
+            {/* Hàng 4: Ghi chú (30%) + Thanh toán (70%) - KHÔNG hiện khi CANCELLED */}
+            {!isNotesHidden && (
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="w-full md:w-[30%]">
+                  <OrderNotes disabled={isReadOnly} />
+                </div>
+                <div className="w-full md:w-[70%]">
+                  <WarrantySummary disabled={isNotesOnlyMode || isReadOnly} />
+                </div>
               </div>
-              <div className="w-full md:w-[70%]">
-                <WarrantySummary disabled={isReadOnly} />
-              </div>
-            </div>
+            )}
 
           </div>
         </div>

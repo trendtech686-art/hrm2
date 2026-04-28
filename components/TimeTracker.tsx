@@ -38,12 +38,26 @@ export function TimeTracker({
   createdAt,
 }: TimeTrackerProps) {
   const [tick, setTick] = React.useState(0);
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Tick every second when running
   React.useEffect(() => {
-    if (!isRunning) return;
-    const interval = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(interval);
+    if (isRunning) {
+      if (!intervalRef.current) {
+        intervalRef.current = setInterval(() => setTick(t => t + 1), 1000);
+      }
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [isRunning]);
 
   // Response time: createdAt → startedAt (fixed once started)

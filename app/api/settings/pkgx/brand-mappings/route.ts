@@ -15,8 +15,33 @@ export async function GET(_request: NextRequest) {
   try {
     const mappings = await prisma.pkgxBrandMapping.findMany({
       where: { isActive: true },
-      include: {
-        pkgxBrand: true,
+      select: {
+        systemId: true,
+        hrmBrandId: true,
+        hrmBrandName: true,
+        pkgxBrandId: true,
+        pkgxBrandName: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        pkgxBrand: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            description: true,
+            siteUrl: true,
+            sortOrder: true,
+            isShow: true,
+            keywords: true,
+            metaTitle: true,
+            metaDesc: true,
+            shortDescription: true,
+            longDescription: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -83,7 +108,34 @@ export async function POST(request: NextRequest) {
               pkgxBrandName: pkgxBrandName || '',
               createdBy: session.user?.id,
             },
-            include: { pkgxBrand: true },
+            select: {
+              systemId: true,
+              hrmBrandId: true,
+              hrmBrandName: true,
+              pkgxBrandId: true,
+              pkgxBrandName: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+              createdBy: true,
+              updatedBy: true,
+              pkgxBrand: {
+                select: {
+                  id: true,
+                  name: true,
+                  logo: true,
+                  description: true,
+                  siteUrl: true,
+                  sortOrder: true,
+                  isShow: true,
+                  keywords: true,
+                  metaTitle: true,
+                  metaDesc: true,
+                  shortDescription: true,
+                  longDescription: true,
+                },
+              },
+            },
           })
         })
         createActivityLog({
@@ -131,8 +183,33 @@ export async function POST(request: NextRequest) {
         pkgxBrandName: pkgxBrandName || '',
         createdBy: session.user?.id,
       },
-      include: {
-        pkgxBrand: true,
+      select: {
+        systemId: true,
+        hrmBrandId: true,
+        hrmBrandName: true,
+        pkgxBrandId: true,
+        pkgxBrandName: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        pkgxBrand: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            description: true,
+            siteUrl: true,
+            sortOrder: true,
+            isShow: true,
+            keywords: true,
+            metaTitle: true,
+            metaDesc: true,
+            shortDescription: true,
+            longDescription: true,
+          },
+        },
       },
     })
 

@@ -1,7 +1,6 @@
 import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliPkgxProduct } from '@/lib/meilisearch'
-import { requireAuth, apiError } from '@/lib/api-utils'
-import { NextResponse } from 'next/server'
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'
 
 /**
@@ -71,7 +70,7 @@ export async function GET(request: Request) {
       hrmProductId: hit.hrmProductId,
     }))
 
-    return NextResponse.json({
+    return apiSuccess({
       data: products,
       meta: {
         total: results.estimatedTotalHits,

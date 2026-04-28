@@ -7,7 +7,8 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
 
@@ -89,10 +90,7 @@ function convertPartnerToAccounts(partner: {
 }
 
 // GET /api/shipping-config
-export async function GET(_request: Request) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async () => {
   try {
     // ✅ Read from ShippingPartner table first (new system)
     const shippingPartners = await prisma.shippingPartner.findMany({
@@ -157,13 +155,12 @@ export async function GET(_request: Request) {
     logError('[SHIPPING-CONFIG] GET error', error)
     return apiError('Internal server error', 500)
   }
-}
+}, {
+  rateLimit: { max: 30, windowMs: 60_000 }
+})
 
 // POST /api/shipping-config
-export async function POST(request: Request) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (request, { session }) => {
   try {
     const config = await request.json()
     
@@ -312,4 +309,6 @@ export async function POST(request: Request) {
     logError('[SHIPPING-CONFIG] POST error', error)
     return apiError('Internal server error', 500)
   }
-}
+}, {
+  rateLimit: { max: 20, windowMs: 60_000 }
+})

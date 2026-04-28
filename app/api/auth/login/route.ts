@@ -36,12 +36,26 @@ export async function POST(request: Request) {
     const user = userLite
       ? await prisma.user.findUnique({
           where: { systemId: userLite.systemId },
-          include: {
+          select: {
+            systemId: true,
+            email: true,
+            password: true,
+            role: true,
+            isActive: true,
+            employeeId: true,
             employee: {
-              include: {
-                department: true,
-                branch: true,
-                jobTitle: true,
+              select: {
+                systemId: true,
+                fullName: true,
+                department: {
+                  select: { systemId: true, name: true },
+                },
+                branch: {
+                  select: { systemId: true, name: true },
+                },
+                jobTitle: {
+                  select: { systemId: true, name: true },
+                },
               },
             },
           },

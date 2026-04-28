@@ -20,7 +20,25 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const branch = await prisma.branch.findUnique({
       where: { systemId },
-      include: {
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        address: true,
+        phone: true,
+        isDefault: true,
+        isActive: true,
+        isDeleted: true,
+        managerId: true,
+        province: true,
+        provinceId: true,
+        district: true,
+        districtId: true,
+        ward: true,
+        wardCode: true,
+        addressLevel: true,
+        createdAt: true,
+        updatedAt: true,
         employees: {
           where: { isDeleted: false },
           take: 10,
@@ -29,8 +47,20 @@ export async function GET(_request: Request, { params }: RouteParams) {
             id: true,
             fullName: true,
             avatar: true,
-            jobTitle: true,
-            department: true,
+            jobTitle: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+              },
+            },
+            department: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         _count: { select: { employees: true } },

@@ -36,16 +36,47 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get the packaging with order, line items, and existing shipment
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: { 
+      select: {
+        systemId: true,
+        orderId: true,
+        id: true,
+        confirmDate: true,
+        deliveryMethod: true,
+        deliveryStatus: true,
         order: {
-          include: {
+          select: {
+            id: true,
+            systemId: true,
+            branchId: true,
+            grandTotal: true,
+            linkedSalesReturnValue: true,
+            paymentStatus: true,
+            salespersonId: true,
+            customerId: true,
             lineItems: {
-              include: { product: true }
+              select: {
+                systemId: true,
+                productId: true,
+                productName: true,
+                productSku: true,
+                quantity: true,
+              },
             },
-            branch: true,
-          }
+            branch: {
+              select: {
+                id: true,
+                systemId: true,
+                name: true,
+              },
+            },
+          },
         },
-        shipment: true, // Check if shipment already exists
+        shipment: {
+          select: {
+            systemId: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -252,16 +283,60 @@ export async function POST(request: Request, { params }: RouteParams) {
           dispatchedDate: new Date(),
           ...(completedDate && { completedDate }),
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          id: true,
+          systemId: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          stockOutStatus: true,
+          salespersonId: true,
+          customerId: true,
+          grandTotal: true,
+          linkedSalesReturnValue: true,
+          customer: {
+            select: {
+              systemId: true,
+              name: true,
+              phone: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              systemId: true,
+              amount: true,
+              linkedReceiptSystemId: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              deliveryMethod: true,
+              deliveryStatus: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  status: true,
+                  trackingCode: true,
+                },
+              },
             },
           },
         },

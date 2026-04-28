@@ -39,7 +39,7 @@ export const GET = apiHandler(async (request) => {
     logError('Error fetching cash accounts', error)
     return apiError('Không thể tải danh sách quỹ tiền', 500)
   }
-})
+}, { auth: true })
 
 // POST /api/cash-accounts - Create new cash account
 export const POST = apiHandler(async (request, { session }) => {
@@ -95,4 +95,4 @@ export const POST = apiHandler(async (request, { session }) => {
     logError('Error creating cash account', error)
     return apiError('Không thể tạo quỹ tiền', 500)
   }
-})
+}, { auth: true })

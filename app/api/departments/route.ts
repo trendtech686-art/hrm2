@@ -29,8 +29,23 @@ export async function GET(request: Request) {
       const departments = await prisma.department.findMany({
         where,
         orderBy: { name: 'asc' },
-        include: {
-          parent: true,
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          parentId: true,
+          isActive: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
+          parent: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
           _count: { select: { employees: true, children: true } },
         },
       })
@@ -43,8 +58,23 @@ export async function GET(request: Request) {
         skip,
         take: limit,
         orderBy: { name: 'asc' },
-        include: {
-          parent: true,
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          description: true,
+          parentId: true,
+          isActive: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
+          parent: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
           _count: { select: { employees: true, children: true } },
         },
       }),
@@ -86,8 +116,14 @@ export async function POST(request: Request) {
           description: body.description,
           parent: body.parentId ? { connect: { systemId: body.parentId } } : undefined,
         },
-        include: {
-          parent: true,
+        select: {
+          parent: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+            },
+          },
         },
       });
     });

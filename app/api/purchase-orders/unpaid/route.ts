@@ -1,8 +1,15 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api-utils'
 import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+// Query params validation schema
+const unpaidQuerySchema = z.object({
+  supplierSystemId: z.string().min(1, 'supplierSystemId is required'),
+})
 
 /**
  * GET /api/purchase-orders/unpaid?supplierSystemId=xxx
@@ -10,11 +17,12 @@ export const dynamic = 'force-dynamic'
  */
 export const GET = apiHandler(async (request) => {
   const { searchParams } = new URL(request.url)
-  const supplierSystemId = searchParams.get('supplierSystemId')
+  const validation = unpaidQuerySchema.safeParse(Object.fromEntries(searchParams.entries()))
 
-  if (!supplierSystemId) {
-    return apiError('supplierSystemId is required', 400)
+  if (!validation.success) {
+    return apiError(validation.error.issues[0]?.message || 'supplierSystemId is required', 400)
   }
+  const { supplierSystemId } = validation.data
 
   try {
     const purchaseOrders = await prisma.purchaseOrder.findMany({
@@ -50,7 +58,7 @@ export const GET = apiHandler(async (request) => {
 
     return apiSuccess(serialized)
   } catch (error) {
-    console.error('[GET /api/purchase-orders/unpaid] Error:', error)
+    logError('Failed to fetch unpaid purchase orders', error)
     return apiError('Không thể tải danh sách đơn mua hàng chưa thanh toán', 500)
   }
-})
+}, { auth: true, permission: 'view_purchase_orders' })

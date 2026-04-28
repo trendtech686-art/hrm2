@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(serialized)
   } catch (error) {
-    console.error('[GET /api/orders/unpaid] Error:', error)
+    logError('Failed to fetch unpaid orders', error)
     return apiError('Failed to fetch unpaid orders', 500)
   }
 }

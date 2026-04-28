@@ -22,10 +22,20 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get the packaging with order
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: {
+      select: {
+        orderId: true,
         order: {
-          include: {
-            lineItems: true,
+          select: {
+            systemId: true,
+            id: true,
+            branchId: true,
+            lineItems: {
+              select: {
+                productId: true,
+                productName: true,
+                quantity: true,
+              },
+            },
           },
         },
       },
@@ -192,16 +202,71 @@ export async function POST(request: Request, { params }: RouteParams) {
           ...(newStockOutStatus && { stockOutStatus: newStockOutStatus }),
           ...(resetDispatchedDate && { dispatchedDate: null }),
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          paymentStatus: true,
+          deliveryStatus: true,
+          salespersonId: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productSku: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              product: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              id: true,
+              date: true,
+              method: true,
+              amount: true,
+              description: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              deliveryStatus: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  trackingCode: true,
+                  status: true,
+                  deliveryStatus: true,
+                  carrier: true,
+                },
+              },
             },
           },
         },

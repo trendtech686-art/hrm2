@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -219,10 +219,18 @@ interface TaskCardProps {
 }
 
 function TaskCardItem({ task, onComplete, onStart, onViewDetails, onCameraCapture }: TaskCardProps) {
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const isOverdue = useMemo(() => {
-    if (!task.dueDate) return false;
-    return new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
-  }, [task.dueDate, task.status]);
+    if (!task.dueDate || !now) return false;
+    return new Date(task.dueDate) < now && task.status !== 'Hoàn thành';
+  }, [task.dueDate, task.status, now]);
   const isCompleted = task.status === 'Hoàn thành'
   const isPendingApproval = task.approvalStatus === 'pending'
   const isRejected = task.approvalStatus === 'rejected'
@@ -431,6 +439,12 @@ export function UserTasksPage() {
   const queryClient = useQueryClient()
   const taskListRef = React.useRef<HTMLDivElement>(null)
 
+  // Client-only date for hydration safety
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+  }, []);
+
   const update = React.useCallback(
     (systemId: string, data: Partial<Task>) => {
       updateMutation.mutate({ systemId, data })
@@ -480,7 +494,7 @@ export function UserTasksPage() {
       ),
       overdue: myTasks.filter((task) => {
         return (
-          new Date(task.dueDate) < new Date() &&
+          new Date(task.dueDate) < (now ?? new Date()) &&
           task.status !== 'Hoàn thành' &&
           task.approvalStatus !== 'pending'
         )
@@ -490,7 +504,7 @@ export function UserTasksPage() {
       ),
       pending: myTasks.filter((task) => task.approvalStatus === 'pending'),
     } as Record<TabKey, Task[]>
-  }, [myTasks])
+  }, [myTasks, now])
 
   const filterTasks = (tasks: Task[]) => {
     if (!searchQuery.trim()) return tasks

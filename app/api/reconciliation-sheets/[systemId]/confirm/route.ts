@@ -1,6 +1,6 @@
 /**
  * Confirm Reconciliation Sheet
- * 
+ *
  * POST /api/reconciliation-sheets/[systemId]/confirm
  * - Changes status from DRAFT → CONFIRMED
  * - Updates packaging reconciliationStatus to 'Đã đối soát' for all items
@@ -19,7 +19,18 @@ export const POST = apiHandler(async (_req, { session, params }) => {
 
     const sheet = await prisma.reconciliationSheet.findUnique({
       where: { systemId },
-      include: { items: true },
+      select: {
+        systemId: true,
+        id: true,
+        carrier: true,
+        status: true,
+        items: {
+          select: {
+            packagingId: true,
+          },
+        },
+        createdBy: true,
+      },
     })
 
     if (!sheet) {
@@ -44,8 +55,24 @@ export const POST = apiHandler(async (_req, { session, params }) => {
           confirmedBy: session?.user?.id,
           updatedBy: session?.user?.id,
         },
-        include: {
-          items: true,
+        select: {
+          items: {
+            select: {
+              systemId: true,
+              packagingId: true,
+              trackingCode: true,
+              orderId: true,
+              orderSystemId: true,
+              customerName: true,
+              codSystem: true,
+              codPartner: true,
+              codDifference: true,
+              feeSystem: true,
+              feePartner: true,
+              feeDifference: true,
+              note: true,
+            },
+          },
           branch: { select: { systemId: true, name: true } },
         },
       })

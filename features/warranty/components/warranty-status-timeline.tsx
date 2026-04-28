@@ -20,7 +20,6 @@ function getStatusIcon(status: WarrantyStatus) {
   const icons: Record<WarrantyStatus, React.ElementType> = {
     RECEIVED: AlertCircle,
     PROCESSING: Clock,
-    WAITING_PARTS: Clock,
     COMPLETED: CheckCircle,
     RETURNED: Package,
     CANCELLED: XCircle,

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { apiHandler } from '@/lib/api-handler'
-import { apiSuccess, apiError, validateBody } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiPaginated, validateBody, parsePagination, serializeDecimals } from '@/lib/api-utils'
 import { z } from 'zod'
 import { logError } from '@/lib/logger'
 import { createActivityLog } from '@/lib/services/activity-log-service'
@@ -22,20 +22,49 @@ const conversionSchema = z.object({
 
 // GET /api/product-conversions?baseProductId=xxx
 export const GET = apiHandler(async (req) => {
-  const url = new URL(req.url)
-  const baseProductId = url.searchParams.get('baseProductId')
+  try {
+    const url = new URL(req.url)
+    const { page, limit, skip } = parsePagination(url.searchParams)
+    const baseProductId = url.searchParams.get('baseProductId')
 
-  const where = baseProductId
-    ? { baseProductId, isActive: true }
-    : { isActive: true }
+    const where = baseProductId
+      ? { baseProductId, isActive: true }
+      : { isActive: true }
 
-  const conversions = await prisma.productConversion.findMany({
-    where,
-    include: { baseProduct: { select: { systemId: true, id: true, name: true, unit: true } } },
-    orderBy: { sortOrder: 'asc' },
-  })
+    const [conversions, total] = await Promise.all([
+      prisma.productConversion.findMany({
+        where,
+        select: {
+          systemId: true,
+          baseProductId: true,
+          conversionUnit: true,
+          conversionRate: true,
+          sku: true,
+          barcode: true,
+          name: true,
+          sellingPrice: true,
+          costPrice: true,
+          weight: true,
+          weightUnit: true,
+          thumbnailImage: true,
+          isActive: true,
+          sortOrder: true,
+          createdAt: true,
+          updatedAt: true,
+          baseProduct: { select: { systemId: true, id: true, name: true, unit: true } },
+        },
+        orderBy: { sortOrder: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.productConversion.count({ where }),
+    ])
 
-  return apiSuccess(conversions)
+    return apiPaginated(serializeDecimals(conversions), { page, limit, total })
+  } catch (error) {
+    logError('[product-conversions] GET failed', error)
+    return apiError('Failed to fetch product conversions', 500)
+  }
 }, { permission: 'view_products' })
 
 // POST /api/product-conversions
@@ -71,7 +100,25 @@ export const POST = apiHandler(async (req) => {
       weightUnit: body.weightUnit,
       thumbnailImage: body.thumbnailImage,
     },
-    include: { baseProduct: { select: { systemId: true, id: true, name: true, unit: true } } },
+    select: {
+      systemId: true,
+      baseProductId: true,
+      conversionUnit: true,
+      conversionRate: true,
+      sku: true,
+      barcode: true,
+      name: true,
+      sellingPrice: true,
+      costPrice: true,
+      weight: true,
+      weightUnit: true,
+      thumbnailImage: true,
+      isActive: true,
+      sortOrder: true,
+      createdAt: true,
+      updatedAt: true,
+      baseProduct: { select: { systemId: true, id: true, name: true, unit: true } },
+    },
   })
 
   createActivityLog({

@@ -14,18 +14,42 @@ export const GET = apiHandler(async (_request, { params }) => {
 
     const product = await prisma.product.findUnique({
       where: { systemId },
-      include: {
-        brand: true,
+      select: {
+        // Scalar fields
+        systemId: true, id: true, name: true, description: true, shortDescription: true,
+        thumbnailImage: true, imageUrl: true, galleryImages: true,
+        type: true, brandId: true, unit: true,
+        costPrice: true, lastPurchasePrice: true, lastPurchaseDate: true,
+        isStockTracked: true, reorderLevel: true, safetyStock: true, maxStock: true,
+        weight: true, weightUnit: true, barcode: true, warrantyPeriodMonths: true,
+        primarySupplierId: true, isPublished: true, isFeatured: true, sortOrder: true,
+        seoDescription: true, seoKeywords: true, slug: true,
+        totalSold: true, viewCount: true, status: true, isDeleted: true, deletedAt: true,
+        createdAt: true, updatedAt: true, createdBy: true, updatedBy: true,
+        ktitle: true, videoLinks: true, seoPkgx: true, seoTrendtech: true,
+        productTypeSystemId: true, categorySystemIds: true, categories: true,
+        subCategory: true, subCategories: true, warehouseLocation: true,
+        storageLocationSystemId: true, tags: true,
+        pkgxId: true, trendtechId: true, pkgxSyncedAt: true,
+        inventoryByBranch: true, committedByBranch: true, inTransitByBranch: true, inDeliveryByBranch: true,
+        totalInventory: true, totalCommitted: true, totalAvailable: true, inventoryUpdatedAt: true,
+        dimensions: true, sellerNote: true,
+        nameVat: true, origin: true, usageGuide: true,
+        importerSystemId: true, importerName: true, importerAddress: true, printLabel: true,
+        comboItems: true, comboPricingType: true, comboDiscount: true,
+        isNewArrival: true, isBestSeller: true, isOnSale: true, publishedAt: true,
+        hasVariants: true, variantAttributes: true, variants: true,
+        launchedDate: true, discontinuedDate: true,
+        // Relations (select only needed fields)
+        brand: { select: { systemId: true, name: true } },
         productCategories: {
-          include: {
-            category: true,
-          },
+          select: { categoryId: true },
         },
-        productInventory: true,
+        productInventory: {
+          select: { branchId: true, onHand: true, committed: true, inTransit: true, inDelivery: true },
+        },
         prices: {
-          include: {
-            pricingPolicy: true,
-          },
+          select: { pricingPolicyId: true, price: true },
         },
       },
     })
@@ -193,12 +217,36 @@ export const PATCH = apiHandler(async (request, { session, params }) => {
     const product = await prisma.product.update({
       where: { systemId },
       data,
-      include: {
-        brand: true,
+      select: {
+        // Scalar fields
+        systemId: true, id: true, name: true, description: true, shortDescription: true,
+        thumbnailImage: true, imageUrl: true, galleryImages: true,
+        type: true, brandId: true, unit: true,
+        costPrice: true, lastPurchasePrice: true, lastPurchaseDate: true,
+        isStockTracked: true, reorderLevel: true, safetyStock: true, maxStock: true,
+        weight: true, weightUnit: true, barcode: true, warrantyPeriodMonths: true,
+        primarySupplierId: true, isPublished: true, isFeatured: true, sortOrder: true,
+        seoDescription: true, seoKeywords: true, slug: true,
+        totalSold: true, viewCount: true, status: true, isDeleted: true, deletedAt: true,
+        createdAt: true, updatedAt: true, createdBy: true, updatedBy: true,
+        ktitle: true, videoLinks: true, seoPkgx: true, seoTrendtech: true,
+        productTypeSystemId: true, categorySystemIds: true, categories: true,
+        subCategory: true, subCategories: true, warehouseLocation: true,
+        storageLocationSystemId: true, tags: true,
+        pkgxId: true, trendtechId: true, pkgxSyncedAt: true,
+        inventoryByBranch: true, committedByBranch: true, inTransitByBranch: true, inDeliveryByBranch: true,
+        totalInventory: true, totalCommitted: true, totalAvailable: true, inventoryUpdatedAt: true,
+        dimensions: true, sellerNote: true,
+        nameVat: true, origin: true, usageGuide: true,
+        importerSystemId: true, importerName: true, importerAddress: true, printLabel: true,
+        comboItems: true, comboPricingType: true, comboDiscount: true,
+        isNewArrival: true, isBestSeller: true, isOnSale: true, publishedAt: true,
+        hasVariants: true, variantAttributes: true, variants: true,
+        launchedDate: true, discontinuedDate: true,
+        // Relations
+        brand: { select: { systemId: true, name: true } },
         productCategories: {
-          include: {
-            category: true,
-          },
+          select: { categoryId: true },
         },
       },
     })

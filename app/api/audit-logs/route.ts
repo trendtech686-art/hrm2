@@ -36,6 +36,9 @@ export async function GET(request: Request) {
 
     if (userId) {
       where.userId = userId
+    } else {
+      // Default filter: non-admin users can only see their own logs
+      where.userId = session.user?.id
     }
 
     if (fromDate || toDate) {

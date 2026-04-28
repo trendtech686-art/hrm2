@@ -17,7 +17,22 @@ export const GET = apiHandler(async (_req, { params }) => {
       ],
       isDeleted: false,
     },
-    include: {
+    select: {
+      systemId: true,
+      id: true,
+      supplierSystemId: true,
+      supplierName: true,
+      status: true,
+      trackingNumber: true,
+      sentDate: true,
+      receivedDate: true,
+      reason: true,
+      totalWarrantyCost: true,
+      notes: true,
+      isDeleted: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
       items: true,
       packagings: {
         orderBy: { createdAt: 'desc' },

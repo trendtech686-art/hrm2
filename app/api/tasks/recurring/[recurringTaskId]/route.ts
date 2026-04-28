@@ -1,8 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { logError } from '@/lib/logger';
 import { createActivityLog } from '@/lib/services/activity-log-service';
+import { z } from 'zod';
+
+// Validation schema for PUT request
+const updateRecurringTaskSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  assignees: z.array(z.string()).optional(),
+  assigneeSystemId: z.string().optional(),
+  assignerId: z.string().optional(),
+  assignerName: z.string().optional(),
+  priority: z.string().optional(),
+  estimatedHours: z.number().optional(),
+  recurrencePattern: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  durationDays: z.number().optional(),
+  createDaysBefore: z.number().optional(),
+  isActive: z.boolean().optional(),
+  isPaused: z.boolean().optional(),
+  nextOccurrenceDate: z.string().datetime().optional().nullable(),
+  createdTaskIds: z.array(z.string()).optional(),
+  occurrenceCount: z.number().optional(),
+  lastCreatedDate: z.string().datetime().optional().nullable(),
+  updatedBy: z.string().optional(),
+})
 
 // GET - Single recurring task
 export async function GET(
@@ -40,9 +64,13 @@ export async function PUT(
 
   const { recurringTaskId } = await params;
 
-  try {
-    const body = await request.json();
+  const validation = await validateBody(request, updateRecurringTaskSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const body = validation.data;
 
+  try {
     const existing = await prisma.recurringTask.findUnique({
       where: { systemId: recurringTaskId },
     });

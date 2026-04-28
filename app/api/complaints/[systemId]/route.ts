@@ -43,9 +43,53 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const complaint = await prisma.complaint.findUnique({
       where: { systemId },
-      include: {
-        customer: true,
-        employees: true,
+      select: {
+        systemId: true,
+        id: true,
+        customerId: true,
+        orderId: true,
+        orderCode: true,
+        orderValue: true,
+        branchSystemId: true,
+        branchName: true,
+        customerName: true,
+        customerPhone: true,
+        title: true,
+        description: true,
+        category: true,
+        type: true,
+        priority: true,
+        status: true,
+        assigneeId: true,
+        images: true,
+        employeeImages: true,
+        affectedProducts: true,
+        verification: true,
+        isVerifiedCorrect: true,
+        timeline: true,
+        resolvedAt: true,
+        endedAt: true,
+        cancelledAt: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        customer: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            phone: true,
+            address: true,
+          },
+        },
+        employees: {
+          select: {
+            systemId: true,
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
       },
     })
 
@@ -108,10 +152,53 @@ export async function GET(_request: Request, { params }: RouteParams) {
       orderLookup
         ? prisma.order.findUnique({
             where: orderLookup,
-            include: {
-              customer: true,
-              branch: true,
-              packagings: { include: { shipment: true }, orderBy: { createdAt: 'desc' } },
+            select: {
+              systemId: true,
+              id: true,
+              customerName: true,
+              branchId: true,
+              branchName: true,
+              salespersonName: true,
+              salespersonId: true,
+              orderDate: true,
+              expectedDeliveryDate: true,
+              grandTotal: true,
+              paidAmount: true,
+              shippingAddress: true,
+              status: true,
+              paymentStatus: true,
+              deliveryStatus: true,
+              customer: {
+                select: {
+                  systemId: true,
+                  id: true,
+                  name: true,
+                  phone: true,
+                  address: true,
+                },
+              },
+              branch: {
+                select: {
+                  systemId: true,
+                  name: true,
+                },
+              },
+              packagings: {
+                select: {
+                  systemId: true,
+                  requestDate: true,
+                  status: true,
+                  trackingCode: true,
+                  shipment: {
+                    select: {
+                      systemId: true,
+                      trackingCode: true,
+                      status: true,
+                    },
+                  },
+                },
+                orderBy: { createdAt: 'desc' },
+              },
             },
           })
         : Promise.resolve(null),
@@ -134,7 +221,22 @@ export async function GET(_request: Request, { params }: RouteParams) {
         ? prisma.receipt.findMany({ where: { systemId: { in: [...allReceiptIds] } }, select: { systemId: true, id: true, amount: true, status: true, cancelledAt: true } })
         : Promise.resolve([]),
       allInventoryCheckIds.size > 0
-        ? prisma.inventoryCheck.findMany({ where: { systemId: { in: [...allInventoryCheckIds] } }, include: { items: true } })
+        ? prisma.inventoryCheck.findMany({
+            where: { systemId: { in: [...allInventoryCheckIds] } },
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              cancelledAt: true,
+              items: {
+                select: {
+                  systemId: true,
+                  productName: true,
+                  difference: true,
+                },
+              },
+            },
+          })
         : Promise.resolve([]),
       allPenaltyIds.size > 0
         ? prisma.penalty.findMany({ where: { systemId: { in: [...allPenaltyIds] } } })
@@ -325,8 +427,43 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const complaint = await prisma.complaint.update({
       where: { systemId },
       data: updateData,
-      include: {
-        customer: true,
+      select: {
+        systemId: true,
+        id: true,
+        customerId: true,
+        orderId: true,
+        orderCode: true,
+        orderValue: true,
+        branchSystemId: true,
+        branchName: true,
+        customerName: true,
+        customerPhone: true,
+        title: true,
+        description: true,
+        category: true,
+        type: true,
+        priority: true,
+        status: true,
+        assigneeId: true,
+        images: true,
+        employeeImages: true,
+        affectedProducts: true,
+        verification: true,
+        isVerifiedCorrect: true,
+        timeline: true,
+        resolvedAt: true,
+        endedAt: true,
+        cancelledAt: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        customer: {
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 

@@ -1,12 +1,32 @@
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, apiNotFound, validateBody, validateQuery } from '@/lib/api-utils';
 import { logError } from '@/lib/logger'
 import { createNotification } from '@/lib/notifications'
 import { createActivityLog } from '@/lib/services/activity-log-service'
+import { z } from 'zod';
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
 }
+
+// Validation schema for POST GHTK request
+const createGhtkShipmentSchema = z.object({
+  trackingCode: z.string().min(1, 'trackingCode is required'),
+  trackingId: z.string().optional(),
+  estimatedPickTime: z.string().datetime().optional(),
+  estimatedDeliverTime: z.string().datetime().optional(),
+  shippingFee: z.number().optional(),
+  weight: z.number().optional(),
+  dimensions: z.any().optional(),
+  codAmount: z.number().optional(),
+  payer: z.string().optional(),
+  service: z.string().optional(),
+})
+
+// Validation schema for DELETE GHTK request
+const cancelGhtkShipmentQuerySchema = z.object({
+  trackingCode: z.string().min(1, 'Tracking code is required'),
+})
 
 // POST /api/orders/[systemId]/packaging/[packagingId]/ghtk - Create GHTK shipment
 export async function POST(request: Request, { params }: RouteParams) {
@@ -15,32 +35,33 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId, packagingId } = await params;
-    const body = await request.json();
-    
-    // Extract GHTK data from request body (sent from client after calling GHTK API)
-    const { 
-      trackingCode, 
-      trackingId,
-      estimatedPickTime,
-      estimatedDeliverTime,
-      shippingFee,
-      weight,
-      dimensions,
-      codAmount,
-      payer,
-      service,
-    } = body;
-    
-    if (!trackingCode) {
-      return apiError('trackingCode is required', 400);
-    }
+
+    const validation = await validateBody(request, createGhtkShipmentSchema);
+    if (!validation.success) return apiError(validation.error, 400);
+    const { trackingCode, trackingId, estimatedPickTime, estimatedDeliverTime, shippingFee, weight, dimensions, codAmount, payer, service } = validation.data;
 
     // Get the packaging
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: {
+      select: {
+        systemId: true,
+        orderId: true,
+        trackingCode: true,
         order: {
-          include: { customer: true },
+          select: {
+            systemId: true,
+            id: true,
+            branchId: true,
+            customer: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+                phone: true,
+                address: true,
+              },
+            },
+          },
         },
       },
     });
@@ -124,16 +145,88 @@ export async function POST(request: Request, { params }: RouteParams) {
           trackingCode: trackingCode,
           shippingCarrier: 'GHTK',
         },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          deliveryStatus: true,
+          stockOutStatus: true,
+          branchId: true,
+          customerId: true,
+          customerName: true,
+          salespersonId: true,
+          salespersonName: true,
+          grandTotal: true,
+          paidAmount: true,
+          paymentStatus: true,
+          deliveryMethod: true,
+          shippingCarrier: true,
+          trackingCode: true,
+          notes: true,
+          shippingFee: true,
+          createdAt: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+              address: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              product: {
+                select: {
+                  systemId: true,
+                  barcode: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              amount: true,
+              method: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              confirmDate: true,
+              cancelDate: true,
+              deliveryStatus: true,
+              trackingCode: true,
+              carrier: true,
+              assignedEmployeeId: true,
+              assignedEmployeeName: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  trackingCode: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
             },
           },
         },
@@ -186,16 +279,24 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { systemId, packagingId } = await params;
     const { searchParams } = new URL(request.url);
-    const trackingCode = searchParams.get('trackingCode');
-
-    if (!trackingCode) {
-      return apiError('Tracking code is required', 400);
-    }
+    const validation = await validateQuery(searchParams, cancelGhtkShipmentQuerySchema);
+    if (!validation.success) return apiError(validation.error, 400);
+    const { trackingCode } = validation.data;
 
     // Get the packaging with shipment
     const packaging = await prisma.packaging.findUnique({
       where: { systemId: packagingId },
-      include: { shipment: true },
+      select: {
+        systemId: true,
+        orderId: true,
+        shipment: {
+          select: {
+            systemId: true,
+            trackingCode: true,
+            status: true,
+          },
+        },
+      },
     });
 
     if (!packaging) {
@@ -228,16 +329,88 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       const updated = await tx.order.update({
         where: { systemId },
         data: { status: 'PACKED' },
-        include: {
-          customer: true,
-          lineItems: {
-            include: { product: true },
+        select: {
+          systemId: true,
+          id: true,
+          status: true,
+          deliveryStatus: true,
+          stockOutStatus: true,
+          branchId: true,
+          customerId: true,
+          customerName: true,
+          salespersonId: true,
+          salespersonName: true,
+          grandTotal: true,
+          paidAmount: true,
+          paymentStatus: true,
+          deliveryMethod: true,
+          shippingCarrier: true,
+          trackingCode: true,
+          notes: true,
+          shippingFee: true,
+          createdAt: true,
+          customer: {
+            select: {
+              systemId: true,
+              id: true,
+              name: true,
+              phone: true,
+              address: true,
+            },
           },
-          payments: true,
+          lineItems: {
+            select: {
+              systemId: true,
+              productId: true,
+              productName: true,
+              productSku: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              total: true,
+              product: {
+                select: {
+                  systemId: true,
+                  barcode: true,
+                  name: true,
+                  thumbnailImage: true,
+                },
+              },
+            },
+          },
+          payments: {
+            select: {
+              systemId: true,
+              amount: true,
+              method: true,
+            },
+          },
           packagings: {
-            include: {
-              assignedEmployee: true,
-              shipment: true,
+            select: {
+              systemId: true,
+              id: true,
+              status: true,
+              confirmDate: true,
+              cancelDate: true,
+              deliveryStatus: true,
+              trackingCode: true,
+              carrier: true,
+              assignedEmployeeId: true,
+              assignedEmployeeName: true,
+              assignedEmployee: {
+                select: {
+                  systemId: true,
+                  fullName: true,
+                },
+              },
+              shipment: {
+                select: {
+                  systemId: true,
+                  trackingCode: true,
+                  status: true,
+                  carrier: true,
+                },
+              },
             },
           },
         },

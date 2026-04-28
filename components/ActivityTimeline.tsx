@@ -69,33 +69,38 @@ const actionColors: Record<TaskActivity['action'], string> = {
 
 export function ActivityTimeline({ activities = [], maxVisible = 5 }: ActivityTimelineProps) {
   const [showAll, setShowAll] = React.useState(false);
-  
+
+  // Client-only date for hydration safety
+  const [now, setNow] = React.useState<Date | null>(null);
+  React.useEffect(() => {
+    setNow(new Date());
+  }, []);
+
   // Sort activities by timestamp (newest first)
   const sortedActivities = React.useMemo(() => {
-    return [...activities].sort((a, b) => 
+    return [...activities].sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   }, [activities]);
-  
-  const displayedActivities = showAll 
-    ? sortedActivities 
+
+  const displayedActivities = showAll
+    ? sortedActivities
     : sortedActivities.slice(0, maxVisible);
-  
+
   const hasMore = sortedActivities.length > maxVisible;
-  
+
   const formatTimestamp = (timestamp: string): string => {
-    const now = new Date();
     const then = new Date(timestamp);
-    const diffMs = now.getTime() - then.getTime();
+    const diffMs = (now ?? new Date()).getTime() - then.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
+
     if (diffMins < 1) return 'Vừa xong';
     if (diffMins < 60) return `${diffMins} phút trước`;
     if (diffHours < 24) return `${diffHours} giờ trước`;
     if (diffDays < 7) return `${diffDays} ngày trước`;
-    
+
     return then.toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',

@@ -41,7 +41,24 @@ export async function POST(request: Request) {
         // Update order payment status if COD amount matches remaining balance
         const order = await tx.order.findUnique({
           where: { systemId: shipment.orderSystemId },
-          include: { payments: true },
+          select: {
+            systemId: true,
+            id: true,
+            grandTotal: true,
+            paidAmount: true,
+            payments: {
+              select: {
+                systemId: true,
+                id: true,
+                orderId: true,
+                amount: true,
+                method: true,
+                description: true,
+                createdBy: true,
+                createdAt: true,
+              },
+            },
+          },
         });
 
         if (order) {

@@ -3,7 +3,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { OptimizedImage } from '../../../components/ui/optimized-image';
-import { Image, Eye, AlertCircle } from 'lucide-react';
+import { ImageIcon, Eye, AlertCircle } from 'lucide-react';
 import type { CompletionEvidence, ApprovalStatus } from '../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
@@ -57,7 +57,7 @@ export function EvidenceThumbnailGrid({
           {/* Header với status badge */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Image className="h-4 w-4 text-muted-foreground" />
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Bằng chứng hoàn thành</span>
               <Badge variant="outline" className="text-xs">
                 {evidence.images.length} ảnh
