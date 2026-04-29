@@ -114,14 +114,32 @@ async function saveAppearanceSettings(settings: AppearanceSettings): Promise<App
 
   // Apply theme to DOM IMMEDIATELY before any other operations
   if (typeof window !== 'undefined') {
-    console.warn('[DEBUG] Saving theme, applying to DOM...')
     applyTheme(savedSettings.customThemeConfig, savedSettings.colorMode, savedSettings.fontSize);
     
-    // Verify CSS vars are set
-    const root = document.documentElement
-    console.warn('[DEBUG] chart-1 CSS var:', root.style.getPropertyValue('--chart-1'))
-    console.warn('[DEBUG] chart-2 CSS var:', root.style.getPropertyValue('--chart-2'))
-
+    // Update the SSR-injected <style> tag to match new theme
+    // This prevents stale CSS when navigating between pages without full refresh
+    const styleId = 'theme-css';
+    const styleEl = document.getElementById(styleId);
+    
+    if (styleEl) {
+      // Build CSS string from config
+      const cssLines: string[] = [];
+      for (const [key, value] of Object.entries(savedSettings.customThemeConfig)) {
+        if (key.startsWith('--') && value) {
+          cssLines.push(`${key}: ${value};`);
+        }
+      }
+      // Handle combined shadow variable
+      const shadowX = savedSettings.customThemeConfig['--shadow-x'] || '0px';
+      const shadowY = savedSettings.customThemeConfig['--shadow-y'] || '1px';
+      const shadowBlur = savedSettings.customThemeConfig['--shadow-blur'] || '2px';
+      const shadowSpread = savedSettings.customThemeConfig['--shadow-spread'] || '0px';
+      const shadowColor = savedSettings.customThemeConfig['--shadow-color'] || 'hsl(0 0% 0% / 0.05)';
+      cssLines.push(`--shadow: ${shadowX} ${shadowY} ${shadowBlur} ${shadowSpread} ${shadowColor};`);
+      
+      styleEl.textContent = `:root { ${cssLines.join(' ')} }`;
+    }
+    
     // Dispatch theme-change event for other components
     window.dispatchEvent(new CustomEvent('theme-change', {
       detail: {
@@ -130,24 +148,35 @@ async function saveAppearanceSettings(settings: AppearanceSettings): Promise<App
         customThemeConfig: savedSettings.customThemeConfig,
       }
     }));
-    console.warn('[DEBUG] theme-change event dispatched')
 
     // Notify chart colors hooks to re-read from DOM
     notifyThemeChanged();
-    console.warn('[DEBUG] notifyThemeChanged called')
   }
 
   return savedSettings;
 }
 
 // Default settings
-const defaultAppearanceSettings: AppearanceSettings = {
+export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'slate',
   colorMode: 'light',
   font: 'inter',
   fontSize: 'base',
   customThemeConfig: defaultCustomTheme,
 };
+
+/**
+ * Returns the default appearance settings
+ */
+export function getDefaultAppearanceSettings(): AppearanceSettings {
+  return {
+    theme: 'slate',
+    colorMode: 'light',
+    font: 'inter',
+    fontSize: 'base',
+    customThemeConfig: defaultCustomTheme,
+  };
+}
 
 /**
  * Hook to fetch appearance settings
@@ -181,5 +210,21 @@ export function useAppearanceMutations() {
     },
   });
 
-  return { saveMutation };
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const defaults = getDefaultAppearanceSettings();
+      return saveAppearanceSettings(defaults);
+    },
+    onSuccess: (data) => {
+      // Update query cache with defaults
+      queryClient.setQueryData(APPEARANCE_QUERY_KEY, data);
+      toast.success('Đã khôi phục giao diện mặc định!');
+    },
+    onError: () => {
+      toast.error('Không thể khôi phục giao diện mặc định');
+      invalidateAppearanceSettingsCache();
+    },
+  });
+
+  return { saveMutation, resetMutation };
 }

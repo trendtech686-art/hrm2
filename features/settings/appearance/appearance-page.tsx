@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import { Moon, Sun, ChevronsUpDown } from 'lucide-react'
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useAppearanceSettings, useAppearanceMutations } from './hooks/use-appearance-settings';
-import type { Theme, FontSize, CustomThemeConfig, ColorMode } from './store'
+import { defaultCustomTheme, type Theme, type FontSize, type CustomThemeConfig, type ColorMode } from './store'
 import { getThemeConfig } from './themes';
 import { Button } from '../../../components/ui/button'
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton'
@@ -17,11 +18,70 @@ import { ScrollArea } from '../../../components/ui/scroll-area'
 import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group';
 import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 
-import { PreviewCards } from '../previews/cards'
-import { PreviewDashboard } from '../previews/dashboard'
-import { PreviewAuthentication } from '../previews/authentication'
+import { ThemePreviewProvider } from './preview-provider'
+
+// Lazy load preview components for better performance
+const PreviewCardsLazy = dynamic(() => import('../previews/cards').then(mod => ({ default: mod.PreviewCards })), { ssr: false })
+const PreviewDashboardLazy = dynamic(() => import('../previews/dashboard').then(mod => ({ default: mod.PreviewDashboard })), { ssr: false })
+const PreviewAuthenticationLazy = dynamic(() => import('../previews/authentication').then(mod => ({ default: mod.PreviewAuthentication })), { ssr: false })
 
 type PreviewComponent = 'Cards' | 'Dashboard' | 'Authentication';
+
+// Appearance state type for the reducer
+interface AppearanceState {
+    theme: Theme;
+    fontSize: FontSize;
+    colorMode: ColorMode;
+    customThemeConfig: CustomThemeConfig;
+    font: string;
+}
+
+// Action types for the reducer
+type AppearanceAction =
+    | { type: 'SET_STATE'; payload: AppearanceState }
+    | { type: 'SET_THEME'; payload: Theme }
+    | { type: 'SET_FONT_SIZE'; payload: FontSize }
+    | { type: 'SET_COLOR_MODE'; payload: ColorMode }
+    | { type: 'SET_CUSTOM_THEME_CONFIG'; payload: CustomThemeConfig }
+    | { type: 'APPLY_PRESET'; payload: { themeName: Exclude<Theme, 'custom'>; config: CustomThemeConfig } }
+    | { type: 'UPDATE_CUSTOM_CONFIG'; payload: Partial<CustomThemeConfig> };
+
+// Reducer for all appearance state
+function appearanceReducer(state: AppearanceState, action: AppearanceAction): AppearanceState {
+    switch (action.type) {
+        case 'SET_STATE':
+            return { ...state, ...action.payload };
+        case 'SET_THEME':
+            return { ...state, theme: action.payload };
+        case 'SET_FONT_SIZE':
+            return { ...state, fontSize: action.payload };
+        case 'SET_COLOR_MODE': {
+            const newColorMode = action.payload;
+            // If not custom theme, recalculate customThemeConfig for new color mode
+            if (state.theme !== 'custom') {
+                const presetConfig = getThemeConfig(state.theme, newColorMode);
+                return { ...state, colorMode: newColorMode, customThemeConfig: presetConfig };
+            }
+            return { ...state, colorMode: newColorMode };
+        }
+        case 'SET_CUSTOM_THEME_CONFIG':
+            return { ...state, customThemeConfig: action.payload };
+        case 'APPLY_PRESET':
+            return {
+                ...state,
+                theme: action.payload.themeName,
+                customThemeConfig: action.payload.config,
+            };
+        case 'UPDATE_CUSTOM_CONFIG':
+            return {
+                ...state,
+                theme: 'custom' as Theme,
+                customThemeConfig: { ...state.customThemeConfig, ...action.payload },
+            };
+        default:
+            return state;
+    }
+}
 
 const themeOptions: { name: Exclude<Theme, 'custom'>; color: string }[] = [
     // eslint-disable-next-line hrm-theme/no-raw-palette-class -- Theme color swatches intentionally use Tailwind palette colors
@@ -36,9 +96,9 @@ const themeOptions: { name: Exclude<Theme, 'custom'>; color: string }[] = [
 ];
 
 const PreviewComponents: Record<PreviewComponent, React.ComponentType> = {
-    'Cards': PreviewCards,
-    'Dashboard': PreviewDashboard,
-    'Authentication': PreviewAuthentication,
+    'Cards': PreviewCardsLazy,
+    'Dashboard': PreviewDashboardLazy,
+    'Authentication': PreviewAuthenticationLazy,
 };
 
 export function AppearancePage() {
@@ -47,45 +107,25 @@ export function AppearancePage() {
     // =====================================================
 
     const { data: savedSettings } = useAppearanceSettings();
-    const { saveMutation } = useAppearanceMutations();
-
-    const savedTheme = savedSettings.theme;
-    const savedFontSize = savedSettings.fontSize;
-    const savedCustomThemeConfig = savedSettings.customThemeConfig;
-    const savedColorMode = savedSettings.colorMode;
+    const { saveMutation, resetMutation } = useAppearanceMutations();
 
     // =====================================================
-    // LOCAL STATE for preview only - NOT applied to system
+    // LOCAL STATE for preview only - using useReducer as single source of truth
     // Only save to DB when user clicks "Lưu"
     // =====================================================
 
-    // LOCAL state for live preview (not yet saved)
-    const [localTheme, setLocalTheme] = React.useState<Theme>(savedTheme);
-    const [localFontSize, setLocalFontSize] = React.useState<FontSize>(savedFontSize);
-    const [localCustomThemeConfig, setLocalCustomThemeConfig] = React.useState<CustomThemeConfig>(savedCustomThemeConfig);
-    const [localColorMode, setLocalColorMode] = React.useState<ColorMode>(savedColorMode);
+    const initialState: AppearanceState = {
+        theme: savedSettings.theme,
+        fontSize: savedSettings.fontSize,
+        colorMode: savedSettings.colorMode,
+        customThemeConfig: savedSettings.customThemeConfig,
+        font: savedSettings.font,
+    };
+
+    const [state, dispatch] = React.useReducer(appearanceReducer, initialState);
 
     // Track if we just saved to prevent useEffect from resetting
     const justSavedRef = React.useRef(false);
-
-    // Keep track of latest state in a ref to avoid recreating handleSave constantly
-    const stateRef = React.useRef({
-        theme: savedTheme,
-        fontSize: savedFontSize,
-        colorMode: savedColorMode,
-        customThemeConfig: savedCustomThemeConfig,
-        font: savedSettings.font,
-    });
-
-    React.useEffect(() => {
-        stateRef.current = {
-            theme: localTheme,
-            fontSize: localFontSize,
-            colorMode: localColorMode,
-            customThemeConfig: localCustomThemeConfig,
-            font: savedSettings.font,
-        };
-    }, [localTheme, localFontSize, localColorMode, localCustomThemeConfig, savedSettings.font]);
 
     // Sync local state when saved data changes (e.g., initial load)
     // But NOT right after we save (to prevent resetting to old values)
@@ -93,18 +133,24 @@ export function AppearancePage() {
         if (justSavedRef.current) {
             return;
         }
-        setLocalTheme(savedTheme);
-        setLocalFontSize(savedFontSize);
-        setLocalCustomThemeConfig(savedCustomThemeConfig);
-        setLocalColorMode(savedColorMode);
-    }, [savedTheme, savedFontSize, savedCustomThemeConfig, savedColorMode]);
+        dispatch({
+            type: 'SET_STATE',
+            payload: {
+                theme: savedSettings.theme,
+                fontSize: savedSettings.fontSize,
+                colorMode: savedSettings.colorMode,
+                customThemeConfig: savedSettings.customThemeConfig,
+                font: savedSettings.font,
+            },
+        });
+    }, [savedSettings.theme, savedSettings.fontSize, savedSettings.colorMode, savedSettings.customThemeConfig, savedSettings.font]);
 
     // Preview panel state (UI only)
     const [previewComponent, setPreviewComponent] = React.useState<PreviewComponent>('Dashboard');
 
     // SAVE: Save to database (which triggers theme-change event via React Query)
     const handleSave = React.useCallback(() => {
-        const { theme, fontSize, colorMode, customThemeConfig, font } = stateRef.current;
+        const { theme, fontSize, colorMode, customThemeConfig, font } = state;
 
         // Mark that we just saved so useEffect doesn't reset our values
         justSavedRef.current = true;
@@ -121,23 +167,54 @@ export function AppearancePage() {
             font,
             customThemeConfig,
         });
-    }, [saveMutation]);
+    }, [saveMutation, state]);
+
+    // RESET: Reset to default settings
+    const handleReset = React.useCallback(() => {
+        // Show confirmation dialog
+        if (!window.confirm('Bạn có chắc muốn khôi phục giao diện về mặc định?')) {
+            return;
+        }
+
+        const defaults = {
+            theme: 'slate' as Theme,
+            colorMode: 'light' as ColorMode,
+            font: 'inter' as const,
+            fontSize: 'base' as FontSize,
+            customThemeConfig: defaultCustomTheme,
+        };
+
+        // Mark that we just saved so useEffect doesn't reset our values
+        justSavedRef.current = true;
+        setTimeout(() => {
+            justSavedRef.current = false;
+        }, 100);
+
+        // Apply defaults to local state immediately
+        dispatch({ type: 'SET_STATE', payload: defaults });
+
+        // Call reset mutation to save to DB
+        resetMutation.mutate();
+    }, [resetMutation]);
 
     const storedAppearance = React.useMemo(
-        () => ({ theme: savedTheme, fontSize: savedFontSize, colorMode: savedColorMode, customThemeConfig: savedCustomThemeConfig }),
-        [savedTheme, savedFontSize, savedColorMode, savedCustomThemeConfig],
+        () => ({ theme: savedSettings.theme, fontSize: savedSettings.fontSize, colorMode: savedSettings.colorMode, customThemeConfig: savedSettings.customThemeConfig }),
+        [savedSettings.theme, savedSettings.fontSize, savedSettings.colorMode, savedSettings.customThemeConfig],
     );
     const localAppearance = React.useMemo(
-        () => ({ theme: localTheme, fontSize: localFontSize, colorMode: localColorMode, customThemeConfig: localCustomThemeConfig }),
-        [localTheme, localFontSize, localColorMode, localCustomThemeConfig],
+        () => ({ theme: state.theme, fontSize: state.fontSize, colorMode: state.colorMode, customThemeConfig: state.customThemeConfig }),
+        [state.theme, state.fontSize, state.colorMode, state.customThemeConfig],
     );
     const isDirty = useDirtyState(storedAppearance, localAppearance);
 
     const headerActions = React.useMemo(() => [
+        <SettingsActionButton key="reset" onClick={handleReset} disabled={resetMutation.isPending}>
+            Khôi phục mặc định
+        </SettingsActionButton>,
         <SettingsActionButton key="save" onClick={handleSave} disabled={!isDirty}>
             Lưu
         </SettingsActionButton>,
-    ], [handleSave, isDirty]);
+    ], [handleSave, handleReset, isDirty, resetMutation.isPending]);
 
     useSettingsPageHeader({
         title: 'Giao diện',
@@ -145,35 +222,20 @@ export function AppearancePage() {
         actions: headerActions,
     });
 
-    const handleConfigChange = (newConfig: Partial<CustomThemeConfig>) => {
-        setLocalTheme('custom');
-        setLocalCustomThemeConfig(prev => ({ ...prev, ...newConfig }));
-    };
-    
-    const handlePresetSelect = (themeName: Exclude<Theme, 'custom'>) => {
-        setLocalTheme(themeName);
-        const presetConfig = getThemeConfig(themeName, localColorMode);
-        setLocalCustomThemeConfig(presetConfig);
-    };
-    
-    const handleColorModeChange = (mode: ColorMode) => {
-        setLocalColorMode(mode);
-        if (localTheme !== 'custom') {
-            const presetConfig = getThemeConfig(localTheme, mode);
-            setLocalCustomThemeConfig(presetConfig);
-        }
-    };
+    const handleConfigChange = React.useCallback((newConfig: Partial<CustomThemeConfig>) => {
+        dispatch({ type: 'UPDATE_CUSTOM_CONFIG', payload: newConfig });
+    }, []);
+
+    const handlePresetSelect = React.useCallback((themeName: Exclude<Theme, 'custom'>) => {
+        const presetConfig = getThemeConfig(themeName, state.colorMode);
+        dispatch({ type: 'APPLY_PRESET', payload: { themeName, config: presetConfig } });
+    }, [state.colorMode]);
+
+    const handleColorModeChange = React.useCallback((mode: ColorMode) => {
+        dispatch({ type: 'SET_COLOR_MODE', payload: mode });
+    }, []);
 
     const ActivePreview = PreviewComponents[previewComponent];
-
-    // Create preview style from LOCAL config (not saved yet)
-    const previewStyle: React.CSSProperties = React.useMemo(() => {
-        const shadow = `${localCustomThemeConfig['--shadow-x']} ${localCustomThemeConfig['--shadow-y']} ${localCustomThemeConfig['--shadow-blur']} ${localCustomThemeConfig['--shadow-spread']} ${localCustomThemeConfig['--shadow-color']}`;
-        const vars = Object.fromEntries(
-            Object.entries(localCustomThemeConfig).map(([key, value]) => [key, value])
-        );
-        return { ...vars, '--shadow': shadow } as React.CSSProperties;
-    }, [localCustomThemeConfig]);
     
     return (
         <div className="h-full flex flex-col">
@@ -187,7 +249,7 @@ export function AppearancePage() {
                             {themeOptions.map((t) => (
                                 <Button
                                     key={t.name}
-                                    variant={localTheme === t.name ? 'secondary' : 'outline'}
+                                    variant={state.theme === t.name ? 'secondary' : 'outline'}
                                     size="sm"
                                     className="h-8"
                                     onClick={() => handlePresetSelect(t.name)}
@@ -202,7 +264,7 @@ export function AppearancePage() {
                         <h4 className="text-h6 font-medium text-muted-foreground mb-2">Preview Mode</h4>
                         <ToggleGroup 
                             type="single" 
-                            value={localColorMode} 
+                            value={state.colorMode} 
                             onValueChange={(value) => value && handleColorModeChange(value as ColorMode)}
                             className="bg-muted rounded-md p-1"
                         >
@@ -223,10 +285,10 @@ export function AppearancePage() {
                     <ScrollArea className="h-full">
                         <div className="p-4 space-y-8">
                             <CustomThemeForm 
-                                config={localCustomThemeConfig} 
+                                config={state.customThemeConfig} 
                                 onConfigChange={handleConfigChange}
-                                fontSize={localFontSize}
-                                onFontSizeChange={setLocalFontSize}
+                                fontSize={state.fontSize}
+                                onFontSizeChange={(size) => dispatch({ type: 'SET_FONT_SIZE', payload: size })}
                             />
                         </div>
                     </ScrollArea>
@@ -251,24 +313,28 @@ export function AppearancePage() {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                             <span className="text-xs text-muted-foreground">
-                                {localColorMode === 'light' ? 'Light Mode' : 'Dark Mode'}
+                                {state.colorMode === 'light' ? 'Light Mode' : 'Dark Mode'}
                             </span>
                         </div>
                         <ScrollArea className="grow p-4 sm:p-6 lg:p-8">
-                            <div 
-                                style={{
-                                    ...previewStyle,
-                                    backgroundColor: localCustomThemeConfig['--background'],
-                                    color: localCustomThemeConfig['--foreground'],
-                                }}
-                                className={cn(
-                                    'rounded-lg p-6 min-h-150',
-                                    localColorMode === 'dark' ? 'dark' : '',
-                                    `font-size-${localFontSize}`
-                                )}
+                            <ThemePreviewProvider 
+                                config={state.customThemeConfig} 
+                                colorMode={state.colorMode}
                             >
-                                <ActivePreview />
-                            </div>
+                                <div 
+                                    className={cn(
+                                        'rounded-lg p-6 min-h-150',
+                                        state.colorMode === 'dark' ? 'dark' : '',
+                                        `font-size-${state.fontSize}`
+                                    )}
+                                    style={{
+                                        backgroundColor: state.customThemeConfig['--background'],
+                                        color: state.customThemeConfig['--foreground'],
+                                    }}
+                                >
+                                    <ActivePreview />
+                                </div>
+                            </ThemePreviewProvider>
                         </ScrollArea>
                     </div>
                 </ResizablePanel>
